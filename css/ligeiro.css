@@ -357,7 +357,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio);
 }
 .card-produto:active { transform: translateY(2px); }
-.card-produto .foto { flex: none; width: 88px; height: 88px; border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
+.card-produto .foto { flex: none; align-self: stretch; width: 88px; height: auto; min-height: 88px; border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
 .card-produto .foto img { width: 100%; height: 100%; object-fit: cover; }
 .card-produto .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; }
@@ -647,7 +647,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 480px) { .aparencia-controles .campo-estilo .estilos { grid-template-columns: 1fr; } }
 @media (min-width: 760px) {
   .aparencia { grid-template-columns: 340px minmax(0, 1fr); gap: 28px; }
-  .aparencia .previa-bloco { position: sticky; top: 76px; }
+  .aparencia .previa-bloco { align-self: start; } /* parada no lugar: acompanhar a rolagem fazia ela entrar embaixo das abas */
 }
 /* barra fixa de salvar (aba Ajustes) */
 .salvar-fixo { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); }

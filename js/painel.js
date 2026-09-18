@@ -721,7 +721,7 @@
         logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: '' }) : el('span', { class: 'emoji', text: (f.emoji && f.emoji.input.value.trim()) || l.emoji || '🍽️' }));
         logo.appendChild(el('button', { type: 'button', class: 'previa-cam mini', 'aria-label': 'Trocar logo', text: '📷', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }));
         nome.textContent = f.nome.input.value.trim() || l.nome;
-        tipo.textContent = (f.tipo.input.value.trim() || l.tipo || '') + (l.cidade ? ' · ' + l.cidade : '');
+        tipo.textContent = R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : '');
         var cor = f.cor ? f.cor.valor() : l.cor;
         var estilo = f.estilo ? f.estilo.valor() : l.estilo;
         UI.aplicarTemaEm(tela, cor, estilo);
