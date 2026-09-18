@@ -311,16 +311,42 @@
       var pedir = linkWhats(msg)
         ? el('a', { class: 'btn btn-principal', href: linkWhats(msg), target: '_blank', rel: 'noopener', text: 'Pedir orçamento' })
         : el('button', { class: 'btn btn-principal', type: 'button', text: 'Pedir orçamento', onclick: function () { abrirContato('loja-exclusiva'); } });
+      /* celular de mentira: mostra a diferenca entre a loja padrao e a exclusiva */
+      function celular(tipo) {
+        var exclusivo = tipo === 'exclusivo';
+        return el('div', { class: 'ex-cel ' + (exclusivo ? 'ex-cel-exclusivo' : 'ex-cel-padrao') }, [
+          el('div', { class: 'ex-tela' }, [
+            exclusivo ? el('img', { class: 'ex-logo', src: 'img/oficial/dom-conizza-logo.png', alt: '' }) : el('div', { class: 'ex-logo ex-logo-emoji', text: '🍕' }),
+            el('div', { class: 'ex-nome', text: exclusivo ? 'Dom Conizza' : 'Sua loja' }),
+            el('div', { class: 'ex-botao', text: 'PEDIR AGORA' }),
+            el('div', { class: 'ex-item' }, [el('span', { class: 'ex-foto' }), el('span', { class: 'ex-linhas' }, [el('i'), el('i')])]),
+            el('div', { class: 'ex-item' }, [el('span', { class: 'ex-foto' }), el('span', { class: 'ex-linhas' }, [el('i'), el('i')])]),
+          ]),
+          el('div', { class: 'ex-rotulo', text: exclusivo ? 'Exclusivo' : 'Padrão' }),
+        ]);
+      }
+      function recurso(icone, titulo, texto) {
+        return el('div', { class: 'ex-recurso' }, [el('span', { class: 'ex-icone', text: icone }), el('div', {}, [el('b', { text: titulo }), el('span', { text: texto })])]);
+      }
       corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-        el('div', { class: 'kicker', text: 'Serviço extra' }),
-        el('h2', { text: 'Quer uma loja com a cara da sua marca?' }),
         el('div', { class: 'exclusiva' }, [
-          el('img', { class: 'exclusiva-img', src: 'img/oficial/dom-conizza-logo.png', alt: 'Loja da Dom Conizza com design exclusivo' }),
-          el('div', { class: 'exclusiva-texto' }, [
-            el('p', { text: 'Toda loja do Ligeiro já escolhe cor, logo, capa e estilo no painel. O design exclusivo vai além: a gente desenha o site inteiro da sua loja com as cores, as letras e o jeito da sua marca. Foi o que fizemos na Dom Conizza.' }),
-            el('ul', { class: 'checklist exclusiva-lista' }, ['Cores, letras e botões da sua marca', 'Logo grande com animação na abertura', 'Tela de carregamento com a sua logo', 'Painel, cozinha e entregador no mesmo visual'].map(function (t) { return el('li', { text: t }); })),
-            el('p', { class: 'forte', text: lc.aPartirDe ? 'A partir de ' + dinheiro(lc.aPartirDe) + ', pago uma vez. A mensalidade não muda.' : 'Sob orçamento. A mensalidade não muda.' }),
-            el('div', { class: 'linha-botoes exclusiva-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
+          el('div', { class: 'ex-vitrine', 'aria-hidden': 'true' }, [celular('padrao'), el('span', { class: 'ex-seta', text: '→' }), celular('exclusivo')]),
+          el('div', { class: 'ex-texto' }, [
+            el('div', { class: 'ex-kicker', text: 'Serviço extra · sob medida' }),
+            el('h2', { text: 'Uma loja com a cara da sua marca' }),
+            el('p', { class: 'ex-sub', text: 'Toda loja do Ligeiro já escolhe cor, logo e capa no painel. No design exclusivo a gente desenha o site inteiro do seu jeito, como fizemos na Dom Conizza.' }),
+            el('div', { class: 'ex-recursos' }, [
+              recurso('🎨', 'Sua identidade', 'Cores, letras e botões da sua marca'),
+              recurso('✨', 'Abertura animada', 'Sua logo grande chegando na tela'),
+              recurso('⏳', 'Carregamento com sua logo', 'O cliente vê você desde o primeiro segundo'),
+              recurso('🧑‍🍳', 'Tudo no mesmo visual', 'Painel, cozinha e entregador combinando'),
+            ]),
+            el('div', { class: 'ex-preco' }, [
+              el('span', { class: 'ex-apartir', text: lc.aPartirDe ? 'a partir de' : '' }),
+              el('b', { text: lc.aPartirDe ? dinheiro(lc.aPartirDe) : 'Sob orçamento' }),
+              el('span', { class: 'ex-obs', text: 'pago uma vez · a mensalidade não muda' }),
+            ]),
+            el('div', { class: 'ex-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma ex-ver', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
           ]),
         ]),
       ]));
