@@ -838,8 +838,9 @@
       var numero = el('span', { class: 'numero', text: '1' });
       var menos = el('button', { type: 'button', 'aria-label': 'Diminuir', text: '−', disabled: true });
       var mais = el('button', { type: 'button', 'aria-label': 'Aumentar', text: '+' });
-      var valor = el('span');
-      var adicionar = el('button', { class: 'btn btn-principal', style: { flex: '1' } }, ['Adicionar ', valor]);
+      var valor = el('span', { class: 'add-valor' });
+      /* duas partes que nunca quebram por dentro: "Adicionar" e o preco. Em tela estreita o preco desce inteiro pra segunda linha. */
+      var adicionar = el('button', { class: 'btn btn-principal btn-adicionar', style: { flex: '1' } }, [el('span', { class: 'add-rotulo', text: 'Adicionar' }), valor]);
 
       function atualizarPreco() { valor.textContent = dinheiro(precoUnitarioModal() * m.quantidade); }
       menos.addEventListener('click', function () { if (m.quantidade > 1) { m.quantidade -= 1; numero.textContent = m.quantidade; menos.disabled = m.quantidade <= 1; atualizarPreco(); } });
