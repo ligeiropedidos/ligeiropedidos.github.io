@@ -520,7 +520,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .painel-topo { position: sticky; top: 0; z-index: 40; background: var(--deep); color: #fff; padding: 10px var(--margem); display: flex; align-items: center; gap: 12px; }
 .painel-topo .nome { font-family: var(--display); font-size: 19px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 600px) { .painel-topo { flex-wrap: wrap; row-gap: 8px; } .painel-topo .nome { flex: 1 1 100%; } .painel-topo .btn-pequeno { flex: 1; min-height: 40px; font-size: 14px; padding: 6px 10px; } }
+.painel-topo-acoes { display: flex; align-items: center; gap: 12px; flex: none; }
+.painel-topo .rot-curto { display: none; }
+@media (max-width: 760px) {
+  .painel-topo { flex-wrap: wrap; row-gap: 8px; }
+  .painel-topo .nome { flex: 1 1 0; }
+  .painel-topo-acoes { flex: 1 1 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+  .painel-topo .btn-pequeno { width: 100%; min-width: 0; min-height: 40px; font-size: 13.5px; line-height: 1; padding: 0 4px; white-space: nowrap; }
+}
+@media (max-width: 480px) {
+  .painel-topo .rot-longo { display: none; }
+  .painel-topo .rot-curto { display: inline; }
+}
 .painel-topo .btn-pequeno { background: rgba(255,255,255,0.12); color: #fff; }
 .painel-topo .btn-pequeno.on { background: var(--lime); color: var(--ink); }
 .abas-painel { position: sticky; top: var(--altura-painel-topo, 60px); z-index: 30; display: flex; gap: 6px; padding: 10px var(--margem); background: var(--bg); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
@@ -596,7 +607,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .campo-estilo .estilo-linha { justify-content: flex-start; }
 .campo-estilo .estilo-linha .rotulo { width: 130px; text-align: right; }
 /* categorias do cardapio no painel */
-.abas-categorias { position: static; padding: 0; border: 0; background: transparent; flex-wrap: wrap; overflow: visible; gap: 8px; }
+.abas-categorias { position: static; z-index: auto; padding: 0; border: 0; background: transparent; flex-wrap: wrap; overflow: visible; gap: 8px; }
 .aba-categoria { gap: 6px; padding-right: 8px; }
 .aba-categoria .cat-emoji { font-size: 18px; line-height: 1; }
 .aba-categoria .cat-qtd { background: var(--lime-suave); color: var(--deep2); }
@@ -687,6 +698,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
 .linha-produto.desligado { opacity: 0.55; }
+/* celular: item do cardapio em duas linhas. Em cima a foto e o nome inteiro; embaixo preco, editar e liga/desliga. */
+@media (max-width: 480px) {
+  .linha-produto.item { flex-wrap: wrap; gap: 8px 10px; padding: 12px; }
+  .linha-produto.item .emoji, .linha-produto.item .miniatura-produto { width: 44px; height: 44px; line-height: 44px; font-size: 26px; }
+  .linha-produto.item .nome { flex: 1 1 calc(100% - 54px); line-height: 1.25; }
+  .linha-produto.item input.preco { width: 120px; margin-left: 54px; margin-right: auto; font-size: 16px; padding: 8px 10px; }
+  .linha-produto.item .editar { min-height: 48px; min-width: 48px; padding: 0; }
+}
 
 .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .metrica { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
@@ -1181,3 +1200,6 @@ button.plano-card { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* par de botoes lado a lado: metades iguais, texto numa linha so */
+.linha-botoes.dupla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.linha-botoes.dupla .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; font-size: 15px; }

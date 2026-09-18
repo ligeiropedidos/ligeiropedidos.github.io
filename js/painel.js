@@ -104,12 +104,22 @@
           else UI.avisar('O Mercado Pago não autorizou. Tente de novo ou cole o token.');
         }, 400);
       }
-      var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), text: estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado', onclick: function () {
+      /* rotulo do botao do topo: no celular vale a versao curta (os quatro botoes ficam identicos numa linha) */
+      function rotuloTopo(botao, icone, longo, curto) {
+        UI.limpar(botao);
+        botao.appendChild(document.createTextNode(icone + ' '));
+        botao.appendChild(el('span', { class: 'rot-longo', text: longo }));
+        botao.appendChild(el('span', { class: 'rot-curto', text: curto }));
+        return botao;
+      }
+      function pintarSom() { rotuloTopo(btnSom, estado.somLigado ? '🔔' : '🔕', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito'); btnSom.setAttribute('aria-label', estado.somLigado ? 'Apito ligado' : 'Apito desligado'); }
+      var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), onclick: function () {
         estado.somLigado = UI.somLigado(!estado.somLigado);
-        btnSom.textContent = estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado';
+        pintarSom();
         btnSom.classList.toggle('on', estado.somLigado);
         if (estado.somLigado) UI.soar('apito');
       } });
+      pintarSom();
       /* Impressao automatica: cada pedido novo (pago ou pra cobrar na entrega) sai na impressora sozinho.
          No computador do caixa, abra o Chrome com --kiosk-printing pra nao aparecer a janela de imprimir. */
       var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', text: estado.impressaoAuto ? '🖨️ Imprime sozinho' : '🖨️ Impressão manual', onclick: function () {
@@ -125,10 +135,12 @@
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
         (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
-        el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê', text: '🌐 Ver loja' }),
-        el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura', text: '👤 Minha conta' }),
-        btnImp, btnSom,
-        el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }),
+        el('div', { class: 'painel-topo-acoes' }, [
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), '🌐', 'Ver loja', 'Loja'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), '👤', 'Minha conta', 'Conta'),
+          btnImp, btnSom,
+          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }), '🚪', 'Sair', 'Sair'),
+        ]),
       ]));
 
       /* as abas grudam logo abaixo do topo, seja qual for a altura dele (tema, celular com duas linhas) */
@@ -565,7 +577,7 @@
           return;
         }
         if (cat.ativa === false) conteudo.appendChild(el('p', { class: 'aviso', text: 'Esta categoria está desligada: ela e os itens não aparecem no site. Ligue em "Editar categoria".' }));
-        conteudo.appendChild(el('div', { class: 'linha-botoes' }, [
+        conteudo.appendChild(el('div', { class: 'linha-botoes dupla' }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', text: '✏️ Editar categoria', onclick: function () { editarCategoria(cat); } }),
           el('button', { class: 'btn btn-principal btn-pequeno', text: '+ Novo item', onclick: function () { editarProduto(null, cat.id); } }),
         ]));
@@ -603,7 +615,7 @@
         salvarLoja({ produtos: produtos }, p.ativo !== false ? p.nome + ' saiu do site' : p.nome + ' voltou pro site');
       } });
       var srcFoto = D.fotoSrc(p, estado.fotos);
-      return el('div', { class: 'linha-produto' + (p.ativo !== false ? '' : ' desligado') }, [
+      return el('div', { class: 'linha-produto item' + (p.ativo !== false ? '' : ' desligado') }, [
         srcFoto ? el('img', { class: 'miniatura-produto', src: srcFoto, alt: '' }) : el('span', { class: 'emoji', text: p.emoji || '🍽️' }),
         el('div', { class: 'nome' }, [p.nome, el('small', { text: p.descricao || '' })]),
         preco,
