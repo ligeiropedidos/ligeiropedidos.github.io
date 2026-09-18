@@ -208,3 +208,5 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* bolinhas de contagem (itens por categoria, pedidos novos) nas cores da marca */
 .tema-conizza .aba-categoria .cat-qtd, .tema-conizza .aba-categoria.ativa .cat-qtd,
 .tema-conizza .aba-painel .badge, .tema-conizza .aba-painel.ativa .badge { background: var(--cz-ouro-claro); color: var(--cz-tinta); border: 2px solid var(--cz-tinta); font-weight: 800; }
+/* as categorias do cardapio usam a mesma classe das abas: sem o recuo, a borda e o fundo delas */
+.tema-conizza .abas-categorias { padding: 0; border: 0; background: transparent; }
