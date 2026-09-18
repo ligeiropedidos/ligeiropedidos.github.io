@@ -376,8 +376,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio);
 }
 .card-produto:active { transform: translateY(2px); }
-.card-produto .foto { flex: none; align-self: stretch; width: 96px; height: auto; min-height: 96px; /* ocupa a altura do cartao (margens iguais). Nome e descricao param em 2 linhas, entao a foto fica entre quadrada e 3:4; imagem de verdade so recorta um pouco nas laterais, nunca deforma */ border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
-.card-produto .foto img { width: 100%; height: 100%; object-fit: cover; }
+/* foto do item: quadrado perfeito, sempre (108 x 108: e a altura do texto do cartao, entao a margem fica igual nos quatro lados), centrado na altura do cartao. A imagem fica "solta" la dentro
+   (position absolute + cover), entao foto em pe ou deitada nunca muda o tamanho da caixa: so recorta pelo centro. */
+.card-produto .foto { position: relative; flex: none; align-self: center; width: 108px; height: 108px; aspect-ratio: 1 / 1; border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 44px; line-height: 1; overflow: hidden; }
+.card-produto .foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 .card-produto .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; }
 .card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 2 linhas: a altura do cartao (e da foto) fica sob controle */
@@ -1289,7 +1291,7 @@ button.plano-card { cursor: pointer; }
 
 .balcao .topo .voltar { width: 56px; height: 56px; }
 .balcao .btn { min-height: 68px; font-size: 21px; }
-.balcao .card-produto .foto { width: 110px; height: 110px; font-size: 50px; }
+.balcao .card-produto .foto { width: 116px; height: 116px; font-size: 50px; }
 .balcao .senha-gigante { font-size: 140px; }
 
 /* ---------- Impressao do pedido ---------- */
