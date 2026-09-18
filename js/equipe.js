@@ -33,6 +33,7 @@
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
       }
+      UI.aplicarTemaOficial(raiz, slug);
       if (logado(slug)) { limpar = montar(loja) || limpar; return; }
       /* dono ja logado neste navegador: entra sem senha */
       var donoCheca = store.donoLogado ? store.donoLogado(loja) : Promise.resolve(false);
@@ -64,7 +65,7 @@
       setTimeout(function () { campo.focus(); }, 50);
       }
     });
-    return function () { vivo = false; limpar(); };
+    return function () { vivo = false; limpar(); UI.limparTemaOficial(raiz); };
   }
 
   /* Modal "Senha da equipe": 4 a 8 numeros. Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */

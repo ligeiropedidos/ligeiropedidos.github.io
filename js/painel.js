@@ -29,6 +29,7 @@
         return;
       }
       estado.loja = loja;
+      UI.aplicarTemaOficial(raiz, slug);
       carregarFotos(loja);
       if (logado()) { montarPainel(); return; }
       /* conta do dono logada: abre direto, sem senha */
@@ -121,6 +122,7 @@
       /* No celular nao existe impressao silenciosa: o botao so aparece em tela grande (computador do caixa). */
       if (navigator.maxTouchPoints > 0 && window.innerWidth < 900) btnImp.hidden = true;
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
+        (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê', text: '🌐 Ver loja' }),
         el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura', text: '👤 Minha conta' }),
@@ -1688,7 +1690,7 @@
       ]));
     }
 
-    return function () { vivo = false; pararTudo(); };
+    return function () { vivo = false; pararTudo(); UI.limparTemaOficial(raiz); };
   }
 
   window.LigeiroPainel = { abrir: abrir };

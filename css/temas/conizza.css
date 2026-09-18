@@ -42,11 +42,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .logo-grande, .tema-conizza .abertura.com-capa .logo-grande {
   width: min(262px, 60vw); height: auto; aspect-ratio: 1; margin-bottom: 2px;
   background: none; border: 0; box-shadow: none; border-radius: 0;
-  filter: drop-shadow(0 10px 10px rgba(36, 23, 8, 0.22));
+  position: relative; overflow: visible;
   animation: cz-chegar 0.85s cubic-bezier(0.18, 1.5, 0.38, 1) both, cz-flutuar 4.5s ease-in-out 0.9s infinite;
   transform-origin: 50% 92%;
 }
-.tema-conizza .logo-grande img { object-fit: contain; border-radius: 0; }
+.tema-conizza .logo-grande img { position: relative; z-index: 1; object-fit: contain; border-radius: 0; }
+/* sombra de chao em elipse, sem filter (nada de quadrado em volta da logo) */
+.tema-conizza .logo-grande::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: -2%; height: 9%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(36, 23, 8, 0.30), rgba(36, 23, 8, 0) 70%); z-index: 0; }
 .tema-conizza .logo-grande:active { animation: cz-sacudir 0.5s ease-in-out; }
 @keyframes cz-chegar {
   0%   { opacity: 0; transform: translateY(-70px) scale(0.55) rotate(-12deg); }
@@ -70,7 +72,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .enfeites span {
   position: absolute; font-size: 34px; opacity: 0.5;
   animation: cz-boiar ease-in-out infinite;
-  filter: drop-shadow(0 3px 4px rgba(36, 23, 8, 0.16));
 }
 .tema-conizza .enfeites span:nth-child(1) { top:  3%; left:  1%; font-size: 38px; animation-duration:  7s;   animation-delay:  0s; transform: rotate(-14deg); }
 .tema-conizza .enfeites span:nth-child(2) { top:  5%; right: 1%; font-size: 33px; animation-duration:  9s;   animation-delay: -2s; transform: rotate(12deg); }
@@ -160,3 +161,31 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .barra-carrinho, .tema-conizza .barra-fixa { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }
+
+/* ---------- fim da primeira tela ---------- */
+.tema-conizza .oficial-extra { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); }
+.tema-conizza .oficial-extra b { font-family: var(--cz-display); font-weight: 800; font-size: 19px; color: var(--cz-tinta); }
+.tema-conizza .oficial-extra span { color: var(--cz-tinta-suave); font-weight: 600; }
+.tema-conizza .confianca { color: var(--cz-tinta-suave); font-weight: 700; }
+
+/* ---------- painel, cozinha, entregador e balcao da loja oficial ---------- */
+.tema-conizza .painel-topo { background: var(--cz-vermelho); border-bottom: 4px solid var(--cz-tinta); }
+.tema-conizza .painel-topo .nome { font-family: var(--cz-display); font-weight: 800; color: var(--cz-creme); font-size: 21px; }
+.tema-conizza .painel-topo .btn-pequeno { background: var(--cz-creme); color: var(--cz-tinta); border: 3px solid var(--cz-tinta); box-shadow: 0 3px 0 var(--cz-tinta); }
+.tema-conizza .painel-topo .btn-pequeno.on { background: var(--cz-ouro-claro); color: var(--cz-tinta); }
+.tema-conizza .abas-painel { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
+.tema-conizza .aba-painel { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
+.tema-conizza .aba-painel.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
+.tema-conizza .pedido-card, .tema-conizza .bloco-form, .tema-conizza .tela-card, .tema-conizza .linha-produto, .tema-conizza .metrica, .tema-conizza .cartao-cozinha, .tema-conizza .entrega-card {
+  border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16);
+}
+.tema-conizza .pedido-card.novo { background: var(--cz-ouro-claro); box-shadow: 0 4px 0 var(--cz-tinta); }
+.tema-conizza .pedido-card .senha, .tema-conizza .bloco-titulo, .tema-conizza .metrica .v { font-family: var(--cz-display); font-weight: 800; color: var(--cz-tinta); }
+.tema-conizza .cartao.destaque { background: var(--cz-ouro-claro); border-color: var(--cz-tinta); }
+.tema-conizza .passos-config { background: var(--cz-creme); border: 3px dashed var(--cz-creme-borda); }
+.tema-conizza .salvar-fixo { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
+.tema-conizza .hub-secao { color: var(--cz-tinta-suave); font-family: var(--cz-display); }
+.tema-conizza .login { background: var(--cz-creme-fundo); }
+.tema-conizza .login h2 { color: var(--cz-tinta); }
+.tema-conizza .marca span span { color: var(--cz-vermelho); }
+.tema-conizza .interruptor.ligado, .tema-conizza .chave.ligada { background: var(--cz-verde); }

@@ -313,6 +313,10 @@
    * ========================================================== */
 
   function loja(raiz, slug, opcoes) {
+    /* loja oficial: tema e tela de carregamento ANTES de qualquer coisa aparecer (sem piscar o visual padrao) */
+    var oficialCedo = UI.lojaOficial(slug);
+    var tirarSplash = function () {};
+    if (oficialCedo) { UI.aplicarTemaOficial(raiz, slug); tirarSplash = UI.splashOficial(oficialCedo); }
     var o = opcoes || {};
     var balcao = !!o.balcao;
 
@@ -362,6 +366,7 @@
 
     store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (dados) {
       if (!vivo) return;
+      if (!dados || dados._erro || dados.ativa === false) tirarSplash();
       if (dados && dados._erro) {
         raiz.innerHTML = '';
         raiz.appendChild(UI.erroCarregar('Não deu pra abrir a loja agora.'));
@@ -435,10 +440,7 @@
 
     function aplicarTemaOficial(oficial) {
       if (!oficial || !oficial.tema) return;
-      var v = (document.querySelector('script[src*="js/cliente.js"]') || {}).src || '';
-      var tag = (v.match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
-      UI.carregarCss('css/temas/' + oficial.tema + '.css?v=' + tag);
-      raiz.classList.add('tema-' + oficial.tema, 'loja-oficial');
+      UI.aplicarTemaOficial(raiz, estado.loja.slug);
       var abertura = raiz.querySelector('.abertura');
       if (abertura && !abertura.querySelector('.enfeites') && oficial.enfeites) {
         abertura.insertBefore(el('div', { class: 'enfeites', 'aria-hidden': 'true' }, oficial.enfeites.map(function (e) { return el('span', { text: e }); })), abertura.firstChild);
@@ -451,6 +453,7 @@
       estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
+      if (primeira) UI.temaPronto().then(function () { setTimeout(tirarSplash, 120); });
       montarInicio();
       configurarFluxo();
       if (primeira) {
@@ -479,6 +482,22 @@
       UI.limpar(logo);
       var srcLogo = (estado.oficial && estado.oficial.logo) || D.logoSrc(l);
       logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: l.nome }) : document.createTextNode(l.emoji || '🍽️'));
+      /* fim da primeira tela: confianca (todas) e o bloco da loja oficial */
+      var fim = $('fimInicio');
+      if (fim) {
+        UI.limpar(fim);
+        if (estado.oficial && estado.oficial.ilustracao) {
+          fim.appendChild(el('div', { class: 'oficial-extra' }, [
+            el('img', { src: estado.oficial.ilustracao, alt: '' }),
+            el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno pra sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
+          ]));
+        }
+        var partes = [];
+        if (pixDisponivel(l)) partes.push('🔒 Pix seguro pelo Mercado Pago');
+        if (l.cidade) partes.push('📍 Somos de ' + l.cidade);
+        if (l.aceitaEntrega !== false) partes.push('🛵 Entrega própria');
+        if (partes.length) fim.appendChild(el('p', { class: 'confianca', text: partes.join('  ·  ') }));
+      }
       /* selo de loja oficial do Ligeiro */
       var selos = raiz.querySelector('.selos');
       var seloOficial = selos && selos.querySelector('.selo-oficial');
@@ -1477,6 +1496,7 @@
           '<div class="pilha" id="destaquesTrilho"></div>' +
         '</div>' +
       '</div>' +
+      '<div class="fim-inicio" id="fimInicio"></div>' +
       '<footer class="rodape">' +
         '<div id="enderecoLoja"></div>' +
         '<div class="contatos" id="contatosLoja"></div>' +

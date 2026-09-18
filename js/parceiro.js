@@ -133,7 +133,7 @@
     /* ---------- heroi ---------- */
     var seloLojas = el('span', { class: 'selo', hidden: true });
     var capa = el('div', { class: 'vender-capa' }, [
-      el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' }),
+      el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos pra delivery de cidade pequena' }),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
@@ -502,15 +502,16 @@
       el('h2', { text: 'Entrar no Ligeiro' }),
       el('p', { class: 'muted', text: 'Uma conta só, e dentro dela todas as suas lojas: painel, cozinha, entregador, assinatura.' }),
     ]));
+    /* So Google: sem senha pra decorar nem pra esquecer. O e-mail e senha continua existindo por baixo
+       (contas antigas e admin), mas nao aparece na tela. */
     corpo.appendChild(el('div', { class: 'cartao login-caixa' }, [
       btnGoogle,
-      el('div', { class: 'ou', text: 'ou com e-mail' }),
-      email, senha, erro, btnEmail,
-      el('div', { class: 'linha-botoes' }, [esqueci, el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/comecar', text: 'Criar conta e loja' })]),
+      erro,
+      el('p', { class: 'muted pequeno centro', text: D().modoDemo ? 'Na demonstração a conta é de mentira e fica só neste aparelho.' : 'É a mesma conta Google do seu celular. Primeira vez? A conta do Ligeiro nasce sozinha, e em seguida você cria a loja.' }),
     ]));
     corpo.appendChild(el('details', { class: 'avancado' }, [
       el('summary', { text: 'Sou da cozinha ou entregador' }),
-      el('p', { class: 'muted pequeno', text: 'A equipe entra pelo link da loja com a senha do painel, sem conta: peça ao dono o link da cozinha (#/cozinha/nome-da-loja) ou do entregador (#/entrega/nome-da-loja).' }),
+      el('p', { class: 'muted pequeno', text: 'A equipe não precisa de conta: entra pelo link da cozinha, do entregador ou do balcão com a senha da equipe. Peça o link e a senha pro dono da loja.' }),
     ]));
     corpo.appendChild(el('p', { class: 'muted pequeno centro' }, ['Sou do Ligeiro: ', el('a', { href: '#/admin', text: 'admin' }), '.']));
     raiz.appendChild(rodape());

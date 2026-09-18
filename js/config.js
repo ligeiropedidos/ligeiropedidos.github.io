@@ -86,6 +86,6 @@ window.LIGEIRO_CONFIG = {
   /* Lojas oficiais (do proprio Ligeiro): selo "Loja oficial" e um tema exclusivo (css/temas/<tema>.css).
      So o Ligeiro mexe aqui; nenhuma outra loja ganha isso pelo painel. */
   lojasOficiais: {
-    'dom-conizza': { tema: 'conizza', logo: 'img/oficial/dom-conizza-logo.png', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
+    'dom-conizza': { tema: 'conizza', logo: 'img/oficial/dom-conizza-logo.png', ilustracao: 'img/oficial/dom-conizza-cozinhando.png', frase: 'Seu cone sai do forno direto pra sua porta', subfrase: 'Massa crocante, recheio até o fim e nada de pizza fria.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
   },
 };

@@ -93,7 +93,7 @@
     if (!chave) { manifestPadrao.href = 'manifest.webmanifest'; return; }
     var manifesto = {
       name: 'Ligeiro ' + telas[p[0]], short_name: telas[p[0]],
-      start_url: location.pathname + '#/' + chave, scope: location.pathname,
+      start_url: location.origin + location.pathname + '#/' + chave, scope: location.origin + location.pathname,
       display: 'standalone', background_color: '#FAFDF6', theme_color: '#0F3D2E', lang: 'pt-BR',
       icons: [{ src: new URL('icone-192.png', location.href).href, sizes: '192x192', type: 'image/png', purpose: 'any maskable' }, { src: new URL('icone-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
     };

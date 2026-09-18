@@ -409,14 +409,59 @@
   }
 
   /* Carrega uma folha de estilo extra (tema oficial) uma vez so. */
+  var cssProntos = {};
   function carregarCss(url) {
-    if (document.querySelector('link[data-css="' + url + '"]')) return;
-    document.head.appendChild(el('link', { rel: 'stylesheet', href: url, 'data-css': url }));
+    if (cssProntos[url]) return cssProntos[url];
+    cssProntos[url] = new Promise(function (resolve) {
+      var link = el('link', { rel: 'stylesheet', href: url, 'data-css': url });
+      link.onload = function () { resolve(true); };
+      link.onerror = function () { resolve(false); };
+      document.head.appendChild(link);
+      setTimeout(function () { resolve(false); }, 5000); /* nunca segura a tela pra sempre */
+    });
+    return cssProntos[url];
+  }
+  /* Tela de carregamento da loja oficial: a logo pulsando no fundo da marca, ate o tema e a loja chegarem.
+     Evita o "pisca" do visual padrao antes do tema. Devolve a funcao que tira a tela. */
+  function splashOficial(o) {
+    var caixa = el('div', { class: 'splash-oficial', style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
+      o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.png', alt: '' }),
+      el('div', { class: 'splash-pontos' }, [el('span'), el('span'), el('span')]),
+    ]);
+    document.body.appendChild(caixa);
+    var tirou = false;
+    function tirar() {
+      if (tirou) return; tirou = true;
+      caixa.classList.add('saindo');
+      setTimeout(function () { if (caixa.parentNode) caixa.parentNode.removeChild(caixa); }, 320);
+    }
+    setTimeout(tirar, 6000);
+    return tirar;
+  }
+
+  var temaPronto = Promise.resolve(true);
+  /* Loja oficial do Ligeiro (config.lojasOficiais): devolve a configuracao ou null. */
+  function lojaOficial(slug) {
+    var cfg = window.LIGEIRO_CONFIG || {};
+    return (cfg.lojasOficiais || {})[slug] || null;
+  }
+  /* Liga o tema exclusivo da loja oficial num pedaco da tela (site, painel, cozinha, entregador, balcao). */
+  function aplicarTemaOficial(raiz, slug) {
+    var o = lojaOficial(slug);
+    if (!o || !o.tema || !raiz) return null;
+    var src = (document.querySelector('script[src*="js/ui.js"]') || {}).src || '';
+    var tag = (src.match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+    temaPronto = carregarCss('css/temas/' + o.tema + '.css?v=' + tag);
+    raiz.classList.add('tema-' + o.tema, 'loja-oficial');
+    return o;
+  }
+  function limparTemaOficial(raiz) {
+    if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
   }
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,
