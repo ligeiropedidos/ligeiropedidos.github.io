@@ -1309,8 +1309,8 @@
       s.appendChild(funcionamento);
 
       var entrega = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Entrega e retirada' })]);
-      f.aceitaEntrega = interruptorCampo('Faz entrega', '', l.aceitaEntrega !== false);
-      f.aceitaRetirada = interruptorCampo('Aceita retirada no balcão', '', l.aceitaRetirada !== false);
+      f.aceitaEntrega = interruptorCampo('Faz entrega', 'É o botão "Quero entrega" que o cliente vê.', l.aceitaEntrega !== false);
+      f.aceitaRetirada = interruptorCampo('Cliente pode buscar na loja', 'É o botão "Vou buscar". Desligue se você só entrega.', l.aceitaRetirada !== false);
       entrega.appendChild(f.aceitaEntrega);
       entrega.appendChild(f.aceitaRetirada);
       /* Frete: o dono manda. "Entrega gratis" desliga a taxa em todo pedido; "Cobro taxa" mostra os valores. */
