@@ -357,11 +357,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio);
 }
 .card-produto:active { transform: translateY(2px); }
-.card-produto .foto { flex: none; align-self: stretch; width: 88px; height: auto; min-height: 88px; border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
+.card-produto .foto { flex: none; align-self: stretch; width: 96px; height: auto; min-height: 96px; /* ocupa a altura do cartao (margens iguais). Nome e descricao param em 2 linhas, entao a foto fica entre quadrada e 3:4; imagem de verdade so recorta um pouco nas laterais, nunca deforma */ border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
 .card-produto .foto img { width: 100%; height: 100%; object-fit: cover; }
 .card-produto .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; }
-.card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
+.card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 2 linhas: a altura do cartao (e da foto) fica sob controle */
+.card-produto .nome { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-produto .rodape-card { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
 .card-produto .preco { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--deep); }
 .card-produto .mais { font-size: 14px; font-weight: 700; color: var(--texto-no-destaque); background: var(--lime); padding: 8px 14px; border-radius: 10px; }
