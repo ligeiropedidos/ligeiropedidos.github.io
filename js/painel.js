@@ -179,6 +179,12 @@
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id] = true; });
         estado.pedidos = lista;
+        /* Pix vencido que ficou pra tras (cliente fechou a aba): sai da fila sozinho */
+        lista.forEach(function (p) {
+          if (!R.pixVencido(p) || estado.vencendo && estado.vencendo[p.id]) return;
+          estado.vencendo = estado.vencendo || {}; estado.vencendo[p.id] = true;
+          store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido' }).catch(function () { /* tenta na proxima */ estado.vencendo[p.id] = false; });
+        });
         estado.novos = novos;
         if (novos.length) { UI.soar('apito'); UI.vibrar([200, 100, 200]); UI.avisar(novos.length === 1 ? 'Pedido novo!' : novos.length + ' pedidos novos!'); }
         imprimirNovosSozinho(lista);

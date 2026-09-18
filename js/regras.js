@@ -832,6 +832,14 @@
     return !t || t.toLowerCase() === 'outro' ? 'Loja' : t;
   }
 
+  /* Pedido esperando Pix que ja passou do prazo (30 min do codigo; 35 min se o codigo nem chegou a ser gerado). */
+  function pixVencido(pedido, agora) {
+    if (!pedido || pedido.status !== STATUS.AGUARDANDO || pedido.formaPagamento !== 'pix') return false;
+    var t = agora ? new Date(agora).getTime() : Date.now();
+    if (pedido.pixExpiraEm) return t > new Date(pedido.pixExpiraEm).getTime();
+    return pedido.criadoEm ? t > new Date(pedido.criadoEm).getTime() + 35 * 60 * 1000 : false;
+  }
+
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
@@ -933,6 +941,7 @@
     planoPorId: planoPorId,
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
+    pixVencido: pixVencido,
     catalogo: catalogo,
     tipoVisivel: tipoVisivel,
     ehDoLigeiro: ehDoLigeiro,

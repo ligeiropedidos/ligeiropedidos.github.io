@@ -1322,6 +1322,8 @@
       if (D.modoDemo || !cfg.proxyMercadoPago) return;
       estado.vigiaPix = setInterval(function () {
         if (!estado.pedido || estado.pedido.id !== pedido.id || estado.pedido.status !== R.STATUS.AGUARDANDO) { pararVigia(); return; }
+        /* passou dos 30 minutos: o codigo nao vale mais. O pedido sai da fila e os itens voltam pro carrinho. */
+        if (R.pixVencido(estado.pedido)) { pararVigia(); cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.').catch(function () { /* o painel da loja cancela do lado de la */ }); return; }
         fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(pedido.id)).catch(function () { /* tenta de novo depois */ });
       }, 8000);
     }
@@ -1374,26 +1376,31 @@
 
     $('btnTentarPix').addEventListener('click', function () { if (estado.pedido) mostrarPagamento(estado.pedido); });
 
+    /* Tira o pedido da fila da loja e devolve os itens pro carrinho. Usado no "desistir" e quando o Pix vence. */
+    function cancelarPedidoDoPix(aviso) {
+      if (!estado.pedido) return Promise.resolve();
+      var idCancelado = estado.pedido.id;
+      return store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: 'cliente' }).then(function () {
+        pararAcompanhar();
+        pararVigia();
+        atualizarMeuPedido({ id: idCancelado, status: R.STATUS.CANCELADO });
+        estado.pedido = null;
+        history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
+        if (estado.ultimoCarrinho && estado.ultimoCarrinho.length) {
+          estado.carrinho = estado.ultimoCarrinho; estado.ultimoCarrinho = null;
+          irPara('tela-carrinho');
+          atualizarBarraCarrinho();
+          UI.avisar(aviso + ' Seus itens continuam aqui.');
+        } else {
+          irPara('tela-inicio');
+          UI.avisar(aviso);
+        }
+      });
+    }
     $('btnCancelarPix').addEventListener('click', function () {
       UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam pro carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
         if (!sim || !estado.pedido) return;
-        var idCancelado = estado.pedido.id;
-        store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: 'cliente' }).then(function () {
-          pararAcompanhar();
-          pararVigia();
-          atualizarMeuPedido({ id: idCancelado, status: R.STATUS.CANCELADO });
-          estado.pedido = null;
-          history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
-          if (estado.ultimoCarrinho && estado.ultimoCarrinho.length) {
-            estado.carrinho = estado.ultimoCarrinho; estado.ultimoCarrinho = null;
-            irPara('tela-carrinho');
-            atualizarBarraCarrinho();
-            UI.avisar('Pedido cancelado. Seus itens continuam aqui.');
-          } else {
-            irPara('tela-inicio');
-            UI.avisar('Pedido cancelado.');
-          }
-        }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra cancelar. Tente de novo.'); });
+        cancelarPedidoDoPix('Pedido cancelado.').catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra cancelar. Tente de novo.'); });
       });
     });
 

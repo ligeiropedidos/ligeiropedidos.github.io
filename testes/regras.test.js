@@ -383,3 +383,13 @@ test('catalogo: comida fala cardapio, o resto fala catalogo', () => {
   assert.equal(R.catalogo({ tipo: 'Outro' }).nome, 'catálogo');
   assert.equal(R.catalogo({ tipo: 'Roupas' }).Nome, 'Catálogo');
 });
+
+test('pixVencido: 30 min do codigo, 35 min sem codigo, so pedido esperando Pix', () => {
+  const agora = new Date('2026-09-18T12:00:00Z');
+  const base = { status: 'aguardando_pagamento', formaPagamento: 'pix', criadoEm: '2026-09-18T11:40:00Z' };
+  assert.equal(R.pixVencido(Object.assign({}, base, { pixExpiraEm: '2026-09-18T11:59:00Z' }), agora), true);
+  assert.equal(R.pixVencido(Object.assign({}, base, { pixExpiraEm: '2026-09-18T12:10:00Z' }), agora), false);
+  assert.equal(R.pixVencido(base, agora), false);
+  assert.equal(R.pixVencido(Object.assign({}, base, { criadoEm: '2026-09-18T11:20:00Z' }), agora), true);
+  assert.equal(R.pixVencido(Object.assign({}, base, { status: 'pago', pixExpiraEm: '2026-09-18T11:00:00Z' }), agora), false);
+});
