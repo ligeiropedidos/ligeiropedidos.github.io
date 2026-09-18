@@ -188,6 +188,13 @@
       estado.parar.push(store.assistirPedidos(slug, function (lista) {
         var novos = 0;
         if (estado.conhecidos) lista.forEach(function (p) { if (p.status === R.STATUS.PAGO && !estado.conhecidos[p.id + p.status]) novos += 1; });
+        /* pedido que a cozinha ja via (pra fazer ou fazendo) e foi cancelado: som e aviso, pra ninguem fazer a toa */
+        if (estado.statusAntes) lista.forEach(function (p) {
+          var antes = estado.statusAntes[p.id];
+          if (p.status === R.STATUS.CANCELADO && (antes === R.STATUS.PAGO || antes === R.STATUS.PRODUCAO)) { UI.soar('cancelado'); UI.avisar('Senha ' + p.senha + ' foi cancelada. Pode parar.'); }
+        });
+        estado.statusAntes = {};
+        lista.forEach(function (p) { estado.statusAntes[p.id] = p.status; });
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id + p.status] = true; });
         estado.pedidos = lista;

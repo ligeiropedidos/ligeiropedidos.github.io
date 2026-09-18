@@ -96,6 +96,12 @@
     remover: function () { tocar([[420, 0.07, 0.07, 0], [300, 0.09, 0.05, 0.06]]); },
     erro: function () { tocar([[240, 0.14, 0.08, 0, 'square']]); },
     sucesso: function () { tocar([[660, 0.1, 0.09, 0], [880, 0.1, 0.09, 0.09], [1175, 0.22, 0.1, 0.18]]); },
+    /* Pix caiu: duas notas de "moeda", alegres e curtas. */
+    pago: function () { tocar([[988, 0.09, 0.2, 0, 'square'], [1319, 0.38, 0.2, 0.09, 'square']]); },
+    /* Pedido cancelado: tres notas descendo, sem susto. */
+    cancelado: function () { tocar([[440, 0.16, 0.16, 0, 'triangle'], [330, 0.16, 0.16, 0.17, 'triangle'], [247, 0.34, 0.16, 0.34, 'triangle']]); },
+    /* Lembrete de pedido parado: tres batidas iguais e suaves. */
+    lembrete: function () { tocar([[784, 0.12, 0.18, 0], [784, 0.12, 0.18, 0.2], [784, 0.24, 0.18, 0.4]]); },
     /* Apito do painel: mais alto e repetido, tem que ser ouvido da cozinha. */
     apito: function () { tocar([[880, 0.18, 0.25, 0, 'square'], [1175, 0.18, 0.25, 0.22, 'square'], [880, 0.18, 0.25, 0.44, 'square'], [1175, 0.3, 0.25, 0.66, 'square']]); },
   };

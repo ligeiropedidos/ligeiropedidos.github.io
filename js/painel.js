@@ -178,6 +178,22 @@
         if (estado.conhecidos) {
           lista.forEach(function (p) { if (!estado.conhecidos[p.id] && R.EM_ANDAMENTO.indexOf(p.status) >= 0 && p.status !== R.STATUS.PRODUCAO && p.status !== R.STATUS.PRONTO) novos.push(p.id); });
         }
+        /* o que mudou desde a ultima vez: Pix que caiu e pedido que o cliente cancelou ganham som proprio */
+        if (estado.statusAntes) {
+          lista.forEach(function (p) {
+            var antes = estado.statusAntes[p.id];
+            if (!antes || antes === p.status) return;
+            if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO) && p.formaPagamento === 'pix') {
+              UI.soar('pago'); UI.vibrar([80, 40, 160]);
+              UI.avisar(p.pagoAposCancelar ? 'Pix da senha ' + p.senha + ' caiu depois do cancelamento. Confira com o cliente.' : 'Pix da senha ' + p.senha + ' caiu! Pode começar.');
+            } else if (p.status === R.STATUS.CANCELADO && p.canceladoPor === 'cliente') {
+              UI.soar('cancelado');
+              UI.avisar('O cliente cancelou o pedido da senha ' + p.senha + '.');
+            }
+          });
+        }
+        estado.statusAntes = {};
+        lista.forEach(function (p) { estado.statusAntes[p.id] = p.status; });
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id] = true; });
         estado.pedidos = lista;
@@ -204,7 +220,16 @@
       carregarConta().then(function () { if (estado.aba === 'pedidos') desenharCabecaPedidos(); });
 
       /* "ha 3 min" precisa andar mesmo sem pedido novo */
-      var relogio = setInterval(function () { if (estado.aba === 'pedidos') desenharPedidos(); }, 60000);
+      var relogio = setInterval(function () {
+        if (estado.aba === 'pedidos') desenharPedidos();
+        /* pedido pago parado em "Novos" ha mais de 5 minutos: lembrete suave, no maximo a cada 2 minutos */
+        var parados = (estado.pedidos || []).filter(function (p) { return p.status === R.STATUS.PAGO && Date.now() - new Date(p.pagoEm || p.criadoEm).getTime() > 5 * 60 * 1000; });
+        if (parados.length && Date.now() - (estado.ultimoLembrete || 0) > 2 * 60 * 1000) {
+          estado.ultimoLembrete = Date.now();
+          UI.soar('lembrete');
+          UI.avisar(parados.length === 1 ? 'A senha ' + parados[0].senha + ' está esperando pra começar.' : parados.length + ' pedidos esperando pra começar.');
+        }
+      }, 60000);
       estado.parar.push(function () { clearInterval(relogio); });
 
       trocarAba(estado.aba);
@@ -1460,6 +1485,19 @@
       cupons.appendChild(listaCupons);
       cupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '+ Criar cupom', onclick: novoCupom }));
       s.appendChild(cupons);
+
+      /* sons do painel: o dono ouve cada um e sabe o que significa */
+      var listaSons = [['apito', '🔔 Pedido novo', 'Alto, pra ouvir da cozinha'], ['pago', '💸 Pix caiu', 'O pedido já pode começar'], ['cancelado', '✕ Cliente cancelou', 'O pedido saiu da fila'], ['lembrete', '⏰ Pedido parado', 'Pago há mais de 5 minutos sem começar']];
+      s.appendChild(el('div', { class: 'bloco-form' }, [
+        el('div', { class: 'bloco-titulo', text: 'Sons do painel' }),
+        el('p', { class: 'muted pequeno', text: 'Toque pra ouvir cada aviso. Pra silenciar tudo, use o botão Apito lá em cima.' }),
+        el('div', { class: 'sons-lista' }, listaSons.map(function (x) {
+          return el('button', { type: 'button', class: 'som-linha', onclick: function () { if (!UI.somLigado()) { UI.avisar('O apito está desligado. Ligue no botão Apito, lá em cima.'); return; } UI.soar(x[0]); } }, [
+            el('span', { class: 'som-texto' }, [el('b', { text: x[1] }), el('small', { text: x[2] })]),
+            el('span', { class: 'som-tocar', 'aria-hidden': 'true', text: '▶' }),
+          ]);
+        })),
+      ]));
 
       if (D.modoDemo) {
         var seguranca = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Senha do painel' })]);
