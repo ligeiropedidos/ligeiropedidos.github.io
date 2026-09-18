@@ -66,7 +66,7 @@
         var limite = R.limiteDeLojas(conta || { email: u.email });
         var sit = conta && conta.plano ? R.assinatura(conta).estado : 'gratis';
         if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') rodapeLojas.appendChild(el('span', { class: 'muted pequeno', text: 'Regularize a assinatura pra criar outra loja.' }));
-        else if (reais >= limite) rodapeLojas.appendChild(el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Seu plano permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + ' · mudar plano' }));
+        else if (reais >= limite) rodapeLojas.appendChild(el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Plano cheio (' + limite + (limite === 1 ? ' loja' : ' lojas') + ') · Mudar plano' }));
         else rodapeLojas.appendChild(el('a', { class: 'btn btn-principal', href: '#/comecar', text: '+ Criar outra loja' }));
         UI.limpar(lista);
         if (!lojas.length) UI.limpar(rodapeLojas); /* sem loja, o convite grande ja esta no meio da tela */
@@ -194,7 +194,7 @@
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: '🧾 Balcão' }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔑 Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔑 Senha', title: 'Senha da equipe: cozinha, entregador e balcão', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
         ]),
       ]);

@@ -578,7 +578,7 @@
         }
         if (cat.ativa === false) conteudo.appendChild(el('p', { class: 'aviso', text: 'Esta categoria está desligada: ela e os itens não aparecem no site. Ligue em "Editar categoria".' }));
         conteudo.appendChild(el('div', { class: 'linha-botoes dupla' }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '✏️ Editar categoria', onclick: function () { editarCategoria(cat); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '✏️ Editar', title: 'Editar categoria', 'aria-label': 'Editar categoria', onclick: function () { editarCategoria(cat); } }),
           el('button', { class: 'btn btn-principal btn-pequeno', text: '+ Novo item', onclick: function () { editarProduto(null, cat.id); } }),
         ]));
         var lista = el('div', { class: 'pilha' });
@@ -1513,7 +1513,7 @@
       }
       dias.forEach(function (d) { linhas[d[0]] = desenharDia(d[0]); caixa.appendChild(linhas[d[0]]); });
       caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda nos outros dias', onclick: function () {
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda', title: 'Copia o horário de segunda pra todos os outros dias', onclick: function () {
           var base = estadoH.seg;
           dias.forEach(function (d) { if (d[0] !== 'seg') { estadoH[d[0]] = { aberto: base.aberto, turnos: base.turnos.map(function (t) { return [t[0], t[1]]; }) }; redesenhar(d[0]); } });
           UI.avisar('Segunda copiada pros outros dias. Ajuste o que for diferente.');
@@ -1670,7 +1670,7 @@
           el('p', { text: texto }),
           el('div', { class: 'linha-botoes' }, [
             el('a', { class: 'btn btn-principal btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: abrir || 'Abrir' }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: copiar(link) }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: copiar(link) }), /* fila .tela-acoes: duas metades iguais */
           ]),
         ]);
       }
@@ -1705,7 +1705,7 @@
           el('div', { class: 'pilha divulgar-acoes' }, [
             el('div', { class: 'caixa-link', text: linkLoja }),
             el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '📋 Copiar link do ' + R.catalogo(estado.loja).nome, onclick: copiar(linkLoja) }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '💬 Copiar mensagem pro WhatsApp', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '💬 Copiar a mensagem', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📄 Copiar ' + R.catalogo(estado.loja).nome + ' em texto', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }),
           ]),
         ]),
