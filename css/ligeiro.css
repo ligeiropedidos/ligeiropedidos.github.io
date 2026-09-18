@@ -1113,6 +1113,12 @@ button.plano-card { cursor: pointer; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
 .conta-acoes .btn-principal { grid-column: 1 / -1; }
+.conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
+.conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
+.conta-painel-texto small { font-size: 13.5px; font-weight: 600; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conta-painel-seta { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; line-height: 1; }
+.conta-grupo { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 .conta-plano { display: flex; flex-direction: column; gap: 12px; }
 .conta-plano > .selo { align-self: flex-start; }
 .plano-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }

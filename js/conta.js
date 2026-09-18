@@ -188,14 +188,21 @@
             ]),
           ]),
         ]),
+        /* entrada principal: o painel. Depois o site da loja e, separadas, as telas da equipe. */
+        el('a', { class: 'btn btn-principal conta-painel', href: '#/painel/' + l.slug }, [
+          el('span', { class: 'conta-painel-texto' }, [el('b', { text: 'Abrir o painel' }), el('small', { text: 'Pedidos, ' + R.catalogo(l).nome + ', vendas e ajustes' })]),
+          el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
+        ]),
         el('div', { class: 'conta-acoes' }, [
-          el('a', { class: 'btn btn-principal btn-pequeno', href: '#/painel/' + l.slug, text: '🔔 Painel' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '🌐 Ver loja' }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
+        ]),
+        el('div', { class: 'conta-grupo', text: 'Telas da equipe' }),
+        el('div', { class: 'conta-acoes' }, [
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: '🧾 Balcão' }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔑 Senha', title: 'Senha da equipe: cozinha, entregador e balcão', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
         ]),
       ]);
     }
