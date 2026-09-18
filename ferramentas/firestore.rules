@@ -141,7 +141,7 @@ service cloud.firestore {
           && request.resource.data.size() <= 40
           && request.resource.data.get('clientePagou', false) == false
           /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */
-          && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoEm', 'pagoAposCancelar'])
+          && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoAposCancelar'])
           /* so tres jeitos de nascer: de graca (cupom de 100%), Pix esperando pagamento, ou pra cobrar na porta */
           && ((request.resource.data.total == 0 && request.resource.data.status == 'pago')
               || (request.resource.data.formaPagamento == 'pix' && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')

@@ -860,6 +860,9 @@
             }
             tx.set(contadorRef, contador);
             var completo = Object.assign({}, clonar(pedido), { id: id, senha: contador.ultima });
+            /* as regras do banco nao deixam o pedido nascer com campos do pagamento (so o mensageiro e o painel escrevem):
+               tira os que o montador de pedido poe vazios, senao o banco recusa o pedido inteiro */
+            ['pagoEm', 'mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoAposCancelar'].forEach(function (k) { delete completo[k]; });
             tx.set(lojaRef.collection('pedidos').doc(id), completo);
             return completo;
           });
