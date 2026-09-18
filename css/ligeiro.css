@@ -441,7 +441,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .totais .linha.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink); }
 .totais .gratis { color: var(--lime-escuro); font-weight: 700; }
 .totais .desconto { color: var(--deep2); }
-.vazio { text-align: center; padding: 40px 10px; color: var(--muted); }
+.vazio { text-align: center; padding: 40px 10px; color: var(--muted); grid-column: 1 / -1; }
 .vazio .icone { font-size: 46px; margin-bottom: 8px; }
 .cupom-abrir { border: 0; background: none; color: var(--deep2); font-weight: 700; font-size: 15px; padding: 6px 0; text-align: left; }
 .cupom-linha { display: flex; gap: 8px; }
