@@ -570,7 +570,8 @@
         if (pixDisponivel(l)) partes.push('🔒 Pix seguro pelo Mercado Pago');
         if (l.cidade) partes.push('📍 Somos de ' + l.cidade);
         if (l.aceitaEntrega !== false) partes.push('🛵 Entrega própria');
-        if (partes.length) fim.appendChild(el('p', { class: 'confianca', text: partes.join('  ·  ') }));
+        /* cada item inteiro numa linha: quebra entre itens, nunca no meio de um */
+        if (partes.length) fim.appendChild(el('div', { class: 'confianca' }, partes.map(function (t) { return el('span', { text: t }); })));
       }
       /* selo de loja oficial do Ligeiro */
       var selos = raiz.querySelector('.selos');
