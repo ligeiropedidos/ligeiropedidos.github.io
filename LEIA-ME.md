@@ -30,6 +30,16 @@ Ou, pelo Claude Code, o servidor `ligeiro` do `.claude/launch.json` abre em
 | Minha conta: as lojas do dono, painel sem senha, criar outra loja | `#/conta` | — |
 | Termos de uso e privacidade | `#/termos`, `#/privacidade` | — |
 
+## Senha da equipe (cozinha, entregador, balcão)
+
+- O dono define em Minha loja ou Minha conta. O mensageiro (`POST /equipe`,
+  com o idToken do dono) cria ou troca o usuário `equipe-<slug>@equipe.ligeiro.app.br`
+  no Firebase Auth com senha `LIG-<pin>`. As regras dão a esse usuário só
+  `list`/`update` nos pedidos da própria loja (`isEquipe`).
+- `FirebaseStore.entrarPainel` tenta a equipe e, se falhar, o dono por e-mail e senha.
+  Dono logado com Google abre cozinha/entrega/balcão sem senha (`donoLogado`).
+- Esqueceu? Define outra: a antiga para de valer na hora.
+
 ## Como o Pix funciona: sempre automático (Mercado Pago)
 
 Decisão de 18/09/2026: não existe mais Pix "manual" com chave e conferência
@@ -258,6 +268,8 @@ service cloud.firestore {
     function isAdmin() { return logado() && request.auth.token.email == 'SEU-EMAIL-ADMIN'; }
     function donoDaLoja(loja) { return get(/databases/$(db)/documents/lojas/$(loja)).data.donoEmail; }
     function isDonoDaLoja(loja) { return logado() && request.auth.token.email == donoDaLoja(loja); }
+    /* usuario de equipe da loja (cozinha, entregador, balcao): criado pelo mensageiro quando o dono define a senha da equipe */
+    function isEquipe(loja) { return logado() && request.auth.token.email == 'equipe-' + loja + '@equipe.ligeiro.app.br'; }
     function planoDe(d) { return d.get('plano', {}); }
     /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
     function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
@@ -309,6 +321,11 @@ service cloud.firestore {
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
         && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true));
       allow delete: if isAdmin();
+    }
+
+    /* indice order -> loja/pedido, gravado pelo mensageiro (conta de servico); ninguem do site precisa ler */
+    match /mp_indice/{id} {
+      allow read, write: if isAdmin();
     }
 
     /* contatos da pagina de vendas: visitante cria (so os campos do formulario, com tamanho), so o admin le e marca como atendido */
@@ -365,8 +382,8 @@ service cloud.firestore {
           && (request.resource.data.formaPagamento != 'pix' || request.resource.data.total == 0
               || (request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente'));
         allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
-        allow list: if isDonoDaLoja(loja) || isAdmin();   /* so a propria loja lista a fila */
-        allow update: if isDonoDaLoja(loja) || isAdmin()
+        allow list: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
+        allow update: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin()
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
               && request.resource.data.clientePagou == true)

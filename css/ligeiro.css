@@ -792,6 +792,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- Pagina de vendas (#/lojas) ---------- */
 
 .vender-capa { padding: 34px var(--margem) 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
+/* no computador a faixa do topo vai de ponta a ponta; o conteudo continua centrado na largura da pagina */
+@media (min-width: 1181px) { .vender-capa { width: 100vw; margin-left: calc(50% - 50vw); padding-left: calc(50vw - 590px + var(--margem)); padding-right: calc(50vw - 590px + var(--margem)); } }
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
 .vender-sub { font-size: 17px; color: var(--body); max-width: 520px; }
 .vender-selos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }

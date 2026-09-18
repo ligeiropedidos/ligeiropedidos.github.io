@@ -39,7 +39,7 @@
       el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       el('h1', { class: 'hub-titulo', text: 'Em que cidade você está?' }),
       el('p', { class: 'slogan', text: 'Peça no delivery da sua cidade. Sem app, sem cadastro, sem comissão.' }),
-      el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix confirmado na hora' }), el('span', { text: '✓ Acompanha pela senha' })]),
+      el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
     ]));
     var busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 Digite o nome da sua cidade', 'aria-label': 'Buscar cidade' });
     var lista = el('div', { class: 'hub-lista' });
@@ -135,11 +135,11 @@
     raiz.classList.add('fundo-hub');
     raiz.appendChild(el('div', { class: 'hub-capa hub-cidade' }, [
       el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.png', alt: '' }),
-      el('a', { class: 'marca centro', href: '#/' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('a', { class: 'marca centro', href: '#/cidades' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       tituloCidade,
       el('p', { class: 'slogan', text: 'Peça pelo link, pague no Pix e acompanhe pela senha. Sem app, sem cadastro.' }),
-      el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix confirmado na hora' }), el('span', { text: '✓ Acompanha pela senha' })]),
-      el('a', { class: 'hub-trocar', href: '#/', text: 'Trocar de cidade' }),
+      el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
+      el('a', { class: 'hub-trocar', href: '#/cidades', text: 'Trocar de cidade' }),
     ]));
 
     var busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 O que você quer comer? Ex.: pizza, marmita, açaí', 'aria-label': 'Buscar comida ou loja' });
@@ -365,7 +365,7 @@
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [
           el('div', { class: 'icone', text: '🔍' }),
           el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' }),
-          el('button', { class: 'btn btn-fantasma', style: { marginTop: '16px' }, text: 'Ver as cidades', onclick: function () { ir(''); } }),
+          el('button', { class: 'btn btn-fantasma', style: { marginTop: '16px' }, text: 'Ver as cidades', onclick: function () { ir('cidades'); } }),
         ]));
         return;
       }
@@ -376,7 +376,7 @@
           el('p', { class: 'forte', text: dados.nome + ' está com o cadastro pendente no Ligeiro.' }),
           el('p', { class: 'muted', text: 'Por enquanto, peça direto pelo WhatsApp da loja.' }),
           dados.whatsapp ? el('a', { class: 'btn btn-whats', style: { marginTop: '16px' }, href: R.linkWhatsapp(dados.whatsapp, 'Oi! Quero fazer um pedido.'), target: '_blank', rel: 'noopener', text: '💬 Pedir pelo WhatsApp' }) : null,
-          el('button', { class: 'btn btn-fantasma', style: { marginTop: '10px' }, text: 'Ver as cidades', onclick: function () { ir(''); } }),
+          el('button', { class: 'btn btn-fantasma', style: { marginTop: '10px' }, text: 'Ver as cidades', onclick: function () { ir('cidades'); } }),
         ]));
         return;
       }
@@ -524,6 +524,14 @@
       outras.onclick = function () { ir(l.cidadeSlug); };
 
       atualizarFaixaAcompanhar();
+      /* pedidos "andando" guardados neste aparelho: confere o status de verdade (a aba pode ter fechado antes do fim) */
+      lerMeusPedidos().filter(andandoAgora).forEach(function (p) {
+        store.obterPedido(slug, p.id).then(function (novo) {
+          if (!vivo || !novo) return;
+          atualizarMeuPedido(novo);
+          atualizarFaixaAcompanhar();
+        }).catch(function () { /* fica como esta */ });
+      });
     }
 
     function fotoDoProduto(p) {

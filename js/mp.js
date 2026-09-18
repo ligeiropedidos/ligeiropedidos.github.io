@@ -176,8 +176,9 @@
           if (Date.now() - new Date(p.mp.criadoEm || p.criadoEm).getTime() > 20000) aprovar(p);
           return;
         }
-        chamar(API + '/v1/payments/' + encodeURIComponent(p.mp.id), {}, estado.token).then(function (pg) {
-          if (pg.status === 'approved') return aprovar(p);
+        var ehOrder = String(p.mp.id).indexOf('ORD') === 0;
+        chamar(API + (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(p.mp.id), {}, estado.token).then(function (pg) {
+          if (pg.status === 'approved' || pg.status === 'processed') return aprovar(p);
         }).catch(function (e) { estado.ultimoErro = e.message; });
       });
     }

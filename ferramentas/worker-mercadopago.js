@@ -8,6 +8,10 @@
  *   POST /webhook?loja=slug          -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
  *   GET  /status?loja=slug&pedido=id -> reforco: o site do cliente pergunta a cada 8 s enquanto espera.
  *   POST /                           -> repasse antigo (o painel manda o POST com o proprio token).
+ *   POST /equipe   { loja, pin } + Authorization: Bearer <idToken do dono> -> define a senha da equipe da loja.
+ *   Pagamentos usam a API Orders (POST /v1/orders); o webhook do Mercado Pago pode vir sem a loja na URL:
+ *   o mensageiro acha pelo indice mp_indice/{orderId}. Configure o webhook na aplicacao "Ligeiro plataforma":
+ *   URL https://SEU-WORKER/webhook, eventos Orders e Pagamentos.
  *
  * Como publicar (15 minutos, sem cartao):
  *   1. Cloudflare > Workers & Pages > Create Worker > nome "ligeiro-mp" > cole este arquivo > Deploy.
@@ -75,17 +79,40 @@ export default {
 
       /* ---- webhook do Mercado Pago (vem do servidor deles, sem Origin) ---- */
       if (caminho === '/webhook' && request.method === 'POST') {
-        const slug = url.searchParams.get('loja') || '';
+        let slug = url.searchParams.get('loja') || '';
         let corpo = {};
         try { corpo = await request.json(); } catch (_) { corpo = {}; }
-        const idPagamento = (corpo.data && corpo.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id') || '';
-        if (!slug || !idPagamento) return json({ ok: true, ignorado: true });
+        const id = String((corpo.data && corpo.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id') || '');
+        if (!id) return json({ ok: true, ignorado: true });
         const fb = await firebase(env);
-        await conferirPagamento(fb, slug, String(idPagamento), null, env);
+        let pedidoId = null;
+        if (!slug) {
+          /* order: acha a loja pelo indice gravado na criacao */
+          const idx = await fb.get('mp_indice/' + id);
+          if (idx && idx.loja) { slug = idx.loja; pedidoId = idx.pedido || null; }
+        }
+        if (!slug) return json({ ok: true, ignorado: 'sem loja' });
+        await conferirPagamento(fb, slug, id, pedidoId, env);
         return json({ ok: true });
       }
 
       if (conferir && origem && ORIGENS.indexOf(origem) < 0) return json({ erro: 'origem não permitida' }, 403);
+
+      /* ---- senha da equipe: o dono (logado) define; criamos/trocamos o usuario de equipe da loja ---- */
+      if (caminho === '/equipe' && request.method === 'POST') {
+        const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        const { loja, pin } = await request.json();
+        const senha = String(pin || '').replace(/\D/g, '');
+        if (!idToken || !loja || senha.length < 4 || senha.length > 8) return json({ ok: false, erro: 'senha de 4 a 8 números' }, 400);
+        const fb = await firebase(env);
+        const quem = await usuarioDoToken(fb, idToken);
+        if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        const l = await fb.get('lojas/' + loja);
+        if (!l || String(l.donoEmail || '').toLowerCase() !== quem.toLowerCase()) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        await definirUsuarioEquipe(fb, 'equipe-' + loja + '@equipe.ligeiro.app.br', 'LIG-' + senha);
+        await fb.merge('lojas/' + loja, { senhaEquipeEm: new Date().toISOString(), atualizadoEm: new Date().toISOString() });
+        return json({ ok: true });
+      }
 
       /* ---- cria o Pix do pedido ---- */
       if (caminho === '/criar' && request.method === 'POST') {
@@ -100,20 +127,26 @@ export default {
         if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
         const l = await fb.get('lojas/' + loja);
         const nome = separarNome(p.cliente && p.cliente.nome, l && l.nome);
+        /* API Orders do Mercado Pago (a de Payments vai ser descontinuada) */
+        const valor = (p.total / 100).toFixed(2);
         const corpo = {
-          transaction_amount: Number((p.total / 100).toFixed(2)),
-          description: ((l && l.nome) || 'Ligeiro') + ' - Pedido ' + (p.senha || ''),
-          payment_method_id: 'pix',
-          external_reference: pedido,
-          date_of_expiration: expiracaoBrasilia(30),
-          notification_url: url.origin + '/webhook?loja=' + encodeURIComponent(loja),
+          type: 'online',
+          total_amount: valor,
+          external_reference: loja + '|' + pedido,
+          processing_mode: 'automatic',
+          transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
           payer: { email: 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
         };
-        const pg = await mp(token, '/v1/payments', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido } });
-        const dadosPix = (pg.point_of_interaction && pg.point_of_interaction.transaction_data) || {};
-        if (!dadosPix.qr_code) return json({ erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)' }, 502);
-        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { mp: { id: String(pg.id), criadoEm: new Date().toISOString() }, pixCodigo: dadosPix.qr_code, pixExpiraEm: pg.date_of_expiration || '', atualizadoEm: new Date().toISOString() });
-        return json({ codigo: dadosPix.qr_code, expiraEm: pg.date_of_expiration || '' });
+        const ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido } });
+        const pagto = (ord.transactions && ord.transactions.payments && ord.transactions.payments[0]) || {};
+        const qr = (pagto.payment_method && pagto.payment_method.qr_code) || '';
+        if (!qr) return json({ erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)' }, 502);
+        const expira = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const agora2 = new Date().toISOString();
+        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
+        /* indice pro webhook (que chega sem saber a loja) */
+        await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
+        return json({ codigo: qr, expiraEm: expira });
       }
 
       /* ---- o site pergunta se caiu ---- */
@@ -153,10 +186,13 @@ export default {
 async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
   const token = await tokenDaLoja(fb, slug, env);
   if (!token) return null;
-  const pg = await mp(token, '/v1/payments/' + encodeURIComponent(idPagamento), {});
-  const id = pedidoId || pg.external_reference;
+  const ehOrder = String(idPagamento).indexOf('ORD') === 0;
+  const pg = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(idPagamento), {});
+  let ref = String(pg.external_reference || '');
+  if (ref.indexOf('|') > 0) ref = ref.split('|')[1];
+  const id = pedidoId || ref;
   if (!id) return null;
-  if (pg.status === 'approved') {
+  if (pg.status === 'approved' || pg.status === 'processed') {
     const p = await fb.get('lojas/' + slug + '/pedidos/' + id);
     if (p && p.status === 'aguardando_pagamento') {
       await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: new Date().toISOString(), confirmadoPor: 'mercadopago', atualizadoEm: new Date().toISOString() });
@@ -208,6 +244,28 @@ function separarNome(nomeCompleto, lojaNome) {
   return { primeiro, sobrenome: partes.join(' ') || lojaNome || 'Ligeiro' };
 }
 
+/* ---------------- usuarios (Identity Toolkit) com a mesma conta de servico ---------------- */
+async function usuarioDoToken(fb, idToken) {
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ idToken }) });
+  if (!r.ok) return '';
+  const j = await r.json().catch(() => ({}));
+  const u = (j.users || [])[0];
+  return u && u.email ? String(u.email) : '';
+}
+async function definirUsuarioEquipe(fb, email, senha) {
+  const base = 'https://identitytoolkit.googleapis.com/v1/projects/' + fb.projeto;
+  const r = await fetch(base + '/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email: [email] }) });
+  const j = r.ok ? await r.json().catch(() => ({})) : {};
+  const u = (j.users || [])[0];
+  if (u && u.localId) {
+    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha }) });
+    if (!r2.ok) throw new Error('não deu pra trocar a senha (' + r2.status + ')');
+    return;
+  }
+  const r3 = await fetch(base + '/accounts', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email, password: senha, emailVerified: true, displayName: 'Equipe' }) });
+  if (!r3.ok) throw new Error('não deu pra criar o usuário de equipe (' + r3.status + ' ' + (await r3.text()).slice(0, 120) + ')');
+}
+
 /* ---------------- Firestore pela REST, autenticado com a conta de servico (JWT RS256) ---------------- */
 async function firebase(env) {
   if (!env.FIREBASE_SA) throw new Error('falta o segredo FIREBASE_SA no worker');
@@ -216,6 +274,7 @@ async function firebase(env) {
   const base = 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents/';
   const cab = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   return {
+    cab: cab, projeto: sa.project_id,
     async get(caminho) {
       const r = await fetch(base + caminho, { headers: cab });
       if (r.status === 404) return null;
@@ -255,7 +314,7 @@ function valorDe(v) {
 async function tokenDaContaDeServico(sa) {
   const agora = Math.floor(Date.now() / 1000);
   const cabecalho = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const corpo = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/datastore', aud: 'https://oauth2.googleapis.com/token', iat: agora, exp: agora + 3600 }));
+  const corpo = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/cloud-platform', aud: 'https://oauth2.googleapis.com/token', iat: agora, exp: agora + 3600 }));
   const chave = await crypto.subtle.importKey('pkcs8', pemParaDer(sa.private_key), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const assinatura = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', chave, new TextEncoder().encode(cabecalho + '.' + corpo)));
   const jwt = cabecalho + '.' + corpo + '.' + b64url(assinatura);

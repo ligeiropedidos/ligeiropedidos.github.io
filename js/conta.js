@@ -172,6 +172,7 @@
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: '🧾 Balcão' }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔑 Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
         ]),
       ]);

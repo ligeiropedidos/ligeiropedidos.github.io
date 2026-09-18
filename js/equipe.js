@@ -34,6 +34,14 @@
         return;
       }
       if (logado(slug)) { limpar = montar(loja) || limpar; return; }
+      /* dono ja logado neste navegador: entra sem senha */
+      var donoCheca = store.donoLogado ? store.donoLogado(loja) : Promise.resolve(false);
+      donoCheca.then(function (ehDono) {
+        if (!vivo) return;
+        if (ehDono) { marcarLogado(slug); UI.limpar(raiz); limpar = montar(loja) || limpar; return; }
+        pedirSenha();
+      });
+      function pedirSenha() {
       var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••', 'aria-label': 'Senha' });
       var erro = el('p', { class: 'cupom-recado', hidden: true, text: 'Senha errada.' });
       function entrar() {
@@ -47,15 +55,45 @@
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(el('div', { class: 'login' }, [
-        el('div', { class: 'marca centro' }, ['Ligei', el('span', { text: 'ro' })]),
+        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: titulo + ' · ' + loja.nome }),
-        el('p', { class: 'muted centro', text: 'É a mesma senha do painel.' }),
+        el('p', { class: 'muted centro', text: 'Senha da equipe (o dono define em Minha loja ou Minha conta).' }),
         campo, erro,
         el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar }),
       ]));
       setTimeout(function () { campo.focus(); }, 50);
+      }
     });
     return function () { vivo = false; limpar(); };
+  }
+
+  /* Modal "Senha da equipe": 4 a 8 numeros. Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */
+  function definirSenha(loja) {
+    var campo = el('input', { type: 'text', inputmode: 'numeric', maxlength: '8', placeholder: 'Ex: 2580', 'aria-label': 'Senha da equipe', autocomplete: 'off' });
+    var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
+      el('p', { text: 'Essa senha abre a cozinha, o entregador e o balcão da ' + loja.nome + '. Só números, de 4 a 8.' }),
+      el('div', { class: 'campo' }, [el('label', { text: 'Nova senha da equipe' }), campo]),
+      el('p', { class: 'muted pequeno', text: 'Anote e passe pra quem trabalha com você. Quem já estava logado continua até fechar a tela.' }),
+    ]);
+    function salvar() {
+      var pin = campo.value.replace(/\D/g, '');
+      if (pin.length < 4 || pin.length > 8) return UI.avisar('Use de 4 a 8 números.');
+      var promessa = D.modoDemo
+        ? store.salvarLoja({ slug: loja.slug, senhaPainel: pin })
+        : store.obterIdToken().then(function (idToken) {
+          var cfg = window.LIGEIRO_CONFIG || {};
+          if (!cfg.proxyMercadoPago) throw new Error('O mensageiro ainda não está no ar.');
+          return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/equipe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify({ loja: loja.slug, pin: pin }) })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu pra salvar.'); return j; }); });
+        });
+      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu pra salvar agora.'); });
+    }
+    campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
+    UI.abrirModal({ titulo: 'Senha da equipe', corpo: corpo, rodape: [
+      el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Cancelar', onclick: UI.fecharModal }),
+      el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Salvar senha', onclick: salvar }),
+    ] });
+    setTimeout(function () { campo.focus(); }, 50);
   }
 
   function minutosDesde(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
@@ -240,5 +278,5 @@
     });
   }
 
-  window.LigeiroEquipe = { abrirCozinha: abrirCozinha, abrirEntrega: abrirEntrega, abrirBalcao: abrirBalcao, linkMapa: linkMapa };
+  window.LigeiroEquipe = { abrirCozinha: abrirCozinha, abrirEntrega: abrirEntrega, abrirBalcao: abrirBalcao, definirSenha: definirSenha, linkMapa: linkMapa };
 })();

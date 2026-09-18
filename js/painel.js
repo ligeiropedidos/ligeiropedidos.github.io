@@ -122,6 +122,8 @@
       if (navigator.maxTouchPoints > 0 && window.innerWidth < 900) btnImp.hidden = true;
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
         el('div', { class: 'nome', text: estado.loja.nome }),
+        el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba', text: '🌐 Ver site' }),
+        el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura', text: '👤 Minha conta' }),
         btnImp, btnSom,
         el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }),
       ]));
@@ -1657,6 +1659,11 @@
       s.appendChild(el('p', { class: 'muted pequeno linha-painel-link' }, [
         'Este painel em outro aparelho: ',
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link do painel', onclick: copiar(linkPainel, 'Link do painel copiado.') }),
+      ]));
+      s.appendChild(el('div', { class: 'bloco-form' }, [
+        el('div', { class: 'bloco-titulo', text: 'Senha da equipe' }),
+        el('p', { class: 'muted pequeno', text: 'Cozinha, entregador e balcão abrem com essa senha (4 a 8 números). Você, logado, entra sem senha. Esqueceu? Defina outra aqui, ou em Minha conta.' }),
+        el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '🔑 Definir ou trocar a senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));
 
       /* 2. divulgar */

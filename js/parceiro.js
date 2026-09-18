@@ -107,7 +107,7 @@
         el('a', { href: '#/termos', text: 'Termos de uso' }),
         el('a', { href: '#/privacidade', text: 'Privacidade' }),
         el('a', { href: '#/entrar', text: 'Minha conta' }),
-        el('a', { href: '#/', text: 'Lojas da cidade' }),
+        el('a', { href: '#/cidades', text: 'Lojas da cidade' }),
       ]),
       el('div', { class: 'ligeiro', text: 'Ligeiro — pedido ligeiro, sem comissão · ' + (e.cidade || 'Juquiá, SP') + (e.nome ? ' · ' + e.nome : '') + (e.cnpj ? ' · CNPJ ' + e.cnpj : '') }),
     ];
@@ -137,7 +137,7 @@
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos pra delivery de cidade pequena' }),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho. Sem comissão, sem app pra instalar, sem robô caro.' }),
+        el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app pra instalar, sem robô caro.' }),
         botoesChamada(true),
         el('div', { class: 'vender-selos' }, [
           el('span', { class: 'selo', text: '✓ ' + pr.diasGratis + ' dias grátis' }),
@@ -233,7 +233,7 @@
       el('div', { class: 'vender-grade' }, [
         item('🔗', 'Link próprio', 'Seu cardápio com a sua cara: logo, capa, cor e foto dos produtos.'),
         item('📱', 'Pedido em modo totem', 'Botão grande, uma decisão por tela, sem cadastro. O cliente pede em um minuto.'),
-        item('💸', 'Pix que confirma sozinho', 'O cliente paga e o pedido cai pronto na cozinha, pela sua conta Mercado Pago. Maquininha e dinheiro na entrega também.'),
+        item('💸', 'Pix automático pelo Mercado Pago', 'Você conecta sua conta Mercado Pago com um clique. O cliente paga e o pedido cai pronto na cozinha. Maquininha e dinheiro na entrega também.'),
         item('🔔', 'Painel com apito', 'Fila do dia, WhatsApp do cliente em um toque, cardápio com interruptores.'),
         item('👨‍🍳', 'Cozinha e entregador', 'Tela da cozinha em letra grande e tela do motoboy com mapa e o que cobrar.'),
         item('🖨️', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
@@ -256,7 +256,7 @@
       el('div', { class: 'kicker', text: 'Tudo incluso em qualquer plano' }),
       el('h2', { text: 'Sem surpresa, sem recurso trancado' }),
       el('ul', { class: 'checklist' }, [
-        'Cardápio digital com foto, logo, capa e cor da loja', 'Pedidos ilimitados', 'Pix automático: pagou, caiu na cozinha', 'Maquininha e dinheiro na entrega ou no balcão',
+        'Cardápio digital com foto, logo, capa e cor da loja', 'Pedidos ilimitados', 'Pix automático pelo Mercado Pago: pagou, caiu na cozinha', 'Maquininha e dinheiro na entrega ou no balcão',
         'Painel de pedidos em tempo real com apito', 'Tela da cozinha (KDS)', 'Tela do entregador com mapa', 'Modo balcão (autoatendimento no tablet)',
         'Impressão automática da ficha', 'Cupons de desconto', 'Entrega grátis a partir de R$ X', 'Horários com fechamento automático',
         'Relatório de vendas e lista de clientes', 'QR code e link pra WhatsApp e Instagram', 'Vitrine da cidade', 'Aviso do dia no topo do site',
@@ -311,6 +311,7 @@
       el('div', { class: 'faq' }, [
         duvida('Preciso cadastrar cartão pra testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + dinheiro(pr.mensal) + ' e pronto.'),
+        duvida('Preciso ter conta no Mercado Pago?', 'Pra receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere pro banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
         duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tablet no balcão, tela na cozinha e impressora são opcionais.'),
         duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere pro banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar pra ninguém.'),

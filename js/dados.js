@@ -447,6 +447,7 @@
   };
 
   DemoStore.prototype.criarConta = function () { return Promise.resolve(true); };
+  DemoStore.prototype.obterIdToken = function () { return Promise.resolve('demo'); };
 
   /* Segredos da loja (token do Mercado Pago): na demonstracao ficam so neste aparelho. */
   DemoStore.prototype.lerSegredo = function (slug, nome) {
@@ -890,14 +891,27 @@
   };
 
   /* No modo de verdade, o painel entra com e-mail do dono + senha (Firebase Auth). */
+  /* E-mail do usuario de equipe da loja (criado pelo mensageiro quando o dono define a senha da equipe). */
+  function emailEquipe(slug) { return 'equipe-' + slug + '@equipe.ligeiro.app.br'; }
   FirebaseStore.prototype.entrarPainel = function (lojaSlug, senha) {
     var eu = this;
+    var pin = String(senha || '').trim();
     return this.obterLoja(lojaSlug).then(function (loja) {
-      if (!loja || !loja.donoEmail) return false;
-      return eu.auth.signInWithEmailAndPassword(loja.donoEmail, String(senha || ''))
-        .then(function () { return true; })
-        .catch(function () { return false; });
+      if (!loja) return false;
+      /* 1) senha da equipe; 2) dono com e-mail e senha (quem criou a conta sem Google) */
+      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; }).catch(function () {
+        if (!loja.donoEmail) return false;
+        return eu.auth.signInWithEmailAndPassword(loja.donoEmail, pin).then(function () { return true; }).catch(function () { return false; });
+      });
     });
+  };
+  /* Token de identidade do usuario logado (pro mensageiro conferir quem esta pedindo). */
+  FirebaseStore.prototype.obterIdToken = function () {
+    return this._pronto.then(function () {
+      var u = this.auth.currentUser;
+      if (!u) throw new Error('Entre na sua conta primeiro.');
+      return u.getIdToken();
+    }.bind(this));
   };
 
   /* Segredos da loja: documento privado lojas/<slug>/privado/<nome>, que as regras so deixam o dono ler. */
