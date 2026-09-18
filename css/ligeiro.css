@@ -1194,7 +1194,7 @@ button.plano-card { cursor: pointer; }
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }
   .passo-venda { flex: 1; flex-direction: column; gap: 10px; }
-  .vender-grade { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* 8 cartoes: 4 x 2, sem linha sobrando */
+  .vender-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } /* 6 cartoes: 3 x 2 no computador, 2 x 3 no celular */
   .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .duvida { align-self: start; }
   .vender-final { padding: 16px 0 10px; }

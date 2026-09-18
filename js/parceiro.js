@@ -249,14 +249,12 @@
       el('div', { class: 'kicker', text: 'O que o Ligeiro faz por você' }),
       el('h2', { text: 'Atende, vende e organiza' }),
       el('div', { class: 'vender-grade' }, [
-        item('🔗', 'Link próprio', 'Seu cardápio com a sua cara: logo, capa, cor e foto dos produtos.'),
-        item('📱', 'Pedido em modo totem', 'Botão grande, uma decisão por tela, sem cadastro. O cliente pede em um minuto.'),
-        item('💸', 'Pix automático pelo Mercado Pago', 'Você conecta sua conta Mercado Pago com um clique. O cliente paga e o pedido cai pronto na cozinha. Maquininha e dinheiro na entrega também.'),
-        item('🔔', 'Painel com apito', 'Fila do dia, WhatsApp do cliente em um toque, cardápio com interruptores.'),
-        item('👨‍🍳', 'Cozinha e entregador', 'Tela da cozinha em letra grande e tela do motoboy com mapa e o que cobrar.'),
+        item('🔗', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'),
+        item('💸', 'Pix automático', 'Pelo Mercado Pago: o cliente paga e o pedido já cai pago na cozinha.'),
+        item('🔔', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'),
+        item('👨‍🍳', 'Cozinha e entregador', 'Uma tela pra cozinha e outra pro motoboy, com mapa e o que cobrar.'),
         item('🖨️', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
-        item('🧾', 'Modo balcão', 'Um tablet simples no caixa vira totem de autoatendimento.'),
-        item('📊', 'Vendas e clientes', 'Quanto vendeu, horário de pico, o que mais sai e a lista de clientes.'),
+        item('📊', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'),
       ]),
     ]));
 
@@ -269,15 +267,6 @@
       tabelaConcorrentes(pr),
     ]));
 
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'Tudo incluso em qualquer plano' }),
-      el('h2', { text: 'Sem surpresa, sem recurso trancado' }),
-      el('ul', { class: 'checklist' }, [
-        'Pedidos ilimitados, sem comissão', 'Pix automático pelo Mercado Pago', 'Cardápio com foto e a cara da loja',
-        'Painel que apita a cada pedido', 'Tela da cozinha e do entregador', 'Suporte por WhatsApp',
-      ].map(function (t) { return el('li', { text: t }); })),
-    ]));
-
     /* ---------- antes e depois ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Antes e depois' }),
@@ -285,20 +274,6 @@
       el('div', { class: 'antes-depois' }, [
         el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente pergunta "e o meu pedido?"', 'Comissão comendo a margem', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', { text: '✕ ' + t }); }))),
         el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com senha e endereço', 'Cliente acompanha pela senha, sem perguntar', 'Pix cai na sua conta, sem intermediário', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', { text: '✓ ' + t }); }))),
-      ]),
-    ]));
-
-    /* ---------- raio-x ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'Raio-x da operação' }),
-      el('h2', { text: 'A loja inteira no mesmo sistema' }),
-      el('div', { class: 'raiox' }, [
-        raio('🔗', 'Site da loja', 'Cardápio, pedido e pagamento no celular do cliente.', 'NO AR'),
-        raio('🔔', 'Painel', 'Pedido chega apitando com tudo que a cozinha precisa.', 'TEMPO REAL'),
-        raio('👨‍🍳', 'Cozinha', 'Fila em letra grande, laranja quando passa do tempo.', 'FILA DO DIA'),
-        raio('🛵', 'Entrega', 'Mapa, o que cobrar e um toque pra avisar o cliente.', 'A CAMINHO'),
-        raio('🧾', 'Balcão', 'Tablet no caixa vira totem de autoatendimento.', 'AUTOATENDIMENTO'),
-        raio('📊', 'Gestão', 'Vendas, horários de pico, clientes e cupons.', 'SEM PLANILHA'),
       ]),
     ]));
 
