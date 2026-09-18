@@ -624,7 +624,8 @@
       /* selo de loja oficial do Ligeiro */
       var selos = raiz.querySelector('.selos');
       var seloOficial = selos && selos.querySelector('.selo-oficial');
-      if (estado.oficial && UI.ehOficial(l.slug) && selos && !seloOficial) selos.appendChild(el('div', { class: 'selo selo-oficial' }, [el('img', { class: 'selo-mini', src: 'img/selo-verificado.svg', alt: '' }), 'Loja oficial Ligeiro']));
+      /* na pagina da loja o selo aparece UMA vez so, colado no nome (decisao do Mateus: sem etiqueta escrita) */
+      if (seloOficial) seloOficial.remove();
       var capa = $('capaLoja');
       var srcCapa = l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null);
       UI.limpar(capa);
@@ -632,7 +633,6 @@
       if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
       capa.parentNode.classList.toggle('com-capa', !!srcCapa);
       $('nomeLoja').textContent = l.nome;
-      /* selo de loja verificada, colado no nome (loja oficial ja tem a estrela) */
       var seloV = UI.seloVerificada(l, 'no-nome');
       if (seloV) $('nomeLoja').appendChild(seloV);
       $('descLoja').textContent = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
