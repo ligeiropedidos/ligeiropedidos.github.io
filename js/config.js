@@ -38,7 +38,7 @@ window.LIGEIRO_CONFIG = {
   /* Mensageiro do Pix (Cloudflare Worker, ferramentas/worker-mercadopago.js): cria o Pix do pedido
      na hora com o token Mercado Pago da loja e confirma sozinho. Vazio = ninguem consegue pagar no Pix
      (o cliente paga na entrega ou no balcao). */
-  proxyMercadoPago: '',
+  proxyMercadoPago: 'https://ligeiro-mp.ligeiro-pedidos.workers.dev',
 
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
   precos: { mensal: 7900, anual: 79000, diasGratis: 7 },
