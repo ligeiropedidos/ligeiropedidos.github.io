@@ -1361,7 +1361,10 @@
           if (estado.pedido.pixCodigo) { mostrarPagamento(estado.pedido); return; }
           gerando.hidden = true;
           falhou.hidden = false;
-          $('pixFalhouTexto').textContent = 'Não deu pra gerar o Pix agora' + (e && e.message ? ' (' + e.message + ')' : '') + '. Tente de novo ou desista e escolha outra forma de pagamento.';
+          /* o cliente ve uma frase simples; o detalhe tecnico vai pro console (e nunca JSON cru na tela) */
+          if (window.console && e) console.warn('Pix nao gerou:', e.message || e);
+          var motivo = e && e.message && e.message.length < 70 && e.message.indexOf('{') < 0 ? ' (' + e.message + ')' : '';
+          $('pixFalhouTexto').textContent = 'Não deu pra gerar o Pix agora' + motivo + '. Tente de novo ou volte e escolha outra forma de pagamento.';
         });
       }
       irPara('tela-pagamento');

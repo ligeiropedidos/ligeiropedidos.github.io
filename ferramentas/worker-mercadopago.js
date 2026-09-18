@@ -132,12 +132,13 @@ export default {
         const corpo = {
           type: 'online',
           total_amount: valor,
-          external_reference: loja + '|' + pedido,
+          /* a API Orders so aceita letras, numeros, hifen e sublinhado (ate 64): nada de "|" */
+          external_reference: (loja + '__' + pedido).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64),
           processing_mode: 'automatic',
           transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
           payer: { email: 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
         };
-        const ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido } });
+        const ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido + '-o2' } });
         const pagto = (ord.transactions && ord.transactions.payments && ord.transactions.payments[0]) || {};
         const qr = (pagto.payment_method && pagto.payment_method.qr_code) || '';
         if (!qr) return json({ erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)' }, 502);
@@ -190,6 +191,7 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
   const pg = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(idPagamento), {});
   let ref = String(pg.external_reference || '');
   if (ref.indexOf('|') > 0) ref = ref.split('|')[1];
+  else if (ref.indexOf('__') > 0) ref = ref.split('__')[1];
   const id = pedidoId || ref;
   if (!id) return null;
   if (pg.status === 'approved' || pg.status === 'processed') {
