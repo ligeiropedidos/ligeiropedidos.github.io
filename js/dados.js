@@ -1011,16 +1011,30 @@
     if (c === 'auth/network-request-failed') return new Error('Sem internet agora. Tente de novo.');
     return new Error('Não deu pra entrar agora. Tente de novo em instantes.');
   }
+  /* Navegador de dentro de outro app (Instagram, Facebook, TikTok...): o Google nao deixa entrar por ali. */
+  function navegadorDeApp() {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    return /Instagram|FBAN|FBAV|FB_IAB|Line\/|TikTok|musical_ly|Snapchat|; wv\)/i.test(ua);
+  }
+  /* Login com Google SEMPRE por janela (popup), aberta direto no toque.
+     Nunca por redirecionamento: no iPhone o Safari isola o armazenamento entre o site e o firebaseapp.com e o
+     redirecionamento termina numa tela branca ("Unable to save initial state"). */
   FirebaseStore.prototype.entrarComGoogle = function () {
-    return this._pronto.then(function () {
-      var auth = this.auth;
+    var eu = this;
+    if (navegadorDeApp()) return Promise.reject(new Error('Você abriu o Ligeiro por dentro de outro app, e o Google não deixa entrar por aqui. Toque nos três pontinhos e escolha "Abrir no navegador" (Safari ou Chrome).'));
+    function abrirJanela() {
       var provedor = new window.firebase.auth.GoogleAuthProvider();
       provedor.setCustomParameters({ prompt: 'select_account' });
-      return auth.signInWithPopup(provedor).then(function (r) { return usuarioDoFirebase(r.user); }).catch(function (e) {
-        if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return auth.signInWithRedirect(provedor).then(function () { return null; });
+      return eu.auth.signInWithPopup(provedor).then(function (r) { return usuarioDoFirebase(r.user); }).catch(function (e) {
+        var c = (e && e.code) || '';
+        if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') throw new Error('O navegador bloqueou a janela do Google. Toque em "Entrar com o Google" de novo. Se continuar, libere pop-ups pra este site ou abra no Safari ou Chrome.');
         throw erroDeLogin(e);
       });
-    }.bind(this));
+    }
+    /* banco ja carregado (o normal): abre a janela na hora, ainda dentro do toque, senao o navegador bloqueia */
+    if (eu.auth && window.firebase && window.firebase.auth) return abrirJanela();
+    /* ainda carregando: espera e pede outro toque (abrir janela fora do toque seria bloqueado) */
+    return eu._pronto.then(function () { throw new Error('Quase lá. Toque em "Entrar com o Google" de novo.'); });
   };
   FirebaseStore.prototype.entrarComEmail = function (email, senha) {
     return this._pronto.then(function () {
