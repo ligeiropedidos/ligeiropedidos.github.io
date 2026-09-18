@@ -292,6 +292,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hub-vazio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 40px 10px; text-align: center; }
 .hub-vazio .mascote-vazio { margin-bottom: 8px; }
 .hub-vazio > .btn, .hub-vazio > .pilha { margin-top: 12px; }
+/* dentro de uma grade (lista de lojas da conta) o vazio ocupa a linha inteira, centrado */
+.conta-lojas .hub-vazio { grid-column: 1 / -1; width: 100%; }
 .hub-vazio .mascote-vazio { width: 140px; height: 140px; object-fit: contain; opacity: 0.9; }
 .hub-conteudo { width: 100%; max-width: 960px; margin: 0 auto; }
 @media (min-width: 760px) { .hub-titulo { font-size: 36px; } .hub-cidade { padding-top: 40px; } }
