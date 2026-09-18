@@ -323,7 +323,7 @@
         [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no cardápio (confira os valores)' : 'Cardápio com preços', 'cardapio'],
         [!!D.logoSrc(l), 'Logo da loja', 'ajustes'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários em Ajustes)', 'ajustes'],
-        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).toLowerCase() + ' (troca em Ajustes)', 'ajustes'],
+        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$') + ' (troca em Ajustes)', 'ajustes'],
         [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens que mais saem', 'cardapio'],
       ];
       var feitos = itens.filter(function (i) { return i[0]; }).length;
@@ -335,7 +335,7 @@
       }));
       return el('div', { class: 'cartao destaque' }, [
         el('h3', { text: 'Primeiros passos · ' + feitos + ' de ' + itens.length }),
-        el('p', { class: 'muted pequeno', text: 'Com a chave Pix e os preços conferidos você já pode vender. O resto deixa a loja mais bonita.' }),
+        el('p', { class: 'muted pequeno', text: 'Com o Pix ligado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
         lista,
         el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔗 Pegar meu link', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }),
