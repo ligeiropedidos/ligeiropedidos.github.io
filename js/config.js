@@ -21,8 +21,8 @@ window.LIGEIRO_CONFIG = {
     appId: "1:402578950250:web:6347449308ecf007012213",
   },
 
-  /* Senha do painel do Ligeiro (cadastro de estabelecimentos). So vale no modo
-     demonstracao; no modo de verdade o acesso e por login do Firebase. */
+  /* So existe no modo demonstracao (sem Firebase). No site de verdade o #/admin nao tem senha:
+     entra apenas o Google do adminEmail, e as regras do banco conferem de novo. */
   senhaAdmin: 'ligeiro',
 
   /* No modo de verdade: e-mail do usuario (Firebase Authentication) que abre o #/admin. */

@@ -22,8 +22,8 @@
     var parar = null;
     var cfgA = window.LIGEIRO_CONFIG || {};
     function ehAdmin(u) { return !!(u && cfgA.adminEmail && String(u.email || '').toLowerCase() === String(cfgA.adminEmail).toLowerCase()); }
-    if (logado()) { parar = montar(); return function () { if (parar) parar(); }; }
-    /* na nuvem: quem ja entrou com o Google do Ligeiro nao digita senha nenhuma */
+    /* demonstracao: vale a marca da sessao. Na nuvem a marca nao basta: sempre confere se o Google logado e o do Ligeiro. */
+    if (D.modoDemo && logado()) { parar = montar(); return function () { if (parar) parar(); }; }
     if (!D.modoDemo && store.usuarioAtual) {
       raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
       store.usuarioAtual().then(function (u) {
@@ -37,8 +37,26 @@
 
     function telaLogin() {
       UI.limpar(raiz);
-      var campo = el('input', { type: 'password', placeholder: '••••••', 'aria-label': 'Senha do Ligeiro' });
       var erro = el('div', { class: 'msg-erro', hidden: true });
+      var marca = el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]);
+      /* na nuvem nao existe senha: so entra o Google do Ligeiro (adminEmail), e as regras do banco conferem de novo */
+      if (!D.modoDemo) {
+        raiz.appendChild(el('div', { class: 'login' }, [
+          marca,
+          el('h2', { class: 'centro', text: 'Painel do Ligeiro' }),
+          el('p', { class: 'centro muted', text: 'Entre com a conta Google do Ligeiro.' }),
+          erro,
+          el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function () {
+            store.entrarComGoogle().then(function (u) {
+              if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro. Saia dela em "Minha conta" e entre com a certa.'; return; }
+              try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
+              parar = montar();
+            }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu pra entrar.'; });
+          } }),
+        ]));
+        return;
+      }
+      var campo = el('input', { type: 'password', placeholder: '••••••', 'aria-label': 'Senha da demonstração' });
       function entrar() {
         store.entrarAdmin(campo.value).then(function (ok) {
           if (!ok) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Senha errada.'; campo.value = ''; return; }
@@ -48,19 +66,12 @@
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(el('div', { class: 'login' }, [
-        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
-        el('h2', { class: 'centro', text: 'Cadastro de estabelecimentos' }),
-        el('p', { class: 'centro muted', text: D.modoDemo ? 'Senha da demonstração: ligeiro' : 'Senha do Ligeiro' }),
+        marca,
+        el('h2', { class: 'centro', text: 'Painel do Ligeiro' }),
+        el('p', { class: 'centro muted', text: 'Senha da demonstração: ligeiro' }),
         el('div', { class: 'campo' }, campo),
         erro,
         el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar }),
-        !D.modoDemo && store.entrarComGoogle ? el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google do Ligeiro', onclick: function () {
-          store.entrarComGoogle().then(function (u) {
-            if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro.'; return; }
-            try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
-            parar = montar();
-          }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu pra entrar.'; });
-        } }) : null,
       ]));
       setTimeout(function () { campo.focus(); }, 50);
     }
