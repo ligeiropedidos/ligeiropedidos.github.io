@@ -268,7 +268,9 @@
         return oa - ob || a.loja.nome.localeCompare(b.loja.nome, 'pt-BR');
       }
       abertas.sort(ordenar); fechadas.sort(ordenar);
-      var fila = abertas.concat(fechadas);
+      /* no maximo 30 quadrados no trilho (abertas primeiro): cidade grande nao pesa a tela; o resto aparece pela busca e pelos filtros */
+      var totalDaFila = abertas.length + fechadas.length;
+      var fila = abertas.concat(fechadas).slice(0, 30);
       if (!fila.some(function (x) { return x.loja.slug === estadoHub.sel; })) estadoHub.sel = fila[0].loja.slug;
 
       /* palco: fundo desfocado da loja escolhida, trilho de quadrados, e embaixo os dados dela */
@@ -299,7 +301,8 @@
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
             el('span', { text: '🕒 ' + tempo }),
-            frete ? el('span', { text: '🛵 ' + frete }) : null,
+            frete ? el('span', { text: '🛵 ' + frete.split(', ')[0] }) : null,
+            frete && frete.split(', ')[1] ? el('span', { text: frete.split(', ')[1].replace(/^./, function (c) { return c.toUpperCase(); }) }) : null,
           ]),
         ]));
         detalhe.appendChild(el('button', { class: 'btn btn-principal ps-abrir', type: 'button', text: aberta ? 'Abrir loja →' : 'Ver cardápio →', onclick: function () { ir(l.cidadeSlug + '/' + l.slug); } }));
@@ -337,6 +340,9 @@
         if (l.capaUrl) capas[l.slug] = l.capaUrl;
         else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
       });
+      /* tem mais quadrado do que cabe: a borda direita do trilho esmaece (mostra que rola, sem cortar seco) */
+      setTimeout(function () { if (trilho.scrollWidth > trilho.clientWidth + 2) trilho.classList.add('rola'); }, 60);
+      if (totalDaFila > fila.length) lista.appendChild(el('p', { class: 'muted pequeno centro', text: 'Mostrando ' + fila.length + ' de ' + totalDaFila + ' lojas. Use a busca ou os filtros pra achar as outras.' }));
       /* setas do teclado andam pelo trilho */
       trilho.addEventListener('keydown', function (e) {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
