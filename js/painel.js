@@ -122,7 +122,7 @@
       if (navigator.maxTouchPoints > 0 && window.innerWidth < 900) btnImp.hidden = true;
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
         el('div', { class: 'nome', text: estado.loja.nome }),
-        el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba', text: '🌐 Ver site' }),
+        el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê', text: '🌐 Ver loja' }),
         el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura', text: '👤 Minha conta' }),
         btnImp, btnSom,
         el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }),
@@ -1649,9 +1649,8 @@
 
       /* 1. telas */
       s.appendChild(el('h2', { text: 'Minha loja' }));
-      s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. Cozinha, entregador e balcão usam a mesma senha do painel.' }));
+      s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As três usam a senha da equipe, que você define aqui embaixo.' }));
       s.appendChild(el('div', { class: 'telas-grade' }, [
-        tela('🛒', 'Site da loja', 'O que o cliente vê: cardápio, pedido e Pix. Abra pra conferir como está.', linkLoja, '👁️ Ver como cliente'),
         tela('👨‍🍳', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', base + '#/cozinha/' + l.slug),
         tela('🛵', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', base + '#/entrega/' + l.slug),
         tela('🧾', 'Balcão', 'Tablet no caixa vira totem: o cliente pede sozinho e a tela volta pro início.', linkBalcao),
