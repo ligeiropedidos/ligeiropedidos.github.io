@@ -482,8 +482,12 @@
   }
   /* Selo de loja verificada pelo Ligeiro (campo "verificada", que so o admin liga). */
   function seloVerificada(loja, classe) {
-    if (!loja || loja.verificada !== true) return null;
-    return el('img', { class: 'selo-verificada' + (classe ? ' ' + classe : ''), src: 'img/selo-verificado.svg', alt: 'Loja verificada', title: 'Loja verificada pelo Ligeiro' });
+    if (!loja) return null;
+    var oficial = ehOficial(loja.slug);
+    if (!oficial && loja.verificada !== true) return null;
+    /* o mesmo selo verde vale pra loja oficial do Ligeiro e pra loja verificada pelo admin */
+    var rotulo = oficial ? 'Loja oficial do Ligeiro' : 'Loja verificada pelo Ligeiro';
+    return el('img', { class: 'selo-verificada' + (classe ? ' ' + classe : ''), src: 'img/selo-verificado.svg', alt: rotulo, title: rotulo });
   }
   function limparTemaOficial(raiz) {
     if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
