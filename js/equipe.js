@@ -27,6 +27,7 @@
   function abrirComSenha(raiz, slug, titulo, montar) {
     var limpar = function () {};
     var vivo = true;
+    UI.abrirOficialCedo(raiz, slug);
     store.obterLoja(slug).then(function (loja) {
       if (!vivo) return;
       if (!loja) {

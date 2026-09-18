@@ -557,7 +557,7 @@
       estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
-      if (primeira) UI.temaPronto().then(function () { setTimeout(tirarSplash, 120); });
+      if (primeira) UI.oficialPronto(estado.oficial, estado.oficial ? 600 : 120).then(tirarSplash);
       montarInicio();
       configurarFluxo();
       if (primeira) {

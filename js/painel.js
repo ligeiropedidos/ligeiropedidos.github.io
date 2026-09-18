@@ -21,6 +21,7 @@
     function logado() { try { return sessionStorage.getItem(chaveSessao) === '1'; } catch (_) { return false; } }
     function marcarLogado(v) { try { if (v) sessionStorage.setItem(chaveSessao, '1'); else sessionStorage.removeItem(chaveSessao); } catch (_) { /* ignora */ } }
 
+    UI.abrirOficialCedo(raiz, slug);
     store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
       if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu pra abrir o painel.')); return; }

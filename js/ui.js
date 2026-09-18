@@ -456,13 +456,37 @@
     raiz.classList.add('tema-' + o.tema, 'loja-oficial');
     return o;
   }
+  /* Tudo que o visual da loja oficial precisa pra aparecer inteiro: folha do tema, letras e imagens da marca.
+     Espera no minimo 'minimo' ms (a tela de carregamento nao pisca) e no maximo 4 s (internet ruim nao prende ninguem). */
+  function oficialPronto(o, minimo) {
+    var espera = new Promise(function (r) { setTimeout(r, minimo || 0); });
+    if (!o || !o.tema) return Promise.all([temaPronto, espera]);
+    var letras = temaPronto.then(function () {
+      if (!document.fonts || !document.fonts.load) return true;
+      return Promise.all((o.fontes || []).map(function (f) { return document.fonts.load(f).catch(function () {}); }));
+    });
+    var imagens = [o.logo, o.ilustracao].filter(Boolean).map(function (src) {
+      return new Promise(function (r) { var i = new Image(); i.onload = i.onerror = function () { r(true); }; i.src = src; });
+    });
+    var tudo = Promise.all([temaPronto, letras, espera].concat(imagens));
+    var teto = new Promise(function (r) { setTimeout(r, 4000); });
+    return Promise.race([tudo, teto]);
+  }
+  /* Telas internas da loja oficial (painel, cozinha, entregador, balcao): tema cedo + tela de carregamento. */
+  function abrirOficialCedo(raiz, slug) {
+    var o = lojaOficial(slug);
+    if (!o || !o.tema) return;
+    aplicarTemaOficial(raiz, slug);
+    var tirar = splashOficial(o);
+    oficialPronto(o, 500).then(tirar);
+  }
   function limparTemaOficial(raiz) {
     if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
   }
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

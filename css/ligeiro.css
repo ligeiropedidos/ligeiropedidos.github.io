@@ -1056,6 +1056,8 @@ button.plano-card { cursor: pointer; }
 .login-caixa .linha-botoes { justify-content: space-between; }
 .login-caixa .linha-botoes .btn { flex: none; }
 .conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
+.conta .hub-secao { margin-top: 8px; } /* 16 do vao + 8 = 24 antes de secao */
+.conta .conta-lojas { margin-top: -4px; } /* titulo da secao a 12 dos cartoes */
 .conta-cabeca { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; }
 .conta-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; background: var(--lime-suave); }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--deep); }
@@ -1070,7 +1072,9 @@ button.plano-card { cursor: pointer; }
 .conta-loja-nome { font-family: var(--display); font-size: 20px; font-weight: 700; line-height: 1.15; }
 .conta-selos { display: flex; flex-wrap: wrap; gap: 6px; }
 .conta-selos .selo { font-size: 12.5px; padding: 4px 10px; }
-.conta-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.conta-acoes .btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
+.conta-acoes .btn-principal { grid-column: 1 / -1; }
 .conta-plano { display: flex; flex-direction: column; gap: 10px; }
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }

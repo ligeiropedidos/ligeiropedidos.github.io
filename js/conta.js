@@ -173,7 +173,7 @@
         ]),
         el('div', { class: 'conta-acoes' }, [
           el('a', { class: 'btn btn-principal btn-pequeno', href: '#/painel/' + l.slug, text: '🔔 Painel' }),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: 'Ver meu site' }),
+          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '🌐 Ver loja' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: '🧾 Balcão' }),
