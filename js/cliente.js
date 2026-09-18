@@ -188,7 +188,7 @@
       var abertas = estadoHub.lojas.filter(function (l) { return R.lojaAberta(l); }).length;
       chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.soAbertas ? ' ativa' : ''), type: 'button', text: '● Abertas agora' + (abertas ? ' · ' + abertas : ''), onclick: function () { estadoHub.soAbertas = !estadoHub.soAbertas; desenharChips(); desenharLista(); } }));
       if (tipos.length > 1) tipos.forEach(function (t) {
-        chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.tipo === t ? ' ativa' : ''), type: 'button', text: t, onclick: function () { estadoHub.tipo = estadoHub.tipo === t ? '' : t; desenharChips(); desenharLista(); } }));
+        chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.tipo === t ? ' ativa' : ''), type: 'button', text: String(t).toLowerCase() === 'outro' ? 'Outros' : t, onclick: function () { estadoHub.tipo = estadoHub.tipo === t ? '' : t; desenharChips(); desenharLista(); } }));
       });
     }
 
@@ -311,7 +311,13 @@
         if (!x) return;
         pintarFundo(x.loja);
         pintarDetalhe(x);
-        if (rolar && tiles[slugLoja].scrollIntoView) tiles[slugLoja].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        /* rola SO o trilho (scrollIntoView empurrava o palco inteiro pro lado quando havia mais lojas que a largura) */
+        if (rolar) {
+          var t = tiles[slugLoja];
+          var alvo = Math.max(0, t.offsetLeft - (trilho.clientWidth - t.offsetWidth) / 2);
+          if (trilho.scrollTo) trilho.scrollTo({ left: alvo, behavior: 'smooth' }); else trilho.scrollLeft = alvo;
+        }
+        if (trilho.parentNode) trilho.parentNode.scrollLeft = 0;
       }
       var podePairar = window.matchMedia && window.matchMedia('(hover: hover)').matches;
       fila.forEach(function (x) {
