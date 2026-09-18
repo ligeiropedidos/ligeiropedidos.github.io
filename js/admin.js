@@ -20,8 +20,19 @@
     function logado() { try { return sessionStorage.getItem(chave) === '1'; } catch (_) { return false; } }
 
     var parar = null;
-    if (!logado()) { telaLogin(); return function () { if (parar) parar(); }; }
-    parar = montar();
+    var cfgA = window.LIGEIRO_CONFIG || {};
+    function ehAdmin(u) { return !!(u && cfgA.adminEmail && String(u.email || '').toLowerCase() === String(cfgA.adminEmail).toLowerCase()); }
+    if (logado()) { parar = montar(); return function () { if (parar) parar(); }; }
+    /* na nuvem: quem ja entrou com o Google do Ligeiro nao digita senha nenhuma */
+    if (!D.modoDemo && store.usuarioAtual) {
+      raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
+      store.usuarioAtual().then(function (u) {
+        if (ehAdmin(u)) { try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ } parar = montar(); }
+        else telaLogin();
+      }).catch(telaLogin);
+      return function () { if (parar) parar(); };
+    }
+    telaLogin();
     return function () { if (parar) parar(); };
 
     function telaLogin() {
@@ -43,6 +54,13 @@
         el('div', { class: 'campo' }, campo),
         erro,
         el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar }),
+        !D.modoDemo && store.entrarComGoogle ? el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google do Ligeiro', onclick: function () {
+          store.entrarComGoogle().then(function (u) {
+            if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro.'; return; }
+            try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
+            parar = montar();
+          }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu pra entrar.'; });
+        } }) : null,
       ]));
       setTimeout(function () { campo.focus(); }, 50);
     }
@@ -51,7 +69,7 @@
       UI.limpar(raiz);
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
         el('div', { class: 'nome', text: 'Ligeiro · estabelecimentos' }),
-        el('button', { class: 'btn btn-pequeno', text: 'Ver o hub', onclick: function () { window.LigeiroApp.ir(''); } }),
+        el('button', { class: 'btn btn-pequeno', text: 'Ver as lojas', onclick: function () { window.LigeiroApp.ir('cidades'); } }),
         el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { try { sessionStorage.removeItem(chave); } catch (_) { /* ignora */ } if (store.sair) store.sair(); telaLogin(); } }),
       ]));
       var secao = el('section', { class: 'secao', id: 'secaoAdmin' });
