@@ -3,11 +3,15 @@ service cloud.firestore {
   match /databases/{db}/documents {
     /* ---- quem e quem ---- */
     function logado() { return request.auth != null; }
-    function isAdmin() { return logado() && request.auth.token.email == 'ligeiro.pedidos@gmail.com'; }
+    /* e-mail conferido: Google sempre e; o usuario de equipe nasce conferido pelo mensageiro. Quem so se cadastrou com e-mail e senha por fora, nao. */
+    function conferido() { return logado() && request.auth.token.email_verified == true; }
+    function doisDig(n) { return n < 10 ? '0' + string(n) : string(n); }
+    function hojeISO() { return string(request.time.year()) + '-' + doisDig(request.time.month()) + '-' + doisDig(request.time.day()); }
+    function isAdmin() { return conferido() && request.auth.token.email == 'ligeiro.pedidos@gmail.com'; }
     function donoDaLoja(loja) { return get(/databases/$(db)/documents/lojas/$(loja)).data.donoEmail; }
-    function isDonoDaLoja(loja) { return logado() && request.auth.token.email == donoDaLoja(loja); }
+    function isDonoDaLoja(loja) { return conferido() && request.auth.token.email == donoDaLoja(loja); }
     /* usuario de equipe da loja (cozinha, entregador, balcao): criado pelo mensageiro quando o dono define a senha da equipe */
-    function isEquipe(loja) { return logado() && request.auth.token.email == 'equipe-' + loja + '@equipe.ligeiro.app.br'; }
+    function isEquipe(loja) { return conferido() && request.auth.token.email == 'equipe-' + loja + '@equipe.ligeiro.app.br'; }
     function planoDe(d) { return d.get('plano', {}); }
     /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
     function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
@@ -21,7 +25,10 @@ service cloud.firestore {
     }
     /* status: o dono so pode manter, encerrar (cancelado) ou reativar (teste); 'ativo' e 'pausado' so o admin */
     function statusPermitido(novo, velho) {
-      return novo.get('status', '') == velho.get('status', '') || novo.get('status', '') in ['cancelado', 'teste'];
+      /* encerrar: de qualquer estado menos pausado (pausa e do admin). Reativar: so quem estava encerrado. */
+      return novo.get('status', '') == velho.get('status', '')
+          || (novo.get('status', '') == 'cancelado' && velho.get('status', '') != 'pausado')
+          || (novo.get('status', '') == 'teste' && velho.get('status', '') == 'cancelado');
     }
     function planoIntacto() {
       return planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
@@ -36,18 +43,23 @@ service cloud.firestore {
           && pagoIgual(p, planoDe(minhaConta()))
           && p.get('status', 'teste') == planoDe(minhaConta()).get('status', 'teste')
           && p.get('planoPago', '') == planoDe(minhaConta()).get('planoPago', '')
+          && p.get('fundador', false) == planoDe(minhaConta()).get('fundador', false)
           && p.get('desde', '') == planoDe(minhaConta()).get('desde', '');
     }
 
     /* conta do dono: a assinatura e daqui. Dono le, escolhe plano, avisa pagamento, encerra e reativa; pagoAte, planoPago, desde e 'ativo' so o admin */
     match /contas/{email} {
-      allow read: if isAdmin() || (logado() && request.auth.token.email == email);
-      allow create: if isAdmin() || (logado() && request.auth.token.email == email
+      allow read: if isAdmin() || (conferido() && request.auth.token.email == email);
+      allow create: if isAdmin() || (conferido() && request.auth.token.email == email
+        /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo */
+        && planoDe(request.resource.data).get('desde', '') is string
+        && planoDe(request.resource.data).get('desde', '').size() >= 10
+        && planoDe(request.resource.data).get('desde', '')[0:10] <= hojeISO()
         && planoDe(request.resource.data).get('status', 'teste') == 'teste'
         && semPago(planoDe(request.resource.data))
         && planoDe(request.resource.data).get('planoPago', '') == ''
         && planoDe(request.resource.data).get('fundador', false) == false);
-      allow update: if isAdmin() || (logado() && request.auth.token.email == email
+      allow update: if isAdmin() || (conferido() && request.auth.token.email == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
         && statusPermitido(planoDe(request.resource.data), planoDe(resource.data)));
       allow delete: if isAdmin();
@@ -90,9 +102,9 @@ service cloud.firestore {
       allow read: if true;
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
-        || (logado() && request.resource.data.donoEmail == request.auth.token.email
+        || (conferido() && request.resource.data.donoEmail == request.auth.token.email
             && planoCopiaDaConta(planoDe(request.resource.data)));
-      allow update: if isAdmin() || (logado() && request.auth.token.email == resource.data.donoEmail && planoIntacto());
+      allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto());
       allow delete: if isAdmin();
 
       /* senha do dia (dia, ultima) e usos de cupom: o cliente escreve sem login, dentro da transacao do pedido.
@@ -122,6 +134,7 @@ service cloud.firestore {
           && request.resource.data.lojaSlug == loja
           && request.resource.data.total is int && request.resource.data.total >= 0
           && request.resource.data.itens is list && request.resource.data.itens.size() <= 60
+          && request.resource.data.get('cliente', {}) is map && request.resource.data.get('cliente', {}).get('nome', '') is string
           && request.resource.data.size() <= 40
           && request.resource.data.get('clientePagou', false) == false
           /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */

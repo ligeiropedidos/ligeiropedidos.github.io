@@ -393,3 +393,16 @@ test('pixVencido: 30 min do codigo, 35 min sem codigo, so pedido esperando Pix',
   assert.equal(R.pixVencido(Object.assign({}, base, { criadoEm: '2026-09-18T11:20:00Z' }), agora), true);
   assert.equal(R.pixVencido(Object.assign({}, base, { status: 'pago', pixExpiraEm: '2026-09-18T11:00:00Z' }), agora), false);
 });
+
+test('planoQueVale: periodo pago correndo vale o plano PAGO mesmo depois de encerrar e reativar', () => {
+  const antes = global.window;
+  try {
+    global.window = { LIGEIRO_CONFIG: { planos: [{ id: 'uma', lojas: 1, mensal: 8900, anual: 89000 }, { id: 'duas', lojas: 2, mensal: 15900, anual: 159000 }, { id: 'oito', lojas: 8, mensal: 47900, anual: 479000 }] } };
+    const futuro = new Date(Date.now() + 10 * 864e5).toISOString();
+    const passado = new Date(Date.now() - 10 * 864e5).toISOString();
+    assert.equal(R.planoQueVale({ plano: { status: 'teste', planoId: 'oito', planoPago: 'uma', pagoAte: futuro } }), 'uma');
+    assert.equal(R.planoQueVale({ plano: { status: 'ativo', planoId: 'oito', planoPago: 'uma', pagoAte: futuro } }), 'uma');
+    assert.equal(R.planoQueVale({ plano: { status: 'teste', planoId: 'duas', planoPago: 'uma', pagoAte: passado } }), 'duas');
+    assert.equal(R.planoQueVale({ plano: { status: 'teste', planoId: 'duas' } }), 'duas');
+  } finally { global.window = antes; }
+});

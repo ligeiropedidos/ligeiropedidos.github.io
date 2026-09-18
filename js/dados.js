@@ -572,8 +572,12 @@
       if (o.limite) q = q.limit(o.limite);
       parar = q.onSnapshot(function (snap) {
         var lista = [];
-        snap.forEach(function (d) { lista.push(d.data()); });
+        /* pedido torto (sem cliente ou sem itens) nao pode derrubar a fila inteira da loja */
+        snap.forEach(function (d) { var x = d.data(); if (!x.cliente || typeof x.cliente !== 'object') x.cliente = {}; if (!Array.isArray(x.itens)) x.itens = []; lista.push(x); });
         cb(lista);
+      }, function (e) {
+        /* banco recusou (saiu da conta, senha da equipe trocada): a tela precisa saber, senao fica muda pra sempre */
+        if (typeof o.aoErro === 'function') o.aoErro(e);
       });
     }.bind(this));
     return function () { cancelado = true; parar(); };

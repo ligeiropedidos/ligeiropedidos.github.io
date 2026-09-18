@@ -802,7 +802,10 @@
   /* Qual plano vale pra contar lojas: pago = o que o admin confirmou (planoPago); no gratis = o escolhido. */
   function planoQueVale(conta) {
     var p = (conta && conta.plano) || {};
-    if (p.status === 'ativo' && p.planoPago) return planoPorId(p.planoPago).id;
+    /* enquanto houver periodo pago correndo, vale o plano que foi PAGO, seja qual for o status
+       (encerrar e reativar deixa o status em "teste", mas nao muda o que a pessoa pagou) */
+    var pagoCorrendo = p.planoPago && p.pagoAte && new Date(p.pagoAte).getTime() > Date.now();
+    if (p.planoPago && (p.status === 'ativo' || pagoCorrendo)) return planoPorId(p.planoPago).id;
     return planoPorId(p.planoId).id;
   }
   /* A conta (campo email) ou a loja (campo donoEmail) e do proprio Ligeiro? */

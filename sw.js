@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260921y';
+var VERSAO = 'ligeiro-20260921z';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
 var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/favicon.png'];
 
@@ -40,10 +40,12 @@ self.addEventListener('fetch', function (e) {
     var buscar = function () { return ehPagina ? fetch(e.request.url, { cache: 'no-store' }) : fetch(e.request); };
     var pelaRede = buscar().catch(function () { return new Promise(function (r) { setTimeout(r, 400); }).then(function () { return buscar(); }); }).then(function (resposta) {
       if (resposta && resposta.ok) {
-        var copia = resposta.clone();
-        caches.open(VERSAO).then(function (c) { c.put(e.request, copia); });
+        /* a checagem de versao (index.html?agora=...) muda de endereco a cada vez: guardar so encheria o cache */
+        if (url.search.indexOf('agora=') < 0) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request, copia); }); }
+        return resposta;
       }
-      return resposta;
+      /* servidor respondeu com erro (404, 500) e existe copia boa guardada: usa a copia */
+      return guardado || resposta;
     });
     if (!guardado) return pelaRede.catch(function () { return new Response('Sem internet agora. Tente de novo em instantes.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }); });
     var prazo = new Promise(function (resolve) { setTimeout(function () { resolve(guardado); }, 2500); });

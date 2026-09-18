@@ -20,6 +20,7 @@
     function logado() { try { return sessionStorage.getItem(chave) === '1'; } catch (_) { return false; } }
 
     var parar = null;
+    var vivo = true; /* saiu da tela antes do banco responder: nao desenha o admin por cima da outra pagina */
     var cfgA = window.LIGEIRO_CONFIG || {};
     function ehAdmin(u) { return !!(u && cfgA.adminEmail && String(u.email || '').toLowerCase() === String(cfgA.adminEmail).toLowerCase()); }
     /* demonstracao: vale a marca da sessao. Na nuvem a marca nao basta: sempre confere se o Google logado e o do Ligeiro. */
@@ -27,10 +28,11 @@
     if (!D.modoDemo && store.usuarioAtual) {
       raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
       store.usuarioAtual().then(function (u) {
+        if (!vivo) return;
         if (ehAdmin(u)) { try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ } parar = montar(); }
         else telaLogin();
-      }).catch(telaLogin);
-      return function () { if (parar) parar(); };
+      }).catch(function () { if (vivo) telaLogin(); });
+      return function () { vivo = false; if (parar) parar(); };
     }
     telaLogin();
     return function () { if (parar) parar(); };
@@ -186,14 +188,16 @@
       }[a.estado] || a.estado;
       var primeiroPagamento = !p.ultimoPagamentoEm && !p.planoPago;
       var viraFundador = p.fundador !== true && primeiroPagamento && R.vagasFundador() > 0;
+      var ocupado = false; /* um clique por vez: clique duplo contaria a vaga de fundador duas vezes */
       function confirmar(dias) {
+        if (ocupado) return; ocupado = true;
         var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
         var novo = new Date(base + dias * 864e5).toISOString();
         store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() } })
           .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); desenhar(); })
-          .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra confirmar.'); });
+          .catch(function (e) { ocupado = false; UI.avisar(e && e.message ? e.message : 'Não deu pra confirmar.'); });
       }
       var valorMensal = R.precoDoPlano(plano.id, 'mensal', c);
       var valorAnual = R.precoDoPlano(plano.id, 'anual', c);
@@ -212,7 +216,7 @@
           el('button', { class: 'btn btn-fantasma btn-pequeno', text: 'Cortesia', onclick: function () { store.salvarConta(c.email, { plano: { status: 'ativo', pagoAte: '', planoPago: plano.id } }).then(function () { return store.espelharPlanoNasLojas(c.email); }).then(desenhar); } }),
           p.fundador === true
             ? el('button', { class: 'btn btn-fantasma btn-pequeno', text: 'Tirar fundador', title: 'Use quando a conta cancelar: ela perde o preço travado', onclick: function () { UI.perguntar('Tirar o preço de fundador de ' + c.email + '? A vaga não volta pro contador sozinha.', { sim: 'Tirar', perigo: true }).then(function (sim) { if (sim) store.salvarConta(c.email, { plano: { fundador: false } }).then(function () { return store.espelharPlanoNasLojas(c.email); }).then(desenhar); }); } })
-            : (R.vagasFundador() > 0 ? el('button', { class: 'btn btn-fantasma btn-pequeno', text: '★ Tornar fundador', title: 'Trava o preço de fundador nesta conta e ocupa uma vaga', onclick: function () { store.salvarConta(c.email, { plano: { fundador: true } }).then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; }).then(function () { return store.espelharPlanoNasLojas(c.email); }).then(function () { UI.avisar(c.email + ' agora é fundador'); desenhar(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu agora.'); }); } }) : null),
+            : (R.vagasFundador() > 0 ? el('button', { class: 'btn btn-fantasma btn-pequeno', text: '★ Tornar fundador', title: 'Trava o preço de fundador nesta conta e ocupa uma vaga', onclick: function () { if (ocupado) return; ocupado = true; store.salvarConta(c.email, { plano: { fundador: true } }).then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; }).then(function () { return store.espelharPlanoNasLojas(c.email); }).then(function () { UI.avisar(c.email + ' agora é fundador'); desenhar(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu agora.'); }); } }) : null),
           el('button', { class: 'btn btn-fantasma btn-pequeno', text: 'Pausar', onclick: function () { store.salvarConta(c.email, { plano: { status: 'pausado' } }).then(function () { return store.espelharPlanoNasLojas(c.email); }).then(desenhar); } }),
         ]),
       ]);

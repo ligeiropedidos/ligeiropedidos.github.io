@@ -28,14 +28,25 @@
     var limpar = function () {};
     var vivo = true;
     UI.abrirOficialCedo(raiz, slug);
-    store.obterLoja(slug).then(function (loja) {
+    store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
+      if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu pra abrir esta tela. Confira a internet.', function () { location.reload(); })); return; }
       if (!loja) {
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
       }
       UI.aplicarTemaOficial(raiz, slug);
-      if (logado(slug)) { limpar = montar(loja) || limpar; return; }
+      /* na nuvem a marca da sessao so vale se ainda existe alguem logado (senha da equipe trocada derruba o login antigo) */
+      if (logado(slug)) {
+        if (D.modoDemo || !store.usuarioAtual) { limpar = montar(loja) || limpar; return; }
+        store.usuarioAtual().then(function (u) {
+          if (!vivo) return;
+          if (u) { limpar = montar(loja) || limpar; return; }
+          try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ }
+          pedirSenha();
+        }).catch(function () { if (vivo) pedirSenha(); });
+        return;
+      }
       /* dono ja logado neste navegador: entra sem senha */
       var donoCheca = store.donoLogado ? store.donoLogado(loja) : Promise.resolve(false);
       donoCheca.then(function (ehDono) {
@@ -182,7 +193,7 @@
         estado.pedidos = lista;
         if (novos) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
         desenhar();
-      }, { desde: desde }));
+      }, { desde: desde, aoErro: function () { try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ } UI.avisar('A senha da equipe mudou ou a sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1500); } }));
       estado.relogio = setInterval(desenhar, 30000);
 
       return function () {
@@ -262,7 +273,7 @@
 
       estado.parar.push(store.assistirLoja(slug, function (loja) { if (loja) estado.loja = loja; }));
       var desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { desde: desde }));
+      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { desde: desde, aoErro: function () { try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ } UI.avisar('A senha da equipe mudou ou a sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1500); } }));
       estado.relogio = setInterval(desenhar, 60000);
 
       return function () {

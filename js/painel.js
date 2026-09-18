@@ -32,9 +32,11 @@
       estado.loja = loja;
       UI.aplicarTemaOficial(raiz, slug);
       carregarFotos(loja);
-      if (logado()) { montarPainel(); return; }
-      /* conta do dono logada: abre direto, sem senha */
+      /* demonstracao: vale a marca da sessao. Na nuvem a marca nao basta (a pessoa pode ter saido da conta em outra tela). */
+      if (D.modoDemo && logado()) { montarPainel(); return; }
+      var jaEntrou = logado();
       var checa = store.donoLogado ? store.donoLogado(loja) : Promise.resolve(false);
+      if (jaEntrou && store.usuarioAtual) checa = store.usuarioAtual().then(function (u) { return !!u; });
       checa.then(function (ok) {
         if (!vivo) return;
         if (ok) { marcarLogado(true); montarPainel(); } else telaLogin();
@@ -191,7 +193,10 @@
         if (estado.mp) estado.mp.processar(lista);
         atualizarBadge();
         if (estado.aba === 'pedidos') desenharPedidos();
-      }, { desde: desde }));
+      }, { desde: desde, aoErro: function () {
+        /* o banco recusou a fila: a conta saiu (ou caiu). Volta pro login em vez de ficar mostrando "nenhum pedido" */
+        marcarLogado(false); UI.avisar('Sua sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1200);
+      } }));
 
       /* Pix automatico (Mercado Pago), se a loja ligou */
       ligarMP();

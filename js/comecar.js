@@ -256,7 +256,7 @@
               if (escolhido.id !== valendo.id) throw new Error('Seu plano pago (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. O plano ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado: pague em "Minha conta".');
               throw new Error('Seu plano (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. Pra abrir mais uma, mude o plano em Assinar.');
             }
-            dados.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || planoTipo, planoId: c.plano.planoId || planoId, planoPago: c.plano.planoPago || '', desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
+            dados.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || planoTipo, planoId: c.plano.planoId || planoId, planoPago: c.plano.planoPago || '', fundador: c.plano.fundador === true, desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
           });
         }
       }).then(function () { return store.criarLoja(dados); }).then(function (loja) {

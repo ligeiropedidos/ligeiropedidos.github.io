@@ -272,7 +272,7 @@ async function definirUsuarioEquipe(fb, email, senha) {
   const j = r.ok ? await r.json().catch(() => ({})) : {};
   const u = (j.users || [])[0];
   if (u && u.localId) {
-    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha }) });
+    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha, emailVerified: true }) }); /* conferido: as regras do banco exigem */
     if (!r2.ok) throw new Error('não deu pra trocar a senha (' + r2.status + ')');
     return;
   }
