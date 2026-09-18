@@ -431,8 +431,7 @@
     var oficialCedo = UI.lojaOficial(slug);
     var tirarSplash = function () {};
     if (oficialCedo) { UI.aplicarTemaOficial(raiz, slug); tirarSplash = UI.splashOficial(oficialCedo); }
-    /* as outras lojas: o mascote do Ligeiro, e so se a loja demorar mais que um instante (internet fraca) */
-    else tirarSplash = UI.splashOficial({ logo: 'img/mascote.png', corFundo: '#FAFDF6', ligeiro: true });
+    /* as outras lojas abrem direto, sem tela de carregamento (decisao do Mateus em 18/09/2026) */
     var o = opcoes || {};
     var balcao = !!o.balcao;
 
