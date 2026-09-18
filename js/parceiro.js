@@ -28,20 +28,22 @@
     var p = cfg().precos || {};
     return { mensal: R.precoDoPlano('uma', 'mensal'), anual: R.precoDoPlano('uma', 'anual'), diasGratis: p.diasGratis || 7 };
   }
-  /* Cartao "preco de fundador": so aparece enquanto existir vaga de verdade. */
+  /* Faixa "preco de fundador": primeira linha da grade de planos. So aparece enquanto existir vaga de verdade. */
   function faixaFundador() {
     var restam = R.vagasFundador();
     var total = (cfg().fundador || {}).vagas || 0;
     if (!restam || !total) return null;
-    var normal = R.planoPorId('uma').mensal;
-    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': restam + ' de ' + total + ' vagas livres' }, el('i', { style: { width: Math.max(4, Math.round(restam / total * 100)) + '%' } }));
+    var ocupadas = total - restam;
+    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': ocupadas + ' de ' + total + ' vagas ocupadas' }, el('i', { style: { width: Math.max(4, Math.round(ocupadas / total * 100)) + '%' } }));
     return el('div', { class: 'fundador' }, [
-      el('div', { class: 'fundador-topo' }, [
+      el('div', { class: 'fundador-lado' }, [
         el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', text: '★' }), 'Preço de fundador']),
-        el('span', { class: 'fundador-vagas' }, [el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
+        el('p', { class: 'fundador-texto', text: 'Pras ' + total + ' primeiras lojas. O preço fica travado enquanto você não cancelar.' }),
       ]),
-      barra,
-      el('p', { class: 'fundador-texto' }, [el('b', { text: dinheiro(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado pra sempre.' }), ' Depois das ' + total + ' primeiras lojas, ' + dinheiro(normal) + '.']),
+      el('div', { class: 'fundador-conta' }, [
+        el('span', { class: 'fundador-vagas' }, ['Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
+        barra,
+      ]),
     ]);
   }
   function linkWhats(texto) {
@@ -263,7 +265,6 @@
     /* ---------- planos ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Planos' }),
-      faixaFundador(),
       el('h2', { text: 'Planos por quantidade de lojas. Tudo incluso.' }),
       el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale pra todas as lojas dela.' }),
       (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); } d(); return caixa; })(),
@@ -435,7 +436,7 @@
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
         el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
-        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: 'Preço de fundador' }), ' travado pra sempre · depois ', el('s', { text: dinheiro(normal) })]) : null,
+        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · depois ', el('s', { text: dinheiro(normal) })]) : null,
         el('div', { class: 'plano-sub', text: sub }),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', { text: '✓ ' + x }); })),
         selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '● Escolhido' : '○ Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
@@ -443,6 +444,9 @@
       if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
       return card;
     }));
+    var temFundador = lista.some(function (p) { var n = t === 'anual' && p.anual > 0 ? p.anual : p.mensal; return R.precoDoPlano(p.id, t) < n; });
+    var faixa = temFundador ? faixaFundador() : null;
+    if (faixa) grade.insertBefore(faixa, grade.firstChild);
     return grade;
   }
 
@@ -520,7 +524,6 @@
       el('div', { class: 'kicker', text: 'Assinar' }),
       el('h2', { text: 'Escolha o seu plano' }),
       el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale pra todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
-      faixaFundador(),
     ]));
     corpo.appendChild(caixaTipo);
     corpo.appendChild(caixaPlanos);

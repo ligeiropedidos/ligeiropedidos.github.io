@@ -38,7 +38,7 @@ Ou, pelo Claude Code, o servidor `ligeiro` do `.claude/launch.json` abre em
 - A vaga é ocupada no **primeiro pagamento confirmado**: o admin grava
   `contas/{email}.plano.fundador = true` (só o admin muda, pelas regras) e soma 1 em
   `publico/fundadores.usados` (público pra ler). Daí em diante a conta paga o preço
-  de fundador pra sempre; o site mostra "Restam X de 20", número de verdade.
+  de fundador enquanto não cancelar (`fundador.jaOcupadas` desconta a Dom Conizza); o site mostra "Restam X de 20", número de verdade.
 - Acabando as vagas, tudo passa a mostrar o preço normal (R$ 89), sempre abaixo do Anota AI.
 - Links do Asaas: `cobranca.linksFundador` (preço de fundador) e `cobranca.links` (normal).
   No `worker-asaas.js`, o segredo `PLANOS` precisa listar os dois preços de cada plano.

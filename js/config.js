@@ -45,9 +45,9 @@ window.LIGEIRO_CONFIG = {
 
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
   precos: { mensal: 8900, anual: 89000, diasGratis: 7 },
-  /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo pra sempre (campo "fundador" de cada plano).
+  /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo enquanto nao cancelarem (campo "fundador" de cada plano).
      A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
-  fundador: { vagas: 20 },
+  fundador: { vagas: 20, jaOcupadas: 1 }, /* jaOcupadas: a Dom Conizza ja conta como loja fundadora */
   /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
      um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
   planos: [

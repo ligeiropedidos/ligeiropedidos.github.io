@@ -114,7 +114,7 @@
           el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: R.ehDoLigeiro(conta) ? reais + (reais === 1 ? ' loja' : ' lojas') + ' · conta do Ligeiro' : reais + ' de ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') }),
         ]),
         el('p', { class: 'pequeno', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }),
-        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado pra sempre' }) : (fundador && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
+        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado enquanto não cancelar' }) : (fundador && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
         p.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(p.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
         el('div', { class: 'linha-botoes' }, [

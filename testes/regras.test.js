@@ -367,3 +367,11 @@ test('conta do proprio Ligeiro: cortesia permanente e sem limite de lojas', () =
     assert.equal(R.limiteDeLojas({ email: 'outro@exemplo.com', plano: { status: 'teste', planoId: 'uma' } }), 1);
   } finally { global.window = antes; }
 });
+
+test('vagas de fundador: as ja ocupadas (Dom Conizza) saem da conta', () => {
+  const antes = global.window;
+  try {
+    global.window = { LIGEIRO_CONFIG: { fundador: { vagas: 20, jaOcupadas: 1 } }, LigeiroFundadores: { usados: 2 } };
+    assert.equal(R.vagasFundador(), 17);
+  } finally { global.window = antes; }
+});

@@ -747,17 +747,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 600px) { .ps-trilho { padding: 20px 20px 20px; gap: 16px; } .ps-tile { width: 96px; height: 96px; border-radius: 18px; font-size: 42px; } .ps-detalhe { padding: 0 20px 20px; } .ps-nome { font-size: 23px; } .ps-abrir { width: 100%; } }
 @media (hover: hover) { .ps-tile:hover { transform: scale(1.03); opacity: 1; } .ps-tile.escolhida:hover { transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .ps-tile, .ps-fundo { transition: none; } }
-/* preco de fundador: cartao compacto (selo, vagas, barra, uma frase) */
-.fundador { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; text-align: left; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 16px; box-shadow: 0 6px 16px rgba(146, 100, 0, 0.08); }
-.fundador-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.fundador-selo { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6B4A00; }
-.fundador-vagas { font-size: 14px; color: #6B4A00; white-space: nowrap; }
+/* preco de fundador: primeira linha da grade de planos, da largura exata dos cartoes */
+.fundador { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px 18px; text-align: left; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 20px; }
+.fundador-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fundador-selo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; color: #3F2A00; }
+.fundador-selo .estrela { color: #D97706; }
+.fundador-texto { margin: 0; font-size: 14.5px; line-height: 1.4; color: #5B3A00; }
+.fundador-conta { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fundador-vagas { font-size: 14px; line-height: 1; color: #6B4A00; white-space: nowrap; }
 .fundador-vagas b { font-family: var(--display); font-size: 18px; color: #3F2A00; }
 .fundador-barra { height: 8px; border-radius: 999px; background: #FDE68A; overflow: hidden; }
 .fundador-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-.fundador-texto { margin: 0; font-size: 14.5px; line-height: 1.4; color: #5B3A00; }
-.fundador-texto b { color: #3F2A00; }
-#planos .fundador { align-self: center; margin: 0 auto; }
+@media (min-width: 560px) { .fundador { grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; } .fundador-vagas { text-align: right; } }
 .plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin-top: -2px; }
 .plano-fundador s { color: #7A5A12; }
 .selo.selo-fundador { background: #FDE68A; color: #3F2A00; }

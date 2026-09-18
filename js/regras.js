@@ -823,7 +823,8 @@
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     var total = (cfg.fundador && Number(cfg.fundador.vagas)) || 0;
     var usados = (typeof window !== 'undefined' && window.LigeiroFundadores && Number(window.LigeiroFundadores.usados)) || 0;
-    return Math.max(0, total - usados);
+    var jaOcupadas = (cfg.fundador && Number(cfg.fundador.jaOcupadas)) || 0;
+    return Math.max(0, total - jaOcupadas - usados);
   }
   /* Esta conta paga (ou vai pagar) o preco de fundador? Quem ja tem a vaga, sempre. Quem nunca pagou, enquanto houver vaga. */
   function ehPrecoFundador(conta) {
