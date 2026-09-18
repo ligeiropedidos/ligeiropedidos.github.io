@@ -115,7 +115,7 @@ async function firebase(env) {
     async merge(caminho, dados) {
       const campos = Object.keys(dados);
       const mask = campos.map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
-      const r = await fetch(base + caminho + '?' + mask, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: paraFirestore(dados) }) });
+      const r = await fetch(base + caminho + '?' + mask, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: camposFirestore(dados) }) });
       if (!r.ok) throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200));
     },
     async query(colecao, campo, valor) {
@@ -128,6 +128,8 @@ async function firebase(env) {
   };
 }
 
+/* documento = mapa de campos tipados (sem o envelope mapValue no topo) */
+function camposFirestore(obj) { const f = {}; Object.keys(obj || {}).forEach((k) => { f[k] = paraFirestore(obj[k]); }); return f; }
 function paraFirestore(v) {
   if (v === null || v === undefined) return { nullValue: null };
   if (typeof v === 'string') return { stringValue: v };
