@@ -190,6 +190,7 @@
       var fundo = el('span', { class: 'tile-img', style: tinta ? { background: tinta } : null }, [
         logo ? el('img', { class: 'tile-logo', src: logo, alt: '' }) : el('span', { class: 'emoji', text: l.emoji || '🍽️' }),
         gratis ? el('span', { class: 'tile-selo', text: '🛵 Entrega grátis' }) : null,
+        lojaOficial(l.slug) ? el('span', { class: 'tile-selo tile-oficial', text: '⭐ Oficial' }) : null,
       ]);
       function porCapa(src) {
         if (!src || fundo.classList.contains('com-capa')) return;
@@ -288,6 +289,12 @@
   function lerMeusPedidos() {
     var lista = UI.lerLocal(CHAVE_MEUS_PEDIDOS);
     return Array.isArray(lista) ? lista : [];
+  }
+
+  /* Loja oficial do Ligeiro (config.lojasOficiais): selo no hub e tema exclusivo no site */
+  function lojaOficial(slugLoja) {
+    var cfg = window.LIGEIRO_CONFIG || {};
+    return (cfg.lojasOficiais || {})[slugLoja] || null;
   }
 
   function guardarMeuPedido(lojaSlug, pedido) {
@@ -426,10 +433,24 @@
       }).catch(function () { estado.fotosVersao = versao; return false; });
     }
 
+    function aplicarTemaOficial(oficial) {
+      if (!oficial || !oficial.tema) return;
+      var v = (document.querySelector('script[src*="js/cliente.js"]') || {}).src || '';
+      var tag = (v.match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+      UI.carregarCss('css/temas/' + oficial.tema + '.css?v=' + tag);
+      raiz.classList.add('tema-' + oficial.tema, 'loja-oficial');
+      var abertura = raiz.querySelector('.abertura');
+      if (abertura && !abertura.querySelector('.enfeites') && oficial.enfeites) {
+        abertura.insertBefore(el('div', { class: 'enfeites', 'aria-hidden': 'true' }, oficial.enfeites.map(function (e) { return el('span', { text: e }); })), abertura.firstChild);
+      }
+    }
+
     function aplicarLoja(dados, atualizacao) {
       var primeira = !estado.loja;
       estado.loja = dados;
+      estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
+      if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
       montarInicio();
       configurarFluxo();
       if (primeira) {
@@ -456,7 +477,12 @@
       document.title = l.nome + ' — Ligeiro';
       var logo = $('logoLoja');
       UI.limpar(logo);
-      logo.appendChild(D.logoSrc(l) ? el('img', { src: D.logoSrc(l), alt: l.nome }) : document.createTextNode(l.emoji || '🍽️'));
+      var srcLogo = (estado.oficial && estado.oficial.logo) || D.logoSrc(l);
+      logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: l.nome }) : document.createTextNode(l.emoji || '🍽️'));
+      /* selo de loja oficial do Ligeiro */
+      var selos = raiz.querySelector('.selos');
+      var seloOficial = selos && selos.querySelector('.selo-oficial');
+      if (estado.oficial && selos && !seloOficial) selos.appendChild(el('div', { class: 'selo selo-oficial', text: '⭐ Loja oficial Ligeiro' }));
       var capa = $('capaLoja');
       var srcCapa = l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null);
       UI.limpar(capa);
@@ -1411,6 +1437,7 @@
 
     return function () {
       vivo = false;
+      raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').trim();
       UI.limparTema();
       pararAcompanhar();
       clearTimeout(estado.relogioBalcao);

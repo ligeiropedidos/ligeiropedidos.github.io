@@ -408,9 +408,15 @@
     ]);
   }
 
+  /* Carrega uma folha de estilo extra (tema oficial) uma vez so. */
+  function carregarCss(url) {
+    if (document.querySelector('link[data-css="' + url + '"]')) return;
+    document.head.appendChild(el('link', { rel: 'stylesheet', href: url, 'data-css': url }));
+  }
+
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

@@ -33,7 +33,7 @@ window.LIGEIRO_CONFIG = {
 
   /* WhatsApp de quem vende o Ligeiro (com DDD, so numeros). Aparece no botao
      "Quero na minha loja" da pagina #/lojas e no rodape das lojas. Vazio = esconde. */
-  whatsappLigeiro: '',
+  whatsappLigeiro: '5513996447414',
 
   /* Mensageiro do Pix (Cloudflare Worker, ferramentas/worker-mercadopago.js): cria o Pix do pedido
      na hora com o token Mercado Pago da loja e confirma sozinho. Vazio = ninguem consegue pagar no Pix
@@ -83,4 +83,9 @@ window.LIGEIRO_CONFIG = {
 
   /* Loja que a pagina de vendas mostra como exemplo ("Ver uma loja de verdade"). */
   lojaDemo: 'juquia/dom-conizza',
+  /* Lojas oficiais (do proprio Ligeiro): selo "Loja oficial" e um tema exclusivo (css/temas/<tema>.css).
+     So o Ligeiro mexe aqui; nenhuma outra loja ganha isso pelo painel. */
+  lojasOficiais: {
+    'dom-conizza': { tema: 'conizza', logo: 'img/oficial/dom-conizza-logo.png', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
+  },
 };

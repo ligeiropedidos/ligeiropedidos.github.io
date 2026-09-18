@@ -155,6 +155,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .selos { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .selo.laranja { background: var(--orange-suave); color: #B4501A; }
 .selo.cinza { background: #EEF1EC; color: var(--muted); }
+.selo.selo-oficial { background: #FDE68A; color: #3F2A00; }
+.tile-selo.tile-oficial { background: #FDE68A; color: #3F2A00; }
 .selo .bolinha { width: 9px; height: 9px; border-radius: 50%; background: var(--lime-escuro); }
 .selo.fechado .bolinha { background: var(--erro); }
 
