@@ -41,7 +41,7 @@ window.LIGEIRO_CONFIG = {
   proxyMercadoPago: 'https://ligeiro-mp.ligeiro-pedidos.workers.dev',
   /* Client ID (publico) da aplicacao "Ligeiro plataforma" no Mercado Pago: liga o botao
      "Conectar com Mercado Pago" no painel. O Client Secret vai so no worker (MP_CLIENT_SECRET). */
-  mercadoPagoClientId: '',
+  mercadoPagoClientId: '4386028316883153',
 
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
   precos: { mensal: 7900, anual: 79000, diasGratis: 7 },
