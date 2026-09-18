@@ -232,7 +232,7 @@
         fundo,
         el('span', { class: 'tile-info' }, [
           el('span', { class: 'nome', text: l.nome }),
-          el('span', { class: 'desc', text: l.tipo || (l.descricao || '') }),
+          el('span', { class: 'desc', text: l.tipo ? R.tipoVisivel(l) : (l.descricao || '') }),
           itens.length ? el('span', { class: 'bate', text: 'Tem: ' + itens.slice(0, 2).join(', ') + (itens.length > 2 ? ' +' + (itens.length - 2) : '') }) : null,
           el('span', { class: 'status ' + (aberta ? 'aberta' : 'fechada'), text: status }),
         ]),
@@ -295,7 +295,7 @@
         UI.limpar(detalhe);
         detalhe.appendChild(el('div', { class: 'ps-texto' }, [
           el('div', { class: 'ps-nome' }, [l.nome, UI.ehOficial(l.slug) ? el('span', { class: 'ps-selo-oficial' }, [el('span', { class: 'estrela', text: '★' }), 'Loja oficial']) : null]),
-          el('div', { class: 'ps-meta', text: [l.tipo, x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
+          el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
             el('span', { text: '🕒 ' + tempo }),
@@ -614,7 +614,7 @@
       if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
       capa.parentNode.classList.toggle('com-capa', !!srcCapa);
       $('nomeLoja').textContent = l.nome;
-      $('descLoja').textContent = l.descricao || (l.tipo ? l.tipo + ' em ' + l.cidade : '');
+      $('descLoja').textContent = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
 
       var aberta = R.lojaAberta(l);
       var selo = $('seloAberto');

@@ -826,6 +826,12 @@
     return comida ? { comida: true, nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️' } : { comida: false, nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️' };
   }
 
+  /* Tipo da loja pra mostrar ao cliente: "Outro" nao diz nada, vira "Loja". */
+  function tipoVisivel(loja) {
+    var t = String((loja && loja.tipo) || '').trim();
+    return !t || t.toLowerCase() === 'outro' ? 'Loja' : t;
+  }
+
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
@@ -928,6 +934,7 @@
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
     catalogo: catalogo,
+    tipoVisivel: tipoVisivel,
     ehDoLigeiro: ehDoLigeiro,
     limiteDeLojas: limiteDeLojas,
     vagasFundador: vagasFundador,

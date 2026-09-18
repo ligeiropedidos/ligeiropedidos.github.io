@@ -164,7 +164,7 @@
           el('span', { class: 'conta-logo' }, logo ? el('img', { src: logo, alt: '' }) : (l.emoji || '🍔')),
           el('div', { class: 'conta-loja-info' }, [
             el('div', { class: 'conta-loja-nome', text: l.nome }),
-            el('div', { class: 'muted pequeno', text: (l.tipo ? l.tipo + ' · ' : '') + (l.cidade || '') + (l.uf ? '/' + l.uf : '') }),
+            el('div', { class: 'muted pequeno', text: (l.tipo ? R.tipoVisivel(l) + ' · ' : '') + (l.cidade || '') + (l.uf ? '/' + l.uf : '') }),
             el('div', { class: 'conta-selos' }, [
               el('span', { class: 'selo ' + (aberta ? '' : 'fechado'), text: aberta ? '● Aberta agora' : '● Fechada agora' }),
               el('span', { class: 'selo ' + classeSelo, text: textos[a.estado] || a.estado }),
