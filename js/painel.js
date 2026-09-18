@@ -1283,7 +1283,13 @@
       /* Aparencia: celular de um lado, controles compactos do outro */
       var emojiDetalhe = el('details', { class: 'avancado campo largo' }, [el('summary', { text: 'Sem logo? Escolha um emoji' }), f.emoji]);
       if (!D.logoSrc(l)) emojiDetalhe.open = true;
-      var controles = el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas]);
+      var cfgEx = window.LIGEIRO_CONFIG || {};
+      var exclusivo = (cfgEx.whatsappLigeiro && !UI.lojaOficial(slug)) ? el('p', { class: 'muted pequeno exclusivo-convite' }, [
+        'Quer um visual só seu, desenhado pra sua marca? ',
+        el('a', { href: R.linkWhatsapp(cfgEx.whatsappLigeiro, 'Oi! Quero um orçamento de design exclusivo pra ' + l.nome + ' no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'Peça um orçamento de design exclusivo' }),
+        '.',
+      ]) : null;
+      var controles = el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas, exclusivo]);
       aparencia.appendChild(el('div', { class: 'aparencia' }, [f.previa, controles]));
       aparencia.appendChild(f.logo);
       aparencia.appendChild(f.capa);

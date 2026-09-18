@@ -124,7 +124,7 @@
     function botoesChamada(grande) {
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete */
-      lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/cidades', text: '🎮 Ver lojas do Ligeiro' }));
+      lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/cidades', text: 'Ver lojas do Ligeiro' }));
       return el('div', { class: 'pilha chamada' }, lista);
     }
 
@@ -303,6 +303,28 @@
         el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + lojaDemo, text: 'Abrir a Dom Conizza' }),
       ]),
     ]));
+
+    /* ---------- servico extra: loja com design exclusivo ---------- */
+    (function () {
+      var lc = cfg().lojaCustomizada || {};
+      var msg = 'Oi! Quero um orçamento de loja com design exclusivo no Ligeiro.';
+      var pedir = linkWhats(msg)
+        ? el('a', { class: 'btn btn-principal', href: linkWhats(msg), target: '_blank', rel: 'noopener', text: 'Pedir orçamento' })
+        : el('button', { class: 'btn btn-principal', type: 'button', text: 'Pedir orçamento', onclick: function () { abrirContato('loja-exclusiva'); } });
+      corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+        el('div', { class: 'kicker', text: 'Serviço extra' }),
+        el('h2', { text: 'Quer uma loja com a cara da sua marca?' }),
+        el('div', { class: 'exclusiva' }, [
+          el('img', { class: 'exclusiva-img', src: 'img/oficial/dom-conizza-logo.png', alt: 'Loja da Dom Conizza com design exclusivo' }),
+          el('div', { class: 'exclusiva-texto' }, [
+            el('p', { text: 'Toda loja do Ligeiro já escolhe cor, logo, capa e estilo no painel. O design exclusivo vai além: a gente desenha o site inteiro da sua loja com as cores, as letras e o jeito da sua marca. Foi o que fizemos na Dom Conizza.' }),
+            el('ul', { class: 'checklist exclusiva-lista' }, ['Cores, letras e botões da sua marca', 'Logo grande com animação na abertura', 'Tela de carregamento com a sua logo', 'Painel, cozinha e entregador no mesmo visual'].map(function (t) { return el('li', { text: t }); })),
+            el('p', { class: 'forte', text: lc.aPartirDe ? 'A partir de ' + dinheiro(lc.aPartirDe) + ', pago uma vez. A mensalidade não muda.' : 'Sob orçamento. A mensalidade não muda.' }),
+            el('div', { class: 'linha-botoes exclusiva-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
+          ]),
+        ]),
+      ]));
+    })();
 
     /* ---------- duvidas ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [

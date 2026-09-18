@@ -34,13 +34,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* ---------- abertura ---------- */
 .tema-conizza .abertura {
   position: relative; overflow: hidden;
-  padding: 22px var(--margem) 16px; gap: 16px;
+  padding: 22px var(--margem) 12px; gap: 16px;
   background: radial-gradient(circle at 50% 18%, rgba(239, 169, 44, 0.28), transparent 62%), var(--cz-creme-fundo);
 }
 .tema-conizza .abertura > *:not(.enfeites) { position: relative; z-index: 1; }
 .tema-conizza .capa-loja { display: none; }
 .tema-conizza .logo-grande, .tema-conizza .abertura.com-capa .logo-grande {
-  width: min(262px, 60vw); height: auto; aspect-ratio: 1; margin-bottom: 2px;
+  width: min(262px, 60vw); height: auto; aspect-ratio: 1; margin-bottom: 0;
   background: none; border: 0; box-shadow: none; border-radius: 0;
   position: relative; overflow: visible;
   animation: cz-chegar 0.85s cubic-bezier(0.18, 1.5, 0.38, 1) both, cz-flutuar 4.5s ease-in-out 0.9s infinite;
@@ -202,3 +202,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .metrica .l { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .previa-capa { background: linear-gradient(180deg, #fbe3d6, var(--cz-branco)); }
 .tema-conizza .tabela { border: 3px solid var(--cz-tinta); }
+/* janela do item: o preco nao quebra em duas linhas */
+.tema-conizza .modal-caixa .btn { font-size: 18px; white-space: nowrap; padding-left: 14px; padding-right: 14px; min-height: 56px; }
+.tema-conizza .selo-oficial { display: inline-flex; align-items: center; gap: 6px; }

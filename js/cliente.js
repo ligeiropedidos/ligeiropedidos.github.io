@@ -241,7 +241,7 @@
       var abertas = comItens.filter(function (x) { return R.lojaAberta(x.loja); });
       var fechadas = comItens.filter(function (x) { return !R.lojaAberta(x.loja); });
       function ordenar(a, b) {
-        var oa = lojaOficial(a.loja.slug) ? 0 : 1, ob = lojaOficial(b.loja.slug) ? 0 : 1;
+        var oa = UI.ehOficial(a.loja.slug) ? 0 : 1, ob = UI.ehOficial(b.loja.slug) ? 0 : 1;
         return oa - ob || a.loja.nome.localeCompare(b.loja.nome, 'pt-BR');
       }
       abertas.sort(ordenar); fechadas.sort(ordenar);
@@ -271,7 +271,7 @@
         var frete = l.aceitaEntrega === false ? '' : R.descreverFrete(l);
         UI.limpar(detalhe);
         detalhe.appendChild(el('div', { class: 'ps-texto' }, [
-          el('div', { class: 'ps-nome' }, [l.nome, lojaOficial(l.slug) ? el('span', { class: 'ps-selo-oficial', text: '⭐ Loja oficial' }) : null]),
+          el('div', { class: 'ps-nome' }, [l.nome, UI.ehOficial(l.slug) ? el('span', { class: 'ps-selo-oficial' }, [el('span', { class: 'estrela', text: '★' }), 'Loja oficial']) : null]),
           el('div', { class: 'ps-meta', text: [l.tipo, x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
@@ -296,7 +296,7 @@
         var src = (lojaOficial(l.slug) && lojaOficial(l.slug).logo) || D.logoSrc(l);
         var t = el('button', { class: 'ps-tile' + (R.lojaAberta(l) ? '' : ' fechada'), type: 'button', role: 'option', 'aria-label': l.nome, title: l.nome }, [
           src ? el('img', { src: src, alt: '' }) : document.createTextNode(l.emoji || '🍽️'),
-          lojaOficial(l.slug) ? el('span', { class: 'ps-oficial', text: '⭐', title: 'Loja oficial do Ligeiro' }) : null,
+          UI.ehOficial(l.slug) ? el('span', { class: 'ps-oficial', text: '★', title: 'Loja oficial do Ligeiro' }) : null,
         ]);
         if (!src && l.cor) t.style.background = tintaDaLoja(l.cor) || '#fff';
         /* no computador: passar o mouse escolhe, clicar abre. No celular: o primeiro toque escolhe, o segundo abre. */
@@ -575,7 +575,7 @@
       /* selo de loja oficial do Ligeiro */
       var selos = raiz.querySelector('.selos');
       var seloOficial = selos && selos.querySelector('.selo-oficial');
-      if (estado.oficial && selos && !seloOficial) selos.appendChild(el('div', { class: 'selo selo-oficial', text: '⭐ Loja oficial Ligeiro' }));
+      if (estado.oficial && UI.ehOficial(l.slug) && selos && !seloOficial) selos.appendChild(el('div', { class: 'selo selo-oficial' }, [el('span', { class: 'estrela', text: '★' }), 'Loja oficial Ligeiro']));
       var capa = $('capaLoja');
       var srcCapa = l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null);
       UI.limpar(capa);

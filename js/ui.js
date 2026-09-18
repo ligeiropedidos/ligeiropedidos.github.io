@@ -445,6 +445,7 @@
     var cfg = window.LIGEIRO_CONFIG || {};
     return (cfg.lojasOficiais || {})[slug] || null;
   }
+  function ehOficial(slug) { var o = lojaOficial(slug); return !!(o && o.oficial !== false); }
   /* Liga o tema exclusivo da loja oficial num pedaco da tela (site, painel, cozinha, entregador, balcao). */
   function aplicarTemaOficial(raiz, slug) {
     var o = lojaOficial(slug);
@@ -461,7 +462,7 @@
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

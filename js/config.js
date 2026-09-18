@@ -83,9 +83,13 @@ window.LIGEIRO_CONFIG = {
 
   /* Loja que a pagina de vendas mostra como exemplo ("Ver uma loja de verdade"). */
   lojaDemo: 'juquia/dom-conizza',
-  /* Lojas oficiais (do proprio Ligeiro): selo "Loja oficial" e um tema exclusivo (css/temas/<tema>.css).
-     So o Ligeiro mexe aqui; nenhuma outra loja ganha isso pelo painel. */
+  /* Servico extra: loja com design exclusivo (igual ao da Dom Conizza). Preco "a partir de", em centavos, pago uma vez. */
+  lojaCustomizada: { aPartirDe: 39000 },
+
+  /* Lojas com tema exclusivo (css/temas/<tema>.css). So o Ligeiro mexe aqui; nenhuma loja ganha isso pelo painel.
+     oficial: true = loja do proprio Ligeiro (ganha o selo "Loja oficial"). Cliente que contratou o design exclusivo
+     entra aqui com oficial: false: tem o tema, a logo grande e a tela de carregamento, mas nao o selo. */
   lojasOficiais: {
-    'dom-conizza': { tema: 'conizza', logo: 'img/oficial/dom-conizza-logo.png', ilustracao: 'img/oficial/dom-conizza-cozinhando.png', frase: 'Seu cone sai do forno direto pra sua porta', subfrase: 'Massa crocante, recheio até o fim e nada de pizza fria.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
+    'dom-conizza': { oficial: true, tema: 'conizza', logo: 'img/oficial/dom-conizza-logo.png', ilustracao: 'img/oficial/dom-conizza-cozinhando.png', frase: 'Seu cone sai do forno direto pra sua porta', subfrase: 'Massa crocante, recheio até o fim e nada de pizza fria.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
   },
 };
