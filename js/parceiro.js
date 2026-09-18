@@ -33,8 +33,7 @@
     var restam = R.vagasFundador();
     var total = (cfg().fundador || {}).vagas || 0;
     if (!restam || !total) return null;
-    var ocupadas = total - restam;
-    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': ocupadas + ' de ' + total + ' vagas ocupadas' }, el('i', { style: { width: Math.max(4, Math.round(ocupadas / total * 100)) + '%' } }));
+    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': 'Restam ' + restam + ' de ' + total + ' vagas' }, el('i', { style: { width: Math.max(4, Math.round(restam / total * 100)) + '%' } }));
     return el('div', { class: 'fundador' }, [
       el('div', { class: 'fundador-lado' }, [
         el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', text: '★' }), 'Preço de fundador']),
@@ -436,7 +435,7 @@
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
         el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
-        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · depois ', el('s', { text: dinheiro(normal) })]) : null,
+        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
         el('div', { class: 'plano-sub', text: sub }),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', { text: '✓ ' + x }); })),
         selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '● Escolhido' : '○ Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),

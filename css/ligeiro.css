@@ -1016,7 +1016,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 button.plano-card { cursor: pointer; }
 .plano-card.com-destaque { border-color: var(--lime); }
 .plano-card.escolhido { border-color: var(--deep); box-shadow: 0 0 0 3px var(--lime-suave); }
-.plano-etiqueta { position: absolute; top: 18px; right: 18px; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.plano-etiqueta { position: absolute; top: 23px; right: 18px; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
 .plano-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--deep2); }
 .plano-preco { font-family: var(--display); font-size: 40px; font-weight: 700; line-height: 1; color: var(--ink); }
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
