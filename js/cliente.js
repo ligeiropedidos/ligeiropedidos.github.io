@@ -102,6 +102,8 @@
         mapa[l.cidadeSlug].lojas.push(l);
       });
       cidades = Object.keys(mapa).map(function (k) { return mapa[k]; });
+      /* so uma cidade com loja: nao faz a pessoa escolher, vai direto pro seletor de lojas */
+      if (cidades.length === 1) { location.replace('#/' + cidades[0].slug); return; }
       busca.hidden = cidades.length < 4;
       desenhar();
     });
@@ -142,7 +144,7 @@
       el('a', { class: 'hub-trocar', href: '#/cidades', text: 'Trocar de cidade' }),
     ]));
 
-    var busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 O que você quer comer? Ex.: pizza, marmita, açaí', 'aria-label': 'Buscar comida ou loja' });
+    var busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 O que você procura? Ex.: pizza, marmita, açaí', 'aria-label': 'Buscar produto ou loja' });
     var chips = el('div', { class: 'hub-chips' });
     var lista = el('div', { class: 'hub-lista' });
     var conteudo = el('div', { class: 'conteudo hub-conteudo' }, [busca, chips, lista]);
@@ -238,20 +240,85 @@
       }
       var abertas = comItens.filter(function (x) { return R.lojaAberta(x.loja); });
       var fechadas = comItens.filter(function (x) { return !R.lojaAberta(x.loja); });
-      function ordenar(a, b) { return a.loja.nome.localeCompare(b.loja.nome, 'pt-BR'); }
+      function ordenar(a, b) {
+        var oa = lojaOficial(a.loja.slug) ? 0 : 1, ob = lojaOficial(b.loja.slug) ? 0 : 1;
+        return oa - ob || a.loja.nome.localeCompare(b.loja.nome, 'pt-BR');
+      }
       abertas.sort(ordenar); fechadas.sort(ordenar);
-      if (abertas.length) {
-        lista.appendChild(el('div', { class: 'hub-secao', text: 'Abertas agora' }));
-        var g1 = el('div', { class: 'hub-grade' });
-        abertas.forEach(function (x) { g1.appendChild(cartao(x.loja, x.itens)); });
-        lista.appendChild(g1);
+      var fila = abertas.concat(fechadas);
+      if (!fila.some(function (x) { return x.loja.slug === estadoHub.sel; })) estadoHub.sel = fila[0].loja.slug;
+
+      /* palco: fundo desfocado da loja escolhida, trilho de quadrados, e embaixo os dados dela */
+      var fundo = el('div', { class: 'ps-fundo' });
+      var trilho = el('div', { class: 'ps-trilho', role: 'listbox', 'aria-label': 'Lojas' });
+      var detalhe = el('div', { class: 'ps-detalhe' });
+      lista.appendChild(el('div', { class: 'hub-secao', text: abertas.length ? (abertas.length === 1 ? '1 loja aberta agora' : abertas.length + ' lojas abertas agora') : 'Todas fechadas agora' }));
+      lista.appendChild(el('div', { class: 'ps-palco' }, [fundo, trilho, detalhe]));
+      var tiles = {};
+      var capas = {};
+
+      function pintarFundo(l) {
+        var tinta = l.cor && /^#[0-9a-f]{6}$/i.test(l.cor) ? l.cor : '';
+        fundo.style.backgroundColor = tinta || '';
+        var src = capas[l.slug] || (lojaOficial(l.slug) && lojaOficial(l.slug).logo) || D.logoSrc(l) || '';
+        fundo.style.backgroundImage = src ? 'url("' + String(src).replace(/"/g, '%22') + '")' : 'none';
       }
-      if (fechadas.length) {
-        lista.appendChild(el('div', { class: 'hub-secao', text: abertas.length ? 'Fechadas agora' : 'Todas fechadas agora' }));
-        var g2 = el('div', { class: 'hub-grade' });
-        fechadas.forEach(function (x) { g2.appendChild(cartao(x.loja, x.itens)); });
-        lista.appendChild(g2);
+      function pintarDetalhe(x) {
+        var l = x.loja;
+        var aberta = R.lojaAberta(l);
+        var abreAs = aberta ? null : R.proximaAbertura(l);
+        var tempo = l.aceitaEntrega === false ? 'só retirada' : 'entrega em ~' + (l.tempoEntrega || 40) + ' min';
+        var frete = l.aceitaEntrega === false ? '' : R.descreverFrete(l);
+        UI.limpar(detalhe);
+        detalhe.appendChild(el('div', { class: 'ps-texto' }, [
+          el('div', { class: 'ps-nome' }, [l.nome, lojaOficial(l.slug) ? el('span', { class: 'ps-selo-oficial', text: '⭐ Loja oficial' }) : null]),
+          el('div', { class: 'ps-meta', text: [l.tipo, x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
+          el('div', { class: 'ps-status' }, [
+            el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
+            el('span', { text: '🕒 ' + tempo }),
+            frete ? el('span', { text: '🛵 ' + frete }) : null,
+          ]),
+        ]));
+        detalhe.appendChild(el('button', { class: 'btn btn-principal ps-abrir', type: 'button', text: aberta ? 'Abrir loja →' : 'Ver cardápio →', onclick: function () { ir(l.cidadeSlug + '/' + l.slug); } }));
       }
+      function escolher(slugLoja, rolar) {
+        estadoHub.sel = slugLoja;
+        Object.keys(tiles).forEach(function (k) { tiles[k].classList.toggle('escolhida', k === slugLoja); tiles[k].setAttribute('aria-selected', k === slugLoja ? 'true' : 'false'); });
+        var x = fila.filter(function (y) { return y.loja.slug === slugLoja; })[0];
+        if (!x) return;
+        pintarFundo(x.loja);
+        pintarDetalhe(x);
+        if (rolar && tiles[slugLoja].scrollIntoView) tiles[slugLoja].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+      var podePairar = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+      fila.forEach(function (x) {
+        var l = x.loja;
+        var src = (lojaOficial(l.slug) && lojaOficial(l.slug).logo) || D.logoSrc(l);
+        var t = el('button', { class: 'ps-tile' + (R.lojaAberta(l) ? '' : ' fechada'), type: 'button', role: 'option', 'aria-label': l.nome, title: l.nome }, [
+          src ? el('img', { src: src, alt: '' }) : document.createTextNode(l.emoji || '🍽️'),
+          lojaOficial(l.slug) ? el('span', { class: 'ps-oficial', text: '⭐', title: 'Loja oficial do Ligeiro' }) : null,
+        ]);
+        if (!src && l.cor) t.style.background = tintaDaLoja(l.cor) || '#fff';
+        /* no computador: passar o mouse escolhe, clicar abre. No celular: o primeiro toque escolhe, o segundo abre. */
+        t.addEventListener('click', function () { if (estadoHub.sel === l.slug || podePairar) ir(l.cidadeSlug + '/' + l.slug); else escolher(l.slug, true); });
+        if (podePairar) t.addEventListener('mouseenter', function () { escolher(l.slug, false); });
+        t.addEventListener('focus', function () { escolher(l.slug, false); });
+        tiles[l.slug] = t;
+        trilho.appendChild(t);
+        if (l.capaUrl) capas[l.slug] = l.capaUrl;
+        else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
+      });
+      /* setas do teclado andam pelo trilho */
+      trilho.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var ordem = fila.map(function (y) { return y.loja.slug; });
+        var i = ordem.indexOf(estadoHub.sel) + (e.key === 'ArrowRight' ? 1 : -1);
+        if (i < 0 || i >= ordem.length) return;
+        e.preventDefault();
+        tiles[ordem[i]].focus();
+        escolher(ordem[i], true);
+      });
+      escolher(estadoHub.sel, false);
     }
 
     function desenhar(lojas) {
@@ -271,6 +338,11 @@
       /* so lembra a cidade quando ela existe de verdade (senao "#/painel" digitado errado virava a cidade da pessoa) */
       if (lojas && lojas.length) UI.guardarLocal(CHAVE_CIDADE, cidadeSlug);
       desenhar(lojas);
+      if (store.listarVitrine) store.listarVitrine().then(function (todas) {
+        var outras = todas.filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l) && l.cidadeSlug !== cidadeSlug; });
+        var trocar = raiz.querySelector('.hub-trocar');
+        if (trocar) trocar.hidden = outras.length === 0;
+      }).catch(function () { /* deixa o link */ });
     }).catch(function () {
       tituloCidade.textContent = 'Não deu pra carregar';
       var caixa = raiz.querySelector('.hub-lista') || raiz;
@@ -317,6 +389,8 @@
     var oficialCedo = UI.lojaOficial(slug);
     var tirarSplash = function () {};
     if (oficialCedo) { UI.aplicarTemaOficial(raiz, slug); tirarSplash = UI.splashOficial(oficialCedo); }
+    /* as outras lojas: o mascote do Ligeiro, e so se a loja demorar mais que um instante (internet fraca) */
+    else tirarSplash = UI.splashOficial({ logo: 'img/mascote.png', corFundo: '#FAFDF6', ligeiro: true });
     var o = opcoes || {};
     var balcao = !!o.balcao;
 

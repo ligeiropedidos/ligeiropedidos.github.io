@@ -124,7 +124,7 @@
     function botoesChamada(grande) {
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete */
-      lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/' + lojaDemo, text: 'Ver uma loja de verdade' }));
+      lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/cidades', text: '🎮 Ver lojas do Ligeiro' }));
       return el('div', { class: 'pilha chamada' }, lista);
     }
 
@@ -247,7 +247,7 @@
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Planos' }),
       el('h2', { text: 'Planos por quantidade de lojas. Tudo incluso.' }),
-      el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: um Pix por mês libera todas as suas lojas.' }),
+      el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale pra todas as lojas dela.' }),
       (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); } d(); return caixa; })(),
       tabelaConcorrentes(pr),
     ]));
@@ -359,7 +359,8 @@
       var linhas = [
         p.lojas === 1 ? '1 loja na sua conta' : 'Até ' + p.lojas + ' lojas na mesma conta',
         pr.diasGratis + ' dias grátis, sem cartão',
-        t === 'anual' ? 'Um Pix por ano' : 'Um Pix por mês pra todas as lojas',
+        p.lojas === 1 ? 'Pedidos ilimitados, tudo incluso' : (t === 'anual' ? 'Uma cobrança por ano pra todas as lojas' : 'Uma cobrança por mês pra todas as lojas'),
+        'Cartão, boleto ou Pix',
       ];
       var sub = p.lojas > 1 ? 'Sai por menos de ' + dinheiro(porLoja) + ' por loja no mês' : (p.frase || '');
       var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
@@ -449,7 +450,7 @@
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Assinar' }),
       el('h2', { text: 'Escolha o seu plano' }),
-      el('p', { class: 'muted', text: 'A assinatura é da sua conta: um Pix por mês libera todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano.' }),
+      el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale pra todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
     ]));
     corpo.appendChild(caixaTipo);
     corpo.appendChild(caixaPlanos);

@@ -424,7 +424,7 @@
   /* Tela de carregamento da loja oficial: a logo pulsando no fundo da marca, ate o tema e a loja chegarem.
      Evita o "pisca" do visual padrao antes do tema. Devolve a funcao que tira a tela. */
   function splashOficial(o) {
-    var caixa = el('div', { class: 'splash-oficial', style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
+    var caixa = el('div', { class: 'splash-oficial' + (o.ligeiro ? ' splash-ligeiro' : ''), style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
       o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.png', alt: '' }),
       el('div', { class: 'splash-pontos' }, [el('span'), el('span'), el('span')]),
     ]);

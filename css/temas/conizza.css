@@ -189,3 +189,16 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .login h2 { color: var(--cz-tinta); }
 .tema-conizza .marca span span { color: var(--cz-vermelho); }
 .tema-conizza .interruptor.ligado, .tema-conizza .chave.ligada { background: var(--cz-verde); }
+
+/* respiro pras sombras duras nao encostarem no que vem embaixo nem no teto */
+.tema-conizza .abas-painel { padding: 12px var(--margem) 14px; gap: 8px; }
+.tema-conizza .aba-painel { margin-bottom: 4px; }
+.tema-conizza .metricas { margin-top: 12px; gap: 12px; }
+.tema-conizza .hub-chips { gap: 8px; padding-bottom: 4px; }
+/* grafico de vendas nas cores da marca */
+.tema-conizza .barras { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); padding: 14px 12px 8px; }
+.tema-conizza .barras .b .col { background: linear-gradient(180deg, var(--cz-vermelho-claro), var(--cz-vermelho)); border: 2px solid var(--cz-tinta); border-bottom: 0; border-radius: 8px 8px 0 0; min-height: 4px; }
+.tema-conizza .barras .b .lab { color: var(--cz-tinta-suave); font-weight: 700; }
+.tema-conizza .metrica .l { color: var(--cz-tinta-suave); font-weight: 600; }
+.tema-conizza .previa-capa { background: linear-gradient(180deg, #fbe3d6, var(--cz-branco)); }
+.tema-conizza .tabela { border: 3px solid var(--cz-tinta); }

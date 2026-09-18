@@ -130,6 +130,13 @@
         el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }),
       ]));
 
+      /* as abas grudam logo abaixo do topo, seja qual for a altura dele (tema, celular com duas linhas) */
+      var topoEl = raiz.querySelector('.painel-topo');
+      var medirTopo = function () { if (topoEl) raiz.style.setProperty('--altura-painel-topo', topoEl.offsetHeight + 'px'); };
+      medirTopo();
+      if (window.ResizeObserver && topoEl) new ResizeObserver(medirTopo).observe(topoEl);
+      setTimeout(medirTopo, 600);
+
       var abas = el('nav', { class: 'abas-painel' });
       var defs = [['pedidos', '📋 Pedidos'], ['cardapio', '🍔 Cardápio'], ['vendas', '📊 Vendas'], ['ajustes', '⚙️ Ajustes'], ['links', '🏪 Minha loja']];
       defs.forEach(function (d) {
