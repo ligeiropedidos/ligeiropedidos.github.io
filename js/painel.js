@@ -248,7 +248,7 @@
     function fonteAssinatura() { return estado.conta && estado.conta.plano ? estado.conta : estado.loja; }
     function precoAssinatura(tipo) {
       var p = (fonteAssinatura().plano || {});
-      return R.precoDoPlano(p.planoId || 'uma', tipo);
+      return R.precoDoPlano(p.planoId || 'uma', tipo, fonteAssinatura());
     }
     function carregarConta() {
       if (!estado.loja.donoEmail || !store.obterConta) return Promise.resolve(null);
@@ -328,7 +328,7 @@
         return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra avisar agora.'); });
       }
       window.LigeiroCobranca.abrir({
-        valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, quem: estado.loja.nome,
+        valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome,
         txid: 'LIG' + slug.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro ' + estado.loja.nome, avisar: avisar,
       });
     }

@@ -60,7 +60,7 @@
         var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email; }).length;
         desenharPlano(caixaPlano, conta, reais);
         UI.limpar(rodapeLojas);
-        var limite = R.planoPorId(conta && conta.plano ? R.planoQueVale(conta) : 'uma').lojas;
+        var limite = R.limiteDeLojas(conta || { email: u.email });
         var sit = conta && conta.plano ? R.assinatura(conta).estado : 'gratis';
         if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') rodapeLojas.appendChild(el('span', { class: 'muted pequeno', text: 'Regularize a assinatura pra criar outra loja.' }));
         else if (reais >= limite) rodapeLojas.appendChild(el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Seu plano permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + ' · mudar plano' }));
@@ -96,7 +96,8 @@
       var plano = R.planoPorId(p.planoId || 'uma');
       var valendo = R.planoPorId(R.planoQueVale(conta));
       var a = R.assinatura(conta);
-      var valor = R.precoDoPlano(plano.id, p.tipo);
+      var valor = R.precoDoPlano(plano.id, p.tipo, conta);
+      var fundador = R.ehPrecoFundador(conta);
       var textos = {
         gratis: 'Grátis até ' + dataBR(a.limite) + '. Depois, ' + R.dinheiro(valor) + (p.tipo === 'anual' ? ' por ano' : ' por mês') + '. Cadastre o cartão agora e não precisa lembrar de pagar.',
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Paga até ' + dataBR(a.limite) + '.',
@@ -110,9 +111,10 @@
       caixa.appendChild(el('div', { class: 'cartao ' + (alerta ? 'destaque' : '') + ' conta-plano' }, [
         el('div', { class: 'conta-plano-topo' }, [
           el('div', {}, [el('div', { class: 'kicker', text: 'Seu plano' }), el('b', { class: 'conta-plano-nome', text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') })]),
-          el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: reais + ' de ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') }),
+          el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: R.ehDoLigeiro(conta) ? reais + (reais === 1 ? ' loja' : ' lojas') + ' · conta do Ligeiro' : reais + ' de ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') }),
         ]),
         el('p', { class: 'pequeno', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }),
+        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado pra sempre' }) : (fundador && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
         p.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(p.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
         el('div', { class: 'linha-botoes' }, [
@@ -138,7 +140,7 @@
           .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra avisar agora.'); });
       }
       window.LigeiroCobranca.abrir({
-        valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, quem: 'conta ' + conta.email, sufixo: ', todas as suas lojas',
+        valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, sufixo: ', todas as suas lojas',
         txid: 'LIG' + conta.email.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro assinatura', avisar: avisar,
       });
     }

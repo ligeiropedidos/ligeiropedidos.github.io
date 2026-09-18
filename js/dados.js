@@ -302,7 +302,7 @@
   /* ---- contas (assinatura e da conta; lojas.plano e espelho) ---- */
   function espelhoDoPlano(plano) {
     var p = plano || {};
-    return { status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', desde: p.desde || agoraISO(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: p.avisoValor || 0 };
+    return { status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agoraISO(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: p.avisoValor || 0 };
   }
   DemoStore.prototype.obterConta = function (email) {
     var db = this._ler();
@@ -343,6 +343,19 @@
     var l = db.lojas[lojaSlug];
     var c = l && (l.cupons || []).filter(function (x) { return x.codigo === codigo; })[0];
     return Promise.resolve(c ? (Number(c.usos) || 0) : 0);
+  };
+
+  /* Vagas de fundador ja ocupadas (numero publico, de verdade). */
+  DemoStore.prototype.obterFundadores = function () {
+    var db = this._ler();
+    return Promise.resolve({ usados: ((db.publico || {}).fundadores || {}).usados || 0 });
+  };
+  DemoStore.prototype.ocuparVagaFundador = function () {
+    var db = this._ler();
+    db.publico = db.publico || {};
+    db.publico.fundadores = { usados: (((db.publico.fundadores || {}).usados) || 0) + 1, atualizadoEm: agoraISO() };
+    this._gravar(db);
+    return Promise.resolve(db.publico.fundadores);
   };
 
   /* Na demonstracao a vitrine sao as proprias lojas (tudo e local, nao custa nada). */
@@ -848,6 +861,32 @@
           });
         });
       });
+    });
+  };
+
+  /* Vagas de fundador ja ocupadas: documento publico publico/fundadores (so o admin escreve). Cache de 10 min. */
+  FirebaseStore.prototype.obterFundadores = function () {
+    var chave = 'ligeiro:fundadores';
+    try { var c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c && Date.now() - c.em < 10 * 60 * 1000) return Promise.resolve({ usados: c.usados || 0 }); } catch (_) { /* segue */ }
+    return this._pronto.then(function () {
+      return this.db.collection('publico').doc('fundadores').get().then(function (d) {
+        var usados = d.exists ? (Number(d.data().usados) || 0) : 0;
+        try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados })); } catch (_) { /* ignora */ }
+        return { usados: usados };
+      });
+    }.bind(this)).catch(function () { return { usados: 0 }; });
+  };
+  FirebaseStore.prototype.ocuparVagaFundador = function () {
+    var eu = this;
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('publico').doc('fundadores');
+      return eu.db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (d) {
+          var usados = (d.exists ? (Number(d.data().usados) || 0) : 0) + 1;
+          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() });
+          return { usados: usados };
+        });
+      }).then(function (r) { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return r; });
     });
   };
 

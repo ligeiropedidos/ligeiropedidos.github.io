@@ -336,3 +336,34 @@ test('planoQueVale: pago vale o plano confirmado pelo admin, gratis vale o escol
   assert.equal(R.planoQueVale(null), 'uma');
   } finally { global.window = antes; }
 });
+
+test('preco de fundador: vale enquanto houver vaga e pra quem ja travou; depois, preco normal', () => {
+  const antes = global.window;
+  const planos = [{ id: 'uma', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 } }];
+  try {
+    global.window = { LIGEIRO_CONFIG: { planos, fundador: { vagas: 20 } }, LigeiroFundadores: { usados: 3 } };
+    assert.equal(R.vagasFundador(), 17);
+    assert.equal(R.precoDoPlano('uma', 'mensal'), 7900);
+    assert.equal(R.precoDoPlano('uma', 'anual', { plano: { status: 'teste' } }), 79000);
+    /* ja pagou sem ser fundador: preco normal, mesmo com vaga sobrando */
+    assert.equal(R.precoDoPlano('uma', 'mensal', { plano: { status: 'ativo', planoPago: 'uma', ultimoPagamentoEm: '2026-09-01' } }), 8900);
+    global.window.LigeiroFundadores = { usados: 20 };
+    assert.equal(R.vagasFundador(), 0);
+    assert.equal(R.precoDoPlano('uma', 'mensal'), 8900);
+    /* quem travou continua no preco de fundador pra sempre */
+    assert.equal(R.precoDoPlano('uma', 'mensal', { plano: { status: 'ativo', fundador: true, ultimoPagamentoEm: '2026-09-01' } }), 7900);
+  } finally { global.window = antes; }
+});
+
+test('conta do proprio Ligeiro: cortesia permanente e sem limite de lojas', () => {
+  const antes = global.window;
+  try {
+    global.window = { LIGEIRO_CONFIG: { adminEmail: 'ligeiro@exemplo.com', planos: [{ id: 'uma', lojas: 1, mensal: 8900, anual: 89000 }] } };
+    const conta = { email: 'Ligeiro@Exemplo.com', plano: { status: 'teste', desde: '2020-01-01T00:00:00Z' } };
+    assert.equal(R.assinatura(conta).estado, 'ativa');
+    assert.equal(R.assinatura(conta).cortesia, true);
+    assert.equal(R.limiteDeLojas(conta), 999);
+    assert.equal(R.lojaBloqueada({ donoEmail: 'ligeiro@exemplo.com', plano: { status: 'teste', desde: '2020-01-01T00:00:00Z' } }), false);
+    assert.equal(R.limiteDeLojas({ email: 'outro@exemplo.com', plano: { status: 'teste', planoId: 'uma' } }), 1);
+  } finally { global.window = antes; }
+});

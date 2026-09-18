@@ -30,6 +30,19 @@ Ou, pelo Claude Code, o servidor `ligeiro` do `.claude/launch.json` abre em
 | Minha conta: as lojas do dono, painel sem senha, criar outra loja | `#/conta` | — |
 | Termos de uso e privacidade | `#/termos`, `#/privacidade` | — |
 
+## Preço de fundador
+
+- `config.fundador.vagas` (20) e o campo `fundador` de cada plano em `config.planos`.
+  Visitante e conta que nunca pagou veem o preço de fundador **enquanto houver vaga**
+  (`R.vagasFundador`, `R.ehPrecoFundador`, `R.precoDoPlano(plano, tipo, conta)`).
+- A vaga é ocupada no **primeiro pagamento confirmado**: o admin grava
+  `contas/{email}.plano.fundador = true` (só o admin muda, pelas regras) e soma 1 em
+  `publico/fundadores.usados` (público pra ler). Daí em diante a conta paga o preço
+  de fundador pra sempre; o site mostra "Restam X de 20", número de verdade.
+- Acabando as vagas, tudo passa a mostrar o preço normal (R$ 89), sempre abaixo do Anota AI.
+- Links do Asaas: `cobranca.linksFundador` (preço de fundador) e `cobranca.links` (normal).
+  No `worker-asaas.js`, o segredo `PLANOS` precisa listar os dois preços de cada plano.
+
 ## Senha da equipe (cozinha, entregador, balcão)
 
 - O dono define em Minha loja ou Minha conta. O mensageiro (`POST /equipe`,
@@ -278,6 +291,7 @@ service cloud.firestore {
     function planoDoAdminIntacto(novo, velho) {
       return pagoIgual(novo, velho)
           && novo.get('planoPago', '') == velho.get('planoPago', '')
+          && novo.get('fundador', false) == velho.get('fundador', false)
           && novo.get('desde', '') == velho.get('desde', '');
     }
     /* status: o dono so pode manter, encerrar (cancelado) ou reativar (teste); 'ativo' e 'pausado' so o admin */
@@ -306,7 +320,8 @@ service cloud.firestore {
       allow create: if isAdmin() || (logado() && request.auth.token.email == email
         && planoDe(request.resource.data).get('status', 'teste') == 'teste'
         && semPago(planoDe(request.resource.data))
-        && planoDe(request.resource.data).get('planoPago', '') == '');
+        && planoDe(request.resource.data).get('planoPago', '') == ''
+        && planoDe(request.resource.data).get('fundador', false) == false);
       allow update: if isAdmin() || (logado() && request.auth.token.email == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
         && statusPermitido(planoDe(request.resource.data), planoDe(resource.data)));
@@ -321,6 +336,12 @@ service cloud.firestore {
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
         && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true));
       allow delete: if isAdmin();
+    }
+
+    /* numeros publicos do Ligeiro (vagas de fundador ocupadas): todo mundo le, so o admin escreve */
+    match /publico/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     /* indice order -> loja/pedido, gravado pelo mensageiro (conta de servico); ninguem do site precisa ler */

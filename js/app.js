@@ -108,6 +108,17 @@
 
   window.LigeiroApp = { ir: ir, render: render, partes: partes };
 
+  /* vagas de fundador: valor guardado neste aparelho na hora; o numero de verdade chega em seguida e, se mudou, redesenha a pagina de vendas */
+  try { var cf = JSON.parse(localStorage.getItem('ligeiro:fundadores') || 'null'); window.LigeiroFundadores = { usados: (cf && cf.usados) || 0 }; } catch (_) { window.LigeiroFundadores = { usados: 0 }; }
+  if (window.LigeiroDados && window.LigeiroDados.store.obterFundadores) {
+    window.LigeiroDados.store.obterFundadores().then(function (f) {
+      var antes = window.LigeiroFundadores.usados;
+      window.LigeiroFundadores = { usados: f.usados || 0 };
+      var p = partes();
+      if (antes !== f.usados && (p.length === 0 || p[0] === 'lojas' || p[0] === 'assinar')) render();
+    }).catch(function () { /* fica o que tinha */ });
+  }
+
   /* Modo demonstracao: avisa em cima de tudo. */
   if (window.LigeiroDados.modoDemo) {
     var faixa = document.createElement('div');

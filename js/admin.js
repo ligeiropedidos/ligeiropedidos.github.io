@@ -100,7 +100,7 @@
           if ((a.estado === 'ativa' || a.estado === 'vencendo') && !a.cortesia && !a.gratis) {
             pagantes += 1;
             var p = l.plano || {};
-            receita += p.tipo === 'anual' ? Math.round(R.precoDoPlano(p.planoId || 'uma', 'anual') / 12) : R.precoDoPlano(p.planoId || 'uma', 'mensal');
+            receita += p.tipo === 'anual' ? Math.round(R.precoDoPlano(p.planoId || 'uma', 'anual', c) / 12) : R.precoDoPlano(p.planoId || 'uma', 'mensal', c);
           } else if (a.estado === 'gratis') gratis += 1;
         });
         s.appendChild(el('div', { class: 'metricas' }, [
@@ -169,21 +169,25 @@
         vencendo: 'vence ' + dataBR(a.limite), vencida: 'VENCIDA em ' + dataBR(a.limite), bloqueada: 'BLOQUEADA desde ' + dataBR(a.limite),
         pausada: 'pausada', cancelada: 'cancelada',
       }[a.estado] || a.estado;
+      var primeiroPagamento = !p.ultimoPagamentoEm && !p.planoPago;
+      var viraFundador = p.fundador !== true && primeiroPagamento && R.vagasFundador() > 0;
       function confirmar(dias) {
         var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
         var novo = new Date(base + dias * 864e5).toISOString();
-        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() } })
+        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() } })
+          .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); desenhar(); })
           .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra confirmar.'); });
       }
-      var valorMensal = R.precoDoPlano(plano.id, 'mensal');
-      var valorAnual = R.precoDoPlano(plano.id, 'anual');
+      var valorMensal = R.precoDoPlano(plano.id, 'mensal', c);
+      var valorAnual = R.precoDoPlano(plano.id, 'anual', c);
       return el('div', { class: 'pedido-card' + (p.avisoPagamentoEm ? ' novo' : '') }, [
         el('div', { class: 'cabeca' }, [
           el('span', { class: 'senha', style: { fontSize: '18px' }, text: c.email }),
           el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') + ' · ' + textoA }),
           el('span', { class: 'quando', text: minhas.length + ' de ' + plano.lojas + (plano.lojas === 1 ? ' loja' : ' lojas') }),
+          p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador' }) : (viraFundador ? el('span', { class: 'selo laranja', text: 'vira fundador ao confirmar' }) : null),
         ]),
         el('div', { class: 'endereco', text: (minhas.length ? 'Lojas: ' + minhas.map(function (l) { return l.nome; }).join(', ') : 'Nenhuma loja criada ainda') }),
         p.avisoPagamentoEm ? el('div', { class: 'aviso', text: '💸 Avisou pagamento de ' + R.dinheiro(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) + '. Confira no banco e confirme.' }) : null,

@@ -753,6 +753,8 @@
     var diasGratis = (cfg.precos && cfg.precos.diasGratis) || ASSINATURA.diasGratis;
     var p = (loja && loja.plano) || null;
     var hoje = agora || new Date();
+    /* conta e lojas do proprio Ligeiro (adminEmail): cortesia permanente, nunca vence nem bloqueia */
+    if (ehDoLigeiro(loja)) return { estado: 'ativa', cortesia: true, ligeiro: true, dias: null, tipo: (p && p.tipo) || 'mensal' };
     /* loja de antes da assinatura existir (sem plano): fica liberada ate o admin cadastrar um plano */
     if (!p) return { estado: 'ativa', cortesia: true, dias: null, tipo: 'mensal' };
     if (p.status === 'pausado') return { estado: 'pausada', dias: 0, tipo: p.tipo || 'mensal' };
@@ -791,9 +793,9 @@
     return lista.filter(function (p) { return p.id === id; })[0] || lista[0];
   }
   /* Link de assinatura (cartao/boleto) do plano, se o Ligeiro cadastrou em config.cobranca.links. */
-  function linkDeCobranca(planoId, tipo) {
+  function linkDeCobranca(planoId, tipo, fundador) {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
-    var links = (cfg.cobranca && cfg.cobranca.links) || {};
+    var links = (cfg.cobranca && (fundador ? cfg.cobranca.linksFundador : cfg.cobranca.links)) || {};
     var l = links[planoPorId(planoId).id] || {};
     return String(l[tipo === 'anual' ? 'anual' : 'mensal'] || '').trim();
   }
@@ -803,8 +805,36 @@
     if (p.status === 'ativo' && p.planoPago) return planoPorId(p.planoPago).id;
     return planoPorId(p.planoId).id;
   }
-  function precoDoPlano(planoId, tipo) {
+  /* A conta (campo email) ou a loja (campo donoEmail) e do proprio Ligeiro? */
+  function ehDoLigeiro(o) {
+    var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
+    var admin = String(cfg.adminEmail || '').toLowerCase();
+    if (!admin || !o) return false;
+    return String(o.email || o.donoEmail || '').toLowerCase() === admin;
+  }
+  /* Quantas lojas a conta pode ter. A do Ligeiro nao tem limite. */
+  function limiteDeLojas(conta) {
+    if (ehDoLigeiro(conta)) return 999;
+    return planoPorId(conta && conta.plano ? planoQueVale(conta) : 'uma').lojas;
+  }
+
+  /* ---- preco de fundador ---- */
+  function vagasFundador() {
+    var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
+    var total = (cfg.fundador && Number(cfg.fundador.vagas)) || 0;
+    var usados = (typeof window !== 'undefined' && window.LigeiroFundadores && Number(window.LigeiroFundadores.usados)) || 0;
+    return Math.max(0, total - usados);
+  }
+  /* Esta conta paga (ou vai pagar) o preco de fundador? Quem ja tem a vaga, sempre. Quem nunca pagou, enquanto houver vaga. */
+  function ehPrecoFundador(conta) {
+    var p = (conta && conta.plano) || null;
+    if (p && p.fundador === true) return true;
+    if (p && (p.ultimoPagamentoEm || p.planoPago)) return false;
+    return vagasFundador() > 0;
+  }
+  function precoDoPlano(planoId, tipo, conta) {
     var p = planoPorId(planoId);
+    if (p.fundador && ehPrecoFundador(conta)) p = Object.assign({}, p, p.fundador);
     return tipo === 'anual' && p.anual > 0 ? p.anual : p.mensal;
   }
 
@@ -825,7 +855,7 @@
       ifoodMensalidade: mensalidade,
       anotaAi: anota,
       anotaFaixa: faixa,
-      ligeiro: (typeof window !== 'undefined' && window.LIGEIRO_CONFIG && window.LIGEIRO_CONFIG.precos && window.LIGEIRO_CONFIG.precos.mensal) || 7900,
+      ligeiro: precoDoPlano('uma', 'mensal'),
     };
   }
 
@@ -888,6 +918,10 @@
     planoPorId: planoPorId,
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
+    ehDoLigeiro: ehDoLigeiro,
+    limiteDeLojas: limiteDeLojas,
+    vagasFundador: vagasFundador,
+    ehPrecoFundador: ehPrecoFundador,
     linkDeCobranca: linkDeCobranca,
     dentroDoHorario: dentroDoHorario,
     gruposDaCategoria: gruposDaCategoria,

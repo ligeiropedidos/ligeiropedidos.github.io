@@ -44,14 +44,17 @@ window.LIGEIRO_CONFIG = {
   mercadoPagoClientId: '4386028316883153',
 
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
-  precos: { mensal: 7900, anual: 79000, diasGratis: 7 },
+  precos: { mensal: 8900, anual: 89000, diasGratis: 7 },
+  /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo pra sempre (campo "fundador" de cada plano).
+     A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
+  fundador: { vagas: 20 },
   /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
      um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
   planos: [
-    { id: 'uma', nome: 'Uma loja', lojas: 1, mensal: 7900, anual: 79000, frase: 'Pra quem tem um ponto' },
-    { id: 'duas', nome: 'Até 2 lojas', lojas: 2, mensal: 13900, anual: 139000, frase: 'Matriz e filial' },
-    { id: 'cinco', nome: 'Até 5 lojas', lojas: 5, mensal: 29900, anual: 299000, frase: 'Pra quem está crescendo' },
-    { id: 'oito', nome: 'Até 8 lojas', lojas: 8, mensal: 42900, anual: 429000, frase: 'Rede da região' },
+    { id: 'uma', nome: 'Uma loja', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Pra quem tem um ponto' },
+    { id: 'duas', nome: 'Até 2 lojas', lojas: 2, mensal: 15900, anual: 159000, fundador: { mensal: 13900, anual: 139000 }, frase: 'Matriz e filial' },
+    { id: 'cinco', nome: 'Até 5 lojas', lojas: 5, mensal: 33900, anual: 339000, fundador: { mensal: 29900, anual: 299000 }, frase: 'Pra quem está crescendo' },
+    { id: 'oito', nome: 'Até 8 lojas', lojas: 8, mensal: 47900, anual: 479000, fundador: { mensal: 42900, anual: 429000 }, frase: 'Rede da região' },
   ],
 
   /*
@@ -62,6 +65,8 @@ window.LIGEIRO_CONFIG = {
    */
   cobranca: {
     provedor: 'Asaas',
+    /* linksFundador: os mesmos oito links, com o preco de fundador (so quem tem a vaga ve esses) */
+    linksFundador: { uma: { mensal: '', anual: '' }, duas: { mensal: '', anual: '' }, cinco: { mensal: '', anual: '' }, oito: { mensal: '', anual: '' } },
     links: {
       uma: { mensal: '', anual: '' },
       duas: { mensal: '', anual: '' },

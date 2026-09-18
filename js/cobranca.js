@@ -22,7 +22,7 @@
     var cfg = window.LIGEIRO_CONFIG || {};
     var pixL = cfg.pixLigeiro || {};
     var Pix = window.LigeiroPix;
-    var link = R.linkDeCobranca(o.planoId, o.tipo);
+    var link = R.linkDeCobranca(o.planoId, o.tipo, !!o.fundador);
     var provedor = (cfg.cobranca && cfg.cobranca.provedor) || 'Asaas';
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
     corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));

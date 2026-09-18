@@ -205,3 +205,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* janela do item: o preco nao quebra em duas linhas */
 .tema-conizza .modal-caixa .btn { font-size: 18px; white-space: nowrap; padding-left: 14px; padding-right: 14px; min-height: 56px; }
 .tema-conizza .selo-oficial { display: inline-flex; align-items: center; gap: 6px; }
+/* bolinhas de contagem (itens por categoria, pedidos novos) nas cores da marca */
+.tema-conizza .aba-categoria .cat-qtd, .tema-conizza .aba-categoria.ativa .cat-qtd,
+.tema-conizza .aba-painel .badge, .tema-conizza .aba-painel.ativa .badge { background: var(--cz-ouro-claro); color: var(--cz-tinta); border: 2px solid var(--cz-tinta); font-weight: 800; }

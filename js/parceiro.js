@@ -23,9 +23,23 @@
 
   function cfg() { return window.LIGEIRO_CONFIG || {}; }
   function D() { return window.LigeiroDados; }
+  /* preco que o visitante ve hoje (fundador enquanto houver vaga; depois o normal) */
   function precos() {
     var p = cfg().precos || {};
-    return { mensal: p.mensal || 7900, anual: p.anual == null ? 79000 : p.anual, diasGratis: p.diasGratis || 7 };
+    return { mensal: R.precoDoPlano('uma', 'mensal'), anual: R.precoDoPlano('uma', 'anual'), diasGratis: p.diasGratis || 7 };
+  }
+  /* Faixa "preco de fundador": so aparece enquanto existir vaga de verdade. */
+  function faixaFundador() {
+    var restam = R.vagasFundador();
+    var total = (cfg().fundador || {}).vagas || 0;
+    if (!restam || !total) return null;
+    var normal = R.planoPorId('uma').mensal;
+    return el('div', { class: 'faixa-fundador' }, [
+      el('b', { text: 'Preço de fundador' }),
+      el('span', { text: dinheiro(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado pra sempre.' }),
+      el('span', { class: 'faixa-fundador-vagas', text: 'Restam ' + restam + ' de ' + total + ' vagas' }),
+      el('span', { class: 'faixa-fundador-depois', text: 'Depois, ' + dinheiro(normal) + '.' }),
+    ]);
   }
   function linkWhats(texto) {
     var c = cfg();
@@ -136,6 +150,7 @@
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos pra delivery de cidade pequena' }),
+        faixaFundador(),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
         el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app pra instalar, sem robô caro.' }),
         botoesChamada(true),
@@ -246,6 +261,7 @@
     /* ---------- planos ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Planos' }),
+      faixaFundador(),
       el('h2', { text: 'Planos por quantidade de lojas. Tudo incluso.' }),
       el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale pra todas as lojas dela.' }),
       (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); } d(); return caixa; })(),
@@ -401,7 +417,9 @@
     var t = tipo === 'anual' ? 'anual' : 'mensal';
     var lista = R.planos();
     var grade = el('div', { class: 'planos planos-' + lista.length }, lista.map(function (p, i) {
-      var preco = t === 'anual' && p.anual > 0 ? p.anual : p.mensal;
+      var preco = R.precoDoPlano(p.id, t);
+      var normal = t === 'anual' && p.anual > 0 ? p.anual : p.mensal;
+      var deFundador = preco < normal;
       var porLoja = Math.ceil(preco / (t === 'anual' ? 12 : 1) / p.lojas / 100) * 100;
       var destaque = i === 1 && lista.length > 2 ? 'Mais escolhido' : '';
       var linhas = [
@@ -415,6 +433,7 @@
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
         el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
+        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: 'Preço de fundador' }), ' travado pra sempre · depois ', el('s', { text: dinheiro(normal) })]) : null,
         el('div', { class: 'plano-sub', text: sub }),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', { text: '✓ ' + x }); })),
         selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '● Escolhido' : '○ Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),

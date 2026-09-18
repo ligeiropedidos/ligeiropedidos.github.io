@@ -141,7 +141,6 @@
       tituloCidade,
       el('p', { class: 'slogan', text: 'Peça pelo link, pague no Pix e acompanhe pela senha. Sem app, sem cadastro.' }),
       el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
-      el('a', { class: 'hub-trocar', href: '#/cidades', text: 'Trocar de cidade' }),
     ]));
 
     var busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 O que você procura? Ex.: pizza, marmita, açaí', 'aria-label': 'Buscar produto ou loja' });
@@ -149,6 +148,30 @@
     var lista = el('div', { class: 'hub-lista' });
     var conteudo = el('div', { class: 'conteudo hub-conteudo' }, [busca, chips, lista]);
     raiz.appendChild(conteudo);
+
+    /* titulo: "Peca no delivery de <cidade>". Com mais de uma cidade no Ligeiro, a cidade vira botao que abre a lista. */
+    function pintarTitulo() {
+      UI.limpar(tituloCidade);
+      var nome = estadoHub.nomeCidade || '';
+      var varias = (estadoHub.cidades || []).length > 1;
+      tituloCidade.appendChild(document.createTextNode(estadoHub.lojas.length || varias ? 'Peça no delivery de ' : 'Delivery de '));
+      if (!varias) { tituloCidade.appendChild(document.createTextNode(nome)); return; }
+      tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Trocar de cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta', text: '▾' })]));
+    }
+    function abrirCidades() {
+      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, (estadoHub.cidades || []).map(function (c) {
+        var atual = c.slug === cidadeSlug;
+        return el('button', { class: 'cidade-linha' + (atual ? ' minha' : ''), type: 'button', onclick: function () { UI.fecharModal(); if (!atual) ir(c.slug); } }, [
+          el('span', { class: 'cidade-info' }, [
+            el('span', { class: 'cidade-nome' }, [c.nome, el('small', { text: ' · ' + (c.uf || '') })]),
+            el('span', { class: 'cidade-detalhe', text: c.lojas + (c.lojas === 1 ? ' loja' : ' lojas') + ' · ' + (c.abertas ? c.abertas + (c.abertas === 1 ? ' aberta agora' : ' abertas agora') : 'nenhuma aberta agora') }),
+          ]),
+          el('span', { class: 'cidade-acao', text: atual ? 'Você está aqui' : 'Ver lojas' }),
+        ]);
+      }));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', style: { margin: '6px 0 0' } }, ['Sua cidade não está aqui? ', el('a', { href: '#/lojas', onclick: function () { UI.fecharModal(); }, text: 'Leve o Ligeiro pra ela' }), '.']));
+      UI.abrirModal({ titulo: 'Em que cidade você está?', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Fechar', onclick: UI.fecharModal })] });
+    }
 
     function normal(t) { return R.semAcento(String(t || '')).toLowerCase(); }
 
@@ -324,8 +347,8 @@
     function desenhar(lojas) {
       /* sem pagar (bloqueada, pausada ou cancelada) a loja sai do ar: nem no hub aparece */
       estadoHub.lojas = lojas.filter(function (l) { return !R.lojaBloqueada(l); });
-      if (lojas.length) tituloCidade.textContent = 'Peça no delivery de ' + lojas[0].cidade;
-      else tituloCidade.textContent = 'Delivery de ' + cidadeSlug.replace(/-/g, ' ');
+      estadoHub.nomeCidade = lojas.length ? lojas[0].cidade : cidadeSlug.replace(/-/g, ' ');
+      pintarTitulo();
       busca.hidden = lojas.length === 0;
       chips.hidden = lojas.length < 2;
       desenharChips();
@@ -338,11 +361,18 @@
       /* so lembra a cidade quando ela existe de verdade (senao "#/painel" digitado errado virava a cidade da pessoa) */
       if (lojas && lojas.length) UI.guardarLocal(CHAVE_CIDADE, cidadeSlug);
       desenhar(lojas);
+      /* outras cidades com loja: o nome da cidade no titulo vira seletor */
       if (store.listarVitrine) store.listarVitrine().then(function (todas) {
-        var outras = todas.filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l) && l.cidadeSlug !== cidadeSlug; });
-        var trocar = raiz.querySelector('.hub-trocar');
-        if (trocar) trocar.hidden = outras.length === 0;
-      }).catch(function () { /* deixa o link */ });
+        var mapa = {};
+        todas.forEach(function (l) {
+          if (l.ativa === false || R.lojaBloqueada(l)) return;
+          if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: 0, abertas: 0 };
+          mapa[l.cidadeSlug].lojas++;
+          if (R.lojaAberta(l)) mapa[l.cidadeSlug].abertas++;
+        });
+        estadoHub.cidades = Object.keys(mapa).map(function (k) { return mapa[k]; }).sort(function (a, b) { return b.lojas - a.lojas || a.nome.localeCompare(b.nome, 'pt-BR'); });
+        pintarTitulo();
+      }).catch(function () { /* fica so o nome */ });
     }).catch(function () {
       tituloCidade.textContent = 'Não deu pra carregar';
       var caixa = raiz.querySelector('.hub-lista') || raiz;

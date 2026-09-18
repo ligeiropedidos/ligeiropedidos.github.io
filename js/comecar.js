@@ -68,7 +68,7 @@
             ]));
             return;
           }
-          if (reais >= valendo.lojas) {
+          if (reais >= R.limiteDeLojas(conta)) {
             UI.limpar(raiz);
             var texto = escolhido.id !== valendo.id
               ? 'Seu plano pago (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. O ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado.'
@@ -107,7 +107,7 @@
     /* #/comecar/<plano>/<tipo>; links antigos #/comecar/anual continuam valendo */
     var planoId = R.planos().some(function (p) { return p.id === o.plano; }) ? o.plano : R.planos()[0].id;
     var planoTipo = (o.tipo === 'anual' || o.plano === 'anual') && R.planoPorId(planoId).anual > 0 ? 'anual' : 'mensal';
-    var precoPlano = R.precoDoPlano(planoId, planoTipo);
+    var precoPlano = R.precoDoPlano(planoId, planoTipo); /* visitante: fundador enquanto houver vaga */
     var planoNome = R.planoPorId(planoId).nome;
     var TIPOS = A.TIPOS || [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Outro', '🛵']];
     var cfg = window.LIGEIRO_CONFIG || {};
@@ -248,7 +248,7 @@
           if (sit.estado === 'cancelada') throw new Error('Sua assinatura está encerrada. Reative em "Minha conta" pra criar outra loja.');
           if (sit.estado === 'pausada') throw new Error('Sua assinatura está pausada. Fale com o Ligeiro pra criar outra loja.');
           var valendo = R.planoPorId(R.planoQueVale(c));
-          var limite = valendo.lojas;
+          var limite = R.limiteDeLojas(c);
           return store.listarMinhasLojas(emailConta).then(function (minhas) {
             var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === emailConta; }).length;
             if (reais >= limite) {
