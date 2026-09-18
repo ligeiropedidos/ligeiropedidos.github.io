@@ -698,13 +698,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
 .linha-produto.desligado { opacity: 0.55; }
-/* celular: item do cardapio em duas linhas. Em cima a foto e o nome inteiro; embaixo preco, editar e liga/desliga. */
+/* celular: item e opcao em duas linhas, em grade (nada quebra pra terceira linha, por mais estreita que a tela seja).
+   Em cima a foto e o nome inteiro; embaixo preco, botao e liga/desliga sempre nas mesmas colunas. */
 @media (max-width: 480px) {
-  .linha-produto.item { flex-wrap: wrap; gap: 8px 10px; padding: 12px; }
-  .linha-produto.item .emoji, .linha-produto.item .miniatura-produto { width: 44px; height: 44px; line-height: 44px; font-size: 26px; }
-  .linha-produto.item .nome { flex: 1 1 calc(100% - 54px); line-height: 1.25; }
-  .linha-produto.item input.preco { width: 120px; margin-left: 54px; margin-right: auto; font-size: 16px; padding: 8px 10px; }
-  .linha-produto.item .editar { min-height: 48px; min-width: 48px; padding: 0; }
+  .linha-produto.item, .linha-produto.opcao { display: grid; gap: 8px 10px; padding: 12px; align-items: center; }
+  .linha-produto.item { grid-template-columns: 44px minmax(0, 1fr) 48px auto; }
+  .linha-produto.opcao { grid-template-columns: minmax(0, 1fr) 48px auto; }
+  .linha-produto.item > :first-child { grid-column: 1; grid-row: 1; width: 44px; height: 44px; line-height: 44px; font-size: 26px; }
+  .linha-produto.item .nome { grid-column: 2 / -1; grid-row: 1; line-height: 1.25; }
+  .linha-produto.opcao .nome { grid-column: 1 / -1; grid-row: 1; line-height: 1.25; }
+  .linha-produto.item input.preco, .linha-produto.opcao input.preco { grid-row: 2; width: 100%; max-width: 140px; justify-self: start; margin: 0; font-size: 16px; padding: 8px 10px; text-align: center; }
+  .linha-produto.item input.preco { grid-column: 2; }
+  .linha-produto.opcao input.preco { grid-column: 1; }
+  .linha-produto.item .editar, .linha-produto.opcao .editar { grid-row: 2; width: 48px; min-height: 48px; padding: 0; }
+  .linha-produto.item .editar { grid-column: 3; }
+  .linha-produto.opcao .editar { grid-column: 2; }
+  .linha-produto.item .chave, .linha-produto.opcao .chave { grid-row: 2; grid-column: -2 / -1; }
+}
 }
 
 .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -1203,3 +1213,10 @@ button.plano-card { cursor: pointer; }
 /* par de botoes lado a lado: metades iguais, texto numa linha so */
 .linha-botoes.dupla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .linha-botoes.dupla .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; font-size: 15px; }
+/* celular: botao que precisar de duas linhas divide o texto por igual (nunca uma palavra sozinha embaixo) */
+@media (max-width: 480px) { .btn { text-wrap: balance; } }
+/* tela bem estreita (ou letra grande no aparelho): o preco desce pra baixo da foto e ganha largura */
+@media (max-width: 360px) {
+  .linha-produto.item input.preco { grid-column: 1 / 3; }
+  .linha-botoes.dupla .btn { font-size: 14px; padding: 0 4px; }
+}

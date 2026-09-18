@@ -1052,7 +1052,7 @@
           if (!c) preco.value = 'grátis';
         });
         var chaveAtiva = el('button', { class: 'chave' + (op.ativo !== false ? ' on' : ''), 'aria-label': 'Ligar ou desligar ' + op.nome, onclick: function () { atualizarOpcao(chave, indice, { ativo: !(op.ativo !== false) }); } });
-        lista.appendChild(el('div', { class: 'linha-produto' + (op.ativo !== false ? '' : ' desligado') }, [
+        lista.appendChild(el('div', { class: 'linha-produto opcao' + (op.ativo !== false ? '' : ' desligado') }, [
           el('div', { class: 'nome' }, [op.nome + (op.padrao ? ' (padrão)' : ''), op.descricao ? el('small', { text: op.descricao }) : null]),
           preco,
           el('button', { class: 'editar', text: '✕', 'aria-label': 'Remover ' + op.nome, onclick: function () {
@@ -1371,7 +1371,7 @@
           ]));
           return;
         }
-        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', text: '🔗 Conectar com Mercado Pago', onclick: function () {
+        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', text: '🔗 Conectar Mercado Pago', onclick: function () {
           window.LigeiroMP.conectar(slug).then(function (r) {
             if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { desenharAjustes(); }); }
           }).catch(function (e) { UI.avisar(e.message || 'Não deu pra conectar agora.'); });
@@ -1513,7 +1513,7 @@
       }
       dias.forEach(function (d) { linhas[d[0]] = desenharDia(d[0]); caixa.appendChild(linhas[d[0]]); });
       caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar segunda pra todos os dias', onclick: function () {
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda nos outros dias', onclick: function () {
           var base = estadoH.seg;
           dias.forEach(function (d) { if (d[0] !== 'seg') { estadoH[d[0]] = { aberto: base.aberto, turnos: base.turnos.map(function (t) { return [t[0], t[1]]; }) }; redesenhar(d[0]); } });
           UI.avisar('Segunda copiada pros outros dias. Ajuste o que for diferente.');
@@ -1690,7 +1690,7 @@
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Senha da equipe' }),
         el('p', { class: 'muted pequeno', text: 'Cozinha, entregador e balcão abrem com essa senha (4 a 8 números). Você, logado, entra sem senha. Esqueceu? Defina outra aqui, ou em Minha conta.' }),
-        el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '🔑 Definir ou trocar a senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
+        el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '🔑 Definir a senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));
 
       /* 2. divulgar */
