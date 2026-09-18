@@ -869,7 +869,9 @@
             bloco.querySelectorAll('.opcao').forEach(function (x) { x.classList.remove('marcada'); });
             linha.classList.add('marcada');
           } else if (campo.checked) {
-            if (grupo.max && m.adicionais.length >= grupo.max) {
+            /* o limite e do GRUPO (borda, extras...), nao de tudo que a pessoa marcou no item */
+            var doGrupo = m.adicionais.filter(function (idAd) { return (grupo.opcoes || []).some(function (o) { return o.id === idAd; }); }).length;
+            if (grupo.max && doGrupo >= grupo.max) {
               UI.avisar('Dá para escolher no máximo ' + grupo.max + '.');
               campo.checked = false;
               return;
@@ -1328,9 +1330,19 @@
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo || !cfg.proxyMercadoPago) return;
       estado.vigiaPix = setInterval(function () {
-        if (!estado.pedido || estado.pedido.id !== pedido.id || estado.pedido.status !== R.STATUS.AGUARDANDO) { pararVigia(); return; }
-        /* passou dos 30 minutos: o codigo nao vale mais. O pedido sai da fila e os itens voltam pro carrinho. */
-        if (R.pixVencido(estado.pedido)) { pararVigia(); cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.').catch(function () { /* o painel da loja cancela do lado de la */ }); return; }
+        if (!vivo || !estado.pedido || estado.pedido.id !== pedido.id || estado.pedido.status !== R.STATUS.AGUARDANDO) { pararVigia(); return; }
+        /* passou dos 30 minutos: o codigo nao vale mais. Antes de cancelar, pergunta ao mensageiro se o Pix caiu
+           (relogio do aparelho adiantado, pagamento em cima da hora): so cancela se a resposta NAO for "pago". */
+        if (R.pixVencido(estado.pedido)) {
+          pararVigia();
+          fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(pedido.id))
+            .then(function (r) { return r.json(); }).catch(function () { return {}; })
+            .then(function (resp) {
+              if (!vivo || (resp && resp.status === 'pago')) return; /* pagou: o acompanhamento troca a tela sozinho */
+              return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.');
+            }).catch(function () { /* o painel da loja cancela do lado de la */ });
+          return;
+        }
         fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(pedido.id)).catch(function () { /* tenta de novo depois */ });
       }, 8000);
     }
@@ -1357,14 +1369,14 @@
         $('btnCopiarPix').onclick = function () {
           UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco.' : 'Não deu pra copiar sozinho. Toque e segure no código pra copiar.'); });
         };
-      } else if (!estado.pedindoPix) {
-        estado.pedindoPix = true;
+      } else if (estado.pedindoPix !== pedido.id) {
+        estado.pedindoPix = pedido.id; /* por pedido: desistir de um e abrir outro nao deixa o novo preso em "gerando" */
         pedirCodigoPix(pedido).then(function (c) {
-          estado.pedindoPix = false;
+          if (estado.pedindoPix === pedido.id) estado.pedindoPix = null;
           if (!estado.pedido || estado.pedido.id !== pedido.id) return;
           if (!estado.pedido.pixCodigo) mostrarPagamento(Object.assign({}, estado.pedido, { pixCodigo: c }));
         }).catch(function (e) {
-          estado.pedindoPix = false;
+          if (estado.pedindoPix === pedido.id) estado.pedindoPix = null;
           if (!estado.pedido || estado.pedido.id !== pedido.id) return;
           /* o codigo pode ter chegado por outro caminho (onSnapshot) enquanto isso: ai nao e falha */
           if (estado.pedido.pixCodigo) { mostrarPagamento(estado.pedido); return; }
@@ -1407,7 +1419,14 @@
     $('btnCancelarPix').addEventListener('click', function () {
       UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam pro carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
         if (!sim || !estado.pedido) return;
-        cancelarPedidoDoPix('Pedido cancelado.').catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra cancelar. Tente de novo.'); });
+        var idDesistido = estado.pedido.id;
+        cancelarPedidoDoPix('Pedido cancelado.').catch(function () {
+          /* a regra recusa quando o Pix caiu bem nessa hora: confere e mostra a senha em vez de um erro em ingles */
+          store.obterPedido(estado.loja.slug, idDesistido).then(function (p) {
+            if (p && p.status !== R.STATUS.AGUARDANDO && p.status !== R.STATUS.CANCELADO) { estado.pedido = p; UI.avisar('O Pix caiu! Seu pedido já está com a loja.'); mostrarSenha(p); }
+            else UI.avisar('Não deu pra cancelar agora. Tente de novo.');
+          }).catch(function () { UI.avisar('Não deu pra cancelar agora. Tente de novo.'); });
+        });
       });
     });
 
@@ -1516,7 +1535,7 @@
         estado.pedido = p;
         if (p.status === R.STATUS.AGUARDANDO) mostrarPagamento(p);
         else mostrarSenha(p);
-      });
+      }).catch(function () { if (vivo) UI.avisar('Não deu pra abrir o pedido agora. Confira a internet e tente de novo.'); });
     }
 
     /* pedido "andando" de mais de 12 horas atras ja acabou (a aba fechou antes do ultimo status) */
@@ -1592,6 +1611,7 @@
       raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').trim();
       UI.limparTema();
       pararAcompanhar();
+      pararVigia(); /* a vigia do Pix nao pode continuar rodando (e cancelando pedido) depois que a pessoa saiu da loja */
       clearTimeout(estado.relogioBalcao);
       if (typeof estado.pararLoja === 'function') estado.pararLoja();
       document.title = 'Ligeiro — pedido ligeiro, sem comissão';

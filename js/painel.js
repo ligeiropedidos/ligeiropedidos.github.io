@@ -426,6 +426,7 @@
       var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (p.status === R.STATUS.AGUARDANDO && p.clientePagou ? ' atencao' : '') });
 
       var selos = [];
+      if (p.pagoAposCancelar) selos.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado: confira com o cliente' }));
       if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Cliente diz que pagou o Pix' : 'Aguardando o Pix' }));
       else if (p.formaPagamento === 'pix') selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix confirmado' }));
       else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: entrega ? 'Maquininha na entrega' : 'Maquininha no balcão' }));

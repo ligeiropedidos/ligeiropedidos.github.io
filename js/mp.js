@@ -113,7 +113,7 @@
     lerToken(slug).then(function (token) {
       if (estado.parado) return; /* parou antes do token chegar: nao liga mais nada */
       estado.token = token;
-      estado.simulado = token === 'SIMULACAO' || (D().modoDemo && !!token);
+      estado.simulado = D().modoDemo && !!token; /* simulacao so existe na demonstracao, nunca no site de verdade */
       estado.ativo = !!token && (estado.simulado || !!cfg.proxyMercadoPago);
       if (!token) return avisar('Pix automático desligado: cadastre o token do Mercado Pago em Ajustes.');
       if (!estado.ativo) return avisar('Token cadastrado, mas o Ligeiro ainda não ligou o proxy do Mercado Pago (config.proxyMercadoPago).');
@@ -173,12 +173,19 @@
       if (!estado.ativo) return;
       estado.pedidos.filter(function (p) { return p.status === R.STATUS.AGUARDANDO && p.mp && p.mp.id; }).forEach(function (p) {
         if (p.mp.simulado || String(p.mp.id).indexOf('SIM-') === 0) {
-          if (Date.now() - new Date(p.mp.criadoEm || p.criadoEm).getTime() > 20000) aprovar(p);
+          /* pagamento de mentira so existe na demonstracao; no site de verdade nunca libera pedido */
+          if (estado.simulado && Date.now() - new Date(p.mp.criadoEm || p.criadoEm).getTime() > 20000) aprovar(p);
           return;
         }
         var ehOrder = String(p.mp.id).indexOf('ORD') === 0;
         chamar(API + (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(p.mp.id), {}, estado.token).then(function (pg) {
-          if (pg.status === 'approved' || pg.status === 'processed') return aprovar(p);
+          if (pg.status !== 'approved' && pg.status !== 'processed') return;
+          /* tem que ser o pagamento DESTE pedido e do MESMO valor */
+          var ref = String(pg.external_reference || '');
+          var refCerta = ref === p.id || ref === slug + '|' + p.id || ref === String(slug + '__' + p.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+          var valor = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
+          if (refCerta && valor === p.total) return aprovar(p);
+          estado.ultimoErro = 'Pagamento do Mercado Pago não bate com o pedido ' + (p.senha || p.id) + '.';
         }).catch(function (e) { estado.ultimoErro = e.message; });
       });
     }

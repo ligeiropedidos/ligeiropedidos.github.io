@@ -196,8 +196,20 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
   if (!id) return null;
   if (pg.status === 'approved' || pg.status === 'processed') {
     const p = await fb.get('lojas/' + slug + '/pedidos/' + id);
-    if (p && p.status === 'aguardando_pagamento') {
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: new Date().toISOString(), confirmadoPor: 'mercadopago', atualizadoEm: new Date().toISOString() });
+    if (!p) return null;
+    /* o pagamento tem que ser DESTE pedido e do MESMO valor: ninguem reaproveita um Pix de R$ 1 pra liberar outro pedido */
+    const limpo = (t) => String(t || '').replace(/[^A-Za-z0-9_-]/g, '');
+    const refDoMp = String(pg.external_reference || '');
+    const refCerta = refDoMp === limpo(slug + '__' + id).slice(0, 64) || refDoMp === slug + '|' + id || refDoMp === id;
+    const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
+    if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
+    const agora3 = new Date().toISOString();
+    if (p.status === 'aguardando_pagamento') {
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 });
+    } else if (p.status === 'cancelado' && (p.canceladoPor === 'cliente' || p.canceladoPor === 'pix-vencido') && !p.pagoEm) {
+      /* pagou e o pedido ja tinha sido cancelado (desistiu depois de copiar o codigo, ou o Pix "venceu" pelo relogio do aparelho):
+         o dinheiro entrou, entao o pedido volta pra fila, marcado pra loja ver */
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
     }
     return 'pago';
   }

@@ -399,9 +399,12 @@ service cloud.firestore {
           && request.resource.data.itens is list && request.resource.data.itens.size() <= 60
           && request.resource.data.size() <= 40
           && request.resource.data.get('clientePagou', false) == false
-          && request.resource.data.status in ['aguardando_pagamento', 'pago']
-          && (request.resource.data.formaPagamento != 'pix' || request.resource.data.total == 0
-              || (request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente'));
+          /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */
+          && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoEm', 'pagoAposCancelar'])
+          /* so tres jeitos de nascer: de graca (cupom de 100%), Pix esperando pagamento, ou pra cobrar na porta */
+          && ((request.resource.data.total == 0 && request.resource.data.status == 'pago')
+              || (request.resource.data.formaPagamento == 'pix' && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')
+              || (request.resource.data.formaPagamento != 'pix' && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
         allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
         allow list: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
         allow update: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin()
