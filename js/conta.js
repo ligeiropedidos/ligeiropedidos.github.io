@@ -111,17 +111,34 @@
       };
       if (a.encerrando) textos.ativa = 'Encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? Reative.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada' || a.estado === 'vencendo';
+      var rotuloStatus = { gratis: 'Período grátis', ativa: a.cortesia ? 'Liberada' : (a.encerrando ? 'Encerrando' : 'Em dia'), vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida', bloqueada: 'Bloqueada', pausada: 'Pausada', cancelada: 'Encerrada' }[a.estado] || a.estado;
+      var corStatus = a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
+      /* quadro 1: quando e o proximo pagamento (ou o que vale no lugar dele) */
+      var q1 = a.cortesia || !a.limite
+        ? ['Assinatura', a.estado === 'pausada' ? 'Pausada' : (a.estado === 'cancelada' ? 'Encerrada' : 'Liberada'), a.cortesia ? 'pelo Ligeiro' : '']
+        : [a.estado === 'gratis' ? 'Grátis até' : (a.encerrando ? 'No ar até' : (a.estado === 'vencida' || a.estado === 'bloqueada' ? 'Venceu em' : 'Paga até')), dataBR(a.limite),
+           a.dias >= 0 ? (a.dias === 0 ? 'é hoje' : 'faltam ' + a.dias + (a.dias === 1 ? ' dia' : ' dias')) : 'há ' + Math.abs(a.dias) + (Math.abs(a.dias) === 1 ? ' dia' : ' dias')];
+      var semLimite = R.ehDoLigeiro(conta);
+      var usoLojas = semLimite ? 100 : Math.min(100, Math.round(reais / Math.max(1, valendo.lojas) * 100));
+      function quadro(rotulo, valorTxt, sub, extra) {
+        return el('div', { class: 'plano-dado' + (extra ? ' largo' : '') }, [el('span', { class: 'plano-dado-rotulo', text: rotulo }), el('b', { class: 'plano-dado-valor', text: valorTxt }), sub ? el('span', { class: 'plano-dado-sub', text: sub }) : null, extra || null]);
+      }
       caixa.appendChild(el('div', { class: 'cartao ' + (alerta ? 'destaque' : '') + ' conta-plano' }, [
         el('div', { class: 'conta-plano-topo' }, [
           el('div', {}, [el('div', { class: 'kicker', text: 'Seu plano' }), el('b', { class: 'conta-plano-nome', text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') })]),
-          el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: R.ehDoLigeiro(conta) ? reais + (reais === 1 ? ' loja' : ' lojas') + ' · conta do Ligeiro' : reais + ' de ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') }),
+          el('span', { class: 'selo ' + corStatus, text: (corStatus ? '' : '● ') + rotuloStatus }),
         ]),
-        el('p', { class: 'pequeno', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }),
-        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado enquanto não cancelar' }) : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
+        el('div', { class: 'plano-dados' }, [
+          quadro(q1[0], q1[1], q1[2]),
+          quadro('Valor', a.cortesia ? 'R$ 0,00' : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
+          quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
+        ]),
+        (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }) : null,
+        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
         p.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(p.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
-        el('div', { class: 'linha-botoes' }, [
-          (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) ? el('button', { class: 'btn ' + (alerta ? 'btn-principal' : 'btn-fantasma') + ' btn-pequeno', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }); } }) : null,
+        el('div', { class: 'plano-acoes' }, [
+          (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }); } }) : null,
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar', text: 'Mudar plano' }),
           p.status === 'cancelado'
             ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix pra suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); }); } })

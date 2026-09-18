@@ -1087,10 +1087,13 @@ button.plano-card { cursor: pointer; }
 .conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
 .conta .hub-secao { margin-top: 8px; } /* 16 do vao + 8 = 24 antes de secao */
 .conta .conta-lojas { margin-top: -4px; } /* titulo da secao a 12 dos cartoes */
-.conta-cabeca { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; }
+.conta-cabeca { display: flex; align-items: center; gap: 12px; padding: 6px 0 4px; }
 .conta-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; background: var(--lime-suave); }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--deep); }
-.conta-texto { flex: 1; min-width: 200px; }
+.conta-texto { flex: 1; min-width: 0; }
+.conta-texto p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conta-cabeca > .btn { flex: none; }
+@media (max-width: 420px) { .conta-foto { width: 52px; height: 52px; } .conta-texto h1 { font-size: 22px; } }
 .conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 2px 0; }
 .conta-lojas { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); }
@@ -1104,7 +1107,21 @@ button.plano-card { cursor: pointer; }
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
 .conta-acoes .btn-principal { grid-column: 1 / -1; }
-.conta-plano { display: flex; flex-direction: column; gap: 10px; }
+.conta-plano { display: flex; flex-direction: column; gap: 12px; }
+.conta-plano > .selo { align-self: flex-start; }
+.plano-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.plano-dado { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
+.plano-dado.largo { grid-column: 1 / -1; }
+.plano-dado-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.plano-dado-valor { font-family: var(--display); font-size: 22px; line-height: 1.15; color: var(--ink); }
+.plano-dado-sub { font-size: 13px; color: var(--muted); }
+.plano-barra { display: block; height: 8px; border-radius: 999px; background: var(--lime-suave); overflow: hidden; margin-top: 6px; }
+.plano-barra i { display: block; height: 100%; border-radius: 999px; background: var(--lime); }
+.plano-recado { margin: 0; }
+.plano-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; }
+.plano-acoes .plano-pagar { grid-column: 1 / -1; min-height: 52px; font-size: 17px; }
+@media (min-width: 760px) { .plano-dados { grid-template-columns: repeat(3, minmax(0, 1fr)); } .plano-dado.largo { grid-column: auto; } }
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
 .seletor-tipo { justify-content: center; }
