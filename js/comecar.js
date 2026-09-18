@@ -228,7 +228,7 @@
           dados.gruposPorCategoria = D.clonar(base.gruposPorCategoria);
         }
       } else {
-        dados.categorias = [{ id: 'cardapio', nome: 'Cardápio', emoji: emoji }];
+        dados.categorias = [{ id: 'cardapio', nome: R.catalogo({ tipo: tipo }).Nome, emoji: emoji }];
       }
 
         if (contaLogada) dados.donoEmail = contaLogada.email;
@@ -275,7 +275,7 @@
       corpo.appendChild(el('div', { class: 'cartao destaque centro', style: { padding: '26px 18px' } }, [
         el('div', { style: { fontSize: '46px' } }, '🎉'),
         el('h2', { text: loja.nome + ' está no ar' }),
-        el('p', { class: 'muted', text: 'Seu cardápio já tem itens de exemplo do seu tipo de loja. Ajuste nomes e preços no painel e comece a divulgar.' }),
+        el('p', { class: 'muted', text: 'Sua loja já tem itens de exemplo. Ajuste nomes e preços no painel e comece a divulgar.' }),
         el('p', { class: 'muted pequeno', text: 'Plano ' + planoNome + '. Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlano) + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
       ]));
       corpo.appendChild(el('div', { class: 'bloco-form' }, [

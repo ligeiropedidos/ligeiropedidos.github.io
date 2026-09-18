@@ -764,7 +764,7 @@
         if (primeira && primeira.dataset.categoria !== categoriaId) return montarGrade(primeira.dataset.categoria);
       }
       if (lista.length === 0) {
-        grade.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone', text: '🍽️' }), el('p', { text: 'Cardápio em atualização. Volte daqui a pouco.' })]));
+        grade.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone', text: R.catalogo(estado.loja).vazio }), el('p', { text: R.catalogo(estado.loja).Nome + ' em atualização. Volte daqui a pouco.' })]));
         return;
       }
       lista.forEach(function (p) {
@@ -1597,7 +1597,7 @@
           '<div class="como-passo"><span class="n">3</span>Acompanhe<br>pela senha</div>' +
         '</div>' +
         '<div id="destaques" hidden style="width:100%;max-width:440px;text-align:left">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 10px"><b>Os mais pedidos</b><button class="cupom-abrir" id="btnCardapio">ver cardápio →</button></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 10px"><b>Os mais pedidos</b><button class="cupom-abrir" id="btnCardapio">ver tudo →</button></div>' +
           '<div class="pilha" id="destaquesTrilho"></div>' +
         '</div>' +
       '</div>' +

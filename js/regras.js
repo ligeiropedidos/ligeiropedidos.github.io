@@ -818,6 +818,14 @@
     return planoPorId(conta && conta.plano ? planoQueVale(conta) : 'uma').lojas;
   }
 
+  /* Como a loja chama a lista do que vende: comida fala "cardapio"; o resto (roupa, presente, servico) fala "catalogo". */
+  var TIPOS_DE_COMIDA = ['lanchonete', 'pizzaria', 'pizza cone', 'marmitaria', 'restaurante', 'sorveteria', 'açaí', 'acai', 'padaria', 'espetinho', 'sushi', 'hamburgueria', 'pastelaria', 'doceria', 'cafeteria', 'bar'];
+  function catalogo(loja) {
+    var tipo = String((loja && loja.tipo) || '').trim().toLowerCase();
+    var comida = !tipo || TIPOS_DE_COMIDA.indexOf(tipo) >= 0;
+    return comida ? { comida: true, nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️' } : { comida: false, nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️' };
+  }
+
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
@@ -919,6 +927,7 @@
     planoPorId: planoPorId,
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
+    catalogo: catalogo,
     ehDoLigeiro: ehDoLigeiro,
     limiteDeLojas: limiteDeLojas,
     vagasFundador: vagasFundador,

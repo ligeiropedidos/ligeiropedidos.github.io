@@ -139,7 +139,7 @@
       setTimeout(medirTopo, 600);
 
       var abas = el('nav', { class: 'abas-painel' });
-      var defs = [['pedidos', '📋 Pedidos'], ['cardapio', '🍔 Cardápio'], ['vendas', '📊 Vendas'], ['ajustes', '⚙️ Ajustes'], ['links', '🏪 Minha loja']];
+      var defs = [['pedidos', '📋 Pedidos'], ['cardapio', R.catalogo(estado.loja).icone + ' ' + R.catalogo(estado.loja).Nome], ['vendas', '📊 Vendas'], ['ajustes', '⚙️ Ajustes'], ['links', '🏪 Minha loja']];
       defs.forEach(function (d) {
         var b = el('button', { class: 'aba-painel' + (estado.aba === d[0] ? ' ativa' : ''), dataset: { aba: d[0] }, text: d[1], onclick: function () { trocarAba(d[0]); } });
         if (d[0] === 'pedidos') b.appendChild(el('span', { class: 'badge', id: 'badgePedidos', hidden: true }));
@@ -342,7 +342,7 @@
       var itens = [
         [!!l.mpAtivo, 'Pix automático ligado (Mercado Pago)', 'ajustes'],
         [!!l.whatsapp, 'WhatsApp da loja', 'ajustes'],
-        [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no cardápio (confira os valores)' : 'Cardápio com preços', 'cardapio'],
+        [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no ' + R.catalogo(l).nome + ' (confira os valores)' : R.catalogo(l).Nome + ' com preços', 'cardapio'],
         [!!D.logoSrc(l), 'Logo da loja', 'ajustes'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários em Ajustes)', 'ajustes'],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$') + ' (troca em Ajustes)', 'ajustes'],
@@ -436,7 +436,7 @@
       card.appendChild(itens);
       if (p.observacao) card.appendChild(el('div', { class: 'obs', text: '📝 ' + p.observacao }));
       var conferencia = R.conferirTotal(loja, p);
-      if (!conferencia.ok) card.appendChild(el('div', { class: 'divergente', text: 'Atenção: pelo cardápio de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de fazer.' }));
+      if (!conferencia.ok) card.appendChild(el('div', { class: 'divergente', text: 'Atenção: pelo ' + R.catalogo(estado.loja).nome + ' de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de fazer.' }));
       card.appendChild(el('div', { class: 'total' }, [
         el('span', { text: 'Total ' + dinheiro(p.total) }),
         el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
@@ -537,7 +537,7 @@
         ]));
       });
       linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', text: '+ Categoria', onclick: editarCategoria.bind(null, null) }));
-      s.appendChild(el('h2', { text: 'Cardápio' }));
+      s.appendChild(el('h2', { text: R.catalogo(estado.loja).Nome }));
 
       /* com muitos itens, achar pelo nome em vez de rolar categoria por categoria */
       var busca = null;
@@ -817,7 +817,7 @@
           corpo.appendChild(el('div', { class: 'campo' }, [el('label', { text: 'Posição na lista: ' + (posP + 1) + ' de ' + mesmos.length }), el('div', { class: 'linha-botoes' }, [subir, descer])]));
         }
       }
-      var btnSalvar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: novo ? 'Adicionar ao cardápio' : 'Salvar', onclick: function () {
+      var btnSalvar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: novo ? 'Adicionar ao ' + R.catalogo(estado.loja).nome : 'Salvar', onclick: function () {
         var nome = f.nome.input.value.trim();
         var preco = f.preco.centavos();
         if (nome.length < 2) return UI.avisar('Digite o nome do item.');
@@ -856,7 +856,7 @@
           } else {
             produtos = estado.loja.produtos.map(function (x) { return x.id === p.id ? Object.assign({}, x, dados) : x; });
           }
-          return salvarLoja({ produtos: produtos }, novo ? nome + ' entrou no cardápio' : 'Item salvo');
+          return salvarLoja({ produtos: produtos }, novo ? nome + ' entrou no ' + R.catalogo(estado.loja).nome : 'Item salvo');
         }).then(function () {
           UI.fecharModal();
           estado.categoriaAtiva = dados.categoria;
@@ -864,14 +864,14 @@
         }).catch(function (e) {
           UI.avisar(e && e.message ? e.message : 'Não deu pra salvar. Tente de novo.');
           btnSalvar.disabled = false;
-          btnSalvar.textContent = novo ? 'Adicionar ao cardápio' : 'Salvar';
+          btnSalvar.textContent = novo ? 'Adicionar ao ' + R.catalogo(estado.loja).nome : 'Salvar';
         });
       } });
       var botoes = [btnSalvar];
       if (!novo) {
         botoes.unshift(el('button', { class: 'btn btn-fantasma btn-pequeno', text: 'Duplicar', onclick: function () { duplicarProduto(p); } }));
         botoes.unshift(el('button', { class: 'btn btn-erro btn-pequeno', text: 'Excluir', onclick: function () {
-          UI.perguntar('Excluir "' + p.nome + '" do cardápio? Se for só por hoje, prefira desligar o item.', { sim: 'Excluir', perigo: true }).then(function (sim) {
+          UI.perguntar('Excluir "' + p.nome + '" do ' + R.catalogo(estado.loja).nome + '? Se for só por hoje, prefira desligar o item.', { sim: 'Excluir', perigo: true }).then(function (sim) {
             if (!sim) { editarProduto(p, categoriaId); return; }
             if (p.foto) store.excluirFoto(slug, p.foto).catch(function () { /* ignora */ });
             salvarLoja({ produtos: estado.loja.produtos.filter(function (x) { return x.id !== p.id; }) }, 'Item excluído').then(function () { UI.fecharModal(); desenharCardapio(); });
@@ -1682,25 +1682,25 @@
       ]));
 
       /* 2. divulgar */
-      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso cardápio: ' + linkLoja + ' — é rápido, você paga no Pix e acompanha pela senha.';
+      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + ' — é rápido, você paga no Pix e acompanha pela senha.';
       var qr = el('div', { class: 'qr-caixa', style: { width: '180px', margin: '0', flex: 'none' } });
       Pix.desenharQr(qr, linkLoja, 180);
       s.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Divulgar o cardápio' }),
+        el('div', { class: 'bloco-titulo', text: 'Divulgar o ' + R.catalogo(estado.loja).nome }),
         el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram, no status e na mensagem automática do WhatsApp. Imprima o QR e cole no balcão e na sacola.' }),
         el('div', { class: 'divulgar' }, [
           qr,
           el('div', { class: 'pilha divulgar-acoes' }, [
             el('div', { class: 'caixa-link', text: linkLoja }),
-            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '📋 Copiar link do cardápio', onclick: copiar(linkLoja) }),
+            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '📋 Copiar link do ' + R.catalogo(estado.loja).nome, onclick: copiar(linkLoja) }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '💬 Copiar mensagem pro WhatsApp', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📄 Copiar cardápio em texto', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar('Cardápio copiado. Cole no WhatsApp.'); }); } }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📄 Copiar ' + R.catalogo(estado.loja).nome + ' em texto', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }),
           ]),
         ]),
       ]));
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Resposta automática grátis no WhatsApp' }),
-        el('p', { text: 'No WhatsApp Business, vá em Ferramentas comerciais > Mensagem de saudação e cole a mensagem com o seu link. Quem mandar "oi" já recebe o cardápio na hora, sem robô pago.' }),
+        el('p', { text: 'No WhatsApp Business, vá em Ferramentas comerciais > Mensagem de saudação e cole a mensagem com o seu link. Quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ' na hora, sem robô pago.' }),
       ]));
     }
 

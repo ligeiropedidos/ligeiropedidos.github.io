@@ -375,3 +375,11 @@ test('vagas de fundador: as ja ocupadas (Dom Conizza) saem da conta', () => {
     assert.equal(R.vagasFundador(), 17);
   } finally { global.window = antes; }
 });
+
+test('catalogo: comida fala cardapio, o resto fala catalogo', () => {
+  assert.equal(R.catalogo({ tipo: 'Pizzaria' }).nome, 'cardápio');
+  assert.equal(R.catalogo({ tipo: 'Pizza cone' }).nome, 'cardápio');
+  assert.equal(R.catalogo({}).nome, 'cardápio');
+  assert.equal(R.catalogo({ tipo: 'Outro' }).nome, 'catálogo');
+  assert.equal(R.catalogo({ tipo: 'Roupas' }).Nome, 'Catálogo');
+});
