@@ -198,9 +198,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (min-width: 900px) { .hub-cidade { padding: 44px var(--margem) 64px; } .hub-mascote-fundo { width: 300px; height: 300px; right: 6%; bottom: -60px; opacity: 0.22; } .hub-titulo { font-size: 38px; } }
 .hub-cidade .marca { font-size: 28px; text-decoration: none; color: #fff; }
 .hub-cidade .marca span span { color: var(--lime2); }
-.hub-titulo { font-family: var(--display); font-size: 30px; line-height: 1.1; margin-top: 6px; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); }
+.hub-titulo { font-family: var(--display); font-size: 30px; line-height: 1.1; margin: 8px 0 2px; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; white-space: pre-wrap; }
 .hub-cidade .slogan { max-width: 520px; color: #DCEFE3; font-size: 15.5px; }
-.hub-selos { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; font-weight: 700; color: var(--lime2); margin-top: 2px; }
+.hub-selos { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; font-weight: 700; color: var(--lime2); margin-top: 4px; }
 .hub-trocar { font-size: 13.5px; font-weight: 600; color: #fff; text-decoration: none; padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.35); margin-top: 6px; transition: background 0.15s; }
 .hub-trocar:hover { background: rgba(255, 255, 255, 0.24); }
 .hub-conteudo { gap: 14px; padding-top: 14px; position: relative; z-index: 2; }
@@ -810,7 +810,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .conta-ola .selo { font-family: var(--corpo, inherit); line-height: 1; }
 .conta-ola .selo[hidden] { display: none; }
 /* seletor de cidade no titulo do hub */
-.hub-cidade-seletor { font: inherit; color: inherit; background: rgba(255, 255, 255, 0.14); border: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 14px; padding: 2px 12px 4px; cursor: pointer; display: inline-flex; align-items: baseline; gap: 8px; }
+.hub-cidade-seletor { font: inherit; color: inherit; background: rgba(255, 255, 255, 0.14); border: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 14px; padding: 5px 14px 7px; line-height: 1.1; cursor: pointer; display: inline-flex; align-items: baseline; gap: 8px; text-shadow: inherit; }
 .hub-cidade-seletor .seta { font-size: 0.6em; transform: translateY(-2px); }
 .hub-cidade-seletor:hover { background: rgba(255, 255, 255, 0.22); }
 /* servico extra: loja com design exclusivo (pagina de vendas). Vitrine escura: e um produto, tem que chamar. */

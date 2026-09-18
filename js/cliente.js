@@ -162,7 +162,7 @@
       UI.limpar(tituloCidade);
       var nome = estadoHub.nomeCidade || '';
       var varias = (estadoHub.cidades || []).length > 1;
-      tituloCidade.appendChild(document.createTextNode(estadoHub.lojas.length || varias ? 'Peça no delivery de ' : 'Delivery de '));
+      tituloCidade.appendChild(el('span', { text: estadoHub.lojas.length || varias ? 'Peça no delivery de' : 'Delivery de' }));
       tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Escolher a cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta', text: '▾' })]));
     }
     function abrirCidades() {
