@@ -274,11 +274,8 @@
       el('div', { class: 'kicker', text: 'Tudo incluso em qualquer plano' }),
       el('h2', { text: 'Sem surpresa, sem recurso trancado' }),
       el('ul', { class: 'checklist' }, [
-        'Cardápio digital com foto, logo, capa e cor da loja', 'Pedidos ilimitados', 'Pix automático pelo Mercado Pago: pagou, caiu na cozinha', 'Maquininha e dinheiro na entrega ou no balcão',
-        'Painel de pedidos em tempo real com apito', 'Tela da cozinha (KDS)', 'Tela do entregador com mapa', 'Modo balcão (autoatendimento no tablet)',
-        'Impressão automática da ficha', 'Cupons de desconto', 'Entrega grátis a partir de R$ X', 'Horários com fechamento automático',
-        'Relatório de vendas e lista de clientes', 'QR code e link pra WhatsApp e Instagram', 'Vitrine da cidade', 'Aviso do dia no topo do site',
-        'Atualizações e novidades incluídas', 'Suporte por WhatsApp, na sua loja',
+        'Pedidos ilimitados, sem comissão', 'Pix automático pelo Mercado Pago', 'Cardápio com foto e a cara da loja',
+        'Painel que apita a cada pedido', 'Tela da cozinha e do entregador', 'Suporte por WhatsApp',
       ].map(function (t) { return el('li', { text: t }); })),
     ]));
 
