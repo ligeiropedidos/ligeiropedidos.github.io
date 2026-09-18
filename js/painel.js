@@ -1514,7 +1514,12 @@
         var linha = el('div', { class: 'dia-linha' + (e.aberto ? '' : ' fechado') });
         var chave = el('button', { type: 'button', class: 'chave' + (e.aberto ? ' on' : ''), 'aria-label': (e.aberto ? 'Fechar ' : 'Abrir ') + nomes[dia] });
         chave.addEventListener('click', function () { e.aberto = !e.aberto; redesenhar(dia); });
-        linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' })]));
+        /* no celular a acao do 2o turno mora no cabecalho, do lado da chave: as linhas de hora ficam so com hora */
+        var acao = !e.aberto ? null : el('button', { type: 'button', class: 'dia-acao' + (e.turnos.length > 1 ? ' tirar' : ''), 'aria-label': (e.turnos.length > 1 ? 'Tirar o 2º turno de ' : 'Adicionar 2º turno em ') + nomes[dia], text: e.turnos.length > 1 ? '✕ 2º turno' : '+ 2º turno', onclick: function () {
+          if (e.turnos.length > 1) e.turnos.splice(1, 1); else e.turnos.push(['18:00', '23:00']);
+          redesenhar(dia);
+        } });
+        linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' }), acao]));
         if (e.aberto) {
           var turnos = el('div', { class: 'turnos' + (e.turnos.length > 1 ? ' dois' : '') });
           e.turnos.forEach(function (t, i) {

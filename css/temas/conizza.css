@@ -210,3 +210,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aba-painel .badge, .tema-conizza .aba-painel.ativa .badge { background: var(--cz-ouro-claro); color: var(--cz-tinta); border: 2px solid var(--cz-tinta); font-weight: 800; }
 /* as categorias do cardapio usam a mesma classe das abas: sem o recuo, a borda e o fundo delas */
 .tema-conizza .abas-categorias { padding: 0; border: 0; background: transparent; }
+/* botao do 2o turno no cabecalho do dia, na linguagem do tema */
+.tema-conizza .dia-acao { border: 2px solid var(--cz-tinta); background: var(--cz-creme); color: var(--cz-tinta); box-shadow: 0 2px 0 var(--cz-tinta); }
+.tema-conizza .dia-acao.tirar { background: #fbe3dc; color: var(--cz-vermelho); border-color: var(--cz-tinta); }
