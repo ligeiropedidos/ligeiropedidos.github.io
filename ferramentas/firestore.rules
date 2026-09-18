@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    /* ---- quem e quem ---- */
+    function logado() { return request.auth != null; }
+    function isAdmin() { return logado() && request.auth.token.email == 'ligeiro.pedidos@gmail.com'; }
+    function donoDaLoja(loja) { return get(/databases/$(db)/documents/lojas/$(loja)).data.donoEmail; }
+    function isDonoDaLoja(loja) { return logado() && request.auth.token.email == donoDaLoja(loja); }
+    function planoDe(d) { return d.get('plano', {}); }
+    /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
+    function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
+    function pagoIgual(a, b) { return a.get('pagoAte', '') == b.get('pagoAte', '') || (semPago(a) && semPago(b)); }
+    /* o que so o admin muda no plano: pagoAte, planoPago (o plano que foi pago de fato) e desde (inicio do periodo gratis) */
+    function planoDoAdminIntacto(novo, velho) {
+      return pagoIgual(novo, velho)
+          && novo.get('planoPago', '') == velho.get('planoPago', '')
+          && novo.get('desde', '') == velho.get('desde', '');
+    }
+    /* status: o dono so pode manter, encerrar (cancelado) ou reativar (teste); 'ativo' e 'pausado' so o admin */
+    function statusPermitido(novo, velho) {
+      return novo.get('status', '') == velho.get('status', '') || novo.get('status', '') in ['cancelado', 'teste'];
+    }
+    function planoIntacto() {
+      return planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
+          && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
+          && request.resource.data.get('ativa', true) == resource.data.get('ativa', true)
+          && request.resource.data.donoEmail == resource.data.donoEmail;
+    }
+    function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
+    /* o plano da loja e copia fiel do plano da conta do dono (status, pagoAte, planoPago, desde) */
+    function planoCopiaDaConta(p) {
+      return exists(/databases/$(db)/documents/contas/$(request.auth.token.email))
+          && pagoIgual(p, planoDe(minhaConta()))
+          && p.get('status', 'teste') == planoDe(minhaConta()).get('status', 'teste')
+          && p.get('planoPago', '') == planoDe(minhaConta()).get('planoPago', '')
+          && p.get('desde', '') == planoDe(minhaConta()).get('desde', '');
+    }
+
+    /* conta do dono: a assinatura e daqui. Dono le, escolhe plano, avisa pagamento, encerra e reativa; pagoAte, planoPago, desde e 'ativo' so o admin */
+    match /contas/{email} {
+      allow read: if isAdmin() || (logado() && request.auth.token.email == email);
+      allow create: if isAdmin() || (logado() && request.auth.token.email == email
+        && planoDe(request.resource.data).get('status', 'teste') == 'teste'
+        && semPago(planoDe(request.resource.data))
+        && planoDe(request.resource.data).get('planoPago', '') == '');
+      allow update: if isAdmin() || (logado() && request.auth.token.email == email
+        && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
+        && statusPermitido(planoDe(request.resource.data), planoDe(resource.data)));
+      allow delete: if isAdmin();
+    }
+
+    /* vitrine: resumo leve de cada loja pro hub e pra pagina das cidades (publico).
+       O dono grava DEPOIS da loja (nunca no mesmo lote) e o plano/ativa tem que ser copia do que esta na loja. */
+    match /vitrine/{loja} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (isDonoDaLoja(loja)
+        && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
+        && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true));
+      allow delete: if isAdmin();
+    }
+
+    /* contatos da pagina de vendas: visitante cria (so os campos do formulario, com tamanho), so o admin le e marca como atendido */
+    match /leads/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['id', 'nome', 'whatsapp', 'loja', 'cidade', 'uf', 'origem', 'pagina', 'criadoEm', 'atendidoEm'])
+                    && request.resource.data.keys().hasAll(['nome', 'whatsapp', 'criadoEm'])
+                    && request.resource.data.nome is string && request.resource.data.nome.size() <= 60
+                    && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() <= 16
+                    && request.resource.data.get('loja', '').size() <= 80
+                    && request.resource.data.get('cidade', '').size() <= 80
+                    && request.resource.data.get('pagina', '').size() <= 200;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /lojas/{loja} {
+      allow read: if true;
+      /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
+      allow create: if isAdmin()
+        || (logado() && request.resource.data.donoEmail == request.auth.token.email
+            && planoCopiaDaConta(planoDe(request.resource.data)));
+      allow update: if isAdmin() || (logado() && request.auth.token.email == resource.data.donoEmail && planoIntacto());
+      allow delete: if isAdmin();
+
+      /* senha do dia (dia, ultima) e usos de cupom: o cliente escreve sem login, dentro da transacao do pedido.
+         So os dois nomes de documento, e o contador so anda um passo por vez. */
+      match /contadores/{c} {
+        allow read: if true;
+        allow write: if (c == 'senha' || c.matches('cupom-[A-Z0-9]{1,20}'))
+          && request.resource.data.keys().hasOnly(['dia', 'ultima', 'usos', 'atualizadoEm'])
+          && request.resource.data.get('usos', 0) is int && request.resource.data.get('ultima', 0) is int
+          && (resource == null
+              || (request.resource.data.get('usos', 0) >= resource.data.get('usos', 0)
+                  && request.resource.data.get('usos', 0) <= resource.data.get('usos', 0) + 1
+                  && request.resource.data.get('ultima', 0) <= resource.data.get('ultima', 0) + 1));
+      }
+      match /fotos/{foto} {
+        allow read: if true;
+        allow write: if isDonoDaLoja(loja) || isAdmin();
+      }
+      /* token do Mercado Pago e outros segredos: so o dono (e o admin, pra suporte) */
+      match /privado/{doc} {
+        allow read, write: if isDonoDaLoja(loja) || isAdmin();
+      }
+      match /pedidos/{pedido} {
+        /* o cliente cria sem login, mas o pedido tem que ter a cara de um pedido do app:
+           total inteiro, no maximo 60 itens, nunca nasce "pago" no Pix e nunca nasce com "ja paguei" */
+        allow create: if request.resource.data.keys().hasAll(['lojaSlug', 'status', 'total', 'itens', 'criadoEm', 'formaPagamento', 'pagamentoStatus'])
+          && request.resource.data.lojaSlug == loja
+          && request.resource.data.total is int && request.resource.data.total >= 0
+          && request.resource.data.itens is list && request.resource.data.itens.size() <= 60
+          && request.resource.data.size() <= 40
+          && request.resource.data.get('clientePagou', false) == false
+          && request.resource.data.status in ['aguardando_pagamento', 'pago']
+          && (request.resource.data.formaPagamento != 'pix' || request.resource.data.total == 0
+              || (request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente'));
+        allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
+        allow list: if isDonoDaLoja(loja) || isAdmin();   /* so a propria loja lista a fila */
+        allow update: if isDonoDaLoja(loja) || isAdmin()
+          /* cliente: "ja paguei" (so marca, nunca muda status) */
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
+              && request.resource.data.clientePagou == true)
+          /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix */
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
+              && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor == 'cliente'
+              && resource.data.status == 'aguardando_pagamento');
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}

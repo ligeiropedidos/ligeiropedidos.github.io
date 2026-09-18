@@ -1,0 +1,338 @@
+'use strict';
+
+/*
+ * Testes das regras do pedido. Rodar com:
+ *   node --test testes/
+ */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const R = require('../js/regras.js');
+
+function lojaDeTeste() {
+  return {
+    slug: 'teste',
+    nome: 'Loja Teste',
+    cidade: 'Juquiá',
+    aberta: true,
+    aceitaEntrega: true,
+    aceitaRetirada: true,
+    aceitaPix: true,
+    mpAtivo: true,
+    aceitaCartaoEntrega: true,
+    aceitaDinheiroEntrega: true,
+    aceitaPagarNoBalcao: false,
+    pix: { chave: 'loja@exemplo.com', nome: 'Loja Teste', cidade: 'Juquia' },
+    taxaEntrega: 500,
+    entregaGratisAcima: 6000,
+    pedidoMinimo: 0,
+    tempoPreparo: 20,
+    tempoEntrega: 40,
+    categorias: [{ id: 'lanche', nome: 'Lanches' }, { id: 'bebida', nome: 'Bebidas' }],
+    produtos: [
+      { id: 'x', categoria: 'lanche', nome: 'X-Burguer', preco: 1800, ativo: true, ingredientes: ['Alface', 'Tomate'] },
+      { id: 'sumiu', categoria: 'lanche', nome: 'Antigo', preco: 1000, ativo: false },
+      { id: 'refri', categoria: 'bebida', nome: 'Refri', preco: 600, ativo: true },
+    ],
+    grupos: {
+      tamanho: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0, padrao: true }, { id: 'g', nome: 'G', preco: 700 }] },
+      extras: { titulo: 'Extras', tipo: 'varios', max: 2, opcoes: [{ id: 'bacon', nome: 'Bacon', preco: 400 }, { id: 'ovo', nome: 'Ovo', preco: 200 }, { id: 'off', nome: 'Desligado', preco: 100, ativo: false }] },
+    },
+    gruposPorCategoria: { lanche: ['tamanho', 'extras'], bebida: [] },
+    cupons: [{ codigo: 'DEZ', percentual: 10, minimo: 0, limite: 0, usos: 0, ativo: true }],
+  };
+}
+
+test('slug tira acento e espaco', () => {
+  assert.equal(R.slug('Lanchonete do Zé'), 'lanchonete-do-ze');
+  assert.equal(R.slug('  Açaí & Cia!! '), 'acai-cia');
+});
+
+test('telefone aceita DDD + numero, com ou sem 55', () => {
+  assert.equal(R.validarTelefone('(13) 99999-0001'), '13999990001');
+  assert.equal(R.validarTelefone('5513999990001'), '13999990001');
+  assert.throws(() => R.validarTelefone('9999'), /WhatsApp/);
+});
+
+test('conta do item usa tamanho e adicionais do cardapio, nunca da tela', () => {
+  const loja = lojaDeTeste();
+  const c = R.calcularItens(loja, [
+    { produtoId: 'x', quantidade: 2, tamanho: 'g', adicionais: ['bacon', 'ovo', 'bacon', 'off'], removidos: ['Tomate', 'Inventado'], precoUnitario: 1 },
+  ]);
+  assert.equal(c.itens[0].precoUnitario, 1800 + 700 + 400 + 200);
+  assert.equal(c.itens[0].totalItem, 2 * 3100);
+  assert.deepEqual(c.itens[0].removidos, ['Tomate']);
+  assert.equal(c.itens[0].adicionais.length, 2);
+  assert.equal(c.subtotal, 6200);
+});
+
+test('tamanho invalido cai no padrao; produto desligado e recusado', () => {
+  const loja = lojaDeTeste();
+  const c = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'zzz' }]);
+  assert.equal(c.itens[0].tamanho.id, 'p');
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'sumiu', quantidade: 1 }]), /sair do cardápio/);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 0 }]), /Quantidade/);
+  assert.throws(() => R.calcularItens(loja, []), /vazio/);
+});
+
+test('mais adicionais que o maximo e recusado', () => {
+  const loja = lojaDeTeste();
+  loja.grupos.extras.opcoes.push({ id: 'queijo', nome: 'Queijo', preco: 100 });
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, adicionais: ['bacon', 'ovo', 'queijo'] }]), /Máximo/);
+});
+
+test('taxa de entrega some acima do valor de entrega gratis', () => {
+  const loja = lojaDeTeste();
+  assert.equal(R.calcularTaxaEntrega(loja, 'entrega', 5000), 500);
+  assert.equal(R.calcularTaxaEntrega(loja, 'entrega', 6000), 0);
+  assert.equal(R.calcularTaxaEntrega(loja, 'retirada', 1000), 0);
+  /* frete gratis manda acima da taxa e do "gratis acima de" */
+  var gratis = Object.assign({}, loja, { freteGratis: true });
+  assert.equal(R.calcularTaxaEntrega(gratis, 'entrega', 1000), 0);
+  assert.equal(R.descreverFrete(gratis), 'Entrega grátis');
+  assert.equal(R.descreverFrete(loja), 'Taxa R$ 5,00, grátis a partir de R$ 60,00');
+  assert.equal(R.descreverFrete(Object.assign({}, loja, { entregaGratisAcima: 0 })), 'Taxa R$ 5,00');
+  assert.equal(R.descreverFrete(Object.assign({}, loja, { taxaEntrega: 0 })), 'Entrega grátis');
+  assert.equal(R.descreverFrete(Object.assign({}, loja, { aceitaEntrega: false })), 'Só retirada');
+  /* categoria desligada some do site com os itens dela */
+  var primeira = loja.categorias[0].id;
+  var comDesligada = Object.assign({}, loja, { categorias: loja.categorias.map(function (c) { return c.id === primeira ? Object.assign({}, c, { ativa: false }) : c; }) });
+  assert.equal(R.categoriaAtiva(loja, primeira), true);
+  assert.equal(R.categoriaAtiva(comDesligada, primeira), false);
+  assert.equal(R.produtosAtivos(comDesligada).some(function (p) { return p.categoria === primeira; }), false);
+  assert.equal(R.produtosAtivos(loja).some(function (p) { return p.categoria === primeira; }), true);
+});
+
+test('próxima abertura de hoje', function () {
+  var loja = Object.assign({}, lojaDeTeste(), { usarHorarios: true, horarios: { qui: ['11:00-14:00', '18:00-23:00'] } });
+  var quintaCedo = new Date('2026-09-17T09:30:00'); /* quinta */
+  assert.equal(R.proximaAbertura(loja, quintaCedo), '11:00');
+  assert.equal(R.proximaAbertura(loja, new Date('2026-09-17T15:00:00')), '18:00');
+  assert.equal(R.proximaAbertura(loja, new Date('2026-09-17T23:30:00')), null);
+  assert.equal(R.proximaAbertura(Object.assign({}, loja, { aberta: false }), quintaCedo), null);
+});
+
+test('assinatura: grátis, paga, vencendo, vencida, bloqueada e cortesia', function () {
+  var hoje = new Date('2026-09-17T12:00:00Z');
+  function em(dias) { return new Date(hoje.getTime() + dias * 864e5).toISOString(); }
+  var loja = lojaDeTeste();
+  /* 7 dias gratis: e gratis ate o ultimo dia (nunca "vencendo") e acabou, bloqueou (sem tolerancia) */
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'teste', desde: em(-2) } }), hoje).estado, 'gratis');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'teste', desde: em(-6) } }), hoje).estado, 'gratis');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'teste', desde: em(-8) } }), hoje).estado, 'bloqueada');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'teste', desde: em(-8) } }), hoje).tolerancia, 0);
+  /* quem paga: aviso a 7 dias, 10 dias de tolerancia depois do vencimento */
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo', desde: em(-100), pagoAte: em(20) } }), hoje).estado, 'ativa');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo', desde: em(-100), pagoAte: em(3) } }), hoje).estado, 'vencendo');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo', desde: em(-100), pagoAte: em(-5) } }), hoje).estado, 'vencida');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo', desde: em(-100), pagoAte: em(-12) } }), hoje).estado, 'bloqueada');
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo' } }), hoje).cortesia, true);
+  /* encerrada pelo dono: fica no ar ate o fim do periodo, depois cancela */
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'cancelado', desde: em(-2) } }), hoje).encerrando, true);
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'cancelado', desde: em(-10) } }), hoje).estado, 'cancelada');
+  assert.equal(R.lojaBloqueada(Object.assign({}, loja, { plano: { status: 'teste', desde: em(-9) } })), true);
+  assert.equal(R.lojaBloqueada(loja), false);
+});
+
+test('cupom desconta so nos itens e respeita minimo e limite', () => {
+  const loja = lojaDeTeste();
+  const o = R.orcar(loja, { itens: [{ produtoId: 'x', quantidade: 1 }], tipoEntrega: 'entrega', cupom: 'dez' });
+  assert.equal(o.desconto, 180);
+  assert.equal(o.total, 1800 - 180 + 500);
+  loja.cupons[0].minimo = 5000;
+  assert.match(R.orcar(loja, { itens: [{ produtoId: 'x', quantidade: 1 }], cupom: 'DEZ' }).cupomErro, /a partir de/);
+  loja.cupons[0].minimo = 0;
+  loja.cupons[0].limite = 1;
+  loja.cupons[0].usos = 1;
+  assert.match(R.orcar(loja, { itens: [{ produtoId: 'x', quantidade: 1 }], cupom: 'DEZ' }).cupomErro, /todo usado/);
+  assert.match(R.orcar(loja, { itens: [{ produtoId: 'x', quantidade: 1 }], cupom: 'NAOEXISTE' }).cupomErro, /não existe/);
+});
+
+test('pedido no Pix nasce aguardando; na maquininha nasce pago (a cobrar na porta)', () => {
+  const loja = lojaDeTeste();
+  const base = {
+    nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega',
+    endereco: { rua: 'Rua A', numero: '10', bairro: 'Centro', referencia: 'perto da praça' },
+    itens: [{ produtoId: 'x', quantidade: 1 }],
+  };
+  const pix = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'pix' }));
+  assert.equal(pix.status, R.STATUS.AGUARDANDO);
+  assert.equal(pix.pagamentoStatus, 'pendente');
+  assert.equal(pix.total, 2300);
+  assert.equal(pix.endereco.referencia, 'perto da praça');
+
+  const cartao = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'cartao_entrega' }));
+  assert.equal(cartao.status, R.STATUS.PAGO);
+  assert.equal(cartao.pagamentoStatus, 'na_entrega');
+
+  const dinheiro = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'dinheiro_entrega', trocoPara: 5000 }));
+  assert.equal(dinheiro.trocoPara, 5000);
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'dinheiro_entrega', trocoPara: 1000 })), /troco/);
+});
+
+test('loja fechada, entrega desligada e retirada com maquininha sao recusadas', () => {
+  const loja = lojaDeTeste();
+  const base = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', itens: [{ produtoId: 'x', quantidade: 1 }] };
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'cartao_entrega' })), /balcão/);
+  loja.aberta = false;
+  assert.throws(() => R.montarPedido(loja, base), /fechada/);
+  loja.aberta = true;
+  loja.aceitaEntrega = false;
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { tipoEntrega: 'entrega', endereco: { rua: 'A', bairro: 'B' } })), /sem entrega/);
+});
+
+test('entrega exige rua e bairro; numero pode faltar', () => {
+  const loja = lojaDeTeste();
+  const base = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', itens: [{ produtoId: 'x', quantidade: 1 }] };
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { endereco: { rua: 'A' } })), /rua e do bairro/);
+  const p = R.montarPedido(loja, Object.assign({}, base, { endereco: { rua: 'Rua A', bairro: 'Centro' } }));
+  assert.equal(p.endereco.numero, 's/n');
+});
+
+test('horario da loja, inclusive faixa que vira a noite', () => {
+  const horarios = { seg: [['18:00', '01:00']], ter: [] };
+  const segNoite = new Date(2026, 8, 14, 22, 0); /* segunda */
+  const segTarde = new Date(2026, 8, 14, 15, 0);
+  const terMadrugada = new Date(2026, 8, 15, 0, 30); /* ja e terca, mas ainda dentro da noite de segunda */
+  const segMadrugada = new Date(2026, 8, 14, 0, 30); /* madrugada de segunda: domingo nao abre */
+  assert.equal(R.dentroDoHorario(horarios, segNoite), true);
+  assert.equal(R.dentroDoHorario(horarios, segTarde), false);
+  assert.equal(R.dentroDoHorario(horarios, terMadrugada), true);
+  assert.equal(R.dentroDoHorario(horarios, segMadrugada), false);
+  assert.equal(R.dentroDoHorario({ seg: ['18:00-01:00'] }, segNoite), true, 'faixa em texto, como fica na nuvem');
+  assert.equal(R.lojaAberta({ aberta: true, usarHorarios: true, horarios: horarios }, segNoite), true);
+  assert.equal(R.lojaAberta({ aberta: false, usarHorarios: true, horarios: horarios }, segNoite), false);
+});
+
+test('senha recomeca a cada dia', () => {
+  const hoje = new Date(2026, 8, 13, 20, 0);
+  const s1 = R.proximaSenha(null, hoje);
+  assert.equal(s1.ultima, 1);
+  const s2 = R.proximaSenha(s1, hoje);
+  assert.equal(s2.ultima, 2);
+  const amanha = new Date(2026, 8, 14, 9, 0);
+  assert.equal(R.proximaSenha(s2, amanha).ultima, 1);
+});
+
+test('transicoes e rotulos', () => {
+  assert.deepEqual(R.TRANSICOES[R.STATUS.PAGO], [R.STATUS.PRODUCAO, R.STATUS.CANCELADO]);
+  assert.equal(R.proximoStatus({ status: R.STATUS.PRODUCAO }), R.STATUS.PRONTO);
+  assert.equal(R.proximoStatus({ status: R.STATUS.FINALIZADO }), null);
+  assert.equal(R.rotuloStatus({ status: R.STATUS.PRONTO, tipoEntrega: 'entrega' }), 'Saiu para entrega');
+  assert.equal(R.rotuloStatus({ status: R.STATUS.AGUARDANDO, clientePagou: true }), 'Cliente diz que pagou');
+  assert.equal(R.rotuloProximoPasso({ status: R.STATUS.PRONTO, tipoEntrega: 'retirada' }), 'Retirado, concluir');
+});
+
+test('painel confere o total gravado contra o cardapio', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1 }] });
+  assert.equal(R.conferirTotal(loja, p).ok, true);
+  p.total = 100;
+  const c = R.conferirTotal(loja, p);
+  assert.equal(c.ok, false);
+  assert.equal(c.esperado, 1800);
+});
+
+test('conferencia do total entende tamanho, adicionais, entrega gratis e cupom ja gravados', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'pix', endereco: { rua: 'A', bairro: 'B' }, cupom: 'DEZ', itens: [{ produtoId: 'x', quantidade: 2, tamanho: 'g', adicionais: ['bacon'] }] });
+  /* 2 x (18 + 7 + 4) = 58,00; cupom 10% = 5,80; entrega gratis acima de 60 nao vale (52,20 < 60) -> +5,00 */
+  assert.equal(p.total, 5800 - 580 + 500);
+  assert.equal(R.conferirTotal(loja, p).ok, true);
+  /* cupom esgotado depois de usado: a conferencia continua batendo */
+  loja.cupons[0].limite = 1;
+  loja.cupons[0].usos = 1;
+  assert.equal(R.conferirTotal(loja, p).ok, true);
+  /* preco mudou no cardapio: avisa. 2 x (20 + 7 + 4) = 62,00, acima de 60 a entrega sai gratis */
+  loja.produtos[0].preco = 2000;
+  const c = R.conferirTotal(loja, p);
+  assert.equal(c.ok, false);
+  assert.equal(c.esperado, 2 * (2000 + 700 + 400) - 580);
+});
+
+test('mensagens de WhatsApp e link', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria Silva', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'dinheiro_entrega', trocoPara: 5000, endereco: { rua: 'Rua A', numero: '10', bairro: 'Centro', referencia: 'portão azul' }, itens: [{ produtoId: 'x', quantidade: 2, adicionais: ['bacon'] }] });
+  p.senha = 7;
+  const ficha = R.fichaDoPedido(loja, p);
+  assert.match(ficha, /SENHA 7/);
+  assert.match(ficha, /Referência: portão azul/);
+  /* 2 x (18,00 + 4,00 de bacon) = 44,00, mais 5,00 de entrega = 49,00; paga com 50,00 */
+  assert.match(ficha, /TOTAL A COBRAR: R\$ 49,00/);
+  assert.match(ficha, /LEVAR R\$ 1,00 DE TROCO/);
+  assert.match(R.mensagemDoCliente(loja, p), /senha 7/);
+  assert.match(R.mensagemParaCliente(loja, p), /Maria/);
+  const link = R.linkWhatsapp('(13) 99999-0001', 'oi');
+  assert.equal(link, 'https://wa.me/5513999990001?text=oi');
+  assert.equal(R.linkWhatsapp('', 'oi'), '');
+});
+
+test('resumo de vendas ignora cancelados e aguardando', () => {
+  const agora = new Date(2026, 8, 13, 21, 0);
+  const iso = (d) => new Date(2026, 8, d, 19, 0).toISOString();
+  const pedidos = [
+    { status: 'finalizado', total: 3000, criadoEm: iso(13), formaPagamento: 'pix', itens: [{ nome: 'X', quantidade: 2 }] },
+    { status: 'pago', total: 2000, criadoEm: iso(12), formaPagamento: 'pix', itens: [{ nome: 'Y', quantidade: 1 }] },
+    { status: 'cancelado', total: 9000, criadoEm: iso(13), formaPagamento: 'pix', itens: [] },
+    { status: 'aguardando_pagamento', total: 9000, criadoEm: iso(13), formaPagamento: 'pix', itens: [] },
+    { status: 'finalizado', total: 1000, criadoEm: iso(1), formaPagamento: 'pix', itens: [] },
+  ];
+  const r = R.resumoVendas(pedidos, 7, agora);
+  assert.equal(r.pedidos, 2);
+  assert.equal(r.total, 5000);
+  assert.equal(r.ticketMedio, 2500);
+  assert.equal(r.maisVendidos[0].nome, 'X');
+});
+
+test('cardápio em texto lista só itens ativos, por categoria, com link no fim', () => {
+  const loja = lojaDeTeste();
+  loja.produtos.push({ id: 'off', categoria: 'lanche', nome: 'Sumido', preco: 100, ativo: false });
+  const texto = R.cardapioEmTexto(loja, 'https://exemplo.com/#/juquia/teste');
+  assert.match(texto, /^\*Loja Teste\*/);
+  assert.match(texto, /\*LANCHES\*/);
+  assert.match(texto, /• X-Burguer — R\$ 18,00/);
+  assert.doesNotMatch(texto, /Sumido/);
+  assert.match(texto, /Entrega: R\$ 5,00, grátis a partir de R\$ 60,00/);
+  assert.match(R.cardapioEmTexto(Object.assign({}, loja, { freteGratis: true }), ''), /Entrega grátis/);
+  assert.match(texto, /https:\/\/exemplo\.com\/#\/juquia\/teste$/);
+});
+
+test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro fixo', () => {
+  const c = R.compararCustos(500000, 200);
+  assert.equal(c.ifoodBasico, 76000 + 11000);
+  assert.equal(c.ifoodEntrega, 132500 + 15000);
+  assert.equal(c.anotaAi, 19999);
+  assert.equal(c.ligeiro, 7900);
+  const pequena = R.compararCustos(150000, 40);
+  assert.equal(pequena.ifoodBasico, 22800);
+  assert.equal(pequena.ifoodMensalidade, false);
+  assert.equal(pequena.anotaAi, 9999);
+  assert.equal(R.compararCustos(0, 300).anotaAi, 29999);
+});
+
+test('categoria com dois grupos de adicionais cobra os dois; balcão pode retirar e pagar no caixa', () => {
+  const loja = lojaDeTeste();
+  loja.grupos = {
+    extras: { titulo: 'Extras', tipo: 'varios', opcoes: [{ id: 'bacon', nome: 'Bacon', preco: 400 }] },
+    molhos: { titulo: 'Molhos', tipo: 'varios', max: 1, opcoes: [{ id: 'barbecue', nome: 'Barbecue', preco: 200 }, { id: 'mostarda', nome: 'Mostarda', preco: 200 }] },
+  };
+  loja.gruposPorCategoria = { lanche: ['extras', 'molhos'] };
+  const c = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, adicionais: ['bacon', 'barbecue'] }]);
+  assert.equal(c.itens[0].precoUnitario, 1800 + 400 + 200);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, adicionais: ['barbecue', 'mostarda'] }]), /Máximo de 1/);
+  loja.aceitaRetirada = false;
+  loja.aceitaPagarNoBalcao = false;
+  const p = R.montarPedido(loja, { origem: 'balcao', tipoEntrega: 'retirada', formaPagamento: 'dinheiro_entrega', trocoPara: 0, itens: [{ produtoId: 'x', quantidade: 1 }] });
+  assert.equal(p.formaPagamento, 'dinheiro_entrega');
+  assert.equal(p.status, 'pago');
+});
+
+test('planoQueVale: pago vale o plano confirmado pelo admin, gratis vale o escolhido', () => {
+  const antes = global.window;
+  global.window = { LIGEIRO_CONFIG: { planos: [{ id: 'uma', lojas: 1, mensal: 7900, anual: 79000 }, { id: 'cinco', lojas: 5, mensal: 29900, anual: 299000 }] } };
+  try {
+  assert.equal(R.planoQueVale({ plano: { status: 'teste', planoId: 'cinco' } }), 'cinco');
+  assert.equal(R.planoQueVale({ plano: { status: 'ativo', planoId: 'cinco', planoPago: 'uma' } }), 'uma');
+  assert.equal(R.planoQueVale({ plano: { status: 'ativo', planoId: 'cinco' } }), 'cinco');
+  assert.equal(R.planoQueVale(null), 'uma');
+  } finally { global.window = antes; }
+});
