@@ -28,17 +28,20 @@
     var p = cfg().precos || {};
     return { mensal: R.precoDoPlano('uma', 'mensal'), anual: R.precoDoPlano('uma', 'anual'), diasGratis: p.diasGratis || 7 };
   }
-  /* Faixa "preco de fundador": so aparece enquanto existir vaga de verdade. */
+  /* Cartao "preco de fundador": so aparece enquanto existir vaga de verdade. */
   function faixaFundador() {
     var restam = R.vagasFundador();
     var total = (cfg().fundador || {}).vagas || 0;
     if (!restam || !total) return null;
     var normal = R.planoPorId('uma').mensal;
-    return el('div', { class: 'faixa-fundador' }, [
-      el('b', { text: 'Preço de fundador' }),
-      el('span', { text: dinheiro(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado pra sempre.' }),
-      el('span', { class: 'faixa-fundador-vagas', text: 'Restam ' + restam + ' de ' + total + ' vagas' }),
-      el('span', { class: 'faixa-fundador-depois', text: 'Depois, ' + dinheiro(normal) + '.' }),
+    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': restam + ' de ' + total + ' vagas livres' }, el('i', { style: { width: Math.max(4, Math.round(restam / total * 100)) + '%' } }));
+    return el('div', { class: 'fundador' }, [
+      el('div', { class: 'fundador-topo' }, [
+        el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', text: '★' }), 'Preço de fundador']),
+        el('span', { class: 'fundador-vagas' }, [el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
+      ]),
+      barra,
+      el('p', { class: 'fundador-texto' }, [el('b', { text: dinheiro(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado pra sempre.' }), ' Depois das ' + total + ' primeiras lojas, ' + dinheiro(normal) + '.']),
     ]);
   }
   function linkWhats(texto) {
@@ -150,7 +153,6 @@
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos pra delivery de cidade pequena' }),
-        faixaFundador(),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
         el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app pra instalar, sem robô caro.' }),
         botoesChamada(true),
@@ -518,6 +520,7 @@
       el('div', { class: 'kicker', text: 'Assinar' }),
       el('h2', { text: 'Escolha o seu plano' }),
       el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale pra todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
+      faixaFundador(),
     ]));
     corpo.appendChild(caixaTipo);
     corpo.appendChild(caixaPlanos);
