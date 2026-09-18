@@ -843,6 +843,27 @@
     return pedido.criadoEm ? t > new Date(pedido.criadoEm).getTime() + 35 * 60 * 1000 : false;
   }
 
+  /* CNPJ: devolve os 14 numeros se for valido (confere os dois digitos verificadores), senao ''. */
+  function cnpjValido(texto) {
+    var n = String(texto || '').replace(/\D/g, '');
+    if (n.length !== 14 || /^(\d)\1{13}$/.test(n)) return '';
+    function digito(base) {
+      var pesos = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      var soma = 0;
+      for (var i = 0; i < base.length; i++) soma += Number(base.charAt(i)) * pesos[i];
+      var resto = soma % 11;
+      return resto < 2 ? 0 : 11 - resto;
+    }
+    var d1 = digito(n.slice(0, 12));
+    var d2 = digito(n.slice(0, 12) + d1);
+    return (d1 === Number(n.charAt(12)) && d2 === Number(n.charAt(13))) ? n : '';
+  }
+  function formatarCnpj(texto) {
+    var n = String(texto || '').replace(/\D/g, '').slice(0, 14);
+    if (n.length !== 14) return n;
+    return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8, 12) + '-' + n.slice(12);
+  }
+
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
@@ -944,6 +965,8 @@
     planoPorId: planoPorId,
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
+    cnpjValido: cnpjValido,
+    formatarCnpj: formatarCnpj,
     pixVencido: pixVencido,
     catalogo: catalogo,
     tipoVisivel: tipoVisivel,

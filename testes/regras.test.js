@@ -406,3 +406,13 @@ test('planoQueVale: periodo pago correndo vale o plano PAGO mesmo depois de ence
     assert.equal(R.planoQueVale({ plano: { status: 'teste', planoId: 'duas' } }), 'duas');
   } finally { global.window = antes; }
 });
+
+test('CNPJ: confere os digitos, aceita com ou sem pontuacao e formata', () => {
+  assert.equal(R.cnpjValido('11.222.333/0001-81'), '11222333000181');
+  assert.equal(R.cnpjValido('11222333000181'), '11222333000181');
+  assert.equal(R.cnpjValido('11.222.333/0001-80'), '');
+  assert.equal(R.cnpjValido('00000000000000'), '');
+  assert.equal(R.cnpjValido(''), '');
+  assert.equal(R.cnpjValido('123'), '');
+  assert.equal(R.formatarCnpj('11222333000181'), '11.222.333/0001-81');
+});

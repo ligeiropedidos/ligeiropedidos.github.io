@@ -688,6 +688,16 @@
       if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener', text: '📷 @' + String(l.instagram).replace(/^@/, '') }));
       var enderecoJaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
       $('enderecoLoja').textContent = l.endereco ? '📍 ' + l.endereco + (l.cidade && !enderecoJaTemCidade ? ' · ' + l.cidade : '') : '';
+      /* confianca no rodape: loja verificada (com o selo) e o CNPJ, se o lojista informou */
+      var legal = $('legalLoja');
+      if (legal) {
+        UI.limpar(legal);
+        var verificada = UI.ehOficial(l.slug) || l.verificada === true;
+        if (verificada) legal.appendChild(el('span', { class: 'rodape-verificada' }, [el('img', { class: 'selo-mini', src: 'img/selo-verificado.svg', alt: '' }), UI.ehOficial(l.slug) ? 'Loja oficial, verificada pelo Ligeiro' : 'Loja verificada pelo Ligeiro']));
+        var cnpj = R.cnpjValido(l.cnpj);
+        if (cnpj) legal.appendChild(el('span', { text: 'CNPJ ' + R.formatarCnpj(cnpj) }));
+        legal.hidden = !legal.children.length;
+      }
       var outras = $('btnOutrasLojas');
       outras.textContent = 'Ver outros estabelecimentos de ' + l.cidade;
       /* Desligado por padrao: o link da loja e da loja, nao manda cliente pro concorrente. O dono liga em Ajustes se quiser. */
@@ -1655,6 +1665,7 @@
       '<div class="fim-inicio" id="fimInicio"></div>' +
       '<footer class="rodape">' +
         '<div id="enderecoLoja"></div>' +
+        '<div class="rodape-legal" id="legalLoja"></div>' +
         '<div class="contatos" id="contatosLoja"></div>' +
         '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;width:100%"></button>' +
         '<div class="ligeiro"><a href="#/lojas">Feito com Ligeiro · quero isso na minha loja →</a></div>' +
