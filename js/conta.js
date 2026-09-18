@@ -33,11 +33,13 @@
       if (!vivo) return;
       if (!u) { window.LigeiroApp.ir('entrar'); return; }
       UI.limpar(corpo);
+      /* selo de fundador do lado do nome: aparece quando a conta travou o preco (ou e a do proprio Ligeiro) */
+      var seloTopo = el('span', { class: 'selo selo-fundador', text: '★ Fundador', hidden: true });
       corpo.appendChild(el('div', { class: 'conta-cabeca' }, [
         u.foto ? el('img', { class: 'conta-foto', src: u.foto, alt: '', referrerpolicy: 'no-referrer' }) : el('span', { class: 'conta-foto conta-inicial', text: (u.nome || u.email || '?').trim().charAt(0).toUpperCase() }),
         el('div', { class: 'conta-texto' }, [
           el('div', { class: 'kicker', text: 'Minha conta' }),
-          el('h1', { text: 'Olá, ' + ((u.nome || '').split(' ')[0] || 'dono') }),
+          el('h1', { class: 'conta-ola' }, [el('span', { text: 'Olá, ' + ((u.nome || '').split(' ')[0] || 'dono') }), seloTopo]),
           el('p', { class: 'muted', text: u.email + (D.modoDemo ? ' · conta de demonstração, só neste aparelho' : '') }),
         ]),
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
@@ -58,6 +60,7 @@
         if (!vivo || !r) return;
         var lojas = r[0], conta = r[1];
         var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email; }).length;
+        seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
         desenharPlano(caixaPlano, conta, reais);
         UI.limpar(rodapeLojas);
         var limite = R.limiteDeLojas(conta || { email: u.email });
@@ -114,7 +117,7 @@
           el('span', { class: 'selo ' + (a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza'), text: R.ehDoLigeiro(conta) ? reais + (reais === 1 ? ' loja' : ' lojas') + ' · conta do Ligeiro' : reais + ' de ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') }),
         ]),
         el('p', { class: 'pequeno', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }),
-        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado enquanto não cancelar' }) : (fundador && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
+        p.fundador === true ? el('span', { class: 'selo selo-fundador', text: '★ Fundador · preço travado enquanto não cancelar' }) : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
         p.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(p.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
         el('div', { class: 'linha-botoes' }, [

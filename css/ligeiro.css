@@ -762,6 +762,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin-top: -2px; }
 .plano-fundador s { color: #7A5A12; }
 .selo.selo-fundador { background: #FDE68A; color: #3F2A00; }
+.conta-ola { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.conta-ola .selo { font-family: var(--corpo, inherit); line-height: 1; }
+.conta-ola .selo[hidden] { display: none; }
 /* seletor de cidade no titulo do hub */
 .hub-cidade-seletor { font: inherit; color: inherit; background: rgba(255, 255, 255, 0.14); border: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 14px; padding: 2px 12px 4px; cursor: pointer; display: inline-flex; align-items: baseline; gap: 8px; }
 .hub-cidade-seletor .seta { font-size: 0.6em; transform: translateY(-2px); }
