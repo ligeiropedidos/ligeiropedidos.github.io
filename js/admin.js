@@ -100,7 +100,8 @@
           if ((a.estado === 'ativa' || a.estado === 'vencendo') && !a.cortesia && !a.gratis) {
             pagantes += 1;
             var p = l.plano || {};
-            receita += p.tipo === 'anual' ? Math.round(R.precoDoPlano(p.planoId || 'uma', 'anual', c) / 12) : R.precoDoPlano(p.planoId || 'uma', 'mensal', c);
+            var contaDoPlano = { plano: p }; /* o espelho do plano na loja traz o "fundador" */
+            receita += p.tipo === 'anual' ? Math.round(R.precoDoPlano(p.planoPago || p.planoId || 'uma', 'anual', contaDoPlano) / 12) : R.precoDoPlano(p.planoPago || p.planoId || 'uma', 'mensal', contaDoPlano);
           } else if (a.estado === 'gratis') gratis += 1;
         });
         s.appendChild(el('div', { class: 'metricas' }, [
@@ -155,6 +156,9 @@
         lojas.forEach(function (l) { lista.appendChild(cartaoLoja(l)); });
         if (lojas.length === 0) lista.appendChild(el('p', { class: 'muted', text: 'Nenhum ainda. Cadastre o primeiro.' }));
         s.appendChild(lista);
+      }).catch(function (e) {
+        /* erro ao montar: nunca deixar a tela em branco */
+        UI.limpar(s); s.appendChild(UI.erroCarregar('Deu erro ao montar esta tela' + (e && e.message ? ': ' + e.message : '.'), desenhar));
       });
     }
 
