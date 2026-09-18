@@ -123,7 +123,7 @@
 
     function botoesChamada(grande) {
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
-      if (temWhats) lista.push(el('a', { class: 'btn btn-whats' + (grande ? '' : ' btn-pequeno'), href: linkWhats(), target: '_blank', rel: 'noopener', text: '💬 Falar com a gente' }));
+      /* o WhatsApp ja tem o botao flutuante: aqui nao repete */
       lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/' + lojaDemo, text: 'Ver uma loja de verdade' }));
       return el('div', { class: 'pilha chamada' }, lista);
     }
