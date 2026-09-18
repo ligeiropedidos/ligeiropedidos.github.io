@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260921d';
+var VERSAO = 'ligeiro-20260921e';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
 var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/favicon.png'];
 
@@ -35,7 +35,10 @@ self.addEventListener('fetch', function (e) {
   /* rede primeiro, mas com prazo: se a internet esta arrastando e ja temos copia, usa a copia */
   e.respondWith(caches.match(e.request).then(function (guardado) {
     /* tenta duas vezes: servidor engasgado por um instante nao vira tela quebrada */
-    var pelaRede = fetch(e.request).catch(function () { return new Promise(function (r) { setTimeout(r, 400); }).then(function () { return fetch(e.request); }); }).then(function (resposta) {
+    /* a pagina em si (index.html) vem sempre fresca da rede, sem o cache de 10 minutos do navegador */
+    var ehPagina = e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
+    var buscar = function () { return ehPagina ? fetch(e.request.url, { cache: 'no-store' }) : fetch(e.request); };
+    var pelaRede = buscar().catch(function () { return new Promise(function (r) { setTimeout(r, 400); }).then(function () { return buscar(); }); }).then(function (resposta) {
       if (resposta && resposta.ok) {
         var copia = resposta.clone();
         caches.open(VERSAO).then(function (c) { c.put(e.request, copia); });

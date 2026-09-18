@@ -58,7 +58,7 @@ h1 { font-size: 28px; }
 h2 { font-size: 22px; }
 h3 { font-size: 19px; }
 p { margin: 0; }
-button { font-family: inherit; font-size: inherit; cursor: pointer; }
+button { font-family: inherit; font-size: inherit; color: inherit; cursor: pointer; } /* color: no iPhone botao sem cor fica azul */
 a { color: var(--deep2); }
 input, select, textarea { font-family: inherit; font-size: 18px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {

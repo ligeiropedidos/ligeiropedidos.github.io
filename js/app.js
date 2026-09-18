@@ -133,5 +133,22 @@
     });
   }
 
+  /* Versao nova no ar? Ao abrir o site, confere o index.html direto na rede; se o numero mudou, recarrega uma vez.
+     Assim ninguem fica preso na versao antiga (celular segura cache por varios minutos). */
+  (function () {
+    if (location.protocol === 'file:' || !window.fetch) return;
+    var meu = ((document.querySelector('script[src*="js/app.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/);
+    if (!meu) return;
+    fetch('index.html?agora=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (html) {
+      var novo = html.match(/js\/app\.js\?v=([0-9a-z]+)/);
+      if (!novo || novo[1] === meu[1]) return;
+      var ja = null; try { ja = sessionStorage.getItem('ligeiro:recarregou'); } catch (_) { /* ignora */ }
+      if (ja === novo[1]) return; /* ja tentou pra esta versao: nao entra em laco */
+      try { sessionStorage.setItem('ligeiro:recarregou', novo[1]); } catch (_) { return; }
+      var limpar = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+      limpar.catch(function () {}).then(function () { location.reload(); });
+    }).catch(function () { /* sem internet: segue com o que tem */ });
+  })();
+
   render();
 })();
