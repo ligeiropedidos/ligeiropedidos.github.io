@@ -116,11 +116,19 @@
     var cfg = window.LIGEIRO_CONFIG || {};
     var filhos = [];
     if (comChamada) {
-      filhos.push(el('p', { class: 'forte', text: 'Tem lanchonete, pizzaria ou marmitaria?' }));
-      filhos.push(el('p', { text: 'Coloque seu cardápio no Ligeiro. R$ 79 por mês, sem comissão, a gente configura na sua loja.' }));
-      var botoes = [el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Quero o Ligeiro na minha loja' }), el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Assinar agora' })];
-      if (cfg.whatsappLigeiro) botoes.push(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero colocar meu estabelecimento no Ligeiro.'), target: '_blank', rel: 'noopener', text: '💬 Falar com o Ligeiro' }));
-      filhos.push(el('div', { class: 'contatos' }, botoes));
+      /* convite pro lojista: um cartao so, um botao principal e o WhatsApp como segunda opcao */
+      var precoUma = R.dinheiro(R.precoDoPlano('uma', 'mensal')).replace(',00', '');
+      var dias = (cfg.precos || {}).diasGratis || 7;
+      filhos.push(el('div', { class: 'chamada-lojista' }, [
+        el('div', { class: 'chamada-texto' }, [
+          el('b', { text: 'Tem uma loja? Venda por aqui também.' }),
+          el('span', { text: precoUma + ' por mês, sem comissão. ' + dias + ' dias grátis pra testar.' }),
+        ]),
+        el('div', { class: 'chamada-acoes' }, [
+          el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Conhecer o Ligeiro' }),
+          cfg.whatsappLigeiro ? el('a', { class: 'chamada-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero colocar meu estabelecimento no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'ou fale no WhatsApp' }) : null,
+        ]),
+      ]));
     }
     filhos.push(el('div', { class: 'ligeiro' }, [el('a', { href: '#/lojas', text: 'Ligeiro — pedido ligeiro, sem comissão' })]));
     return el('footer', { class: 'rodape' }, filhos);
@@ -155,8 +163,7 @@
       var nome = estadoHub.nomeCidade || '';
       var varias = (estadoHub.cidades || []).length > 1;
       tituloCidade.appendChild(document.createTextNode(estadoHub.lojas.length || varias ? 'Peça no delivery de ' : 'Delivery de '));
-      if (!varias) { tituloCidade.appendChild(document.createTextNode(nome)); return; }
-      tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Trocar de cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta', text: '▾' })]));
+      tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Escolher a cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta', text: '▾' })]));
     }
     function abrirCidades() {
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, (estadoHub.cidades || []).map(function (c) {

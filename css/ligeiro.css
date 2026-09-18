@@ -343,6 +343,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .rodape .contatos { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .rodape a.btn { min-height: 46px; font-size: 15px; border-radius: 12px; }
 .rodape .ligeiro { font-size: 12.5px; color: #97A399; margin-top: 6px; }
+/* convite pro lojista no fim da pagina das lojas */
+.chamada-lojista { width: 100%; max-width: 928px; margin: 8px auto 0; display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 20px 24px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--sombra); }
+.chamada-texto { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.chamada-texto b { font-family: var(--display); font-size: 20px; line-height: 1.2; color: var(--ink); }
+.chamada-texto span { font-size: 15px; color: var(--body); }
+.chamada-acoes { flex: none; display: flex; align-items: center; gap: 16px; }
+.chamada-acoes .btn { min-height: 52px; padding: 0 24px; font-size: 16px; border-radius: 14px; white-space: nowrap; }
+.chamada-whats { font-size: 14.5px; font-weight: 600; color: var(--deep2); white-space: nowrap; }
+@media (max-width: 600px) { .chamada-lojista { padding: 16px; text-align: center; } .chamada-acoes { flex: 1 1 100%; flex-direction: column; gap: 10px; } .chamada-acoes .btn { width: 100%; } }
 
 /* ---------- Cardapio ---------- */
 
