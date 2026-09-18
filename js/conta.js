@@ -66,11 +66,12 @@
         else if (reais >= limite) rodapeLojas.appendChild(el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Seu plano permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + ' · mudar plano' }));
         else rodapeLojas.appendChild(el('a', { class: 'btn btn-principal', href: '#/comecar', text: '+ Criar outra loja' }));
         UI.limpar(lista);
+        if (!lojas.length) UI.limpar(rodapeLojas); /* sem loja, o convite grande ja esta no meio da tela */
         if (!lojas.length) {
           lista.appendChild(el('div', { class: 'vazio hub-vazio' }, [
             el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
             el('p', { class: 'forte', text: 'Você ainda não tem loja no Ligeiro.' }),
-            el('p', { class: 'muted', text: 'Leva três minutos: nome, WhatsApp, chave Pix e frete. Os primeiros ' + diasGratis() + ' dias são grátis.' }),
+            el('p', { class: 'muted', text: 'Leva três minutos: nome, WhatsApp e frete. Os primeiros ' + diasGratis() + ' dias são grátis.' }),
             el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis' }),
           ]));
           return;
