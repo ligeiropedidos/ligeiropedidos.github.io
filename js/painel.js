@@ -602,7 +602,7 @@
         /* grupos de opcoes desta categoria */
         var chaves = (l.gruposPorCategoria || {})[cat.id] || [];
         conteudo.appendChild(el('h2', { text: 'Tamanhos e adicionais de ' + cat.nome, style: { marginTop: '10px' } }));
-        conteudo.appendChild(el('p', { class: 'muted pequeno', text: 'Acabou o bacon? Desliga aqui e ele some do site na hora.' }));
+        conteudo.appendChild(el('p', { class: 'muted pequeno', text: R.catalogo(estado.loja).comida ? 'Acabou o bacon? Desliga aqui e ele some do site na hora.' : 'Acabou um tamanho ou uma opção? Desliga aqui e some do site na hora.' }));
         chaves.forEach(function (chave) {
           var g = (l.grupos || {})[chave];
           if (g) conteudo.appendChild(blocoGrupo(chave, g, cat.id));
@@ -631,7 +631,8 @@
         srcFoto ? el('img', { class: 'miniatura-produto', src: srcFoto, alt: '' }) : el('span', { class: 'emoji', text: p.emoji || '🍽️' }),
         el('div', { class: 'nome' }, [p.nome, el('small', { text: p.descricao || '' })]),
         preco,
-        el('button', { class: 'editar', text: '✏️', 'aria-label': 'Editar ' + p.nome, onclick: function () { editarProduto(p, p.categoria); } }),
+        el('button', { class: 'editar apagar', text: '🗑️', 'aria-label': 'Excluir ' + p.nome, title: 'Excluir', onclick: function () { excluirProduto(p); } }),
+        el('button', { class: 'editar', text: '✏️', 'aria-label': 'Editar ' + p.nome, title: 'Editar', onclick: function () { editarProduto(p, p.categoria); } }),
         chave,
       ]);
     }
@@ -818,6 +819,15 @@
       return bloco;
     }
 
+    /* Excluir um item (lixeira da linha e botao de dentro do editar). Devolve a promessa com true se excluiu. */
+    function excluirProduto(p) {
+      return UI.perguntar('Excluir "' + p.nome + '" do ' + R.catalogo(estado.loja).nome + '? Se for só por hoje, prefira desligar o item.', { sim: 'Excluir', perigo: true }).then(function (sim) {
+        if (!sim) return false;
+        if (p.foto) store.excluirFoto(slug, p.foto).catch(function () { /* ignora */ });
+        return salvarLoja({ produtos: estado.loja.produtos.filter(function (x) { return x.id !== p.id; }) }, 'Item excluído').then(function () { desenharCardapio(); return true; });
+      });
+    }
+
     function editarProduto(p, categoriaId) {
       var novo = !p;
       var f = {
@@ -895,11 +905,7 @@
       if (!novo) {
         botoes.unshift(el('button', { class: 'btn btn-fantasma btn-pequeno', text: 'Duplicar', onclick: function () { duplicarProduto(p); } }));
         botoes.unshift(el('button', { class: 'btn btn-erro btn-pequeno', text: 'Excluir', onclick: function () {
-          UI.perguntar('Excluir "' + p.nome + '" do ' + R.catalogo(estado.loja).nome + '? Se for só por hoje, prefira desligar o item.', { sim: 'Excluir', perigo: true }).then(function (sim) {
-            if (!sim) { editarProduto(p, categoriaId); return; }
-            if (p.foto) store.excluirFoto(slug, p.foto).catch(function () { /* ignora */ });
-            salvarLoja({ produtos: estado.loja.produtos.filter(function (x) { return x.id !== p.id; }) }, 'Item excluído').then(function () { UI.fecharModal(); desenharCardapio(); });
-          });
+          excluirProduto(p).then(function (excluiu) { if (excluiu) UI.fecharModal(); else editarProduto(p, categoriaId); });
         } }));
       }
       UI.abrirModal({ titulo: novo ? 'Novo item' : p.nome, corpo: corpo, rodape: botoes });
@@ -1163,7 +1169,7 @@
       var s = $('secaoPainel');
       UI.limpar(s);
       var dias = estado.diasVendas || 7;
-      var seletor = el('div', { class: 'abas-painel', style: { position: 'static', padding: '0', border: '0', background: 'transparent' } });
+      var seletor = el('div', { class: 'seletor-periodo', role: 'group', 'aria-label': 'Período' });
       [[1, 'Hoje'], [7, '7 dias'], [30, '30 dias']].forEach(function (d) {
         seletor.appendChild(el('button', { class: 'aba-painel' + (dias === d[0] ? ' ativa' : ''), text: d[1], onclick: function () { estado.diasVendas = d[0]; desenharVendas(); } }));
       });
@@ -1187,7 +1193,6 @@
         ]));
 
         if (dias > 1) {
-          var barras = el('div', { class: 'barras' });
           var maximo = 0;
           var diasLista = [];
           for (var i = dias - 1; i >= 0; i--) {
@@ -1195,14 +1200,26 @@
             var k = R.diaLocal(d);
             var v = r.porDia[k] || 0;
             maximo = Math.max(maximo, v);
-            diasLista.push({ k: k, v: v, rotulo: d.getDate() + '/' + (d.getMonth() + 1) });
+            diasLista.push({ k: k, v: v, hoje: i === 0, rotulo: d.getDate() + '/' + (d.getMonth() + 1), semana: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] });
           }
-          diasLista.forEach(function (d, i) {
-            var alt = maximo ? Math.max(3, Math.round((d.v / maximo) * 100)) : 3;
-            barras.appendChild(el('div', { class: 'b', title: d.rotulo + ': ' + dinheiro(d.v) }, [el('div', { class: 'col', style: { height: alt + '%' } }), (dias <= 7 || i % 5 === 0) ? el('div', { class: 'lab', text: d.rotulo }) : el('div', { class: 'lab', text: '' })]));
-          });
           conteudo.appendChild(el('h3', { text: 'Por dia' }));
-          conteudo.appendChild(barras);
+          if (!maximo) {
+            conteudo.appendChild(el('div', { class: 'grafico-vazio' }, [el('div', { class: 'icone', text: '📊' }), el('p', { text: 'Nenhuma venda nesse período ainda. Assim que entrar pedido, o gráfico aparece aqui.' })]));
+          } else {
+            var poucos = dias <= 7;
+            var barras = el('div', { class: 'barras' + (poucos ? ' poucos' : '') });
+            diasLista.forEach(function (d, i) {
+              var alt = Math.max(2, Math.round((d.v / maximo) * 100));
+              barras.appendChild(el('div', { class: 'b' + (d.hoje ? ' hoje' : '') + (d.v ? '' : ' zero'), title: d.rotulo + ': ' + dinheiro(d.v) }, [
+                el('div', { class: 'area' }, [
+                  poucos && d.v ? el('div', { class: 'val', text: dinheiro(d.v).replace('R$', '').replace(/,00$/, '').trim() }) : null,
+                  el('div', { class: 'col', style: { height: alt + '%' } }),
+                ]),
+                el('div', { class: 'lab', text: poucos ? (d.hoje ? 'hoje' : d.semana) : ((i % 5 === 0 || d.hoje) ? d.rotulo : '') }),
+              ]));
+            });
+            conteudo.appendChild(barras);
+          }
         }
 
         var horas = Object.keys(r.porHora).map(Number).sort(function (a, b) { return r.porHora[b] - r.porHora[a]; }).slice(0, 3);
@@ -1448,8 +1465,6 @@
         f.senhaPainel.input.setAttribute('autocomplete', 'new-password');
         seguranca.appendChild(f.senhaPainel);
         s.appendChild(seguranca);
-      } else {
-        s.appendChild(el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Senha do painel' }), el('p', { class: 'muted', text: 'A senha é a do seu login. Pra trocar, fale com o Ligeiro no WhatsApp.' })]));
       }
 
       s.appendChild(el('button', { class: 'btn btn-principal btn-largo', text: 'Salvar tudo', onclick: function () { salvarAjustes(f); } }));
@@ -1501,7 +1516,7 @@
         chave.addEventListener('click', function () { e.aberto = !e.aberto; redesenhar(dia); });
         linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' })]));
         if (e.aberto) {
-          var turnos = el('div', { class: 'turnos' });
+          var turnos = el('div', { class: 'turnos' + (e.turnos.length > 1 ? ' dois' : '') });
           e.turnos.forEach(function (t, i) {
             var turno = el('div', { class: 'turno' }, [
               el('span', { class: 'muted', text: i === 0 ? 'das' : 'e das' }),
@@ -1512,8 +1527,8 @@
             ]);
             turnos.appendChild(turno);
           });
-          if (e.turnos.length < 2) turnos.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', text: '+ 2º turno (ex.: almoço e janta)', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
           linha.appendChild(turnos);
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Pra quem abre no almoço e na janta', text: '+ 2º turno', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
         }
         return linha;
       }
@@ -1533,7 +1548,7 @@
       ]));
       var bloco = el('div', { class: 'campo largo' }, [
         el('label', { text: 'Horário de cada dia' }),
-        el('p', { class: 'ajuda', text: 'Passa da meia-noite? Coloque "até 01:00" que o sistema entende. Só vale com "Fechar sozinha fora do horário" ligado.' }),
+        el('p', { class: 'ajuda', text: 'Fecha depois da meia-noite? Coloque "até 01:00" que o sistema entende. Abre no almoço e na janta? Use o 2º turno.' }),
         caixa,
       ]);
       bloco.valor = function (silencioso) {
@@ -1699,10 +1714,12 @@
         'Este painel em outro aparelho: ',
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link do painel', onclick: copiar(linkPainel, 'Link do painel copiado.') }),
       ]));
-      s.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Senha da equipe' }),
-        el('p', { class: 'muted pequeno', text: 'Cozinha, entregador e balcão abrem com essa senha (4 a 8 números). Você, logado, entra sem senha. Esqueceu? Defina outra aqui, ou em Minha conta.' }),
-        el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '🔑 Definir a senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
+      s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
+        el('div', { class: 'senha-equipe-texto' }, [
+          el('div', { class: 'bloco-titulo', text: '🔑 Senha da equipe' }),
+          el('p', { class: 'muted pequeno', text: 'Cozinha, entregador e balcão abrem com ela (4 a 8 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
+        ]),
+        el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));
 
       /* 2. divulgar */
