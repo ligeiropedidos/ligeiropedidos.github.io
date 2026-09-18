@@ -12,8 +12,11 @@
  * Como publicar (15 minutos, sem cartao):
  *   1. Cloudflare > Workers & Pages > Create Worker > nome "ligeiro-mp" > cole este arquivo > Deploy.
  *   2. Settings > Variables and Secrets (Secret):
- *        FIREBASE_SA   o JSON inteiro da conta de servico do Firebase
- *                      (Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
+ *        FIREBASE_SA       o JSON inteiro da conta de servico do Firebase
+ *                          (Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
+ *        MP_CLIENT_ID      Client ID da aplicacao "Ligeiro plataforma" no Mercado Pago
+ *        MP_CLIENT_SECRET  Client Secret da mesma aplicacao (o botao "Conectar com Mercado Pago")
+ *      Na aplicacao do Mercado Pago, URL de redirecionamento: https://SEU-WORKER/mp/volta
  *   3. Copie o endereco (https://ligeiro-mp.SEU-USUARIO.workers.dev) e cole em js/config.js, proxyMercadoPago.
  *   4. Nada a fazer no Mercado Pago: o worker manda o endereco do webhook em cada pagamento (notification_url).
  *
@@ -39,6 +42,37 @@ export default {
     const caminho = url.pathname.replace(/\/+$/, '') || '/';
 
     try {
+      /* ---- volta do "Conectar com Mercado Pago" (OAuth): troca o codigo pelo token da loja ---- */
+      if (caminho === '/mp/volta' && request.method === 'GET') {
+        const site = ORIGENS[0];
+        const code = url.searchParams.get('code') || '';
+        const state = url.searchParams.get('state') || '';
+        const ponto = state.indexOf('.');
+        const slug = ponto > 0 ? state.slice(0, ponto) : '';
+        const nonce = ponto > 0 ? state.slice(ponto + 1) : '';
+        const voltar = (ok) => Response.redirect(site + '/#/painel/' + encodeURIComponent(slug || '') + '/mp-' + (ok ? 'ok' : 'erro'), 302);
+        if (!code || !slug || !nonce || !env.MP_CLIENT_ID || !env.MP_CLIENT_SECRET) return voltar(false);
+        const fb = await firebase(env);
+        const seg = (await fb.get('lojas/' + slug + '/privado/mercadopago')) || {};
+        const recente = seg.oauthEm && (Date.now() - new Date(seg.oauthEm).getTime()) < 30 * 60 * 1000;
+        if (!seg.oauthNonce || seg.oauthNonce !== nonce || !recente) return voltar(false);
+        const r = await fetch(MP + '/oauth/token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: env.MP_CLIENT_ID, client_secret: env.MP_CLIENT_SECRET, grant_type: 'authorization_code', code: code, redirect_uri: url.origin + '/mp/volta' }),
+        });
+        const t = await r.json().catch(() => ({}));
+        if (!r.ok || !t.access_token) return voltar(false);
+        const agora = new Date().toISOString();
+        await fb.merge('lojas/' + slug + '/privado/mercadopago', {
+          token: t.access_token, refresh: t.refresh_token || '', mpUserId: String(t.user_id || ''),
+          tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
+          conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '',
+        });
+        await fb.merge('lojas/' + slug, { mpAtivo: true, aceitaPix: true, atualizadoEm: agora });
+        await fb.merge('vitrine/' + slug, { aceitaPix: true, atualizadoEm: agora }).catch(() => {});
+        return voltar(true);
+      }
+
       /* ---- webhook do Mercado Pago (vem do servidor deles, sem Origin) ---- */
       if (caminho === '/webhook' && request.method === 'POST') {
         const slug = url.searchParams.get('loja') || '';
@@ -47,7 +81,7 @@ export default {
         const idPagamento = (corpo.data && corpo.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id') || '';
         if (!slug || !idPagamento) return json({ ok: true, ignorado: true });
         const fb = await firebase(env);
-        await conferirPagamento(fb, slug, String(idPagamento), null);
+        await conferirPagamento(fb, slug, String(idPagamento), null, env);
         return json({ ok: true });
       }
 
@@ -62,7 +96,7 @@ export default {
         if (!p) return json({ erro: 'pedido não existe' }, 404);
         if (p.pixCodigo) return json({ codigo: p.pixCodigo, expiraEm: p.pixExpiraEm || '' });
         if (p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando Pix' }, 400);
-        const token = await tokenDaLoja(fb, loja);
+        const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
         const l = await fb.get('lojas/' + loja);
         const nome = separarNome(p.cliente && p.cliente.nome, l && l.nome);
@@ -91,7 +125,7 @@ export default {
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
         if (!p) return json({ erro: 'pedido não existe' }, 404);
         if (p.status !== 'aguardando_pagamento' || !p.mp || !p.mp.id) return json({ status: p.status });
-        const novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido);
+        const novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env);
         return json({ status: novo || p.status });
       }
 
@@ -116,8 +150,8 @@ export default {
 };
 
 /* Consulta o pagamento no Mercado Pago com o token da loja e, se aprovado, libera o pedido. Devolve o status novo. */
-async function conferirPagamento(fb, slug, idPagamento, pedidoId) {
-  const token = await tokenDaLoja(fb, slug);
+async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
+  const token = await tokenDaLoja(fb, slug, env);
   if (!token) return null;
   const pg = await mp(token, '/v1/payments/' + encodeURIComponent(idPagamento), {});
   const id = pedidoId || pg.external_reference;
@@ -133,9 +167,25 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId) {
   return 'aguardando_pagamento';
 }
 
-async function tokenDaLoja(fb, slug) {
+/* Token da loja. Se veio pelo "Conectar" e esta perto de vencer, renova sozinho com o refresh_token. */
+async function tokenDaLoja(fb, slug, env) {
   const seg = await fb.get('lojas/' + slug + '/privado/mercadopago');
-  return seg && seg.token ? String(seg.token).trim() : '';
+  if (!seg || !seg.token) return '';
+  const vence = seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
+  if (seg.refresh && env && env.MP_CLIENT_ID && env.MP_CLIENT_SECRET && vence && vence - Date.now() < 7 * 864e5) {
+    try {
+      const r = await fetch(MP + '/oauth/token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: env.MP_CLIENT_ID, client_secret: env.MP_CLIENT_SECRET, grant_type: 'refresh_token', refresh_token: seg.refresh }),
+      });
+      const t = await r.json().catch(() => ({}));
+      if (r.ok && t.access_token) {
+        await fb.merge('lojas/' + slug + '/privado/mercadopago', { token: t.access_token, refresh: t.refresh_token || seg.refresh, tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() });
+        return t.access_token;
+      }
+    } catch (_) { /* segue com o token atual */ }
+  }
+  return String(seg.token).trim();
 }
 
 async function mp(token, caminho, opcoes) {

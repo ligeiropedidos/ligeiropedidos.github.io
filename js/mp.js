@@ -43,6 +43,38 @@
   function lerToken(slug) {
     return D().store.lerSegredo(slug, SEGREDO).then(function (s) { return s && s.token ? String(s.token).trim() : ''; });
   }
+  /* Estado da conexao (pra tela): { token, conectadoEm, mpUserId, viaOauth } ou null. */
+  function lerConexao(slug) {
+    return D().store.lerSegredo(slug, SEGREDO).then(function (seg) {
+      if (!seg || !seg.token) return null;
+      return { token: String(seg.token), conectadoEm: seg.conectadoEm || seg.atualizadoEm || '', mpUserId: seg.mpUserId || '', viaOauth: !!seg.refresh };
+    });
+  }
+  /* Botao "Conectar com Mercado Pago": grava um codigo de uma vez e manda pro Mercado Pago autorizar.
+     O mensageiro (/mp/volta) troca o codigo pelo token da loja e volta pro painel. */
+  function conectar(slug) {
+    var cfg = window.LIGEIRO_CONFIG || {};
+    if (D().modoDemo) {
+      return guardarToken(slug, 'SIMULACAO').then(function () { return 'demo'; });
+    }
+    if (!cfg.mercadoPagoClientId || !cfg.proxyMercadoPago) return Promise.reject(new Error('O Ligeiro ainda não ligou a conexão com o Mercado Pago. Cole o token por enquanto.'));
+    var nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    return D().store.lerSegredo(slug, SEGREDO).then(function (seg) {
+      var novo = Object.assign({}, seg || {}, { oauthNonce: nonce, oauthEm: new Date().toISOString() });
+      return D().store.guardarSegredo(slug, SEGREDO, novo);
+    }).then(function () {
+      var volta = cfg.proxyMercadoPago.replace(/\/$/, '') + '/mp/volta';
+      var url = 'https://auth.mercadopago.com.br/authorization?client_id=' + encodeURIComponent(cfg.mercadoPagoClientId)
+        + '&response_type=code&platform_id=mp&state=' + encodeURIComponent(slug + '.' + nonce)
+        + '&redirect_uri=' + encodeURIComponent(volta);
+      location.href = url;
+      return 'indo';
+    });
+  }
+  function desconectar(slug) {
+    return D().store.guardarSegredo(slug, SEGREDO, { token: '', desconectadoEm: new Date().toISOString() });
+  }
+
   function guardarToken(slug, token) {
     return D().store.guardarSegredo(slug, SEGREDO, { token: String(token || '').trim(), atualizadoEm: new Date().toISOString() });
   }
@@ -155,5 +187,6 @@
     return { processar: processar, parar: parar, estado: estado };
   }
 
-  window.LigeiroMP = { iniciar: iniciar, lerToken: lerToken, guardarToken: guardarToken };
+  window.LigeiroMP = {
+    lerConexao: lerConexao, conectar: conectar, desconectar: desconectar, iniciar: iniciar, lerToken: lerToken, guardarToken: guardarToken };
 })();

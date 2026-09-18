@@ -92,6 +92,16 @@
     /* ---------------------------------------------------------- painel */
     function montarPainel() {
       UI.limpar(raiz);
+      /* voltou do "Conectar com Mercado Pago" */
+      var mpVolta = (location.hash.match(/\/mp-(ok|erro)(?:\?(.*))?$/) || [])[1];
+      if (mpVolta) {
+        history.replaceState(null, '', '#/painel/' + slug);
+        estado.aba = 'ajustes';
+        setTimeout(function () {
+          if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix automático ligado.'); }
+          else UI.avisar('O Mercado Pago não autorizou. Tente de novo ou cole o token.');
+        }, 400);
+      }
       var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), text: estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado', onclick: function () {
         estado.somLigado = UI.somLigado(!estado.somLigado);
         btnSom.textContent = estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado';
@@ -1307,24 +1317,54 @@
       /* Pix e sempre automatico, pela conta Mercado Pago da loja: o cliente paga e o pedido cai pronto */
       var cfgMP = window.LIGEIRO_CONFIG || {};
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
+      var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
       f.mpAtivo = interruptorCampo('Pix automático', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
       f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Na demonstração, digite SIMULACAO' : 'Cole aqui (começa com APP_USR-)', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só pra trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
-      if (window.LigeiroMP) window.LigeiroMP.lerToken(l.slug).then(function (t) { if (t) { f.mpToken.temSalvo = true; f.mpToken.input.placeholder = 'Token salvo (' + t.slice(0, 6) + '…). Cole outro só pra trocar.'; } });
+
+      /* caixa da conexao: "Conectar com Mercado Pago" ou "Conectado desde ..." */
+      var conexao = el('div', { class: 'mp-conexao' });
+      function desenharConexao(c) {
+        UI.limpar(conexao);
+        if (c && c.token) {
+          f.mpToken.temSalvo = true;
+          conexao.appendChild(el('div', { class: 'mp-conectado' }, [
+            el('span', { class: 'mp-selo', text: '✅ Mercado Pago conectado' }),
+            el('span', { class: 'muted pequeno', text: (c.conectadoEm ? 'desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR') : '') + (c.mpUserId ? ' · conta ' + c.mpUserId : '') }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
+              UI.perguntar('Desconectar o Mercado Pago? O Pix para de funcionar até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
+                if (!sim) return;
+                window.LigeiroMP.desconectar(slug).then(function () { f.mpToken.temSalvo = false; f.mpAtivo.chave.definir ? f.mpAtivo.chave.definir(false) : null; return salvarLoja({ mpAtivo: false, aceitaPix: false }, 'Mercado Pago desconectado.'); }).then(function () { desenharAjustes(); });
+              });
+            } }),
+          ]));
+          return;
+        }
+        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', text: '🔗 Conectar com Mercado Pago', onclick: function () {
+          window.LigeiroMP.conectar(slug).then(function (r) {
+            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { desenharAjustes(); }); }
+          }).catch(function (e) { UI.avisar(e.message || 'Não deu pra conectar agora.'); });
+        } }));
+        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta pra cá com o Pix ligado. Sem copiar nada.' }));
+      }
+      if (window.LigeiroMP) window.LigeiroMP.lerConexao(l.slug).then(desenharConexao); else desenharConexao(null);
       pagamento.appendChild(f.mpAtivo);
-      pagamento.appendChild(f.mpToken);
-      pagamento.appendChild(el('div', { class: 'passos-config' }, [
-        el('div', { class: 'passos-config-titulo', text: 'Ligar o Pix em 3 passos' }),
-        el('ol', {}, [
+      if (temConexao) pagamento.appendChild(conexao);
+      var avancadoMP = el('details', { class: 'avancado' }, [
+        el('summary', { text: temConexao ? 'Prefere colar o Access Token? (avançado)' : 'Access Token do Mercado Pago' }),
+        f.mpToken,
+        el('ol', { class: 'passos-mp' }, [
           el('li', {}, [el('b', { text: 'Tenha uma conta no Mercado Pago' }), ' (app, grátis) com uma chave Pix cadastrada nela. É lá que o dinheiro do cliente cai; você transfere pro banco quando quiser.']),
-          el('li', {}, [el('b', { text: 'Pegue o Access Token' }), ': no site do Mercado Pago, Seu negócio › Configurações › Credenciais › Produção › Access Token. Começa com APP_USR.']),
+          el('li', {}, [el('b', { text: 'Pegue o Access Token' }), ': no site do Mercado Pago, Suas integrações › Criar aplicação › Credenciais de produção › Access Token. Começa com APP_USR.']),
           el('li', {}, [el('b', { text: 'Cole acima, ligue e salve.' }), ' Faça um pedido de teste de R$ 1 pelo seu site: pagou, o pedido vira "pago" sozinho em segundos.']),
         ]),
-        el('p', { class: 'aviso' + (l.mpAtivo ? '' : ' aviso-falta'), text: l.mpAtivo
-          ? '✅ Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
-          : (pixPossivel ? '⚠️ Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).' : '⚠️ O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.') }),
-      ]));
+      ]);
+      if (!temConexao) avancadoMP.open = true;
+      pagamento.appendChild(avancadoMP);
+      pagamento.appendChild(el('p', { class: 'aviso' + (l.mpAtivo ? '' : ' aviso-falta'), text: l.mpAtivo
+        ? '✅ Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
+        : (pixPossivel ? '⚠️ Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).' : '⚠️ O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.') }));
       f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', '', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
       f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, retirada só com Pix.', l.aceitaPagarNoBalcao !== false);

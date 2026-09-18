@@ -712,6 +712,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .divulgar-acoes { flex: 1; min-width: 0; }
 .divulgar-acoes .caixa-link { margin: 0; }
 @media (max-width: 600px) { .divulgar { flex-direction: column; align-items: center; } .divulgar-acoes { width: 100%; } }
+/* conexao com o Mercado Pago (painel) */
+.mp-conexao { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 10px; }
+.btn-mp { background: #009EE3; color: #fff; }
+.btn-mp:hover { background: #0089c5; }
+.mp-conectado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio-p); }
+.mp-selo { font-weight: 700; color: var(--deep2); }
+.mp-conectado .btn { margin-left: auto; }
 /* tela do Pix do cliente: gerando / falhou */
 .pix-gerando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 26px 12px; font-weight: 700; color: var(--deep2); }
 .pix-gerando .girando { width: 22px; height: 22px; border: 3px solid var(--line-forte); border-top-color: var(--deep2); border-radius: 50%; animation: girar 0.9s linear infinite; }

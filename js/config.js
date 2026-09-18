@@ -39,6 +39,9 @@ window.LIGEIRO_CONFIG = {
      na hora com o token Mercado Pago da loja e confirma sozinho. Vazio = ninguem consegue pagar no Pix
      (o cliente paga na entrega ou no balcao). */
   proxyMercadoPago: 'https://ligeiro-mp.ligeiro-pedidos.workers.dev',
+  /* Client ID (publico) da aplicacao "Ligeiro plataforma" no Mercado Pago: liga o botao
+     "Conectar com Mercado Pago" no painel. O Client Secret vai so no worker (MP_CLIENT_SECRET). */
+  mercadoPagoClientId: '',
 
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
   precos: { mensal: 7900, anual: 79000, diasGratis: 7 },
