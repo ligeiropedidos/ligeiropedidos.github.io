@@ -1188,6 +1188,8 @@
         }).catch(function (e) {
           estado.pedindoPix = false;
           if (!estado.pedido || estado.pedido.id !== pedido.id) return;
+          /* o codigo pode ter chegado por outro caminho (onSnapshot) enquanto isso: ai nao e falha */
+          if (estado.pedido.pixCodigo) { mostrarPagamento(estado.pedido); return; }
           gerando.hidden = true;
           falhou.hidden = false;
           $('pixFalhouTexto').textContent = 'Não deu pra gerar o Pix agora' + (e && e.message ? ' (' + e.message + ')' : '') + '. Tente de novo ou desista e escolha outra forma de pagamento.';

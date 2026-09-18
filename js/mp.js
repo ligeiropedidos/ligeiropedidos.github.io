@@ -91,6 +91,8 @@
     });
 
     function elegivel(p) {
+      /* com o mensageiro no ar, quem cria o Pix e ele (na hora do pedido); o painel so confere se caiu */
+      if (cfg.proxyMercadoPago && !estado.simulado) return false;
       return p.status === R.STATUS.AGUARDANDO && p.formaPagamento === 'pix' && p.total > 0 && !p.mp && !estado.emAndamento[p.id]
         && (Date.now() - new Date(p.criadoEm).getTime()) < 60 * 60 * 1000;
     }
