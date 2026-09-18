@@ -1528,7 +1528,7 @@
             turnos.appendChild(turno);
           });
           linha.appendChild(turnos);
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Pra quem abre no almoço e na janta', text: '+ 2º turno', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (pra quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
         }
         return linha;
       }

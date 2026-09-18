@@ -701,21 +701,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .turno .muted { font-size: 14px; min-width: 26px; }
 .turno .btn-mini { min-width: 40px; padding: 0; }
 .dia-mais { justify-self: end; white-space: nowrap; }
-/* celular: dia e liga/desliga numa linha (chave na ponta direita); horarios embaixo ocupando a largura toda */
+/* celular: linha 1 = dia + liga/desliga na ponta; linha 2 = [hora] ate [hora] [+], sempre nas mesmas 4 colunas.
+   O x do segundo turno cai exatamente embaixo do +, e os campos de hora ficam um embaixo do outro. */
 @media (max-width: 640px) {
-  .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px; }
-  .dia-cabeca { justify-content: flex-start; }
+  .dia-linha { grid-template-columns: minmax(0, 1fr) 44px; gap: 10px 8px; padding: 12px; min-height: 0; }
+  .dia-cabeca { grid-column: 1 / -1; justify-content: flex-start; min-height: 34px; }
   .dia-cabeca .chave { order: 3; margin-left: auto; }
-  .turnos { flex-direction: column; gap: 8px; }
-  .turno { display: grid; grid-template-columns: 44px minmax(0, 1fr) 24px minmax(0, 1fr); }
-  /* dia com dois turnos: as duas linhas usam as MESMAS colunas (a do x fica vazia na primeira), campos alinhados um embaixo do outro */
-  .turnos.dois .turno { grid-template-columns: 44px minmax(0, 1fr) 24px minmax(0, 1fr) 40px; }
-  .turno .muted { white-space: nowrap; font-size: 13px; }
-  .turno input[type="time"] { width: 100%; min-width: 0; text-align: center; padding: 6px 4px; }
+  .dia-linha:not(.fechado) .dia-estado { display: none; } /* a chave verde ja diz que esta aberto */
+  .turnos { grid-column: 1; flex-direction: column; gap: 8px; }
+  .turnos.dois { grid-column: 1 / -1; }
+  .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
+  .turnos.dois .turno { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 44px; }
+  .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
+  .turno .muted:first-child { display: none; } /* "das" some: o "ate" no meio ja explica */
+  .turno input[type="time"] { width: 100%; min-width: 0; min-height: 48px; text-align: center; padding: 6px 4px; }
   /* no celular o toque no campo ja abre o relogio: o icone so roubava espaco e cortava a hora */
   .turno input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
-  .turno .muted { min-width: 0; }
-  .dia-mais { justify-self: start; }
+  .turno .btn-mini, .dia-linha .dia-mais { width: 44px; min-width: 44px; height: 48px; min-height: 48px; padding: 0; justify-self: stretch; align-self: start; font-size: 20px; line-height: 1; }
+  .dia-linha .dia-mais { grid-column: 2; }
+  .dia-mais .mais-texto { display: none; }
 }
 .btn-mini { min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 10px; align-self: flex-start; }
 .interruptor .texto { flex: 1; font-weight: 600; }
