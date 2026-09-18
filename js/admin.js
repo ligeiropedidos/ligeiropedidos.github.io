@@ -186,7 +186,7 @@
         vencendo: 'vence ' + dataBR(a.limite), vencida: 'VENCIDA em ' + dataBR(a.limite), bloqueada: 'BLOQUEADA desde ' + dataBR(a.limite),
         pausada: 'pausada', cancelada: 'cancelada',
       }[a.estado] || a.estado;
-      var primeiroPagamento = !p.ultimoPagamentoEm && !p.planoPago;
+      var primeiroPagamento = !p.ultimoPagamentoEm; /* cortesia nao conta como pagamento */
       var viraFundador = p.fundador !== true && primeiroPagamento && R.vagasFundador() > 0;
       var ocupado = false; /* um clique por vez: clique duplo contaria a vaga de fundador duas vezes */
       function confirmar(dias) {

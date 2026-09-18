@@ -876,7 +876,9 @@
   function ehPrecoFundador(conta) {
     var p = (conta && conta.plano) || null;
     if (p && p.fundador === true) return true;
-    if (p && (p.ultimoPagamentoEm || p.planoPago)) return false;
+    /* so perde a chance quem JA PAGOU alguma vez sem ser fundador. Cortesia ou plano marcado pelo admin (planoPago sem
+       pagamento) nao tira a vaga de ninguem. */
+    if (p && p.ultimoPagamentoEm) return false;
     return vagasFundador() > 0;
   }
   function precoDoPlano(planoId, tipo, conta) {
