@@ -303,7 +303,7 @@
         var frete = l.aceitaEntrega === false ? '' : R.descreverFrete(l);
         UI.limpar(detalhe);
         detalhe.appendChild(el('div', { class: 'ps-texto' }, [
-          el('div', { class: 'ps-nome' }, [l.nome, UI.ehOficial(l.slug) ? el('span', { class: 'ps-selo-oficial' }, [el('span', { class: 'estrela', text: '★' }), 'Loja oficial']) : null]),
+          el('div', { class: 'ps-nome' }, [el('span', { text: l.nome }), UI.ehOficial(l.slug) ? null : UI.seloVerificada(l), UI.ehOficial(l.slug) ? el('span', { class: 'ps-selo-oficial' }, [el('span', { class: 'estrela', text: '★' }), 'Loja oficial']) : null]),
           el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
@@ -335,7 +335,7 @@
         var src = (lojaOficial(l.slug) && lojaOficial(l.slug).logo) || D.logoSrc(l);
         var t = el('button', { class: 'ps-tile' + (R.lojaAberta(l) ? '' : ' fechada'), type: 'button', role: 'option', 'aria-label': l.nome, title: l.nome }, [
           src ? el('img', { src: src, alt: '' }) : document.createTextNode(l.emoji || '🍽️'),
-          UI.ehOficial(l.slug) ? el('span', { class: 'ps-oficial', text: '★', title: 'Loja oficial do Ligeiro' }) : null,
+          UI.ehOficial(l.slug) ? el('span', { class: 'ps-oficial', text: '★', title: 'Loja oficial do Ligeiro' }) : UI.seloVerificada(l, 'no-tile'),
         ]);
         if (!src && l.cor) t.style.background = tintaDaLoja(l.cor) || '#fff';
         /* no computador: passar o mouse escolhe, clicar abre. No celular: o primeiro toque escolhe, o segundo abre. */
@@ -632,6 +632,9 @@
       if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
       capa.parentNode.classList.toggle('com-capa', !!srcCapa);
       $('nomeLoja').textContent = l.nome;
+      /* selo de loja verificada, colado no nome (loja oficial ja tem a estrela) */
+      var seloV = UI.ehOficial(l.slug) ? null : UI.seloVerificada(l, 'no-nome');
+      if (seloV) $('nomeLoja').appendChild(seloV);
       $('descLoja').textContent = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
 
       var aberta = R.lojaAberta(l);

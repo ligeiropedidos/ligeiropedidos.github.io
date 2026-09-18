@@ -262,6 +262,9 @@
         el('div', { class: 'acoes' }, [
           !l.donoEmail ? el('button', { class: 'btn btn-principal btn-pequeno', title: 'Loja sem conta: libera direto nela', text: '✓ Pagou ' + R.dinheiro(precos.mensal || 7900) + ' (+30 dias)', onclick: function () { confirmar(30); } }) : null,
           el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar link', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : '✔ Verificar loja', onclick: function () {
+            store.salvarLoja({ slug: l.slug, verificada: l.verificada !== true }).then(function () { UI.avisar(l.verificada === true ? l.nome + ' sem o selo' : l.nome + ' verificada'); if (!store.assistir) desenhar(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu agora.'); });
+          } }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: 'Ver loja' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/painel/' + l.slug, text: 'Painel' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: 'Balcão' }),

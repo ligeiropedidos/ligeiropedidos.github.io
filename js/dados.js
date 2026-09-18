@@ -66,7 +66,7 @@
       tempoEntrega: l.tempoEntrega || 40, tempoPreparo: l.tempoPreparo || 20,
       aceitaEntrega: l.aceitaEntrega !== false, aceitaRetirada: l.aceitaRetirada !== false,
       freteGratis: !!l.freteGratis, taxaEntrega: l.taxaEntrega || 0, entregaGratisAcima: l.entregaGratisAcima || 0,
-      plano: l.plano || null, ativa: l.ativa !== false, criadoEm: l.criadoEm || '',
+      plano: l.plano || null, ativa: l.ativa !== false, verificada: l.verificada === true, criadoEm: l.criadoEm || '',
       categorias: (l.categorias || []).map(function (c) { return { id: c.id, nome: c.nome, ativa: c.ativa !== false }; }),
       produtos: ativos.slice(0, 40).map(function (p) { return { id: p.id, nome: p.nome, categoria: p.categoria, ativo: true }; }),
       atualizadoEm: agoraISO(),

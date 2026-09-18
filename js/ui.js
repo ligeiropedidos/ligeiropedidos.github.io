@@ -480,13 +480,18 @@
     var tirar = splashOficial(o);
     oficialPronto(o, 500).then(tirar);
   }
+  /* Selo de loja verificada pelo Ligeiro (campo "verificada", que so o admin liga). */
+  function seloVerificada(loja, classe) {
+    if (!loja || loja.verificada !== true) return null;
+    return el('img', { class: 'selo-verificada' + (classe ? ' ' + classe : ''), src: 'img/selo-verificado.svg', alt: 'Loja verificada', title: 'Loja verificada pelo Ligeiro' });
+  }
   function limparTemaOficial(raiz) {
     if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
   }
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, splashOficial: splashOficial, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

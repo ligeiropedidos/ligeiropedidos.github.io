@@ -309,6 +309,7 @@ service cloud.firestore {
       return planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
           && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
           && request.resource.data.get('ativa', true) == resource.data.get('ativa', true)
+          && request.resource.data.get('verificada', false) == resource.data.get('verificada', false)
           && request.resource.data.donoEmail == resource.data.donoEmail;
     }
     function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
@@ -346,7 +347,8 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() || (isDonoDaLoja(loja)
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
-        && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true));
+        && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true)
+        && request.resource.data.get('verificada', false) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('verificada', false));
       allow delete: if isAdmin();
     }
 
@@ -378,6 +380,7 @@ service cloud.firestore {
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
         || (conferido() && request.resource.data.donoEmail == request.auth.token.email
+            && request.resource.data.get('verificada', false) == false
             && planoCopiaDaConta(planoDe(request.resource.data)));
       allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto());
       allow delete: if isAdmin();
