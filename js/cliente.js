@@ -193,7 +193,7 @@
       var tipos = [];
       estadoHub.lojas.forEach(function (l) { if (l.tipo && tipos.indexOf(l.tipo) < 0) tipos.push(l.tipo); });
       var abertas = estadoHub.lojas.filter(function (l) { return R.lojaAberta(l); }).length;
-      chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.soAbertas ? ' ativa' : ''), type: 'button', text: '● Abertas agora' + (abertas ? ' · ' + abertas : ''), onclick: function () { estadoHub.soAbertas = !estadoHub.soAbertas; desenharChips(); desenharLista(); } }));
+      chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.soAbertas ? ' ativa' : ''), type: 'button', 'aria-pressed': estadoHub.soAbertas ? 'true' : 'false', onclick: function () { estadoHub.soAbertas = !estadoHub.soAbertas; desenharChips(); desenharLista(); } }, [el('span', { class: 'chip-ponto', 'aria-hidden': 'true' }), 'Abertas agora', abertas ? el('span', { class: 'chip-qtd', text: String(abertas) }) : null]));
       if (tipos.length > 1) tipos.forEach(function (t) {
         chips.appendChild(el('button', { class: 'aba-painel' + (estadoHub.tipo === t ? ' ativa' : ''), type: 'button', text: String(t).toLowerCase() === 'outro' ? 'Outros' : t, onclick: function () { estadoHub.tipo = estadoHub.tipo === t ? '' : t; desenharChips(); desenharLista(); } }));
       });

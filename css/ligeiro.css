@@ -203,12 +203,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hub-selos { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; font-weight: 700; color: var(--lime2); margin-top: 4px; }
 .hub-trocar { font-size: 13.5px; font-weight: 600; color: #fff; text-decoration: none; padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.35); margin-top: 6px; transition: background 0.15s; }
 .hub-trocar:hover { background: rgba(255, 255, 255, 0.24); }
-.hub-conteudo { gap: 14px; padding-top: 14px; position: relative; z-index: 2; }
+.hub-conteudo { gap: 16px; padding-top: 14px; position: relative; z-index: 2; }
 .hub-conteudo > .busca { margin-top: -43px; }
 .hub-conteudo .busca { min-height: 58px; font-size: 17px; border-color: transparent; box-shadow: 0 14px 34px rgba(14, 31, 20, 0.18); background: #fff; }
 .hub-conteudo .busca:focus { outline: 3px solid var(--lime); }
 .hub-secao { display: flex; align-items: center; gap: 10px; font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--deep2); margin-top: 6px; }
-.hub-lista { gap: 14px; }
+.hub-lista { gap: 12px; }
 .hub-secao::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
 .loja-tile { border: 0; box-shadow: 0 10px 26px rgba(14, 31, 20, 0.1); transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s, opacity 0.22s; }
 /* seletor estilo PlayStation: o quadrado em foco cresce com anel verde e os vizinhos apagam de leve */
@@ -258,8 +258,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tile-info .nome { font-size: 17.5px; }
 
 .hub-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.hub-chips .aba-painel { min-height: 40px; font-size: 14.5px; }
-.hub-lista { display: flex; flex-direction: column; gap: 10px; }
+.hub-chips .aba-painel { min-height: 40px; font-size: 14.5px; padding: 0 14px; gap: 8px; line-height: 1; }
+.chip-ponto { width: 8px; height: 8px; border-radius: 50%; background: #22A35A; flex: none; box-shadow: 0 0 0 3px rgba(34, 163, 90, 0.18); }
+.aba-painel.ativa .chip-ponto { background: var(--lime2); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18); }
+.chip-qtd { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--lime-suave); color: var(--deep2); font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.aba-painel.ativa .chip-qtd { background: var(--lime); color: var(--ink); }
+.hub-lista { display: flex; flex-direction: column; gap: 12px; }
+.hub-lista > .hub-secao:first-child { margin-top: 8px; } /* 16 do vao + 8 = 24 antes da secao */
 .hub-secao { font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--deep2); margin-top: 6px; }
 .hub-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .loja-tile { display: flex; flex-direction: column; text-align: left; padding: 0; min-width: 0; overflow: hidden; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); box-shadow: var(--sombra); font: inherit; color: inherit; }
@@ -1189,7 +1194,7 @@ button.plano-card { cursor: pointer; }
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }
   .passo-venda { flex: 1; flex-direction: column; gap: 10px; }
-  .vender-grade { grid-template-columns: 1fr 1fr 1fr; }
+  .vender-grade { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* 8 cartoes: 4 x 2, sem linha sobrando */
   .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .duvida { align-self: start; }
   .vender-final { padding: 16px 0 10px; }

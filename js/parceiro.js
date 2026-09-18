@@ -257,7 +257,6 @@
         item('🖨️', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
         item('🧾', 'Modo balcão', 'Um tablet simples no caixa vira totem de autoatendimento.'),
         item('📊', 'Vendas e clientes', 'Quanto vendeu, horário de pico, o que mais sai e a lista de clientes.'),
-        item('🏙️', 'Vitrine da cidade', 'Sua loja na página da cidade, junto com quem mais usa o Ligeiro.'),
       ]),
     ]));
 
