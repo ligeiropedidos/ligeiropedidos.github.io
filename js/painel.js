@@ -536,7 +536,7 @@
 
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
       card.appendChild(el('div', { class: 'cabeca' }, [
-        el('span', { class: 'senha', text: 'Senha ' + p.senha }),
+        el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
         el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
         el('div', { class: 'cabeca-selos' }, selos),
         el('div', { class: 'cabeca-selos' }, extras), /* extras numa linha propria: a de cima fica igual em todo cartao */

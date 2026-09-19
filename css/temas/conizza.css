@@ -190,6 +190,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 }
 .tema-conizza .pedido-card.novo { background: var(--cz-ouro-claro); box-shadow: 0 4px 0 var(--cz-tinta); }
 .tema-conizza .pedido-card .senha, .tema-conizza .bloco-titulo, .tema-conizza .metrica .v { font-family: var(--cz-display); font-weight: 800; color: var(--cz-tinta); }
+.tema-conizza .pedido-card .senha { background: var(--cz-tinta); color: var(--cz-creme); box-shadow: 0 3px 0 rgba(36, 23, 8, 0.25); } /* ficha da senha nas cores da casa */
+.tema-conizza .pedido-card .senha small { color: var(--cz-ouro-claro); }
 .tema-conizza .cartao.destaque { background: var(--cz-ouro-claro); border-color: var(--cz-tinta); }
 .tema-conizza .passos-config { background: var(--cz-creme); border: 3px dashed var(--cz-creme-borda); }
 .tema-conizza .salvar-fixo { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }

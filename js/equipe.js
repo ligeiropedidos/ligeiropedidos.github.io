@@ -320,7 +320,7 @@
         var cobrar = oQueCobrar(p);
         var card = el('div', { class: 'pedido-card' + (naRua ? '' : ' cinza') });
         card.appendChild(el('div', { class: 'cabeca' }, [
-          el('span', { class: 'senha', text: 'Senha ' + p.senha }),
+          el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
           el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
           el('div', { class: 'cabeca-selos' }, cobrar),
         ]));
