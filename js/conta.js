@@ -18,6 +18,8 @@
   var el = UI.el;
 
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
+  /* data do selo: dia/mes (o ano so aparece se estiver longe), pro selo caber numa linha */
+  function dataCurta(d) { var x = new Date(d); return Math.abs(x.getTime() - Date.now()) > 300 * 864e5 ? dataBR(x) : x.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); }
   /* carregando da pagina: as tres bolinhas do Ligeiro (surgem depois de um instante, pra nao piscar) */
   function carregandoEl() {
     return el('div', { class: 'conta-carregando', role: 'status', 'aria-label': 'Carregando' }, el('div', { class: 'carregando-pontos' }, [el('span'), el('span'), el('span')]));
@@ -223,7 +225,7 @@
       var a = R.assinatura(l);
       var aberta = R.lojaAberta(l);
       var textos = {
-        gratis: 'Grátis até ' + dataBR(a.limite), ativa: a.cortesia ? 'Assinatura liberada' : 'Paga até ' + dataBR(a.limite),
+        gratis: 'Grátis até ' + dataCurta(a.limite), ativa: a.cortesia ? 'Assinatura liberada' : 'Paga até ' + dataCurta(a.limite),
         vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida, pague para não parar',
         bloqueada: 'Bloqueada: site sem pedidos', pausada: 'Pausada', cancelada: 'Cancelada',
       };
