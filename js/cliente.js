@@ -344,7 +344,7 @@
         t.addEventListener('focus', function () { escolher(l.slug, false); });
         tiles[l.slug] = t;
         trilho.appendChild(t);
-        UI.lembrarCor(l.slug, l.cor || '#84CC16');
+        UI.lembrarCor(l.slug, l.cor || '#84CC16', true); /* so semente: quem manda e a pagina da loja (dados completos) */
         if (l.capaUrl) capas[l.slug] = l.capaUrl;
         else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
       });
@@ -522,6 +522,8 @@
         history.replaceState(null, '', '#/' + dados.cidadeSlug + '/' + dados.slug + (o.pedidoId ? '/pedido/' + o.pedidoId : ''));
       }
       if (!balcao) UI.guardarLocal(CHAVE_CIDADE, dados.cidadeSlug);
+      /* a cor da loja ja chegou: as bolinhas da tela de carregamento passam pra ela enquanto as fotos baixam */
+      if (tirarSplash.pintar) tirarSplash.pintar(dados.cor || '#84CC16');
       carregarFotos(dados).then(function () {
         if (!vivo) return;
         aplicarLoja(dados);

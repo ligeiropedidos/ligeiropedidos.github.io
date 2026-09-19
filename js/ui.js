@@ -456,10 +456,10 @@
   /* Tela de carregamento das lojas comuns: so o fundo da pagina e tres bolinhas iguais na cor da loja.
      A cor e a da ultima visita (ou do quadro de lojas); loja nunca vista usa cinza neutro. */
   var CHAVE_CORES = 'ligeiro:cores';
-  function lembrarCor(slug, cor) {
+  function lembrarCor(slug, cor, soSeNaoTiver) {
     if (!slug || !corValida(cor)) return;
     var mapa = lerLocal(CHAVE_CORES) || {};
-    if (mapa[slug] === cor) return;
+    if (mapa[slug] === cor || (soSeNaoTiver && mapa[slug])) return;
     delete mapa[slug];
     mapa[slug] = cor;
     var chaves = Object.keys(mapa);
@@ -480,6 +480,8 @@
       setTimeout(function () { if (caixa.parentNode) caixa.parentNode.removeChild(caixa); }, 280);
     }
     setTimeout(tirar, 6000);
+    /* a cor certa chega junto com os dados da loja: pinta as bolinhas na hora (primeira visita comeca cinza) */
+    tirar.pintar = function (c) { if (corValida(c)) caixa.style.setProperty('--cor-bolinha', c); };
     return tirar;
   }
   /* Espera as imagens de um pedaco da tela (logo, capa) terminarem, no maximo 'teto' ms.
