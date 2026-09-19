@@ -552,6 +552,8 @@
   function FirebaseStore(config) {
     this.tipo = 'firebase';
     this.config = config;
+    this._pacotes = {}; /* loja -> fotos em pacotes de miniaturas? (definido quando a loja carrega as fotos) */
+    this._incompleto = {}; /* loja -> pacote sem alguma foto (app antigo gravou so a foto): o painel refaz */
     this._pronto = this._iniciar();
   }
 
@@ -818,16 +820,48 @@
     }.bind(this)).catch(function () { return null; });
   };
 
-  FirebaseStore.prototype.listarFotos = function (lojaSlug, versao) {
+  /* Pacotes de miniaturas: as fotos dos produtos tambem ficam juntas em 4 documentos (_pacote0.._pacote3), em 320px.
+     O cliente novo le 4 documentos (e nao 1 por foto) e baixa so miniaturas; a foto grande vem quando ele abre o item.
+     A capa (id "capa-...") nao entra: e grande e vem inteira, foto por foto. */
+  var PACOTES = 4;
+  function pacoteDe(id) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return '_pacote' + (h % PACOTES); }
+  function ehPacote(id) { return /^_pacote\d+$/.test(id); }
+  function ehCapa(id) { return /^capa-/.test(id); }
+  /* miniatura em jpeg (320px no lado maior): nitida no cartao de 108-116px ate em tela de alta resolucao */
+  function miniatura(src, lado, qualidade) {
+    lado = lado || 320; qualidade = qualidade || 0.72;
+    return new Promise(function (ok) {
+      if (!src || typeof document === 'undefined') { ok(null); return; }
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth, h = img.naturalHeight; if (!w || !h) { ok(null); return; }
+          var e = Math.min(1, lado / Math.max(w, h));
+          var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * e)); c.height = Math.max(1, Math.round(h * e));
+          var ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+          ok(c.toDataURL('image/jpeg', qualidade));
+        } catch (_) { ok(null); }
+      };
+      img.onerror = function () { ok(null); };
+      img.src = src;
+    });
+  }
+  function fotosDaColecao(snap) { var mapa = {}; snap.forEach(function (d) { if (!ehPacote(d.id)) mapa[d.id] = d.data().dados; }); return mapa; }
+
+  FirebaseStore.prototype.listarFotos = function (lojaSlug, versao, loja) {
+    var eu = this;
+    var pacote = !!(loja && loja.fotosPacote === 1 && !loja.fotosAvulsas);
+    eu._pacotes[lojaSlug] = pacote;
     var chaveCache = 'ligeiro:fotos:' + lojaSlug;
     var cache = null;
     try { cache = JSON.parse(localStorage.getItem(chaveCache) || 'null'); } catch (_) { cache = null; }
-    if (cache && versao && cache.versao === versao) return Promise.resolve(cache.mapa);
+    if (cache && versao && cache.versao === versao && !!cache.pacote === pacote) return Promise.resolve(cache.mapa);
     return this._pronto.then(function () {
-      return this.db.collection('lojas').doc(lojaSlug).collection('fotos').get().then(function (snap) {
-        var mapa = {};
-        snap.forEach(function (d) { mapa[d.id] = d.data().dados; });
-        var pacote = JSON.stringify({ versao: versao || '', mapa: mapa });
+      var col = eu.db.collection('lojas').doc(lojaSlug).collection('fotos');
+      var ler = pacote ? eu._lerPacotes(col, loja, lojaSlug) : col.get().then(fotosDaColecao);
+      return ler.then(function (mapa) {
+        var pacote = JSON.stringify({ versao: versao || '', pacote: eu._pacotes[lojaSlug], mapa: mapa });
         try { localStorage.setItem(chaveCache, pacote); } catch (_) {
           /* nao coube: solta o cache das outras lojas e tenta uma vez */
           try {
@@ -840,24 +874,86 @@
     }.bind(this));
   };
 
+  /* 4 pacotes (4 leituras) + a capa inteira. Faltou foto de produto no pacote: le foto por foto desta vez (e o painel refaz). */
+  FirebaseStore.prototype._lerPacotes = function (col, loja, lojaSlug) {
+    var eu = this;
+    var nums = []; for (var i = 0; i < PACOTES; i++) nums.push(i);
+    return Promise.all(nums.map(function (i) { return col.doc('_pacote' + i).get(); })).then(function (docs) {
+      var mapa = {};
+      docs.forEach(function (d) { var f = d.exists ? (d.data().fotos || {}) : {}; Object.keys(f).forEach(function (id) { if (f[id]) mapa[id] = f[id]; }); });
+      var faltou = (loja.produtos || []).some(function (p) { return p && p.foto && !ehCapa(p.foto) && !mapa[p.foto]; });
+      if (faltou) {
+        eu._incompleto[lojaSlug] = true;
+        eu._pacotes[lojaSlug] = false; /* esta visita segue com as fotos inteiras */
+        return col.get().then(fotosDaColecao);
+      }
+      if (!loja.capa || mapa[loja.capa]) return mapa;
+      return eu.obterFoto(lojaSlug, loja.capa).then(function (c) { if (c) mapa[loja.capa] = c; return mapa; });
+    });
+  };
+  /* o mapa da ultima leitura veio da pasta inteira (e nao dos pacotes)? Entao foto que nao esta nele nao existe mais */
+  FirebaseStore.prototype.leuTodasAsFotos = function (lojaSlug) { return !this._pacotes[lojaSlug]; };
+  /* foto grande de um produto quando a loja usa miniaturas (null = ja esta inteira no mapa) */
+  FirebaseStore.prototype.fotoCheia = function (lojaSlug, id) {
+    if (!id || !this._pacotes[lojaSlug]) return Promise.resolve(null);
+    return this.obterFoto(lojaSlug, id);
+  };
+  /* painel: loja com 5 fotos ou mais ainda sem pacotes (ou com pacote faltando foto) junta as miniaturas */
+  FirebaseStore.prototype.precisaEmpacotar = function (lojaSlug, loja, mapa) {
+    if (this._incompleto[lojaSlug]) return true;
+    if (!loja || loja.fotosPacote === 1 || loja.fotosAvulsas) return false;
+    return Object.keys(mapa || {}).filter(function (id) { return mapa[id] && !ehCapa(id); }).length >= 5;
+  };
+  FirebaseStore.prototype.empacotarFotos = function (lojaSlug, mapa) {
+    var eu = this;
+    var ids = Object.keys(mapa || {}).filter(function (id) { return mapa[id] && !ehCapa(id) && !ehPacote(id); });
+    return Promise.all(ids.map(function (id) { return miniatura(mapa[id]).then(function (m) { return [id, m]; }); })).then(function (pares) {
+      var grupos = {}; for (var i = 0; i < PACOTES; i++) grupos['_pacote' + i] = {};
+      var falhou = false;
+      pares.forEach(function (x) { if (x[1]) grupos[pacoteDe(x[0])][x[0]] = x[1]; else falhou = true; });
+      if (falhou || Object.keys(grupos).some(function (k) { return JSON.stringify(grupos[k]).length > 900000; })) return false;
+      return eu._pronto.then(function () {
+        var lojaRef = eu.db.collection('lojas').doc(lojaSlug);
+        var lote = eu.db.batch();
+        Object.keys(grupos).forEach(function (k) { lote.set(lojaRef.collection('fotos').doc(k), { fotos: grupos[k], atualizadoEm: agoraISO() }); });
+        lote.set(lojaRef, { fotosPacote: 1, fotosAvulsas: false }, { merge: true });
+        return lote.commit().then(function () { eu._pacotes[lojaSlug] = true; eu._incompleto[lojaSlug] = false; return true; });
+      });
+    });
+  };
+
   FirebaseStore.prototype.salvarFoto = function (lojaSlug, id, dados) {
-    return this._pronto.then(function () {
-      var lojaRef = this.db.collection('lojas').doc(lojaSlug);
-      var lote = this.db.batch();
-      lote.set(lojaRef.collection('fotos').doc(id), { dados: dados, criadoEm: agoraISO() });
+    var eu = this;
+    var comPacote = !!eu._pacotes[lojaSlug] && !ehCapa(id);
+    return this._pronto.then(function () { return comPacote ? miniatura(dados) : null; }).then(function (mini) {
+      var lojaRef = eu.db.collection('lojas').doc(lojaSlug);
+      var col = lojaRef.collection('fotos');
+      var lote = eu.db.batch();
+      lote.set(col.doc(id), { dados: dados, criadoEm: agoraISO() });
+      if (mini) { var campo = {}; campo[id] = mini; lote.set(col.doc(pacoteDe(id)), { fotos: campo, atualizadoEm: agoraISO() }, { merge: true }); }
       lote.set(lojaRef, { fotosVersao: agoraISO() }, { merge: true });
-      return lote.commit().then(function () { return id; });
-    }.bind(this));
+      return lote.commit().then(function () { return id; }, function (e) {
+        if (!mini) throw e;
+        /* pacote passou do limite (1 MB): grava so a foto e a loja volta a ler foto por foto */
+        eu._pacotes[lojaSlug] = false;
+        var l2 = eu.db.batch();
+        l2.set(col.doc(id), { dados: dados, criadoEm: agoraISO() });
+        l2.set(lojaRef, { fotosVersao: agoraISO(), fotosAvulsas: true }, { merge: true });
+        return l2.commit().then(function () { return id; });
+      });
+    });
   };
 
   FirebaseStore.prototype.excluirFoto = function (lojaSlug, id) {
+    var eu = this;
     return this._pronto.then(function () {
-      var lojaRef = this.db.collection('lojas').doc(lojaSlug);
-      var lote = this.db.batch();
+      var lojaRef = eu.db.collection('lojas').doc(lojaSlug);
+      var lote = eu.db.batch();
       lote.delete(lojaRef.collection('fotos').doc(id));
+      if (eu._pacotes[lojaSlug] && !ehCapa(id)) { var campo = {}; campo[id] = window.firebase.firestore.FieldValue.delete(); lote.set(lojaRef.collection('fotos').doc(pacoteDe(id)), { fotos: campo }, { merge: true }); }
       lote.set(lojaRef, { fotosVersao: agoraISO() }, { merge: true });
       return lote.commit();
-    }.bind(this));
+    });
   };
 
   FirebaseStore.prototype.excluirLoja = function (slug) {

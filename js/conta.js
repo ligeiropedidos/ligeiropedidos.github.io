@@ -163,7 +163,7 @@
         ]),
         el('div', { class: 'plano-dados' }, [
           quadro(q1[0], q1[1], q1[2]),
-          quadro('Valor', a.cortesia ? 'R$ 0,00' : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
+          quadro('Valor', a.cortesia ? R.dinheiro(0) : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
           quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
         ]),
         (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }) : null,
@@ -251,7 +251,7 @@
           el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
         ]),
         el('div', { class: 'conta-acoes' }, [
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '🌐 Ver loja' }),
+          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '👁️ Ver loja' }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
         ]),
         el('div', { class: 'conta-grupo', text: 'Telas da equipe' }),

@@ -58,9 +58,20 @@
     function carregarFotos(loja) {
       var versao = loja.fotosVersao || '';
       if (estado.fotosVersao === versao) return Promise.resolve(false);
-      return store.listarFotos(slug, versao).then(function (mapa) {
+      return store.listarFotos(slug, versao, loja).then(function (mapa) {
         estado.fotos = mapa || {};
         estado.fotosVersao = versao;
+        /* produto apontando pra foto que nao existe mais (a troca parou no meio): volta pro emoji. Sem isso o site acharia
+           o pacote incompleto e leria foto por foto a cada visita */
+        var leuTudo = !store.leuTodasAsFotos || store.leuTodasAsFotos(slug);
+        var soltas = leuTudo ? (loja.produtos || []).filter(function (p) { return p && p.foto && !estado.fotos[p.foto]; }) : [];
+        if (soltas.length) {
+          var limpos = (loja.produtos || []).map(function (p) { return p && p.foto && !estado.fotos[p.foto] ? Object.assign({}, p, { foto: '' }) : p; });
+          salvarLoja({ produtos: limpos }).catch(function () { /* tenta de novo na proxima vez */ });
+          loja = Object.assign({}, loja, { produtos: limpos });
+        }
+        /* 5 fotos ou mais: junta as miniaturas em pacotes (cliente novo le 4 documentos em vez de 1 por foto) */
+        if (store.precisaEmpacotar && store.precisaEmpacotar(slug, loja, estado.fotos)) store.empacotarFotos(slug, estado.fotos).catch(function () { /* fica foto por foto */ });
         return true;
       }).catch(function () { estado.fotosVersao = versao; return false; });
     }
@@ -174,7 +185,7 @@
         (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), '🌐', 'Ver loja', 'Loja'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), '👁️', 'Ver loja', 'Loja'),
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), '👤', 'Minha conta', 'Conta'),
           btnImp, btnSom,
           rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), '🚪', 'Sair', 'Sair'),
@@ -1278,7 +1289,12 @@
 
       var desde = new Date(Date.now() - (dias - 1) * 24 * 60 * 60 * 1000);
       desde.setHours(0, 0, 0, 0);
-      store.listarPedidos(slug, { desde: desde.toISOString() }).catch(function () {
+      /* memoria de 5 minutos por periodo: trocar de aba ou de periodo e voltar nao le o banco de novo (leituras gratis rendem mais) */
+      estado.vendasMemoria = estado.vendasMemoria || {};
+      var guardada = estado.vendasMemoria[dias];
+      var buscar = guardada && Date.now() - guardada.em < 5 * 60 * 1000 ? Promise.resolve(guardada.pedidos)
+        : store.listarPedidos(slug, { desde: desde.toISOString() }).then(function (lista) { estado.vendasMemoria[dias] = { em: Date.now(), pedidos: lista }; return lista; });
+      buscar.catch(function () {
         UI.limpar(conteudo); conteudo.appendChild(el('p', { class: 'muted centro', text: 'Não deu para carregar as vendas. Confira a internet e abra a aba de novo.' })); return null;
       }).then(function (pedidos) {
         if (!pedidos) return;

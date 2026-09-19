@@ -410,15 +410,16 @@
         'Cartão, boleto ou Pix',
         'Suporte 24 horas',
       ];
-      var sub = p.lojas > 1 ? 'Sai por menos de ' + dinheiro(porLoja) + ' por loja no mês' : (p.frase || '');
+      /* o valor nunca parte no meio ("R$" numa linha e "70,00" na outra) */
+      var sub = p.lojas > 1 ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por loja no mês'] : (p.frase || '');
       var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
         el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
         deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
-        el('div', { class: 'plano-sub', text: sub }),
+        el('div', { class: 'plano-sub' }, sub),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true', text: '✓' }), el('span', { text: x })]); })),
-        selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '● Escolhido' : '○ Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
+        selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '✓ Escolhido' : 'Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
       ]);
       if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
       return card;
@@ -487,7 +488,7 @@
           }).catch(function (e) { UI.avisar(e.message || 'Não deu para trocar agora.'); });
         };
       } else {
-        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Hoje' }), el('b', { text: 'R$ 0,00' })]));
+        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Hoje' }), el('b', { text: R.dinheiro(0) })]));
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'A partir de ' + dataBR(fim) + ' (' + pr.diasGratis + ' dias)' }), el('b', { text: dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') })]));
         resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Sem cartão agora. Quando o período grátis terminar, o Pix aparece na sua conta e no painel. Não gostou? Não paga e pronto.' }));
         continuar.setAttribute('href', '#/comecar/' + escolhido + '/' + tipo);

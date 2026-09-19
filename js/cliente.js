@@ -586,7 +586,7 @@
     function carregarFotos(dados) {
       var versao = dados.fotosVersao || '';
       if (estado.fotosVersao === versao) return Promise.resolve(false);
-      return store.listarFotos(slug, versao).then(function (mapa) {
+      return store.listarFotos(slug, versao, dados).then(function (mapa) {
         estado.fotos = mapa || {};
         estado.fotosVersao = versao;
         return true;
@@ -877,6 +877,8 @@
       function montarFoto() {
         var caixaFoto = el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]);
         caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) cx.classList.remove('com-lado'); });
+        /* loja com miniaturas: mostra a miniatura na hora e troca pela foto grande quando ela chegar */
+        if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && caixaFoto.isConnected) caixaFoto.firstChild.src = cheia; }).catch(function () { /* fica a miniatura */ });
         return caixaFoto;
       }
       if (srcFoto) corpo.appendChild(montarFoto());

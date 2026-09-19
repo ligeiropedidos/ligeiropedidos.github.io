@@ -91,8 +91,8 @@ test('taxa de entrega some acima do valor de entrega gratis', () => {
   var gratis = Object.assign({}, loja, { freteGratis: true });
   assert.equal(R.calcularTaxaEntrega(gratis, 'entrega', 1000), 0);
   assert.equal(R.descreverFrete(gratis), 'Entrega grátis');
-  assert.equal(R.descreverFrete(loja), 'Taxa R$ 5,00, grátis a partir de R$ 60,00');
-  assert.equal(R.descreverFrete(Object.assign({}, loja, { entregaGratisAcima: 0 })), 'Taxa R$ 5,00');
+  assert.equal(R.descreverFrete(loja), 'Taxa R$\u00A05,00, grátis a partir de R$\u00A060,00');
+  assert.equal(R.descreverFrete(Object.assign({}, loja, { entregaGratisAcima: 0 })), 'Taxa R$\u00A05,00');
   assert.equal(R.descreverFrete(Object.assign({}, loja, { taxaEntrega: 0 })), 'Entrega grátis');
   assert.equal(R.descreverFrete(Object.assign({}, loja, { aceitaEntrega: false })), 'Só retirada');
   /* categoria desligada some do site com os itens dela */

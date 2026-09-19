@@ -138,7 +138,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .btn .sub { display: block; font-family: var(--corpo); font-weight: 600; font-size: 14px; opacity: 0.8; }
 .pilha { display: flex; flex-direction: column; gap: 12px; }
 .pilha > .linha-produto.opcao { margin-top: 0; } /* adicional no painel: o vao e so o da lista (12), sem os 8 da opcao do cliente */
-.linha-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.linha-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
 .linha-botoes .btn { flex: 1; }
 
 /* ---------- Cartoes ---------- */
@@ -857,7 +857,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tabela th, .tabela td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .tabela th { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .tabela tr:last-child td { border-bottom: 0; }
-.tabela .sem-quebra { white-space: nowrap; }
+.sem-quebra, .tabela .sem-quebra { white-space: nowrap; } /* valor (R$ 70,00) ou telefone nunca parte no meio */
 .tabela .tab-sub { display: none; }
 @media (max-width: 560px) {
   .tabela-clientes th:nth-child(2), .tabela-clientes td:nth-child(2), .tabela-clientes th:nth-child(3), .tabela-clientes td:nth-child(3) { display: none; }
@@ -1218,17 +1218,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 button.plano-card { cursor: pointer; }
+.plano-card > .btn { margin-top: auto; } /* botao sempre no pe do cartao: os da mesma fileira ficam na mesma altura */
 .plano-card.com-destaque { border-color: var(--lime); }
-.plano-card.escolhido { border-color: var(--deep); box-shadow: 0 0 0 3px var(--lime-suave); }
-.plano-etiqueta { position: absolute; top: 23px; right: 18px; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+/* plano escolhido: anel verde-limao com brilho que respira, fundo levemente verde; selo cheio no pe do cartao */
+.plano-card.escolhido { border-color: var(--lime-escuro); background: linear-gradient(180deg, #F7FEE7 0%, var(--card) 60%); box-shadow: 0 0 0 2px var(--lime), 0 10px 28px rgba(101, 163, 13, 0.24); animation: entrar 0.4s ease-out both, plano-brilho 2.6s ease-in-out 0.4s infinite; }
+@keyframes plano-brilho { 0%, 100% { box-shadow: 0 0 0 2px var(--lime), 0 10px 28px rgba(101, 163, 13, 0.22); } 50% { box-shadow: 0 0 0 2px var(--lime), 0 10px 36px rgba(132, 204, 22, 0.5); } }
+@media (prefers-reduced-motion: reduce) { .plano-card.escolhido { animation: none; } }
+.plano-etiqueta { position: absolute; top: -11px; right: 16px; z-index: 1; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; } /* em cima da borda: nunca encosta no titulo, em nenhuma largura */
 .plano-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--deep2); }
-.plano-preco { font-family: var(--display); font-size: 40px; font-weight: 700; line-height: 1; color: var(--ink); }
+.plano-card { container-type: inline-size; }
+.plano-preco { font-family: var(--display); font-size: 40px; font-size: clamp(24px, 12cqi, 40px); font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; } /* preco e /mes sempre numa linha: a letra acompanha a largura do cartao */
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
 .plano-sub { color: var(--body); font-weight: 600; }
 .plano-linhas { list-style: none; padding: 0; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
 .plano-linhas li { display: flex; align-items: baseline; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
 .plano-check { flex: none; }
-.plano-marca { font-weight: 700; color: var(--deep); }
+.plano-marca { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); font-weight: 700; color: var(--deep); white-space: nowrap; } /* sempre no pe do cartao, mesma altura nos dois */
+.plano-card.escolhido .plano-marca { background: var(--lime); border-color: var(--lime); color: var(--texto-no-destaque, var(--ink)); }
 .checklist { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
 .checklist li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
 .checklist li::before { content: "✓ "; color: var(--lime-escuro); font-weight: 700; }
@@ -1551,6 +1557,7 @@ button.plano-card { cursor: pointer; }
 .adm-textos { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .adm-nome { font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
 .adm-nome .selo-verificada { width: 18px; height: 18px; margin-left: 6px; vertical-align: -3px; }
+.adm-fund { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 6px; vertical-align: 0; border-radius: 50%; background: #FDE68A; color: #B45309; font-size: 11px; line-height: 1; padding-bottom: 1px; } /* fundador: mesma medida do selo de verificada, no meio das letras do e-mail (e a estrela no meio do circulo) */
 .adm-sub { font-size: 14px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
 .adm-sub.adm-aviso-txt { color: #B4501A; font-weight: 600; }
 .adm-sub.adm-ok-txt { color: var(--deep2); font-weight: 600; }
@@ -1682,7 +1689,7 @@ button.plano-card { cursor: pointer; }
 .adm-plano { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
 .adm-plano .btn { width: 100%; min-width: 0; min-height: 56px; padding: 0 12px; font-size: 16px; white-space: nowrap; }
 @media (max-width: 360px) { .adm-plano .btn { font-size: 14.5px; padding: 0 8px; } } /* "Pagou R$ 89,00 (+30 dias)" inteiro */
-@media (max-width: 560px) { .adm-plano { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 680px) { .adm-plano { grid-template-columns: minmax(0, 1fr); } } /* ficha estreita: "Pagou R$ 89,00 (+30 dias)" com a linha inteira */
 .adm-conta-linha { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
 .adm-conta-linha .adm-textos { flex: 1 1 220px; }
 .adm-conta-linha .btn { flex: none; min-height: 44px; white-space: nowrap; }

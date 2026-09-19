@@ -50,7 +50,8 @@
     var negativo = n < 0;
     var partes = (Math.abs(n) / 100).toFixed(2).split('.');
     var inteiro = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return (negativo ? '-' : '') + 'R$ ' + inteiro + ',' + partes[1];
+    /* espaco que nao quebra: "R$" e o numero nunca ficam em linhas diferentes */
+    return (negativo ? '-' : '') + 'R$\u00A0' + inteiro + ',' + partes[1];
   }
 
   function limparTexto(valor, maximo) {
@@ -706,7 +707,7 @@
     } else {
       l.push('*TOTAL PAGO: ' + dinheiro(pedido.total) + '* (Pix)');
     }
-    return l.join('\n');
+    return textoSimples(l.join('\n'));
   }
 
   /*
@@ -730,14 +731,16 @@
       linhas.push(frete === 'Entrega grátis' ? '🛵 Entrega grátis' : 'Entrega: ' + frete.replace(/^Taxa /, ''));
     }
     if (link) linhas.push('Peça pelo link, é rápido e paga no Pix: ' + link);
-    return linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    return textoSimples(linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim());
   }
 
+  /* texto que sai do site (WhatsApp, copiar e colar): espaco comum no lugar do que nao quebra (esse e so pra tela) */
+  function textoSimples(t) { return String(t || '').replace(/\u00A0/g, ' '); }
   function linkWhatsapp(numero, texto) {
     var limpo = String(numero || '').replace(/\D/g, '');
     if (!limpo) return '';
     if (limpo.length <= 11) limpo = '55' + limpo;
-    return 'https://wa.me/' + limpo + '?text=' + encodeURIComponent(texto || '');
+    return 'https://wa.me/' + limpo + '?text=' + encodeURIComponent(textoSimples(texto));
   }
 
   /* ------------------------------------------------------------

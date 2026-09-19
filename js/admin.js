@@ -536,7 +536,7 @@
         }
       });
       estado.leads.filter(function (c) { return !c.atendidoEm; }).forEach(function (c) {
-        itens.push({ ordem: 4, peso: -(new Date(c.criadoEm).getTime() || 0), ico: '📞', tom: '', titulo: (c.nome || 'Sem nome') + (c.loja ? ', ' + c.loja : ''), detalhe: 'Deixou o contato em ' + dataBR(c.criadoEm) + (c.whatsapp ? ' · ' + R.formatarTelefone(c.whatsapp) : ''), botao: 'Chamar', link: R.linkWhatsapp(c.whatsapp, mensagemLead(c)) });
+        itens.push({ ordem: 4, peso: -(new Date(c.criadoEm).getTime() || 0), ico: '📞', tom: '', titulo: (c.nome || 'Sem nome') + (c.loja ? ', ' + c.loja : ''), detalhe: 'Deixou o contato em ' + dataBR(c.criadoEm) + (c.whatsapp ? ' · ' + R.formatarTelefone(c.whatsapp).replace(/ /g, '\u00A0').replace(/-/g, '\u2011') : ''), /* telefone nunca parte no meio */ botao: 'Chamar', link: R.linkWhatsapp(c.whatsapp, mensagemLead(c)) });
       });
       estado.lojas.forEach(function (l) {
         if (l.ativa === false || R.lojaBloqueada(l)) return;
@@ -705,7 +705,8 @@
       return el('button', { class: 'adm-linha', type: 'button', onclick: function () { abrirConta(c.email); } }, [
         el('span', { class: 'adm-c-principal' }, [
           el('span', { class: 'adm-textos' }, [
-            el('span', { class: 'adm-nome', text: c.email }),
+            /* fundador: estrela dourada logo depois do e-mail (igual o selo de verificada das lojas); a coluna da direita fica so com a situacao */
+            el('span', { class: 'adm-nome' }, [c.email, p.fundador === true ? el('span', { class: 'adm-fund', title: 'Fundador', 'aria-label': 'Fundador', text: '★' }) : null]),
             el('span', { class: 'adm-sub adm-so-cel', text: plano.nome + ' · ' + tipo + ' · ' + textoLojas(c, minhas.length) }),
             el('span', { class: 'adm-sub adm-so-pc', text: minhas.length ? minhas.map(function (l) { return l.nome; }).join(', ') : 'Nenhuma loja ainda' }),
             p.avisoPagamentoEm ? el('span', { class: 'adm-sub adm-aviso-txt', text: '💸 Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) }) : null,
@@ -714,7 +715,7 @@
         el('span', { class: 'adm-c adm-so-pc', text: plano.nome + ' · ' + tipo }),
         el('span', { class: 'adm-c adm-so-pc', text: textoLojas(c, minhas.length) }),
         el('span', { class: 'adm-c-status' }, [
-          el('span', { class: 'adm-selos-linha' }, [seloSituacao(sit), p.fundador === true ? el('span', { class: 'selo adm-selo selo-fundador', title: 'Fundador', text: '★' }) : null]),
+          el('span', { class: 'adm-selos-linha' }, [seloSituacao(sit)]),
           sit.data ? el('span', { class: 'adm-data adm-so-pc', text: sit.data }) : null,
         ]),
         el('span', { class: 'adm-seta', 'aria-hidden': 'true', text: '›' }),
@@ -951,7 +952,7 @@
       corpo.appendChild(el('h3', { text: 'Ações' }));
       var zap = R.linkWhatsapp(l.whatsapp, 'Oi! Aqui é do Ligeiro.');
       corpo.appendChild(grade([
-        el('a', { class: 'btn btn-fantasma', href: '#/' + l.cidadeSlug + '/' + l.slug, target: '_blank', rel: 'noopener', text: '🌐 Abrir loja' }),
+        el('a', { class: 'btn btn-fantasma', href: '#/' + l.cidadeSlug + '/' + l.slug, target: '_blank', rel: 'noopener', text: '👁️ Ver loja' }),
         el('a', { class: 'btn btn-fantasma', href: '#/painel/' + l.slug, target: '_blank', rel: 'noopener', text: '⚙️ Abrir painel' }),
         zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener', text: '💬 WhatsApp' })
           : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado', text: '💬 WhatsApp' }),
