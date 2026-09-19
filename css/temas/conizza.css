@@ -173,6 +173,10 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .painel-topo .nome { font-family: var(--cz-display); font-weight: 800; color: var(--cz-creme); font-size: 21px; }
 .tema-conizza .painel-topo .btn-pequeno { background: var(--cz-creme); color: var(--cz-tinta); border: 3px solid var(--cz-tinta); box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .painel-topo .btn-pequeno.on { background: var(--cz-ouro-claro); color: var(--cz-tinta); }
+/* topo com cara de app (icone em cima no celular): no estilo da casa, cartao creme com borda e sombra de desenho */
+.tema-conizza .topo-app .btn-pequeno { border-radius: 16px; font-family: var(--cz-display); font-weight: 800; }
+@media (hover: hover) { .tema-conizza .topo-app .btn-pequeno:hover { background: var(--cz-branco); } .tema-conizza .topo-app .btn-pequeno.on:hover { background: var(--cz-ouro-claro); } }
+@media (max-width: 760px) { .tema-conizza .topo-app .btn-pequeno { box-shadow: 0 4px 0 var(--cz-tinta); padding-top: 11px; padding-bottom: 5px; } .tema-conizza .topo-app .topo-ico { font-size: 23px; } }
 .tema-conizza .abas-painel { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
 .tema-conizza .aba-painel { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba-painel.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }

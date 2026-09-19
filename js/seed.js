@@ -208,7 +208,7 @@
       grupos: {
         tamanho: {
           titulo: 'Tamanho da marmita', tipo: 'unico',
-          opcoes: [opcao('p', 'Pequena', 0, { padrao: true, descricao: 'Serve 1' }), opcao('m', 'Média', 300, { descricao: 'Bem servida' }), opcao('g', 'Grande', 700, { descricao: 'Pra quem trabalha pesado' })],
+          opcoes: [opcao('p', 'Pequena', 0, { padrao: true, descricao: 'Serve 1' }), opcao('m', 'Média', 300, { descricao: 'Bem servida' }), opcao('g', 'Grande', 700, { descricao: 'Para quem trabalha pesado' })],
         },
         extras: {
           titulo: 'Acompanhamentos', tipo: 'varios', max: 4,

@@ -37,7 +37,7 @@
     return el('div', { class: 'fundador' }, [
       el('div', { class: 'fundador-lado' }, [
         el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', text: '★' }), 'Preço de fundador']),
-        el('p', { class: 'fundador-texto', text: 'Pras ' + total + ' primeiras lojas. O preço fica travado enquanto você não cancelar.' }),
+        el('p', { class: 'fundador-texto', text: 'Para as ' + total + ' primeiras lojas. O preço fica travado enquanto você não cancelar.' }),
       ]),
       el('div', { class: 'fundador-conta' }, [
         el('span', { class: 'fundador-vagas' }, ['Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
@@ -88,7 +88,7 @@
   function abrirContato(origem) {
     var c = cfg();
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
-    if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro pra minha loja.'), target: '_blank', rel: 'noopener', text: '💬 Chamar no WhatsApp agora' }));
+    if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener', text: '💬 Chamar no WhatsApp agora' }));
     corpo.appendChild(el('p', { class: 'muted pequeno' + (c.whatsappLigeiro ? ' centro' : ''), text: c.whatsappLigeiro ? 'Ou deixe seu número que a gente chama você:' : 'Deixe seu número que a gente chama você no WhatsApp, sem compromisso:' }));
     var f = {
       nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
@@ -109,7 +109,7 @@
       btn.disabled = true;
       D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: location.hash })
         .then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Recebemos! A gente chama você no WhatsApp.'); })
-        .catch(function (e) { btn.disabled = false; UI.avisar(e && e.message ? e.message : 'Não deu pra enviar. Tente de novo.'); });
+        .catch(function (e) { btn.disabled = false; UI.avisar(e && e.message ? e.message : 'Não deu para enviar. Tente de novo.'); });
     } });
     [f.nome, f.whatsapp, f.loja].forEach(function (c) { c.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } }); });
     UI.abrirModal({ titulo: 'Fale com a gente', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', text: 'Fechar', onclick: UI.fecharModal }), btn] });
@@ -144,7 +144,7 @@
     var lojaDemo = cfg().lojaDemo || 'juquia/dom-conizza';
     var temWhats = !!cfg().whatsappLigeiro;
     var pr = precos();
-    document.title = 'Ligeiro pra sua loja — pedido ligeiro, sem comissão';
+    document.title = 'Ligeiro para sua loja — pedido ligeiro, sem comissão';
 
     function botoesChamada(grande) {
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
@@ -160,9 +160,9 @@
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
-        el('div', { class: 'kicker', text: 'Sistema de pedidos pra delivery de cidade pequena' }),
+        el('div', { class: 'kicker', text: 'Sistema de pedidos para delivery de cidade pequena' }),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app pra instalar, sem robô caro.' }),
+        el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app para instalar, sem robô caro.' }),
         botoesChamada(true),
         el('div', { class: 'vender-selos' }, [
           el('span', { class: 'selo', text: '✓ ' + pr.diasGratis + ' dias grátis' }),
@@ -219,7 +219,7 @@
         ]));
       });
       var economia = Math.min(c.ifoodBasico, c.anotaAi) - c.ligeiro;
-      if (economia > 0) frase.textContent = 'Só a diferença pro mais barato deles são ' + dinheiro(economia) + ' por mês. Em um ano, ' + dinheiro(economia * 12) + ' que ficam com você.';
+      if (economia > 0) frase.textContent = 'Só a diferença para o mais barato deles são ' + dinheiro(economia) + ' por mês. Em um ano, ' + dinheiro(economia * 12) + ' que ficam com você.';
       else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o mais barato deles. A diferença é que ele continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
       else frase.textContent = 'Com esse volume, a comissão do iFood ainda sai mais barata que ' + dinheiro(pr.mensal) + '. A conta vira a seu favor a partir de uns ' + dinheiro(Math.ceil(pr.mensal / 0.152 / 10000) * 10000) + ' por mês de vendas.';
     }
@@ -231,13 +231,13 @@
       el('div', { class: 'calc-entrada' }, [
         el('div', { class: 'kicker', text: 'Faça a conta' }),
         el('h2', { text: 'Quanto você deixa na mesa hoje?' }),
-        el('p', { class: 'muted', text: 'Coloque mais ou menos quanto vende no delivery por mês e quantos pedidos são. A conta é só com o que vai pro intermediário ou pro sistema.' }),
+        el('p', { class: 'muted', text: 'Coloque mais ou menos quanto vende no delivery por mês e quantos pedidos são. A conta é só com o que vai para o intermediário ou para o sistema.' }),
         el('div', { class: 'linha-campos' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Vendas por mês' }), vendas]),
           el('div', { class: 'campo' }, [el('label', { text: 'Pedidos' }), pedidos]),
         ]),
       ]),
-      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/assinar', text: 'Quero ficar com essa diferença' })]),
+      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/assinar', text: 'Quero essa economia' })]),
     ]));
 
     /* ---------- como funciona ---------- */
@@ -245,9 +245,9 @@
       el('div', { class: 'kicker', text: 'Como funciona' }),
       el('h2', { text: 'Três passos, e o pedido cai' }),
       el('div', { class: 'passos-venda' }, [
-        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp, chave Pix e frete. O cardápio já vem montado pro seu tipo de loja; você só ajusta preços. Se preferir, a gente vai até você e deixa tudo pronto, com fotos.'),
+        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp, chave Pix e frete. O cardápio já vem montado para o seu tipo de loja; você só ajusta preços. Se preferir, a gente vai até você e deixa tudo pronto, com fotos.'),
         passo('2', 'Você espalha o link', 'Bio do Instagram, status e saudação automática do WhatsApp, QR no balcão. Quem pede uma vez, pede de novo pelo link.'),
-        passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com senha, itens, endereço com referência e o Pix já conferido pra você.'),
+        passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com senha, itens, endereço com referência e o Pix já conferido para você.'),
       ]),
     ]));
 
@@ -259,7 +259,7 @@
         item('🔗', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'),
         item('💸', 'Pix automático', 'Pelo Mercado Pago: o cliente paga e o pedido já cai pago na cozinha.'),
         item('🔔', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'),
-        item('👨‍🍳', 'Cozinha e entregador', 'Uma tela pra cozinha e outra pro motoboy, com mapa e o que cobrar.'),
+        item('👨‍🍳', 'Cozinha e entregador', 'Uma tela para cozinha e outra para o motoboy, com mapa e o que cobrar.'),
         item('🖨️', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
         item('📊', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'),
       ]),
@@ -269,7 +269,7 @@
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Planos' }),
       el('h2', { text: 'Planos por quantidade de lojas. Tudo incluso.' }),
-      el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale pra todas as lojas dela.' }),
+      el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale para todas as lojas dela.' }),
       (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); } d(); return caixa; })(),
       tabelaConcorrentes(pr),
     ]));
@@ -290,12 +290,12 @@
       el('h2', { text: 'Rodando de verdade, não em slide' }),
       el('div', { class: 'prova' }, [
         el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '0%' }), el('div', { class: 'l', text: 'de comissão, sempre' })]),
-        el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '3 min' }), el('div', { class: 'l', text: 'pra sua loja ficar no ar' })]),
+        el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '3 min' }), el('div', { class: 'l', text: 'para sua loja ficar no ar' })]),
         el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '1 preço' }), el('div', { class: 'l', text: 'com 50 ou 500 pedidos' })]),
       ]),
       el('div', { class: 'cartao destaque' }, [
         el('b', { text: 'Dom Conizza, Juquiá/SP' }),
-        el('p', { text: 'O Ligeiro nasceu dentro de uma pizzaria de cone de cidade pequena, pra resolver o pedido pelo WhatsApp e a comissão do iFood. Abra a loja e faça um pedido de teste: é o mesmo sistema que você vai usar.' }),
+        el('p', { text: 'O Ligeiro nasceu dentro de uma pizzaria de cone de cidade pequena, para resolver o pedido pelo WhatsApp e a comissão do iFood. Abra a loja e faça um pedido de teste: é o mesmo sistema que você vai usar.' }),
         el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + lojaDemo, text: 'Abrir a Dom Conizza' }),
       ]),
     ]));
@@ -353,13 +353,13 @@
       el('div', { class: 'kicker', text: 'Dúvidas' }),
       el('h2', { text: 'O que todo dono pergunta' }),
       el('div', { class: 'faq' }, [
-        duvida('Preciso cadastrar cartão pra testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
+        duvida('Preciso cadastrar cartão para testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + dinheiro(pr.mensal) + ' e pronto.'),
-        duvida('Preciso ter conta no Mercado Pago?', 'Pra receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere pro banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
+        duvida('Preciso ter conta no Mercado Pago?', 'Para receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere para o banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
         duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
-        duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere pro banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
-        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar pra ninguém.'),
-        duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood pra quem vem de fora e o Ligeiro pra quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
+        duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
+        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
+        duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
         duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
         duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. É feito e mantido por quem tem delivery em cidade pequena.'),
@@ -372,7 +372,7 @@
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
       el('p', { class: 'muted', text: 'Comece grátis agora ou chame a gente: vamos até você, cadastramos tudo e os primeiros dias são por nossa conta.' }),
       botoesChamada(true),
-      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Prefiro que vocês me chamem', onclick: function () { abrirContato('fechamento'); } }),
+      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Prefiro que me chamem', onclick: function () { abrirContato('fechamento'); } }),
     ]));
     raiz.appendChild(rodape());
     botaoFlutuante(raiz);
@@ -405,7 +405,7 @@
       var linhas = [
         p.lojas === 1 ? '1 loja na sua conta' : 'Até ' + p.lojas + ' lojas na mesma conta',
         pr.diasGratis + ' dias grátis, sem cartão',
-        p.lojas === 1 ? 'Pedidos ilimitados, tudo incluso' : (t === 'anual' ? 'Uma cobrança por ano pra todas as lojas' : 'Uma cobrança por mês pra todas as lojas'),
+        p.lojas === 1 ? 'Pedidos ilimitados, tudo incluso' : (t === 'anual' ? 'Uma cobrança por ano para todas as lojas' : 'Uma cobrança por mês para todas as lojas'),
         'Cartão, boleto ou Pix',
         'Suporte 24 horas',
       ];
@@ -455,7 +455,7 @@
     var caixaTipo = el('div', { class: 'centro' });
     var caixaPlanos = el('div');
     var resumo = el('div', { class: 'cartao destaque resumo-assinatura' });
-    var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + escolhido + '/' + tipo, text: 'Continuar: criar minha loja' });
+    var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + escolhido + '/' + tipo, text: 'Criar minha loja' });
 
     function desenhar() {
       UI.limpar(caixaTipo); caixaTipo.appendChild(seletorTipo(tipo, function (t) { tipo = t; desenhar(); }));
@@ -469,7 +469,7 @@
       if (conta) {
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: R.planoPorId((conta.plano || {}).planoId).nome })]));
         resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Trocar de plano vale a partir do próximo Pix: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
-        continuar.textContent = 'Mudar meu plano pra este';
+        continuar.textContent = 'Mudar para este plano';
         continuar.setAttribute('href', '#');
         continuar.onclick = function (ev) {
           ev.preventDefault();
@@ -481,9 +481,9 @@
           }).then(function (c) {
             UI.soar('sucesso');
             var pago = c && c.plano && c.plano.status === 'ativo' && c.plano.planoPago && c.plano.planoPago !== escolhido;
-            UI.avisar(pago ? 'Plano trocado pra ' + plano.nome + '. Vale assim que o Pix dele for confirmado.' : 'Plano trocado: ' + plano.nome + '.');
+            UI.avisar(pago ? 'Plano trocado para ' + plano.nome + '. Vale assim que o Pix dele for confirmado.' : 'Plano trocado: ' + plano.nome + '.');
             window.LigeiroApp.ir('conta');
-          }).catch(function (e) { UI.avisar(e.message || 'Não deu pra trocar agora.'); });
+          }).catch(function (e) { UI.avisar(e.message || 'Não deu para trocar agora.'); });
         };
       } else {
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Hoje' }), el('b', { text: 'R$ 0,00' })]));
@@ -501,7 +501,7 @@
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Assinar' }),
       el('h2', { text: 'Escolha o seu plano' }),
-      el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale pra todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
+      el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale para todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
     ]));
     corpo.appendChild(caixaTipo);
     corpo.appendChild(caixaPlanos);
@@ -546,7 +546,7 @@
     var esqueci = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Esqueci a senha', onclick: function () {
       var e = email.input.value.trim();
       if (!/^\S+@\S+\.\S+$/.test(e)) return falhar('Digite seu e-mail acima e toque de novo em "Esqueci a senha".');
-      store.recuperarSenha(e).then(function () { UI.avisar('Mandamos um e-mail pra você criar uma senha nova.'); }).catch(function (err) { falhar(err.message); });
+      store.recuperarSenha(e).then(function () { UI.avisar('Mandamos um e-mail para você criar uma senha nova.'); }).catch(function (err) { falhar(err.message); });
     } });
 
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
@@ -563,7 +563,7 @@
     ]));
     corpo.appendChild(el('details', { class: 'avancado' }, [
       el('summary', { text: 'Sou da cozinha ou entregador' }),
-      el('p', { class: 'muted pequeno', text: 'A equipe não precisa de conta: entra pelo link da cozinha ou do entregador com a senha da equipe. Peça o link e a senha pro dono da loja.' }),
+      el('p', { class: 'muted pequeno', text: 'A equipe não precisa de conta: entra pelo link da cozinha ou do entregador com a senha da equipe. Peça o link e a senha para o dono da loja.' }),
     ]));
     corpo.appendChild(el('p', { class: 'muted pequeno centro' }, ['Sou do Ligeiro: ', el('a', { href: '#/admin', text: 'admin' }), '.']));
     raiz.appendChild(rodape());
@@ -597,14 +597,14 @@
     var e = cfg().empresa || {};
     var quem = e.nome ? e.nome + (e.cnpj ? ' (CNPJ ' + e.cnpj + ')' : '') : 'o Ligeiro';
     return paginaLegal(raiz, 'Termos de uso', [
-      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos pra lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha e entrega, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
+      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos para lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha e entrega, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
       ['Quem pode usar', ['Qualquer estabelecimento que venda comida ou bebida e tenha um responsável maior de 18 anos. Ao criar a loja, você confirma que tem direito de vender o que cadastra e que as informações (nome, endereço, WhatsApp, chave Pix) são suas ou da sua empresa.']],
-      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(pr.mensal) + ' por mês' + (pr.anual > 0 ? ' e o anual ' + dinheiro(pr.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale pra um período já pago.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
-      ['Cancelamento', ['Não tem fidelidade. Pra cancelar, basta parar de pagar ou pedir no WhatsApp. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],
-      ['O dinheiro do cliente', ['O Pix do cliente vai pra conta Mercado Pago da loja, que confirma o pagamento e libera o pedido. O Ligeiro não recebe, não guarda e não repassa dinheiro de pedido. Valem as regras e taxas do Mercado Pago. Maquininha e dinheiro são cobrados pela própria loja na entrega ou no balcão.']],
-      ['Responsabilidades da loja', ['Cardápio, preços, prazos, entrega, qualidade da comida, notas fiscais e tributos são da loja. O Ligeiro é a ferramenta de pedido; quem vende é você. A loja também é responsável por usar os dados dos clientes só pra atender e avisar sobre pedidos e promoções da própria loja, conforme a Política de privacidade.']],
-      ['Disponibilidade', ['O sistema roda em serviços de nuvem de grandes fornecedores e é mantido pra ficar no ar o tempo todo, mas pode haver falhas ou manutenções. Nesses casos, a loja segue atendendo pelo WhatsApp e o Ligeiro avisa pelo painel ou pelo WhatsApp da loja. O Ligeiro não responde por lucro cessante.']],
-      ['Uso indevido', ['É proibido cadastrar loja falsa, vender produto ilegal, usar o sistema pra enviar spam ou tentar acessar dados de outras lojas. Nesses casos a loja pode ser desligada sem devolução.']],
+      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(pr.mensal) + ' por mês' + (pr.anual > 0 ? ' e o anual ' + dinheiro(pr.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
+      ['Cancelamento', ['Não tem fidelidade. Para cancelar, basta parar de pagar ou pedir no WhatsApp. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],
+      ['O dinheiro do cliente', ['O Pix do cliente vai para conta Mercado Pago da loja, que confirma o pagamento e libera o pedido. O Ligeiro não recebe, não guarda e não repassa dinheiro de pedido. Valem as regras e taxas do Mercado Pago. Maquininha e dinheiro são cobrados pela própria loja na entrega ou no balcão.']],
+      ['Responsabilidades da loja', ['Cardápio, preços, prazos, entrega, qualidade da comida, notas fiscais e tributos são da loja. O Ligeiro é a ferramenta de pedido; quem vende é você. A loja também é responsável por usar os dados dos clientes só para atender e avisar sobre pedidos e promoções da própria loja, conforme a Política de privacidade.']],
+      ['Disponibilidade', ['O sistema roda em serviços de nuvem de grandes fornecedores e é mantido para ficar no ar o tempo todo, mas pode haver falhas ou manutenções. Nesses casos, a loja segue atendendo pelo WhatsApp e o Ligeiro avisa pelo painel ou pelo WhatsApp da loja. O Ligeiro não responde por lucro cessante.']],
+      ['Uso indevido', ['É proibido cadastrar loja falsa, vender produto ilegal, usar o sistema para enviar spam ou tentar acessar dados de outras lojas. Nesses casos a loja pode ser desligada sem devolução.']],
       ['Mudanças nestes termos', ['Se os termos mudarem, o painel avisa. Continuar usando depois do aviso é concordar com a versão nova.']],
     ]);
   }
@@ -612,13 +612,13 @@
   function privacidade(raiz) {
     var e = cfg().empresa || {};
     return paginaLegal(raiz, 'Política de privacidade', [
-      ['Resumo', ['O Ligeiro guarda só o necessário pra um pedido chegar na loja: o que o cliente digitou pra pedir e o que a loja cadastrou pra vender. Ninguém vende, aluga ou repassa esses dados. Esta política segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018).']],
-      ['Dados do cliente que pede', ['Nome, WhatsApp, endereço com referência (só em entrega), itens do pedido, forma de pagamento e observações. Servem pra loja preparar e entregar o pedido e pra ela avisar o cliente sobre o andamento. O cliente não cria conta nem senha.', 'A loja vê esses dados no painel dela e pode copiar a lista de clientes pra avisar promoções da própria loja. Cada loja é responsável por esse uso e o cliente pode pedir à loja pra sair da lista.']],
+      ['Resumo', ['O Ligeiro guarda só o necessário para um pedido chegar na loja: o que o cliente digitou para pedir e o que a loja cadastrou para vender. Ninguém vende, aluga ou repassa esses dados. Esta política segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018).']],
+      ['Dados do cliente que pede', ['Nome, WhatsApp, endereço com referência (só em entrega), itens do pedido, forma de pagamento e observações. Servem para loja preparar e entregar o pedido e para ela avisar o cliente sobre o andamento. O cliente não cria conta nem senha.', 'A loja vê esses dados no painel dela e pode copiar a lista de clientes para avisar promoções da própria loja. Cada loja é responsável por esse uso e o cliente pode pedir à loja para sair da lista.']],
       ['Dados da loja', ['Nome, tipo, cidade, endereço, WhatsApp, e-mail de login, cardápio, fotos e, com o Pix ligado, o token do Mercado Pago (guardado em segredo). Se a loja ligar o Pix automático, o token do Mercado Pago, guardado em documento privado que só a loja e o Ligeiro acessam.']],
       ['Onde fica', ['Os dados ficam no Firebase (Google), em servidores seguros, com regras de acesso por loja: uma loja não vê os dados da outra. O site é publicado no GitHub Pages. Nenhum dado é vendido a terceiros. Não usamos rastreadores de publicidade.']],
       ['Por quanto tempo', ['Enquanto a loja usar o Ligeiro. Depois do cancelamento, 90 dias, e então tudo é apagado. A loja pode pedir a exclusão antes, e o cliente pode pedir à loja ou ao Ligeiro que apague os dados dele.']],
-      ['Seus direitos', ['Você pode pedir a qualquer momento: ver os dados que temos sobre você, corrigir, apagar, ou saber com quem foram compartilhados (com ninguém, além da loja em que você pediu). Basta chamar no WhatsApp do Ligeiro' + (e.email ? ' ou escrever pra ' + e.email : '') + '.']],
-      ['Cookies e o que fica no seu celular', ['O site guarda no próprio aparelho só o pedido em andamento, a cidade escolhida e a senha do painel (se for o dono). Nada disso sai do aparelho nem serve pra anúncio.']],
+      ['Seus direitos', ['Você pode pedir a qualquer momento: ver os dados que temos sobre você, corrigir, apagar, ou saber com quem foram compartilhados (com ninguém, além da loja em que você pediu). Basta chamar no WhatsApp do Ligeiro' + (e.email ? ' ou escrever para ' + e.email : '') + '.']],
+      ['Cookies e o que fica no seu celular', ['O site guarda no próprio aparelho só o pedido em andamento, a cidade escolhida e a senha do painel (se for o dono). Nada disso sai do aparelho nem serve para anúncio.']],
       ['Encarregado', ['O responsável pelos dados é ' + (e.nome || 'o Ligeiro') + (e.email ? ', contato ' + e.email : ', contato pelo WhatsApp do Ligeiro') + '.']],
     ]);
   }

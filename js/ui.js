@@ -257,7 +257,7 @@
       if (!arquivo || !pareceImagem) return reject(new Error('Escolha um arquivo de imagem (JPG ou PNG).'));
       var url = URL.createObjectURL(arquivo);
       var img = new Image();
-      var falhou = function () { URL.revokeObjectURL(url); reject(new Error('Não deu pra ler essa imagem. Tente outra.')); };
+      var falhou = function () { URL.revokeObjectURL(url); reject(new Error('Não deu para ler essa imagem. Tente outra.')); };
       img.onload = function () {
         try {
           var w = img.naturalWidth, h = img.naturalHeight;
@@ -420,7 +420,7 @@
   function erroCarregar(mensagem, tentar) {
     return el('div', { class: 'vazio hub-vazio', style: { paddingTop: '60px' } }, [
       el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
-      el('p', { class: 'forte', text: mensagem || 'Não deu pra carregar agora.' }),
+      el('p', { class: 'forte', text: mensagem || 'Não deu para carregar agora.' }),
       el('p', { class: 'muted', text: 'Confira a internet e tente de novo.' }),
       el('button', { class: 'btn btn-principal', type: 'button', text: 'Tentar de novo', onclick: tentar || function () { location.reload(); } }),
     ]);
@@ -566,6 +566,14 @@
   function limparTemaOficial(raiz) {
     if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
   }
+
+  /* largura da tela SEM a barra de rolagem (no Windows ela ocupa uns 15px): faixa de ponta a ponta nao passa da tela */
+  (function () {
+    var raiz = document.documentElement;
+    function medir() { raiz.style.setProperty('--vw', raiz.clientWidth + 'px'); }
+    medir();
+    if (window.ResizeObserver) new ResizeObserver(medir).observe(raiz); else window.addEventListener('resize', medir);
+  })();
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,

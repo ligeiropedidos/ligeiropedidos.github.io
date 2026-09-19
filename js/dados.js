@@ -18,7 +18,7 @@
 
   function agoraISO() { return new Date().toISOString(); }
   function clonar(x) { return JSON.parse(JSON.stringify(x)); }
-  var SEM_ESPACO = 'O aparelho está sem espaço pra guardar. Apague fotos antigas ou zere a demonstração.';
+  var SEM_ESPACO = 'O aparelho está sem espaço para guardar. Apague fotos antigas ou zere a demonstração.';
 
   /*
    * Firestore nao aceita array dentro de array: na nuvem as faixas de horario
@@ -196,7 +196,7 @@
     db.fotos[lojaSlug] = db.fotos[lojaSlug] || {};
     db.fotos[lojaSlug][id] = dados;
     if (db.lojas[lojaSlug]) db.lojas[lojaSlug].fotosVersao = agoraISO();
-    if (!this._gravar(db)) return Promise.reject(new Error('Sem espaço no aparelho pra guardar mais fotos. Apague alguma ou use uma foto menor.'));
+    if (!this._gravar(db)) return Promise.reject(new Error('Sem espaço no aparelho para guardar mais fotos. Apague alguma ou use uma foto menor.'));
     return Promise.resolve(id);
   };
 
@@ -356,6 +356,14 @@
     var db = this._ler();
     db.publico = db.publico || {};
     db.publico.fundadores = { usados: (((db.publico.fundadores || {}).usados) || 0) + 1, atualizadoEm: agoraISO() };
+    this._gravar(db);
+    return Promise.resolve(db.publico.fundadores);
+  };
+
+  DemoStore.prototype.liberarVagaFundador = function () {
+    var db = this._ler();
+    db.publico = db.publico || {};
+    db.publico.fundadores = { usados: Math.max(0, (((db.publico.fundadores || {}).usados) || 0) - 1), atualizadoEm: agoraISO() };
     this._gravar(db);
     return Promise.resolve(db.publico.fundadores);
   };
@@ -921,6 +929,21 @@
     });
   };
 
+  /* pagamento desfeito pelo admin (era teste): a vaga de fundador que ele ocupou volta pro contador */
+  FirebaseStore.prototype.liberarVagaFundador = function () {
+    var eu = this;
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('publico').doc('fundadores');
+      return eu.db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (d) {
+          var usados = Math.max(0, (d.exists ? (Number(d.data().usados) || 0) : 0) - 1);
+          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() });
+          return { usados: usados };
+        });
+      }).then(function (r) { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return r; });
+    });
+  };
+
   /* Usos do cupom na nuvem: contador publico em lojas/{slug}/contadores/cupom-CODIGO. */
   FirebaseStore.prototype.usosDoCupom = function (lojaSlug, codigo) {
     return this._pronto.then(function () {
@@ -1040,7 +1063,7 @@
         }
         if (e && e.code === 'auth/weak-password') throw new Error('Senha muito curta: use pelo menos 6 letras ou números.');
         if (e && e.code === 'auth/invalid-email') throw new Error('Esse e-mail não parece válido.');
-        throw new Error('Não deu pra criar o acesso agora. Tente de novo em instantes.');
+        throw new Error('Não deu para criar o acesso agora. Tente de novo em instantes.');
       });
     }.bind(this));
   };
@@ -1071,7 +1094,7 @@
     if (c === 'auth/invalid-email') return new Error('Esse e-mail não parece válido.');
     if (c === 'auth/too-many-requests') return new Error('Muitas tentativas. Espere um minuto e tente de novo.');
     if (c === 'auth/network-request-failed') return new Error('Sem internet agora. Tente de novo.');
-    return new Error('Não deu pra entrar agora. Tente de novo em instantes.');
+    return new Error('Não deu para entrar agora. Tente de novo em instantes.');
   }
   /* Navegador de dentro de outro app (Instagram, Facebook, TikTok...): o Google nao deixa entrar por ali. */
   function navegadorDeApp() {
@@ -1089,7 +1112,7 @@
       provedor.setCustomParameters({ prompt: 'select_account' });
       return eu.auth.signInWithPopup(provedor).then(function (r) { return usuarioDoFirebase(r.user); }).catch(function (e) {
         var c = (e && e.code) || '';
-        if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') throw new Error('O navegador bloqueou a janela do Google. Toque em "Entrar com o Google" de novo. Se continuar, libere pop-ups pra este site ou abra no Safari ou Chrome.');
+        if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') throw new Error('O navegador bloqueou a janela do Google. Toque em "Entrar com o Google" de novo. Se continuar, libere pop-ups para este site ou abra no Safari ou Chrome.');
         throw erroDeLogin(e);
       });
     }

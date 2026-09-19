@@ -23,7 +23,7 @@
   var ABAS = [['geral', 'Visão geral'], ['lojas', 'Lojas'], ['contas', 'Assinaturas'], ['contatos', 'Contatos'], ['ferramentas', 'Ferramentas']];
   var FILTROS_LOJAS = [['todas', 'Todas'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['desativadas', 'Desativadas'], ['verificadas', 'Verificadas']];
   var FILTROS_CONTAS = [['todas', 'Todas'], ['avisos', 'Avisaram pagamento'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['fundadores', 'Fundadores']];
-  var FILTROS_CONTATOS = [['pendentes', 'Pra chamar'], ['chamados', 'Já chamados'], ['todos', 'Todos']];
+  var FILTROS_CONTATOS = [['pendentes', 'Para chamar'], ['chamados', 'Já chamados'], ['todos', 'Todos']];
 
   /* ---------- pecinhas sem estado ---------- */
 
@@ -108,7 +108,7 @@
   }
 
   function mensagemLead(c) {
-    return 'Oi' + (c.nome ? ', ' + c.nome.split(' ')[0] : '') + '! Aqui é do Ligeiro. Você deixou seu contato no nosso site' + (c.loja ? ' pra ' + c.loja : '') + '. Posso te mostrar como funciona?';
+    return 'Oi' + (c.nome ? ', ' + c.nome.split(' ')[0] : '') + '! Aqui é do Ligeiro. Você deixou seu contato no nosso site' + (c.loja ? ' para ' + c.loja : '') + '. Posso te mostrar como funciona?';
   }
 
   /* ---------- planilha (CSV pro Excel: ";" e BOM pra acentuar certo) ---------- */
@@ -127,7 +127,7 @@
       setTimeout(function () { URL.revokeObjectURL(url); if (a.parentNode) a.parentNode.removeChild(a); }, 2000);
       UI.avisar('Planilha baixada: ' + nome);
     } catch (_) {
-      UI.avisar('Não deu pra gerar a planilha neste navegador.');
+      UI.avisar('Não deu para gerar a planilha neste navegador.');
     }
   }
 
@@ -223,7 +223,7 @@
               if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro. Saia dela em "Minha conta" e entre com a certa.'; return; }
               try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
               parar = montar();
-            }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu pra entrar.'; });
+            }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu para entrar.'; });
           } }),
         ]));
         return;
@@ -354,8 +354,8 @@
         if (!vivo) return false;
         var s2 = $('secaoAdmin');
         if (!s2) return false;
-        if (!estado.lojas) { UI.limpar(s2); s2.appendChild(UI.erroCarregar('Não deu pra carregar as lojas.', function () { desenhar(); })); }
-        else UI.avisar('Não deu pra atualizar agora. ' + erroTexto(e, ''));
+        if (!estado.lojas) { UI.limpar(s2); s2.appendChild(UI.erroCarregar('Não deu para carregar as lojas.', function () { desenhar(); })); }
+        else UI.avisar('Não deu para atualizar agora. ' + erroTexto(e, ''));
         return false;
       });
     }
@@ -409,7 +409,7 @@
           x.appendChild(el('span', { class: 'chip-qtd', text: String(estado.contas.length) }));
           if (n.avisos) x.appendChild(el('span', { class: 'adm-ponto', title: plural(n.avisos, 'conta avisou pagamento', 'contas avisaram pagamento'), 'aria-label': plural(n.avisos, 'conta avisou pagamento', 'contas avisaram pagamento') }));
         }
-        if (k === 'contatos' && n.contatos) x.appendChild(el('span', { class: 'badge', title: plural(n.contatos, 'contato pra chamar', 'contatos pra chamar'), text: String(n.contatos) }));
+        if (k === 'contatos' && n.contatos) x.appendChild(el('span', { class: 'badge', title: plural(n.contatos, 'contato para chamar', 'contatos para chamar'), text: String(n.contatos) }));
       });
     }
 
@@ -486,7 +486,7 @@
         kpi('Receita por mês', [el('small', { class: 'adm-pre', text: 'R$' }), reaisInteiros(receita)], plural(pagantes, 'conta pagando', 'contas pagando'), 'Exato: ' + R.dinheiro(receita) + ' por mês (o anual conta 1/12)'),
         kpi('Lojas ativas', String(ativas.length), 'em ' + plural(nCidades, 'cidade', 'cidades')),
         kpi('Período grátis', [String(gratis), el('small', { class: 'adm-pos', text: gratis === 1 ? 'conta' : 'contas' })], acabando ? acabando + (acabando === 1 ? ' acaba' : ' acabam') + ' em 7 dias' : 'nenhuma acaba em 7 dias'),
-        kpi('Pedidos hoje', hoje ? (hoje.erro ? '?' : String(hoje.qtd)) : '…', hoje ? (hoje.erro ? 'não deu pra carregar' : R.dinheiro(hoje.total) + ' vendidos') : 'carregando…', 'Sem cancelados e sem Pix esperando pagamento'),
+        kpi('Pedidos hoje', hoje ? (hoje.erro ? '?' : String(hoje.qtd)) : '…', hoje ? (hoje.erro ? 'não deu para carregar' : R.dinheiro(hoje.total) + ' vendidos') : 'carregando…', 'Sem cancelados e sem Pix esperando pagamento'),
       ]));
 
       var fcfg = (window.LIGEIRO_CONFIG || {}).fundador || {};
@@ -662,7 +662,7 @@
       var contas = estado.contas;
       var n = contarPendencias();
       s.appendChild(cabeca('Assinaturas', plural(contas.length, 'conta', 'contas') + (n.avisos ? ', ' + plural(n.avisos, 'avisou pagamento', 'avisaram pagamento') : '')));
-      if (!estado.contasOk) { s.appendChild(UI.erroCarregar('Não deu pra carregar as contas.', function () { desenhar(); })); return; }
+      if (!estado.contasOk) { s.appendChild(UI.erroCarregar('Não deu para carregar as contas.', function () { desenhar(); })); return; }
       var chips = el('div', { class: 'adm-chips', role: 'group', 'aria-label': 'Filtrar assinaturas' });
       var lista = el('div', { class: 'adm-lista adm-tabela adm-tabela-contas' });
       var busca = campoBusca('contas', 'Buscar e-mail ou loja', desenharLista);
@@ -727,8 +727,8 @@
     function abaContatos(s) {
       var leads = estado.leads;
       var pendentes = leads.filter(function (c) { return !c.atendidoEm; }).length;
-      s.appendChild(cabeca('Contatos', 'Quem deixou o WhatsApp na página de vendas. ' + (pendentes ? plural(pendentes, 'pra chamar', 'pra chamar') + '.' : 'Nenhum pra chamar.')));
-      if (!estado.leadsOk) { s.appendChild(UI.erroCarregar('Não deu pra carregar os contatos.', function () { desenhar(); })); return; }
+      s.appendChild(cabeca('Contatos', 'Quem deixou o WhatsApp na página de vendas. ' + (pendentes ? plural(pendentes, 'para chamar', 'para chamar') + '.' : 'Nenhum para chamar.')));
+      if (!estado.leadsOk) { s.appendChild(UI.erroCarregar('Não deu para carregar os contatos.', function () { desenhar(); })); return; }
       var chips = el('div', { class: 'adm-chips', role: 'group', 'aria-label': 'Filtrar contatos' });
       FILTROS_CONTATOS.forEach(function (f) {
         var qtd = leads.filter(function (c) { return filtroContato(f[0], c); }).length;
@@ -756,7 +756,7 @@
           if (trava.ocupado) return;
           trava.ocupado = true;
           store.atualizarLead(c.id, { atendidoEm: atendido ? new Date().toISOString() : '' }).then(function () {
-            UI.avisar(atendido ? 'Contato marcado como atendido' : 'Contato voltou pra lista de chamar');
+            UI.avisar(atendido ? 'Contato marcado como atendido' : 'Contato voltou para lista de chamar');
             desenhar();
           }).catch(function (e) { trava.ocupado = false; UI.avisar(erroTexto(e, 'Não deu agora.')); });
         };
@@ -774,7 +774,7 @@
           link ? el('a', { class: 'btn btn-whats btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: '💬 Chamar' })
             : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp', text: '💬 Chamar' }),
           pendente ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '✓ Já chamei', onclick: marcar(true) })
-            : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', title: 'Volta pra lista de quem falta chamar', text: 'Desmarcar', onclick: marcar(false) }),
+            : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', title: 'Volta para lista de quem falta chamar', text: 'Desmarcar', onclick: marcar(false) }),
         ]),
       ]);
     }
@@ -955,7 +955,7 @@
         el('a', { class: 'btn btn-fantasma', href: '#/painel/' + l.slug, target: '_blank', rel: 'noopener', text: '⚙️ Abrir painel' }),
         zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener', text: '💬 WhatsApp' })
           : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado', text: '💬 WhatsApp' }),
-        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, pra mandar pro dono', text: '📋 Copiar links', onclick: function () {
+        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, para mandar para o dono', text: '📋 Copiar links', onclick: function () {
           var texto = l.nome + '\nCardápio: ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
           UI.copiar(texto).then(function () { UI.avisar('Links da loja e do painel copiados'); });
         } }),
@@ -964,10 +964,10 @@
         } }),
         l.ativa === false
           ? el('button', { class: 'btn btn-principal', type: 'button', text: 'Reativar loja', onclick: function () {
-            executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, ativa: true }); }, l.nome + ' voltou pro site');
+            executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, ativa: true }); }, l.nome + ' voltou para o site');
           } })
           : el('button', { class: 'btn btn-erro', type: 'button', text: 'Desativar', onclick: function () {
-            UI.perguntar('Desativar ' + l.nome + '? A loja sai do site e para de receber pedidos. Dá pra reativar depois, aqui mesmo.', { titulo: 'Desativar loja?', sim: 'Desativar', perigo: true }).then(function (sim) {
+            UI.perguntar('Desativar ' + l.nome + '? A loja sai do site e para de receber pedidos. Dá para reativar depois, aqui mesmo.', { titulo: 'Desativar loja?', sim: 'Desativar', perigo: true }).then(function (sim) {
               if (!sim) { reabrir(marca); return; }
               /* na nuvem excluirLoja so marca ativa: false; na demonstracao ela apagaria de vez, entao ali so desliga */
               executar(trava, marca, function () { return D.modoDemo ? store.salvarLoja({ slug: l.slug, ativa: false }) : store.excluirLoja(l.slug); }, l.nome + ' desativada');
@@ -1019,7 +1019,7 @@
     function pedidosDaLoja(caixa, slug) {
       function mostrar(r) {
         UI.limpar(caixa);
-        if (r && r.erro) { caixa.appendChild(el('p', { class: 'adm-lista-vazia', text: 'Não deu pra carregar os pedidos agora.' })); return; }
+        if (r && r.erro) { caixa.appendChild(el('p', { class: 'adm-lista-vazia', text: 'Não deu para carregar os pedidos agora.' })); return; }
         [['Hoje', r && r.hoje], ['Últimos 7 dias', r && r.semana]].forEach(function (x) {
           var v = x[1];
           caixa.appendChild(kpi(x[0], v ? [String(v.qtd), el('small', { class: 'adm-pos', text: v.qtd === 1 ? 'pedido' : 'pedidos' })] : '…', v ? R.dinheiro(v.total) + ' vendidos' : 'carregando…'));
@@ -1063,11 +1063,11 @@
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
         var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
         var novo = new Date(base + dias * 864e5).toISOString();
-        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() } })
+        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
           .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
-          .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu pra confirmar.'); concluir(marca, trava); });
+          .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu para confirmar.'); concluir(marca, trava); });
       }
       function tornarFundador() {
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
@@ -1076,6 +1076,34 @@
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' agora é fundador'); concluir(marca, trava); })
           .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu agora.'); concluir(marca, trava); }); /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
+      }
+      /* Desfaz o ultimo "Pagou" (teste ou toque sem querer): so tira os dias que ele somou, nunca da dias a mais.
+         Se o que sobra cai dentro dos dias gratis, era o primeiro pagamento: volta pro gratis e sai da receita. */
+      var podeDesfazer = !!(p.ultimoPagamentoEm && p.pagoAte && !(p.pagamentoDesfeitoEm && p.pagamentoDesfeitoEm >= p.ultimoPagamentoEm));
+      function semUltimoPagamento() {
+        var pago = new Date(p.pagoAte).getTime();
+        var dias = p.ultimoPagamentoDias === 30 || p.ultimoPagamentoDias === 365 ? p.ultimoPagamentoDias
+          : (pago - new Date(p.ultimoPagamentoEm).getTime() >= 364 * 864e5 ? 365 : 30); /* Pagou de antes desse campo existir */
+        var antes = pago - dias * 864e5;
+        var diasGratis = ((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis || 7;
+        var fimGratis = new Date(p.desde || c.criadoEm || 0).getTime() + diasGratis * 864e5;
+        var agora = new Date().toISOString();
+        if (antes > fimGratis + 60e3) return { pagoAte: new Date(antes).toISOString(), pagamentoDesfeitoEm: agora };
+        var r = { pagoAte: '', planoPago: '', ultimoPagamentoEm: '', ultimoPagamentoDias: 0, pagamentoDesfeitoEm: agora };
+        if (p.status === 'ativo') r.status = 'teste';
+        if (p.fundador === true && p.fundadorPeloPagamento === true) { r.fundador = false; r.fundadorPeloPagamento = false; }
+        return r;
+      }
+      function desfazerPagamento() {
+        var novo = semUltimoPagamento();
+        var texto = 'Desfazer o pagamento marcado em ' + dataBR(p.ultimoPagamentoEm) + '? Use só se foi teste ou toque sem querer. '
+          + (novo.pagoAte ? 'A conta perde os dias que ele somou e fica paga até ' + dataBR(novo.pagoAte) + '.' : 'Era o primeiro pagamento: a conta volta para o teste grátis e sai da receita.')
+          + (novo.fundador === false ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
+        comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function () {
+          return store.salvarConta(c.email, { plano: novo }).then(function () {
+            return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null;
+          });
+        }, 'Pagamento desfeito');
       }
       /* pergunta antes (a pergunta ocupa o modal); "Voltar" reabre a ficha */
       function comPergunta(texto, opcoes, fazer, textoOk) {
@@ -1120,10 +1148,11 @@
       corpo.appendChild(el('div', { class: 'adm-acoes-linha' }, [
         el('button', { class: 'btn btn-principal', type: 'button', text: '✓ Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)', onclick: function () { confirmar(30); } }),
         temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', text: '✓ Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)', onclick: function () { confirmar(365); } }) : null,
+        podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: tira os dias que o último Pagou somou', text: '↩ Desfazer o último pagamento', onclick: desfazerPagamento }) : null,
       ]));
       corpo.appendChild(grade([
-        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Libera a conta sem data pra vencer', text: 'Cortesia', onclick: function () {
-          comPergunta('Dar cortesia pra ' + c.email + '? A conta fica liberada sem data pra vencer, até você mudar.', { titulo: 'Cortesia', sim: 'Dar cortesia' }, function () {
+        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Libera a conta sem data para vencer', text: 'Cortesia', onclick: function () {
+          comPergunta('Dar cortesia para ' + c.email + '? A conta fica liberada sem data para vencer, até você mudar.', { titulo: 'Cortesia', sim: 'Dar cortesia' }, function () {
             return store.salvarConta(c.email, { plano: { status: 'ativo', pagoAte: '', planoPago: plano.id } });
           }, c.email + ' em cortesia');
         } }),
@@ -1142,7 +1171,7 @@
           } }),
         p.fundador === true
           ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Use quando a conta cancelar: ela perde o preço travado', text: 'Tirar fundador', onclick: function () {
-            comPergunta('Tirar o preço de fundador de ' + c.email + '? A vaga não volta pro contador sozinha.', { sim: 'Tirar', perigo: true }, function () {
+            comPergunta('Tirar o preço de fundador de ' + c.email + '? A vaga não volta para o contador sozinha.', { sim: 'Tirar', perigo: true }, function () {
               return store.salvarConta(c.email, { plano: { fundador: false } });
             }, c.email + ' sem preço de fundador');
           } })
@@ -1174,7 +1203,7 @@
       f.whatsapp = campo('WhatsApp da loja', '', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999' });
       UI.mascaraTelefone(f.whatsapp.input);
       f.senha = D.modoDemo
-        ? campo('Senha do painel', String(1000 + Math.floor(Math.random() * 9000)), { max: 20, ajuda: 'Anote e entregue pro dono.' })
+        ? campo('Senha do painel', String(1000 + Math.floor(Math.random() * 9000)), { max: 20, ajuda: 'Anote e entregue para o dono.' })
         : campo('E-mail do dono (login do painel)', '', { max: 80, tipo: 'email', ajuda: 'O dono entra com o Google deste e-mail.' });
       var modeloSel = el('select', {}, MODELOS.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
       f.modelo = el('div', { class: 'campo largo' }, [el('label', { text: 'Começar com que cardápio?' }), el('p', { class: 'ajuda', text: 'O modelo vem com categorias, itens e adicionais típicos. Depois é só ajustar nome e preço no painel.' }), modeloSel]);
@@ -1221,7 +1250,7 @@
           UI.soar('sucesso');
           mostrarLinks(loja);
           if (!store.assistir) desenhar(); /* na nuvem a lista de tras ja aparece com a loja nova */
-        }).catch(function (e) { botao.disabled = false; botao.textContent = 'Cadastrar'; UI.avisar(e && e.message ? e.message : 'Não deu pra cadastrar.'); });
+        }).catch(function (e) { botao.disabled = false; botao.textContent = 'Cadastrar'; UI.avisar(e && e.message ? e.message : 'Não deu para cadastrar.'); });
       } })] });
       setTimeout(function () { f.nome.input.focus(); }, 60);
     }
@@ -1229,8 +1258,8 @@
     function mostrarLinks(loja) {
       estado.ficha = null;
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-        el('p', { text: 'Pronto! Entregue estes dois links pro dono:' }),
-        el('div', {}, [el('b', { text: 'Cardápio (pro cliente)' }), el('div', { class: 'caixa-link', text: UI.linkDaLoja(loja) })]),
+        el('p', { text: 'Pronto! Entregue estes dois links para o dono:' }),
+        el('div', {}, [el('b', { text: 'Cardápio (para o cliente)' }), el('div', { class: 'caixa-link', text: UI.linkDaLoja(loja) })]),
         el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link', text: UI.linkDoPainel(loja) }), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
       ]);
       UI.abrirModal({ titulo: loja.nome + ' cadastrado', corpo: corpo, rodape: [

@@ -47,7 +47,7 @@
       if (!vivo) return;
       if (!u) {
         try { sessionStorage.setItem('ligeiro:depois', location.hash); } catch (_) { /* ignora */ }
-        UI.avisar('Entre na sua conta pra criar a loja. Leva 10 segundos.');
+        UI.avisar('Entre na sua conta para criar a loja. Leva 10 segundos.');
         window.LigeiroApp.ir('entrar');
         return;
       }
@@ -63,8 +63,8 @@
           var escolhido = R.planoPorId(conta.plano.planoId);
           if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') {
             UI.limpar(raiz);
-            raiz.appendChild(telaAviso('Sua assinatura precisa de atenção', sit === 'pausada' ? 'Ela está pausada. Fale com o Ligeiro pra criar outra loja.' : (sit === 'cancelada' ? 'Ela está encerrada. Reative em "Minha conta" pra criar outra loja.' : 'Ela está vencida. Pague em "Minha conta" e a loja nova sai na hora.'), [
-              el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Ir pra Minha conta' }),
+            raiz.appendChild(telaAviso('Sua assinatura precisa de atenção', sit === 'pausada' ? 'Ela está pausada. Fale com o Ligeiro para criar outra loja.' : (sit === 'cancelada' ? 'Ela está encerrada. Reative em "Minha conta" para criar outra loja.' : 'Ela está vencida. Pague em "Minha conta" e a loja nova sai na hora.'), [
+              el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Ir para Minha conta' }),
             ]));
             return;
           }
@@ -72,10 +72,10 @@
             UI.limpar(raiz);
             var texto = escolhido.id !== valendo.id
               ? 'Seu plano pago (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. O ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado.'
-              : 'Seu plano (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. Pra abrir mais uma, escolha um plano maior. A troca vale pra todas as suas lojas.';
-            raiz.appendChild(telaAviso('Pra criar outra loja, mude de plano', texto, [
+              : 'Seu plano (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. Para abrir mais uma, escolha um plano maior. A troca vale para todas as suas lojas.';
+            raiz.appendChild(telaAviso('Para criar outra loja, mude de plano', texto, [
               escolhido.id !== valendo.id ? el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Pagar o ' + escolhido.nome }) : el('a', { class: 'btn btn-principal btn-largo', href: '#/assinar', text: 'Ver planos e mudar' }),
-              el('a', { class: 'btn btn-fantasma btn-largo', href: '#/conta', text: 'Voltar pra Minha conta' }),
+              el('a', { class: 'btn btn-fantasma btn-largo', href: '#/conta', text: 'Ir para Minha conta' }),
             ]));
             return;
           }
@@ -124,13 +124,13 @@
     f.nome = campo('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', largo: true });
     var tipoSel = el('select', {}, TIPOS.map(function (t) { return el('option', { value: t[0], text: t[1] + ' ' + t[0] }); }));
     /* linha de ajuda igual a do WhatsApp ao lado: rotulo e caixa das duas colunas na mesma altura */
-    f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), el('p', { class: 'ajuda', text: 'O cardápio já vem montado pra ele.' }), tipoSel]);
+    f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), el('p', { class: 'ajuda', text: 'O cardápio já vem montado para ele.' }), tipoSel]);
     f.cidade = window.LigeiroCidades.campo('', '', { rotulo: 'Cidade', placeholder: 'Ex: Juquiá', ajuda: 'Digite e escolha na lista (todas as cidades do Brasil).', largo: true });
     f.whatsapp = campo('WhatsApp da loja', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', ajuda: 'É por onde o cliente fala com você.' });
     UI.mascaraTelefone(f.whatsapp.input);
     /* Frete: gratis ou taxa. Fica gravado na loja e o dono troca quando quiser em Ajustes. */
     var freteModo = 'taxa';
-    f.taxaEntrega = campo('Taxa de entrega', { max: 12, inputmode: 'numeric', placeholder: 'R$ 0,00', largo: true, ajuda: 'O que o cliente paga pela entrega. Depois dá pra colocar "grátis a partir de R$ X" no painel.' });
+    f.taxaEntrega = campo('Taxa de entrega', { max: 12, inputmode: 'numeric', placeholder: 'R$ 0,00', largo: true, ajuda: 'O que o cliente paga pela entrega. Depois dá para colocar "grátis a partir de R$ X" no painel.' });
     UI.mascaraDinheiro(f.taxaEntrega.input);
     var botoesFrete = [['gratis', 'Entrega grátis'], ['taxa', 'Cobro taxa']].map(function (op) {
       var b = el('button', { type: 'button', class: 'aba-painel' + (freteModo === op[0] ? ' ativa' : ''), text: op[1], dataset: { valor: op[0] } });
@@ -145,7 +145,7 @@
     var linhaFrete = el('div', { class: 'estilo-linha frete-opcoes' }, botoesFrete);
     f.frete = el('div', { class: 'campo largo' }, [el('label', { text: 'Frete' }), el('p', { class: 'ajuda', text: 'Você decide, e troca quando quiser no painel.' }), linhaFrete]);
     if (D.modoDemo) {
-      f.senha = campo('Senha do painel', { max: 20, inputmode: 'numeric', placeholder: '4 números', ajuda: 'Você digita ela pra ver os pedidos.' });
+      f.senha = campo('Senha do painel', { max: 20, inputmode: 'numeric', placeholder: '4 números', ajuda: 'Você digita ela para ver os pedidos.' });
     } else {
       f.email = campo('Seu e-mail (login do painel)', { max: 80, tipo: 'email', autocomplete: 'email', largo: true });
       f.senha = campo('Crie uma senha', { max: 40, tipo: 'password', autocomplete: 'new-password', ajuda: 'Pelo menos 6 letras ou números.' });
@@ -246,9 +246,9 @@
       }).then(function (c) {
         if (c && c.plano) {
           var sit = R.assinatura(c);
-          if (sit.estado === 'vencida' || sit.estado === 'bloqueada') throw new Error('Sua assinatura está vencida. Pague em "Minha conta" pra criar outra loja.');
-          if (sit.estado === 'cancelada') throw new Error('Sua assinatura está encerrada. Reative em "Minha conta" pra criar outra loja.');
-          if (sit.estado === 'pausada') throw new Error('Sua assinatura está pausada. Fale com o Ligeiro pra criar outra loja.');
+          if (sit.estado === 'vencida' || sit.estado === 'bloqueada') throw new Error('Sua assinatura está vencida. Pague em "Minha conta" para criar outra loja.');
+          if (sit.estado === 'cancelada') throw new Error('Sua assinatura está encerrada. Reative em "Minha conta" para criar outra loja.');
+          if (sit.estado === 'pausada') throw new Error('Sua assinatura está pausada. Fale com o Ligeiro para criar outra loja.');
           var valendo = R.planoPorId(R.planoQueVale(c));
           var limite = R.limiteDeLojas(c);
           return store.listarMinhasLojas(emailConta).then(function (minhas) {
@@ -256,7 +256,7 @@
             if (reais >= limite) {
               var escolhido = R.planoPorId(c.plano.planoId);
               if (escolhido.id !== valendo.id) throw new Error('Seu plano pago (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. O plano ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado: pague em "Minha conta".');
-              throw new Error('Seu plano (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. Pra abrir mais uma, mude o plano em Assinar.');
+              throw new Error('Seu plano (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. Para abrir mais uma, mude o plano em Assinar.');
             }
             dados.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || planoTipo, planoId: c.plano.planoId || planoId, planoPago: c.plano.planoPago || '', fundador: c.plano.fundador === true, desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
           });
@@ -266,7 +266,7 @@
         UI.soar('sucesso');
         mostrarPronto(loja);
       }).catch(function (e) {
-        falhar(e && e.message ? e.message : 'Não deu pra criar agora. Tente de novo em instantes.');
+        falhar(e && e.message ? e.message : 'Não deu para criar agora. Tente de novo em instantes.');
       });
     });
 
@@ -281,10 +281,10 @@
         el('p', { class: 'muted pequeno', text: 'Plano ' + planoNome + '. Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlano) + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
       ]));
       corpo.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Seu link (pra bio e pro WhatsApp)' }),
+        el('div', { class: 'bloco-titulo', text: 'Seu link (para bio e para o WhatsApp)' }),
         el('div', { class: 'caixa-link', text: link }),
         el('div', { class: 'linha-botoes' }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: 'Ver minha loja' }),
         ]),
         qr,

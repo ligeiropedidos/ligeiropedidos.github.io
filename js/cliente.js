@@ -92,7 +92,7 @@
     }
     busca.addEventListener('input', desenhar);
     store.listarVitrine().catch(function () {
-      UI.limpar(lista); lista.appendChild(UI.erroCarregar('Não deu pra carregar as cidades.')); return null;
+      UI.limpar(lista); lista.appendChild(UI.erroCarregar('Não deu para carregar as cidades.')); return null;
     }).then(function (lojas) {
       if (!lojas) return;
       var mapa = {};
@@ -122,7 +122,7 @@
       filhos.push(el('div', { class: 'chamada-lojista' }, [
         el('div', { class: 'chamada-texto' }, [
           el('b', { text: 'Tem uma loja? Venda por aqui também.' }),
-          el('span', { text: precoUma + ' por mês, sem comissão. ' + dias + ' dias grátis pra testar.' }),
+          el('span', { text: precoUma + ' por mês, sem comissão. ' + dias + ' dias grátis para testar.' }),
         ]),
         el('div', { class: 'chamada-acoes' }, [
           el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Conhecer o Ligeiro' }),
@@ -176,7 +176,7 @@
           el('span', { class: 'cidade-acao', text: atual ? 'Você está aqui' : 'Ver lojas' }),
         ]);
       }));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', style: { margin: '6px 0 0' } }, ['Sua cidade não está aqui? ', el('a', { href: '#/lojas', onclick: function () { UI.fecharModal(); }, text: 'Leve o Ligeiro pra ela' }), '.']));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', style: { margin: '6px 0 0' } }, ['Sua cidade não está aqui? ', el('a', { href: '#/lojas', onclick: function () { UI.fecharModal(); }, text: 'Leve o Ligeiro para ela' }), '.']));
       UI.abrirModal({ titulo: 'Em que cidade você está?', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Fechar', onclick: UI.fecharModal })] });
     }
 
@@ -350,7 +350,7 @@
       });
       /* tem mais quadrado do que cabe: a borda direita do trilho esmaece (mostra que rola, sem cortar seco) */
       setTimeout(function () { if (trilho.scrollWidth > trilho.clientWidth + 2) trilho.classList.add('rola'); }, 60);
-      if (totalDaFila > fila.length) lista.appendChild(el('p', { class: 'muted pequeno centro', text: 'Mostrando ' + fila.length + ' de ' + totalDaFila + ' lojas. Use a busca ou os filtros pra achar as outras.' }));
+      if (totalDaFila > fila.length) lista.appendChild(el('p', { class: 'muted pequeno centro', text: 'Mostrando ' + fila.length + ' de ' + totalDaFila + ' lojas. Use a busca ou os filtros para achar as outras.' }));
       /* setas do teclado andam pelo trilho */
       trilho.addEventListener('keydown', function (e) {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -394,9 +394,9 @@
         pintarTitulo();
       }).catch(function () { /* fica so o nome */ });
     }).catch(function () {
-      tituloCidade.textContent = 'Não deu pra carregar';
+      tituloCidade.textContent = 'Não deu para carregar';
       var caixa = raiz.querySelector('.hub-lista') || raiz;
-      UI.limpar(caixa); caixa.appendChild(UI.erroCarregar('Não deu pra carregar as lojas de agora.'));
+      UI.limpar(caixa); caixa.appendChild(UI.erroCarregar('Não deu para carregar as lojas de agora.'));
     });
     var parar = store.assistir ? store.assistir(function () { store.listarLojas(cidadeSlug).then(desenhar); }) : function () {};
     var relogio = setInterval(function () { if (estadoHub.lojas.length) desenharLista(); }, 60000); /* "abre as" e "aberto agora" andam sozinhos */
@@ -521,7 +521,7 @@
       if (!dados || dados._erro || dados.ativa === false) tirarSplash();
       if (dados && dados._erro) {
         raiz.innerHTML = '';
-        raiz.appendChild(UI.erroCarregar('Não deu pra abrir a loja agora.'));
+        raiz.appendChild(UI.erroCarregar('Não deu para abrir a loja agora.'));
         return;
       }
       if (!dados || dados.ativa === false) {
@@ -646,7 +646,7 @@
         if (estado.oficial && estado.oficial.ilustracao) {
           fim.appendChild(el('div', { class: 'oficial-extra' }, [
             el('img', { src: estado.oficial.ilustracao, alt: '' }),
-            el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno pra sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
+            el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno para sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
           ]));
         }
         var partes = [];
@@ -1209,7 +1209,7 @@
       var temDinheiro = naPorta && !!l.aceitaDinheiroEntrega;
       /* retirada numa loja que so aceita pagar na porta da entrega: diz isso, em vez de "nao configurou pagamento" */
       var soNaEntrega = !naPorta && !temPix && !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
-      $('semFormaPagamento').textContent = soNaEntrega ? 'Pra retirar no balcão, esta loja só aceita Pix. Escolha "Entrega" pra pagar na porta.' : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
+      $('semFormaPagamento').textContent = soNaEntrega ? 'Para retirar no balcão, esta loja só aceita Pix. Escolha "Entrega" para pagar na porta.' : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
       $('opcaoPix').hidden = !temPix;
       $('opcaoCartao').hidden = !temCartao;
       $('opcaoDinheiro').hidden = !temDinheiro;
@@ -1374,7 +1374,7 @@
         /* o banco recusa pedido com data e hora longe da hora certa (relogio do celular errado) */
         var semPermissao = !!erro && (erro.code === 'permission-denied' || /permission/i.test(String(erro.message || '')));
         $('erroDados').textContent = semPermissao
-          ? 'Não deu pra enviar o pedido. Confira se a data e a hora do celular estão certas e tente de novo.'
+          ? 'Não deu para enviar o pedido. Confira se a data e a hora do celular estão certas e tente de novo.'
           : ((erro && erro.message) || 'Não conseguimos enviar o pedido. Tente de novo.');
       }).then(function () {
         estado.enviandoPedido = false;
@@ -1468,7 +1468,7 @@
         var desenhou = Pix.desenharQr($('pixQr'), codigo, 260);
         $('pixQr').hidden = !desenhou;
         $('btnCopiarPix').onclick = function () {
-          UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco.' : 'Não deu pra copiar sozinho. Toque e segure no código pra copiar.'); });
+          UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco.' : 'Não deu para copiar sozinho. Toque e segure no código para copiar.'); });
         };
       } else if (estado.pedindoPix !== pedido.id) {
         estado.pedindoPix = pedido.id; /* por pedido: desistir de um e abrir outro nao deixa o novo preso em "gerando" */
@@ -1486,7 +1486,7 @@
           /* o cliente ve uma frase simples; o detalhe tecnico vai pro console (e nunca JSON cru na tela) */
           if (window.console && e) console.warn('Pix nao gerou:', e.message || e);
           var motivo = e && e.message && e.message.length < 70 && e.message.indexOf('{') < 0 ? ' (' + e.message + ')' : '';
-          $('pixFalhouTexto').textContent = 'Não deu pra gerar o Pix agora' + motivo + '. Tente de novo ou volte e escolha outra forma de pagamento.';
+          $('pixFalhouTexto').textContent = 'Não deu para gerar o Pix agora' + motivo + '. Tente de novo ou volte e escolha outra forma de pagamento.';
         });
       }
       irPara('tela-pagamento');
@@ -1507,7 +1507,7 @@
       consultarStatusPix(idPedido).then(function (resp) {
         if (!aindaEsperandoPix(idPedido) || resp.status === 'pago') return; /* caiu agora: o acompanhamento mostra a senha */
         pararVigia();
-        return cancelarPedidoDoPix('O tempo pra pagar acabou e o pedido foi cancelado.').catch(function () {
+        return cancelarPedidoDoPix('O tempo para pagar acabou e o pedido foi cancelado.').catch(function () {
           /* a regra recusa quando o Pix caiu bem nessa hora: confere antes de limpar a tela */
           return store.obterPedido(estado.loja.slug, idPedido).then(function (p) {
             if (!vivo) return;
@@ -1551,15 +1551,15 @@
       });
     }
     $('btnCancelarPix').addEventListener('click', function () {
-      UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam pro carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
+      UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam para o carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
         if (!sim || !estado.pedido) return;
         var idDesistido = estado.pedido.id;
         cancelarPedidoDoPix('Pedido cancelado.', true).catch(function () {
           /* a regra recusa quando o Pix caiu bem nessa hora: confere e mostra a senha em vez de um erro em ingles */
           store.obterPedido(estado.loja.slug, idDesistido).then(function (p) {
             if (p && p.status !== R.STATUS.AGUARDANDO && p.status !== R.STATUS.CANCELADO) { estado.pedido = p; UI.avisar('O Pix caiu! Seu pedido já está com a loja.'); mostrarSenha(p); }
-            else UI.avisar('Não deu pra cancelar agora. Tente de novo.');
-          }).catch(function () { UI.avisar('Não deu pra cancelar agora. Tente de novo.'); });
+            else UI.avisar('Não deu para cancelar agora. Tente de novo.');
+          }).catch(function () { UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
         });
       });
     });
@@ -1676,7 +1676,7 @@
         estado.pedido = p;
         if (p.status === R.STATUS.AGUARDANDO && meu) mostrarPagamento(p);
         else mostrarSenha(p);
-      }).catch(function () { if (vivo) UI.avisar('Não deu pra abrir o pedido agora. Confira a internet e tente de novo.'); });
+      }).catch(function () { if (vivo) UI.avisar('Não deu para abrir o pedido agora. Confira a internet e tente de novo.'); });
     }
 
     /* pedido "andando" de mais de 12 horas atras ja acabou (a aba fechou antes do ultimo status) */
@@ -1853,7 +1853,7 @@
         '<div class="aviso" id="avisoVolta" hidden><span style="font-size:24px">👋</span><span id="textoVolta"></span></div>' +
         '<form id="formDados" novalidate>' +
           '<div class="bloco-form">' +
-            '<div class="bloco-titulo"><span class="bloco-numero">1</span>' + (balcao ? 'Seu nome, pra te chamar' : 'Quem vai receber') + '</div>' +
+            '<div class="bloco-titulo"><span class="bloco-numero">1</span>' + (balcao ? 'Seu nome, para te chamar' : 'Quem vai receber') + '</div>' +
             '<div class="campo"><label for="campoNome">' + (balcao ? 'Seu nome <span class="opcional">opcional</span>' : 'Seu nome') + '</label><input type="text" id="campoNome" name="nome" placeholder="Como te chamamos?" autocomplete="name" maxlength="80"></div>' +
             '<div class="campo"' + (balcao ? ' hidden' : '') + '><label for="campoTelefone">Seu WhatsApp</label><p class="ajuda">É por aqui que a loja te avisa se precisar.</p><input type="tel" id="campoTelefone" name="telefone" placeholder="(13) 99999-9999" autocomplete="tel" inputmode="numeric" maxlength="16"></div>' +
           '</div>' +
@@ -1866,7 +1866,7 @@
           '</div>' +
           '<div class="bloco-form" id="blocoPagamento">' +
             '<div class="bloco-titulo"><span class="bloco-numero">3</span> Como você quer pagar?</div>' +
-            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">📱</span><span class="forma-texto"><span class="forma-nome">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto pra loja</span></span><span class="forma-marca">✓</span></label>' +
+            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">📱</span><span class="forma-texto"><span class="forma-nome">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto para loja</span></span><span class="forma-marca">✓</span></label>' +
             '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">💳</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Maquininha na entrega</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">✓</span></label>' +
             '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">💵</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro na entrega</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">✓</span></label>' +
             '<div id="blocoTroco" hidden>' +

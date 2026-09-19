@@ -134,6 +134,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .btn-largo { width: 100%; }
 .btn-pequeno { min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: var(--raio-btn-p, 12px); }
 .btn-gigante { min-height: 76px; font-size: 22px; border-radius: var(--raio-btn-g, 22px); }
+@media (max-width: 360px) { .btn-gigante { font-size: 18px; padding-left: 14px; padding-right: 14px; } } /* celular pequeno: o botao grande nao quebra linha */
 .btn .sub { display: block; font-family: var(--corpo); font-weight: 600; font-size: 14px; opacity: 0.8; }
 .pilha { display: flex; flex-direction: column; gap: 12px; }
 .linha-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -581,6 +582,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .painel-topo .btn-pequeno { background: rgba(255,255,255,0.12); color: #fff; }
 .painel-topo .btn-pequeno.on { background: var(--lime); color: var(--ink); }
+/* topo do painel com cara de app: icone e nome; no celular, icone grande em cima e o nome embaixo (Ligeiro e temas) */
+.topo-app .btn-pequeno { min-height: 42px; padding: 0 16px; gap: 8px; border-radius: 12px; font-size: 15px; }
+.topo-app .topo-ico { font-size: 17px; line-height: 1; }
+@media (max-width: 760px) {
+  .topo-app .btn-pequeno { flex-direction: column; gap: 6px; min-height: 60px; padding: 10px 4px 6px; border-radius: 14px; font-size: 13px; line-height: 1.1; } /* 2px a mais em cima: centro pela linha do texto, nao pela perna do p */
+  .topo-app .topo-ico { font-size: 22px; }
+}
+@media (max-width: 360px) { .topo-app .btn-pequeno { font-size: 12.5px; } }
+/* cores do Ligeiro (loja sem tema oficial): vidro claro sobre o verde; aceso = limao */
+.topo-ligeiro .btn-pequeno { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); color: #fff; }
+@media (hover: hover) { .topo-ligeiro .btn-pequeno:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.34); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18); } }
+.topo-ligeiro .btn-pequeno.on { background: var(--lime); border-color: var(--lime); color: var(--ink); box-shadow: 0 4px 14px rgba(132, 204, 22, 0.35); }
 .abas-painel { position: sticky; top: var(--altura-painel-topo, 60px); z-index: 30; display: flex; gap: 6px; padding: 10px var(--margem); background: var(--bg); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .abas-painel::-webkit-scrollbar { display: none; }
 .aba-painel { flex: none; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: transform 0.14s, background 0.14s, border-color 0.14s, color 0.14s; }
@@ -1086,7 +1099,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .vender-capa { padding: 34px var(--margem) 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
 /* no computador a faixa do topo vai de ponta a ponta; o conteudo continua centrado na largura da pagina */
-@media (min-width: 1181px) { .vender-capa { width: 100vw; margin-left: calc(50% - 50vw); padding-left: calc(50vw - 590px + var(--margem)); padding-right: calc(50vw - 590px + var(--margem)); } }
+@media (min-width: 1181px) { .vender-capa { width: var(--vw, 100vw); margin-left: calc(50% - var(--vw, 100vw) / 2); padding-left: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); padding-right: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); } } /* --vw: largura sem a barra de rolagem */
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
 .vender-sub { font-size: 17px; color: var(--body); max-width: 520px; }
 .vender-selos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -1158,6 +1171,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .teste-caixa { background: var(--card); border: 1.5px solid var(--lime); border-radius: 22px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .teste-caixa h2 { font-size: 26px; }
 .teste-caixa .btn { width: 100%; max-width: 440px; }
+@media (max-width: 420px) { .teste-caixa { padding-left: 16px; padding-right: 16px; } .teste-caixa .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
 .teste-caixa .checks { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: 14px; font-weight: 600; color: var(--deep2); }
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
@@ -1207,7 +1221,19 @@ button.plano-card { cursor: pointer; }
 .conta-carregando .carregando-pontos span { background: #84CC16; }
 .conta-carregando .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
 .conta-carregando .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
-.conta .hub-secao { margin-top: 8px; } /* 16 do vao + 8 = 24 antes de secao */
+.conta .hub-secao { margin-top: 8px; }
+/* plano cheio: lugar tracejado pra proxima loja, com o caminho pro plano maior */
+.conta-cheio { flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; text-align: center; background: var(--card); border: 2px dashed var(--line-forte); border-radius: var(--raio); }
+.conta-cheio-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 28px; line-height: 1; }
+.conta-cheio-texto { display: flex; flex-direction: column; gap: 4px; }
+.conta-cheio-texto b { font-family: var(--display); font-size: 19px; line-height: 1.2; }
+.conta-cheio-texto span { font-size: 15px; color: var(--muted); text-wrap: balance; }
+.conta-cheio .btn { width: 100%; font-size: 17px; }
+@media (min-width: 640px) {
+  .conta-cheio { flex-direction: row; padding: 16px; text-align: left; }
+  .conta-cheio-texto { flex: 1; min-width: 0; }
+  .conta-cheio .btn { width: auto; flex: none; }
+} /* 16 do vao + 8 = 24 antes de secao */
 .conta .conta-lojas { margin-top: -4px; } /* titulo da secao a 12 dos cartoes */
 .conta-cabeca { display: flex; align-items: center; gap: 12px; padding: 6px 0 4px; }
 .conta-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; background: var(--lime-suave); }
@@ -1217,7 +1243,7 @@ button.plano-card { cursor: pointer; }
 .conta-cabeca > .btn { flex: none; }
 @media (max-width: 420px) { .conta-foto { width: 52px; height: 52px; } .conta-texto h1 { font-size: 22px; } }
 .conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 2px 0; }
-.conta-lojas { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.conta-lojas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; } /* minmax: texto comprido nunca alarga o cartao alem da tela */
 .conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); }
 .conta-loja-topo { display: flex; align-items: center; gap: 14px; }
 .conta-logo { width: 64px; height: 64px; border-radius: var(--raio-logo-p, 16px); background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 30px; flex: none; overflow: hidden; }
@@ -1230,10 +1256,11 @@ button.plano-card { cursor: pointer; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
 .conta-acoes .btn-principal, .conta-acoes .conta-senha { grid-column: 1 / -1; }
+@media (max-width: 360px) { .conta-acoes .btn { font-size: 13px; } } /* celular pequeno: "Copiar link" e "Entregador" cabem com folga */
 .conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
 .conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
-.conta-painel-texto small { font-size: 13.5px; font-weight: 600; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conta-painel-texto small { font-size: 13.5px; font-weight: 600; opacity: 0.8; text-wrap: balance; } /* nao corta: na fonte larga do iPhone quebra em duas linhas iguais */
 .conta-painel-seta { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; line-height: 1; }
 .conta-central .conta-painel-seta { background: rgba(255, 255, 255, 0.16); } /* seta clara no botao escuro */
 /* criar loja: frete em dois botoes iguais que ocupam a linha toda */
@@ -1255,6 +1282,7 @@ button.plano-card { cursor: pointer; }
 .plano-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; }
 .plano-acoes .plano-pagar { grid-column: 1 / -1; min-height: 52px; font-size: 17px; }
+@media (max-width: 360px) { .plano-acoes .btn:not(.plano-pagar) { font-size: 14px; } }
 @media (min-width: 760px) { .plano-dados { grid-template-columns: repeat(3, minmax(0, 1fr)); } .plano-dado.largo { grid-column: auto; } }
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
@@ -1273,6 +1301,8 @@ button.plano-card { cursor: pointer; }
 /* barra fixa de chamada no celular */
 .cta-fixa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); animation: subir 0.25s ease-out; }
 .cta-fixa b { color: var(--deep); }
+.cta-fixa > span { min-width: 0; } /* a frase quebra se precisar; o botao fica inteiro */
+.cta-fixa .btn { flex: none; }
 .cta-fixa[hidden] { display: none; }
 @media (max-width: 759px) { .zap-flutuante { bottom: 84px; width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
 @media (min-width: 760px) { .cta-fixa { display: none; } }

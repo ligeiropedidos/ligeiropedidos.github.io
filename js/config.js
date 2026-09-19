@@ -51,9 +51,9 @@ window.LIGEIRO_CONFIG = {
   /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
      um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
   planos: [
-    { id: 'uma', nome: 'Uma loja', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Pra quem tem um ponto' },
+    { id: 'uma', nome: 'Uma loja', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Para quem tem um ponto' },
     { id: 'duas', nome: 'Até 2 lojas', lojas: 2, mensal: 15900, anual: 159000, fundador: { mensal: 13900, anual: 139000 }, frase: 'Matriz e filial' },
-    { id: 'cinco', nome: 'Até 5 lojas', lojas: 5, mensal: 33900, anual: 339000, fundador: { mensal: 29900, anual: 299000 }, frase: 'Pra quem está crescendo' },
+    { id: 'cinco', nome: 'Até 5 lojas', lojas: 5, mensal: 33900, anual: 339000, fundador: { mensal: 29900, anual: 299000 }, frase: 'Para quem está crescendo' },
     { id: 'oito', nome: 'Até 8 lojas', lojas: 8, mensal: 47900, anual: 479000, fundador: { mensal: 42900, anual: 429000 }, frase: 'Rede da região' },
   ],
 
@@ -95,6 +95,6 @@ window.LIGEIRO_CONFIG = {
      oficial: true = loja do proprio Ligeiro (ganha o selo "Loja oficial"). Cliente que contratou o design exclusivo
      entra aqui com oficial: false: tem o tema, a logo grande e a tela de carregamento, mas nao o selo. */
   lojasOficiais: {
-    'dom-conizza': { oficial: true, tema: 'conizza', fontes: ['700 1em "Baloo 2"', '800 1em "Baloo 2"', '400 1em Nunito', '700 1em Nunito', '800 1em Nunito'], logo: 'img/oficial/dom-conizza-logo.png', ilustracao: 'img/oficial/dom-conizza-cozinhando.png', frase: 'Sai do forno direto pra sua porta', subfrase: 'Feito na hora, quentinho e caprichado do começo ao fim.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
+    'dom-conizza': { oficial: true, tema: 'conizza', fontes: ['700 1em "Baloo 2"', '800 1em "Baloo 2"', '400 1em Nunito', '700 1em Nunito', '800 1em Nunito'], logo: 'img/oficial/dom-conizza-logo.png', ilustracao: 'img/oficial/dom-conizza-cozinhando.png', frase: 'Sai do forno direto para sua porta', subfrase: 'Feito na hora, quentinho e caprichado do começo ao fim.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
   },
 };

@@ -56,7 +56,7 @@
     raiz.appendChild(el('div', { class: 'login' }, [
       el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       el('h2', { class: 'centro', text: titulo + ' · ' + nomeLoja }),
-      el('p', { class: 'muted centro', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça pro dono salvar essa senha de novo em Minha loja.' }),
+      el('p', { class: 'muted centro', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça para o dono salvar essa senha de novo em Minha loja.' }),
       el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: function () {
         esquecerRecarga(slug);
         var recarregar = function () { location.reload(); };
@@ -72,7 +72,7 @@
     UI.abrirOficialCedo(raiz, slug);
     store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
-      if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu pra abrir esta tela. Confira a internet.', function () { location.reload(); })); return; }
+      if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir esta tela. Confira a internet.', function () { location.reload(); })); return; }
       if (!loja) {
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
@@ -115,7 +115,7 @@
         }, function (e) {
           /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
           if (!vivo) return;
-          erro.textContent = e && e.message ? e.message : 'Não deu pra entrar agora. Tente de novo.';
+          erro.textContent = e && e.message ? e.message : 'Não deu para entrar agora. Tente de novo.';
           erro.hidden = false; UI.soar('erro');
         }).then(function () { entrando = false; btnEntrar.disabled = false; });
       }
@@ -139,7 +139,7 @@
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
       el('p', { text: 'Essa senha abre a cozinha e o entregador da ' + loja.nome + '. Só números, de 6 a 8.' }),
       el('div', { class: 'campo' }, [el('label', { text: 'Nova senha da equipe' }), campo]),
-      el('p', { class: 'muted pequeno', text: 'Anote e passe pra quem trabalha com você. Quem já estava logado continua até fechar a tela.' }),
+      el('p', { class: 'muted pequeno', text: 'Anote e passe para quem trabalha com você. Quem já estava logado continua até fechar a tela.' }),
     ]);
     function salvar() {
       var pin = campo.value.replace(/\D/g, '');
@@ -150,9 +150,9 @@
           var cfg = window.LIGEIRO_CONFIG || {};
           if (!cfg.proxyMercadoPago) throw new Error('O mensageiro ainda não está no ar.');
           return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/equipe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify({ loja: loja.slug, pin: pin }) })
-            .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu pra salvar.'); return j; }); });
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu para salvar.'); return j; }); });
         });
-      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu pra salvar agora.'); });
+      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu para salvar agora.'); });
     }
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
     UI.abrirModal({ titulo: 'Senha da equipe', corpo: corpo, rodape: [
@@ -208,7 +208,7 @@
         fazer.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         fazendo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         contador.textContent = (fazer.length + fazendo.length) + ' na fila';
-        [['Pra fazer', fazer, 'Ainda não tem nada esperando. Bom sinal.'], ['Fazendo agora', fazendo, 'Nada no fogo ainda.']].forEach(function (col) {
+        [['Para fazer', fazer, 'Ainda não tem nada esperando. Bom sinal.'], ['Fazendo agora', fazendo, 'Nada no fogo ainda.']].forEach(function (col) {
           var caixa = el('section', { class: 'coluna' }, [el('h2', {}, [col[0], el('span', { class: 'n', text: col[1].length ? ' ' + col[1].length : '' })])]);
           if (!col[1].length) caixa.appendChild(el('p', { class: 'muted', text: col[2] }));
           col[1].forEach(function (p) { caixa.appendChild(ficha(p)); });
@@ -303,7 +303,7 @@
         var vindo = entregas.filter(function (p) { return p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO; });
         naRua.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         vindo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
-        lista.appendChild(el('h2', {}, ['Pra entregar agora', el('span', { class: 'muted', text: naRua.length ? '  ' + naRua.length : '' })]));
+        lista.appendChild(el('h2', {}, ['Para entregar agora', el('span', { class: 'muted', text: naRua.length ? '  ' + naRua.length : '' })]));
         if (!naRua.length) lista.appendChild(el('p', { class: 'muted', text: 'Nenhuma entrega na rua. Quando a cozinha marcar "pronto", aparece aqui.' }));
         naRua.forEach(function (p) { lista.appendChild(cartao(p, true)); });
         lista.appendChild(el('h2', { style: { marginTop: '14px' }, text: 'Sendo preparadas' }));

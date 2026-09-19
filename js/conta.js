@@ -77,15 +77,15 @@
       var vez = ++vezes;
       /* primeira carga (ou depois de um erro): mostra o carregando, a tela nunca fica em branco */
       if (!desenhou) semConteudo(carregandoEl());
-      var demorou = setTimeout(function () { if (vivo && vez === vezes && !desenhou) falhou('Está demorando pra carregar sua conta.'); }, 15000);
+      var demorou = setTimeout(function () { if (vivo && vez === vezes && !desenhou) falhou('Está demorando para carregar sua conta.'); }, 15000);
       Promise.all([store.listarMinhasLojas(u.email), store.obterConta ? store.obterConta(u.email) : Promise.resolve(null)]).catch(function () {
         clearTimeout(demorou);
-        if (vivo && vez === vezes) falhou('Não deu pra carregar sua conta.');
+        if (vivo && vez === vezes) falhou('Não deu para carregar sua conta.');
         return null;
       }).then(function (r) {
         clearTimeout(demorou);
         if (!vivo || !r || vez !== vezes) return;
-        try { desenharTudo(r); desenhou = true; } catch (e) { falhou('Não deu pra mostrar sua conta.'); }
+        try { desenharTudo(r); desenhou = true; } catch (e) { falhou('Não deu para mostrar sua conta.'); }
       });
       };
       function desenharTudo(r) {
@@ -97,8 +97,8 @@
         UI.limpar(rodapeLojas);
         var limite = R.limiteDeLojas(conta || { email: u.email });
         var sit = conta && conta.plano ? R.assinatura(conta).estado : 'gratis';
-        if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') rodapeLojas.appendChild(el('span', { class: 'muted pequeno', text: 'Regularize a assinatura pra criar outra loja.' }));
-        else if (reais >= limite) rodapeLojas.appendChild(el('a', { class: 'btn btn-fantasma', href: '#/assinar', text: 'Plano cheio (' + limite + (limite === 1 ? ' loja' : ' lojas') + ') · Mudar plano' }));
+        if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') rodapeLojas.appendChild(el('span', { class: 'muted pequeno', text: 'Regularize a assinatura para criar outra loja.' }));
+        else if (reais >= limite) rodapeLojas.appendChild(cartaoPlanoCheio(conta, limite));
         else rodapeLojas.appendChild(el('a', { class: 'btn btn-principal', href: '#/comecar', text: '+ Criar outra loja' }));
         UI.limpar(lista);
         if (!lojas.length) UI.limpar(rodapeLojas); /* sem loja, o convite grande ja esta no meio da tela */
@@ -135,7 +135,7 @@
       var textos = {
         gratis: 'Grátis até ' + dataBR(a.limite) + '. Depois, ' + R.dinheiro(valor) + (p.tipo === 'anual' ? ' por ano' : ' por mês') + '. Cadastre o cartão agora e não precisa lembrar de pagar.',
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Paga até ' + dataBR(a.limite) + '.',
-        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague pelo Pix pra não parar.',
+        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague pelo Pix para não parar.',
         vencida: 'Vencida desde ' + dataBR(a.limite) + '. Suas lojas seguem no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
         bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': os sites pararam de aceitar pedidos. Assine e volta na hora.' : 'Vencida há mais de ' + a.tolerancia + ' dias: os sites pararam de aceitar pedidos. Pague e volta na hora.',
         pausada: 'Pausada pelo Ligeiro. Fale com a gente.', cancelada: 'Encerrada. Reative quando quiser.',
@@ -173,7 +173,7 @@
           (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && (a.estado !== 'ativa' || valendo.id !== plano.id)) ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }); } }) : null,
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar', text: 'Mudar plano' }),
           p.status === 'cancelado'
-            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix pra suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); }); } })
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix para suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); }); } })
             : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar', onclick: function () {
                 UI.perguntar('Encerrar a assinatura? Suas lojas continuam no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois param de receber pedidos.', { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
@@ -189,7 +189,7 @@
       function avisar() {
         return store.salvarConta(conta.email, { plano: { avisoPagamentoEm: new Date().toISOString(), avisoValor: valor } })
           .then(function (c) { UI.soar('sucesso'); UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); aoAvisar(c); })
-          .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra avisar agora.'); });
+          .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu para avisar agora.'); });
       }
       window.LigeiroCobranca.abrir({
         valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, sufixo: ', todas as suas lojas',
@@ -197,12 +197,26 @@
       });
     }
 
+    /* Plano cheio: um lugar tracejado "pra proxima loja", com o caminho pro plano maior (no maximo, so o aviso) */
+    function cartaoPlanoCheio(conta, limite) {
+      var nome = R.planoPorId(R.planoQueVale(conta || {})).nome;
+      var temMaior = R.planos().some(function (p) { return p.lojas > limite; });
+      return el('div', { class: 'conta-cheio' }, [
+        el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true', text: '🏪' }),
+        el('div', { class: 'conta-cheio-texto' }, [
+          el('b', { text: 'Quer abrir outra loja?' }),
+          el('span', { text: temMaior ? 'Seu plano ' + nome + ' já está cheio. Um plano maior libera mais lojas.' : 'Você já está no maior plano (' + limite + ' lojas). Fale com o Ligeiro para ter mais.' }),
+        ]),
+        temMaior ? el('a', { class: 'btn btn-principal', href: '#/assinar', text: 'Ver planos maiores' }) : null,
+      ]);
+    }
+
     function cartaoLoja(l) {
       var a = R.assinatura(l);
       var aberta = R.lojaAberta(l);
       var textos = {
         gratis: 'Grátis até ' + dataBR(a.limite), ativa: a.cortesia ? 'Assinatura liberada' : 'Paga até ' + dataBR(a.limite),
-        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida, pague pra não parar',
+        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida, pague para não parar',
         bloqueada: 'Bloqueada: site sem pedidos', pausada: 'Pausada', cancelada: 'Cancelada',
       };
       var classeSelo = a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
@@ -227,7 +241,7 @@
         ]),
         el('div', { class: 'conta-acoes' }, [
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '🌐 Ver loja' }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link pra copiar'); }); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
         ]),
         el('div', { class: 'conta-grupo', text: 'Telas da equipe' }),
         el('div', { class: 'conta-acoes' }, [

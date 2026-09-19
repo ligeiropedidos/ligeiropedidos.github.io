@@ -646,10 +646,10 @@
       case STATUS.PAGO:
       case STATUS.PRODUCAO:
         return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. Seu pedido (senha ' + pedido.senha +
-          ') já está sendo preparado. ' + (entrega ? 'Logo sai pra entrega.' : 'Logo fica pronto pra retirar.');
+          ') já está sendo preparado. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
       case STATUS.PRONTO:
         return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. Seu pedido (senha ' + pedido.senha + ') ' +
-          (entrega ? 'saiu pra entrega!' : 'está pronto pra retirar!');
+          (entrega ? 'saiu para entrega!' : 'está pronto para retirar!');
       default:
         return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + ', sobre o seu pedido de senha ' + pedido.senha + '.';
     }

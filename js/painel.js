@@ -35,7 +35,7 @@
     UI.abrirOficialCedo(raiz, slug);
     store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
-      if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu pra abrir o painel.')); return; }
+      if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir o painel.')); return; }
       if (!loja) {
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
@@ -74,7 +74,7 @@
         raiz.appendChild(el('div', { class: 'login' }, [
           el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
           el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
-          el('p', { class: 'centro muted', text: 'Esta loja ainda não tem login. O Ligeiro liga o painel pra você em minutos.' }),
+          el('p', { class: 'centro muted', text: 'Esta loja ainda não tem login. O Ligeiro liga o painel para você em minutos.' }),
           cfgL.whatsappLigeiro ? el('a', { class: 'btn btn-whats btn-largo', href: R.linkWhatsapp(cfgL.whatsappLigeiro, 'Oi! Quero ligar o painel da ' + estado.loja.nome + '.'), target: '_blank', rel: 'noopener', text: '💬 Chamar o Ligeiro' }) : null,
           el('button', { class: 'btn btn-fantasma btn-largo', text: 'Ver a loja como cliente', onclick: function () { window.LigeiroApp.ir(estado.loja.cidadeSlug + '/' + slug); } }),
         ]));
@@ -100,7 +100,7 @@
         }, function (e) {
           /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
           if (!vivo) return;
-          UI.soar('erro'); erro.hidden = false; erro.textContent = e && e.message ? e.message : 'Não deu pra entrar agora. Tente de novo.';
+          UI.soar('erro'); erro.hidden = false; erro.textContent = e && e.message ? e.message : 'Não deu para entrar agora. Tente de novo.';
         });
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
@@ -118,7 +118,7 @@
       raiz.appendChild(el('div', { class: 'login' }, [
         el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
-        el('p', { class: 'centro muted', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça pro dono salvar essa senha de novo em Minha loja.' }),
+        el('p', { class: 'centro muted', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça para o dono salvar essa senha de novo em Minha loja.' }),
         el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: sairDoPainel }),
       ]));
     }
@@ -136,10 +136,12 @@
           else UI.avisar('O Mercado Pago não autorizou. Tente de novo ou cole o token.');
         }, 400);
       }
-      /* rotulo do botao do topo: no celular vale a versao curta (os quatro botoes ficam identicos numa linha) */
+      /* loja oficial com tema (Dom Conizza): o topo usa as cores do tema; as outras, as do Ligeiro */
+      var topoComTema = !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).tema);
+      /* rotulo do botao do topo: icone e nome; no celular vale o nome curto (os quatro botoes ficam identicos numa linha) */
       function rotuloTopo(botao, icone, longo, curto) {
         UI.limpar(botao);
-        botao.appendChild(document.createTextNode(icone + ' '));
+        botao.appendChild(el('span', { class: 'topo-ico', 'aria-hidden': 'true', text: icone }));
         botao.appendChild(el('span', { class: 'rot-longo', text: longo }));
         botao.appendChild(el('span', { class: 'rot-curto', text: curto }));
         return botao;
@@ -154,17 +156,21 @@
       pintarSom();
       /* Impressao automatica: cada pedido novo (pago ou pra cobrar na entrega) sai na impressora sozinho.
          No computador do caixa, abra o Chrome com --kiosk-printing pra nao aparecer a janela de imprimir. */
-      var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', text: estado.impressaoAuto ? '🖨️ Imprime sozinho' : '🖨️ Impressão manual', onclick: function () {
+      function pintarImp() {
+        rotuloTopo(btnImp, '🖨️', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Sozinho' : 'Imprimir');
+      }
+      var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', onclick: function () {
         estado.impressaoAuto = !estado.impressaoAuto;
         if (estado.impressaoAuto) (estado.pedidos || []).forEach(function (p) { estado.impressos[p.id] = true; });
         UI.guardarLocal('ligeiro:impressao:' + slug, estado.impressaoAuto);
-        btnImp.textContent = estado.impressaoAuto ? '🖨️ Imprime sozinho' : '🖨️ Impressão manual';
+        pintarImp();
         btnImp.classList.toggle('on', estado.impressaoAuto);
         UI.avisar(estado.impressaoAuto ? 'Cada pedido novo vai sair na impressora deste aparelho.' : 'Impressão só pelo botão 🖨️ do pedido.');
       } });
+      pintarImp();
       /* No celular nao existe impressao silenciosa: o botao so aparece em tela grande (computador do caixa). */
       if (navigator.maxTouchPoints > 0 && window.innerWidth < 900) btnImp.hidden = true;
-      raiz.appendChild(el('header', { class: 'painel-topo' }, [
+      raiz.appendChild(el('header', { class: 'painel-topo topo-app' + (topoComTema ? '' : ' topo-ligeiro') }, [
         (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
@@ -264,7 +270,7 @@
         if (parados.length && Date.now() - (estado.ultimoLembrete || 0) > 2 * 60 * 1000) {
           estado.ultimoLembrete = Date.now();
           UI.soar('lembrete');
-          UI.avisar(parados.length === 1 ? 'A senha ' + parados[0].senha + ' está esperando pra começar.' : parados.length + ' pedidos esperando pra começar.');
+          UI.avisar(parados.length === 1 ? 'A senha ' + parados[0].senha + ' está esperando para começar.' : parados.length + ' pedidos esperando para começar.');
         }
       }, 60000);
       estado.parar.push(function () { clearInterval(relogio); });
@@ -388,17 +394,17 @@
       var textos = {
         gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + ' (' + a.dias + ' dias). Depois é ' + dinheiro(valor) + ' por ' + periodo + ': cartão, boleto ou Pix, aqui mesmo.',
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Assinatura paga até ' + dataBR(a.limite) + '.',
-        vencendo: (a.gratis ? 'Seu período grátis termina' : 'Sua assinatura vence') + ' em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ' (' + dataBR(a.limite) + '). Assine pra loja não parar.',
+        vencendo: (a.gratis ? 'Seu período grátis termina' : 'Sua assinatura vence') + ' em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ' (' + dataBR(a.limite) + '). Assine para loja não parar.',
         vencida: 'Assinatura vencida desde ' + dataBR(a.limite) + '. A loja segue no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
         bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': o site parou de aceitar pedidos. Assine e ele volta na hora.' : 'Assinatura vencida há mais de ' + a.tolerancia + ' dias: o site parou de aceitar pedidos. Pague e ele volta assim que confirmarmos.',
         pausada: 'Assinatura pausada pelo Ligeiro. Fale com a gente.',
-        cancelada: 'Assinatura encerrada. Pra voltar, reative em Minha conta.',
+        cancelada: 'Assinatura encerrada. Para voltar, reative em Minha conta.',
       };
       if (a.encerrando) textos.ativa = 'Assinatura encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? É só reativar.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada';
       var filhos = [
         el('h3', { text: (alerta ? '⚠️ ' : '') + 'Assinatura · ' + nomePlano + (a.estado === 'gratis' ? ' · período grátis' : a.estado === 'ativa' ? ' · em dia' : '') }),
-        el('p', { class: 'pequeno', text: (textos[a.estado] || '') + (estado.conta ? ' Vale pra todas as lojas da sua conta.' : '') }),
+        el('p', { class: 'pequeno', text: (textos[a.estado] || '') + (estado.conta ? ' Vale para todas as lojas da sua conta.' : '') }),
       ];
       if (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) {
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
@@ -419,7 +425,7 @@
         var grava = estado.conta
           ? store.salvarConta(estado.conta.email, { plano: aviso }).then(function (c) { estado.conta = c; UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); })
           : salvarLoja({ plano: Object.assign({}, estado.loja.plano || {}, aviso) }, 'Avisado! Assim que cair, liberamos mais ' + periodo + '.');
-        return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra avisar agora.'); });
+        return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu para avisar agora.'); });
       }
       window.LigeiroCobranca.abrir({
         valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome,
@@ -467,7 +473,7 @@
       var hoje = R.diaLocal();
       var grupos = [
         { titulo: 'Aguardando Pix', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
-        { titulo: 'Novos, pra começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
+        { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
         { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO && R.diaLocal(new Date(p.criadoEm)) === hoje; }, fechado: true },
@@ -602,7 +608,7 @@
         estado.loja = Object.assign({}, estado.loja, salva || nova);
         if (aviso) UI.avisar(aviso);
         return estado.loja;
-      }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra salvar. Tente de novo.'); throw e; });
+      }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu para salvar. Tente de novo.'); throw e; });
     }
 
     function desenharCardapio(deAtualizacao) {
@@ -694,7 +700,7 @@
       });
       var chave = el('button', { class: 'chave' + (p.ativo !== false ? ' on' : ''), 'aria-label': 'Ligar ou desligar ' + p.nome, onclick: function () {
         var produtos = estado.loja.produtos.map(function (x) { return x.id === p.id ? Object.assign({}, x, { ativo: !(x.ativo !== false) }) : x; });
-        salvarLoja({ produtos: produtos }, p.ativo !== false ? p.nome + ' saiu do site' : p.nome + ' voltou pro site');
+        salvarLoja({ produtos: produtos }, p.ativo !== false ? p.nome + ' saiu do site' : p.nome + ' voltou para o site');
       } });
       var srcFoto = D.fotoSrc(p, estado.fotos);
       return el('div', { class: 'linha-produto item' + (p.ativo !== false ? '' : ' desligado') }, [
@@ -759,7 +765,7 @@
         return b;
       });
       var linha = el('div', { class: 'estilo-linha' }, botoes);
-      var bloco = el('div', { class: 'campo largo' }, [el('label', { text: 'Frete' }), el('p', { class: 'ajuda', text: 'Você decide. Muda pro cliente na hora que salvar. Entrega grátis aparece em destaque no site e na vitrine.' }), linha]);
+      var bloco = el('div', { class: 'campo largo' }, [el('label', { text: 'Frete' }), el('p', { class: 'ajuda', text: 'Você decide. Muda para o cliente na hora que salvar. Entrega grátis aparece em destaque no site e na vitrine.' }), linha]);
       bloco.valor = function () { return modo; };
       if (aoMudar) setTimeout(function () { aoMudar(modo); }, 0);
       return bloco;
@@ -817,7 +823,7 @@
       obs.observe(f.capa, { subtree: true, attributes: true, childList: true });
       var bloco = el('div', { class: 'campo largo previa-bloco' }, [
         el('label', { text: 'A cara da sua loja' }),
-        el('p', { class: 'ajuda', text: 'É assim que o cliente vê no celular. Toque na câmera pra trocar a capa ou a logo. Cor e estilo mudam aqui embaixo.' }),
+        el('p', { class: 'ajuda', text: 'É assim que o cliente vê no celular. Toque na câmera para trocar a capa ou a logo. Cor e estilo mudam aqui embaixo.' }),
         tela,
         acoes,
       ]);
@@ -904,7 +910,7 @@
         nome: campoTexto('Nome', p ? p.nome : '', { max: 60, placeholder: 'Ex: X-Bacon' }),
         descricao: campoTexto('Descrição curta', p ? p.descricao : '', { max: 140, placeholder: 'O que vem, em uma linha' }),
         preco: campoDinheiro('Preço', p ? p.preco : 0),
-        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, vazio: (p && p.emoji) || '🍽️', ajuda: 'Qualquer foto do celular serve: o sistema diminui pra 640 px. Prato no centro, ocupando a foto toda; quadrada ou 4:3 fica melhor.' }),
+        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, vazio: (p && p.emoji) || '🍽️', ajuda: 'Qualquer foto do celular serve: o sistema diminui para 640 px. Prato no centro, ocupando a foto toda; quadrada ou 4:3 fica melhor.' }),
         emoji: campoEmoji('Emoji (aparece quando não tem foto)', p ? p.emoji : '🍔'),
         categoria: campoSelect('Categoria', categoriaId, estado.loja.categorias.map(function (c) { return [c.id, c.nome]; })),
         ingredientes: campoTexto('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes.join(', ') : '', { max: 300, placeholder: 'Separe por vírgula: Cebola, Tomate, Maionese', ajuda: 'Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' }),
@@ -966,7 +972,7 @@
           estado.categoriaAtiva = dados.categoria;
           desenharCardapio();
         }).catch(function (e) {
-          UI.avisar(e && e.message ? e.message : 'Não deu pra salvar. Tente de novo.');
+          UI.avisar(e && e.message ? e.message : 'Não deu para salvar. Tente de novo.');
           btnSalvar.disabled = false;
           btnSalvar.textContent = novo ? 'Adicionar ao ' + R.catalogo(estado.loja).nome : 'Salvar';
         });
@@ -1021,7 +1027,7 @@
       var l = estado.loja;
       var nome = campoTexto('Nome da categoria', cat ? cat.nome : '', { max: 40, placeholder: 'Ex: Lanches' });
       var emoji = campoEmoji('Emoji da categoria', cat ? cat.emoji : '🍔');
-      var ligada = novo ? null : interruptorCampo('Categoria ligada', 'Desligada, ela e todos os itens somem do site na hora e voltam quando você ligar. Bom pra "Almoço" fora do horário.', cat.ativa !== false);
+      var ligada = novo ? null : interruptorCampo('Categoria ligada', 'Desligada, ela e todos os itens somem do site na hora e voltam quando você ligar. Bom para "Almoço" fora do horário.', cat.ativa !== false);
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [nome, emoji, ligada]);
       if (!novo) {
         var ids = l.categorias.map(function (c) { return c.id; });
@@ -1029,8 +1035,8 @@
         var qtd = l.produtos.filter(function (p) { return p.categoria === cat.id; }).length;
         corpo.appendChild(el('p', { class: 'muted pequeno', text: qtd + (qtd === 1 ? ' item' : ' itens') + ' nesta categoria · posição ' + (pos + 1) + ' de ' + ids.length + ' no site' }));
         if (ids.length > 1) {
-          var antes = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '← Mover pra antes', onclick: function () { moverCategoria(cat.id, -1); } });
-          var depois = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Mover pra depois →', onclick: function () { moverCategoria(cat.id, 1); } });
+          var antes = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '← Mover para antes', onclick: function () { moverCategoria(cat.id, -1); } });
+          var depois = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Mover para depois →', onclick: function () { moverCategoria(cat.id, 1); } });
           antes.disabled = pos === 0;
           depois.disabled = pos === ids.length - 1;
           corpo.appendChild(el('div', { class: 'linha-botoes' }, [antes, depois]));
@@ -1104,7 +1110,7 @@
           .then(function (sim) { if (sim) concluir({}, 'Categoria excluída'); else editarCategoria(cat); });
         return;
       }
-      var destino = outras.length ? campoSelect('Mover os itens pra', outras[0].id, outras.map(function (c) { return [c.id, (c.emoji ? c.emoji + ' ' : '') + c.nome]; })) : null;
+      var destino = outras.length ? campoSelect('Mover os itens para', outras[0].id, outras.map(function (c) { return [c.id, (c.emoji ? c.emoji + ' ' : '') + c.nome]; })) : null;
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
         el('p', { text: '"' + cat.nome + '" tem ' + n + (n === 1 ? ' item' : ' itens') + '. O que fazer com ' + (n === 1 ? 'ele' : 'eles') + '?' }),
         destino,
@@ -1118,7 +1124,7 @@
         concluir({ produtos: produtos }, n + (n === 1 ? ' item movido' : ' itens movidos') + '. Categoria excluída.').then(function () { estado.categoriaAtiva = alvo; desenharCardapio(); });
       } }));
       botoes.push(el('button', { class: 'btn btn-erro' + (destino ? ' btn-pequeno' : ''), style: { flex: '1' }, text: 'Excluir tudo', onclick: function () {
-        UI.perguntar('Excluir a categoria e ' + (n === 1 ? 'o item' : 'os ' + n + ' itens') + ' de uma vez? Não dá pra desfazer.', { sim: 'Excluir tudo', perigo: true }).then(function (sim) {
+        UI.perguntar('Excluir a categoria e ' + (n === 1 ? 'o item' : 'os ' + n + ' itens') + ' de uma vez? Não dá para desfazer.', { sim: 'Excluir tudo', perigo: true }).then(function (sim) {
           if (!sim) return excluirCategoria(cat);
           estado.loja.produtos.filter(function (p) { return p.categoria === cat.id && p.foto; }).forEach(function (p) { store.excluirFoto(slug, p.foto).catch(function () { /* ignora */ }); });
           concluir({ produtos: estado.loja.produtos.filter(function (p) { return p.categoria !== cat.id; }) }, 'Categoria e itens excluídos');
@@ -1271,7 +1277,7 @@
       var desde = new Date(Date.now() - (dias - 1) * 24 * 60 * 60 * 1000);
       desde.setHours(0, 0, 0, 0);
       store.listarPedidos(slug, { desde: desde.toISOString() }).catch(function () {
-        UI.limpar(conteudo); conteudo.appendChild(el('p', { class: 'muted centro', text: 'Não deu pra carregar as vendas. Confira a internet e abra a aba de novo.' })); return null;
+        UI.limpar(conteudo); conteudo.appendChild(el('p', { class: 'muted centro', text: 'Não deu para carregar as vendas. Confira a internet e abra a aba de novo.' })); return null;
       }).then(function (pedidos) {
         if (!pedidos) return;
         var r = R.resumoVendas(pedidos, dias);
@@ -1399,28 +1405,28 @@
       f.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.tipo.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.medidas = el('details', { class: 'avancado campo largo' }, [
-        el('summary', { text: 'Medidas das imagens, pra quem for fazer a arte' }),
+        el('summary', { text: 'Medidas das imagens, para quem for fazer a arte' }),
         el('p', { class: 'muted pequeno' }, [el('b', { text: 'Logo: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece com 120 px no site e 60 px na vitrine: símbolo grande, sem letra pequena.']),
         el('p', { class: 'muted pequeno' }, [el('b', { text: 'Capa: ' }), 'deitada, 1200 × 500 px (proporção 12 por 5). No celular aparece só a faixa do meio: deixe o que importa no centro e nada escrito nas bordas. Uma foto do celular na horizontal serve.']),
-        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, prato no centro. O sistema diminui pra 640 px.']),
+        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, prato no centro. O sistema diminui para 640 px.']),
       ]);
       f.emoji = campoEmoji('Emoji da loja', l.emoji, { ajuda: 'Aparece no lugar da logo enquanto você não manda uma.', aoMudar: function () { if (f.previa) f.previa.atualizar(); } });
       f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: 'Ex: Lanche bem servido, feito na hora.' });
-      f.avisoTopo = campoTexto('Aviso no topo do site', l.avisoTopo, { max: 120, largo: true, placeholder: 'Ex: Hoje só entrega no Centro', ajuda: 'Aparece em destaque pro cliente. Deixe vazio para não mostrar.' });
+      f.avisoTopo = campoTexto('Aviso no topo do site', l.avisoTopo, { max: 120, largo: true, placeholder: 'Ex: Hoje só entrega no Centro', ajuda: 'Aparece em destaque para o cliente. Deixe vazio para não mostrar.' });
       f.cidade = window.LigeiroCidades.campo(l.cidade, l.uf, { rotulo: 'Cidade', ajuda: 'Escolha na lista. É a página da cidade em que sua loja aparece.' });
       f.endereco = campoTexto('Endereço da loja', l.endereco, { max: 120, largo: true });
-      f.whatsapp = campoTexto('WhatsApp da loja', R.formatarTelefone(l.whatsapp), { max: 16, inputmode: 'numeric', ajuda: 'Com DDD. É pra onde o cliente fala com você.' });
+      f.whatsapp = campoTexto('WhatsApp da loja', R.formatarTelefone(l.whatsapp), { max: 16, inputmode: 'numeric', ajuda: 'Com DDD. É para onde o cliente fala com você.' });
       UI.mascaraTelefone(f.whatsapp.input);
       f.instagram = campoTexto('Instagram (sem @)', l.instagram, { max: 40 });
-      f.cnpj = campoTexto('CNPJ (opcional)', l.cnpj ? R.formatarCnpj(l.cnpj) : '', { max: 18, inputmode: 'numeric', placeholder: '00.000.000/0000-00', ajuda: 'Se preencher, aparece no rodapé do seu site. Passa confiança pro cliente.' });
+      f.cnpj = campoTexto('CNPJ (opcional)', l.cnpj ? R.formatarCnpj(l.cnpj) : '', { max: 18, inputmode: 'numeric', placeholder: '00.000.000/0000-00', ajuda: 'Se preencher, aparece no rodapé do seu site. Passa confiança para o cliente.' });
       f.cnpj.input.addEventListener('input', function () { var n = f.cnpj.input.value.replace(/\D/g, '').slice(0, 14); f.cnpj.input.value = n.length === 14 ? R.formatarCnpj(n) : n; });
       /* Aparencia: celular de um lado, controles compactos do outro */
       var emojiDetalhe = el('details', { class: 'avancado campo largo' }, [el('summary', { text: 'Sem logo? Escolha um emoji' }), f.emoji]);
       if (!D.logoSrc(l)) emojiDetalhe.open = true;
       var cfgEx = window.LIGEIRO_CONFIG || {};
       var exclusivo = (cfgEx.whatsappLigeiro && !UI.lojaOficial(slug)) ? el('p', { class: 'muted pequeno exclusivo-convite' }, [
-        'Quer um visual só seu, desenhado pra sua marca? ',
-        el('a', { href: R.linkWhatsapp(cfgEx.whatsappLigeiro, 'Oi! Quero um orçamento de design exclusivo pra ' + l.nome + ' no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'Peça um orçamento de design exclusivo' }),
+        'Quer um visual só seu, desenhado para sua marca? ',
+        el('a', { href: R.linkWhatsapp(cfgEx.whatsappLigeiro, 'Oi! Quero um orçamento de design exclusivo para ' + l.nome + ' no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'Peça um orçamento de design exclusivo' }),
         '.',
       ]) : null;
       var controles = el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas, exclusivo]);
@@ -1449,7 +1455,7 @@
       entrega.appendChild(f.aceitaRetirada);
       /* Frete: o dono manda. "Entrega gratis" desliga a taxa em todo pedido; "Cobro taxa" mostra os valores. */
       f.taxaEntrega = campoDinheiro('Taxa de entrega', l.taxaEntrega, 'O que o cliente paga pela entrega.');
-      f.entregaGratisAcima = campoDinheiro('Grátis a partir de', l.entregaGratisAcima, 'Vazio = a taxa vale sempre. Com valor, o site mostra "faltam R$ X pra entrega grátis", e o pedido cresce.');
+      f.entregaGratisAcima = campoDinheiro('Grátis a partir de', l.entregaGratisAcima, 'Vazio = a taxa vale sempre. Com valor, o site mostra "faltam R$ X para entrega grátis", e o pedido cresce.');
       f.frete = campoFrete(l, function (modo) {
         f.taxaEntrega.hidden = modo === 'gratis';
         f.entregaGratisAcima.hidden = modo === 'gratis';
@@ -1470,7 +1476,7 @@
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
       var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
       f.mpAtivo = interruptorCampo('Pix automático', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
-      f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só pra trocar.' });
+      f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só para trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
       f.mpToken.lido = false; /* vira true quando a leitura da conexao responde */
@@ -1497,9 +1503,9 @@
         conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', text: '🔗 Conectar Mercado Pago', onclick: function () {
           window.LigeiroMP.conectar(slug).then(function (r) {
             if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { desenharAjustes(); }); }
-          }).catch(function (e) { UI.avisar(e.message || 'Não deu pra conectar agora.'); });
+          }).catch(function (e) { UI.avisar(e.message || 'Não deu para conectar agora.'); });
         } }));
-        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta pra cá com o Pix ligado. Sem copiar nada.' }));
+        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta para cá com o Pix ligado. Sem copiar nada.' }));
       }
       if (window.LigeiroMP) window.LigeiroMP.lerConexao(l.slug).then(desenharConexao); else desenharConexao(null);
       pagamento.appendChild(f.mpAtivo);
@@ -1508,7 +1514,7 @@
         el('summary', { text: temConexao ? 'Colar o token (avançado)' : 'Colar o token do Mercado Pago' }),
         f.mpToken,
         el('ol', { class: 'passos-mp' }, [
-          el('li', {}, [el('b', { text: 'Tenha uma conta no Mercado Pago' }), ' (app, grátis) com uma chave Pix cadastrada nela. É lá que o dinheiro do cliente cai; você transfere pro banco quando quiser.']),
+          el('li', {}, [el('b', { text: 'Tenha uma conta no Mercado Pago' }), ' (app, grátis) com uma chave Pix cadastrada nela. É lá que o dinheiro do cliente cai; você transfere para o banco quando quiser.']),
           el('li', {}, [el('b', { text: 'Pegue o Access Token' }), ': no site do Mercado Pago, Suas integrações › Criar aplicação › Credenciais de produção › Access Token. Começa com APP_USR.']),
           el('li', {}, [el('b', { text: 'Cole acima, ligue e salve.' }), ' Faça um pedido de teste de R$ 1 pelo seu site: pagou, o pedido vira "pago" sozinho em segundos.']),
         ]),
@@ -1555,10 +1561,10 @@
       s.appendChild(cupons);
 
       /* sons do painel: o dono ouve cada um e sabe o que significa */
-      var listaSons = [['apito', '🔔 Pedido novo', 'Alto, pra ouvir da cozinha'], ['pago', '💸 Pix caiu', 'O pedido já pode começar'], ['cancelado', '✕ Cliente cancelou', 'O pedido saiu da fila'], ['lembrete', '⏰ Pedido parado', 'Pago há mais de 5 minutos sem começar']];
+      var listaSons = [['apito', '🔔 Pedido novo', 'Alto, para ouvir da cozinha'], ['pago', '💸 Pix caiu', 'O pedido já pode começar'], ['cancelado', '✕ Cliente cancelou', 'O pedido saiu da fila'], ['lembrete', '⏰ Pedido parado', 'Pago há mais de 5 minutos sem começar']];
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Sons do painel' }),
-        el('p', { class: 'muted pequeno', text: 'Toque pra ouvir cada aviso. Pra silenciar tudo, use o botão Apito lá em cima.' }),
+        el('p', { class: 'muted pequeno', text: 'Toque para ouvir cada aviso. Para silenciar tudo, use o botão Apito lá em cima.' }),
         el('div', { class: 'sons-lista' }, listaSons.map(function (x) {
           return el('button', { type: 'button', class: 'som-linha', onclick: function () { if (!UI.somLigado()) { UI.avisar('O apito está desligado. Ligue no botão Apito, lá em cima.'); return; } UI.soar(x[0]); } }, [
             el('span', { class: 'som-texto' }, [el('b', { text: x[1] }), el('small', { text: x[2] })]),
@@ -1569,7 +1575,7 @@
 
       if (D.modoDemo) {
         var seguranca = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Senha do painel' })]);
-        f.senhaPainel = campoTexto('Nova senha (deixe vazio pra não mudar)', '', { max: 20, tipo: 'password', inputmode: 'numeric' });
+        f.senhaPainel = campoTexto('Nova senha (deixe vazio para não mudar)', '', { max: 20, tipo: 'password', inputmode: 'numeric' });
         f.senhaPainel.input.setAttribute('autocomplete', 'new-password');
         seguranca.appendChild(f.senhaPainel);
         s.appendChild(seguranca);
@@ -1641,7 +1647,7 @@
             turnos.appendChild(turno);
           });
           linha.appendChild(turnos);
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (pra quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
         }
         return linha;
       }
@@ -1653,10 +1659,10 @@
       }
       dias.forEach(function (d) { linhas[d[0]] = desenharDia(d[0]); caixa.appendChild(linhas[d[0]]); });
       caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda', title: 'Copia o horário de segunda pra todos os outros dias', onclick: function () {
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda', title: 'Copia o horário de segunda para todos os outros dias', onclick: function () {
           var base = estadoH.seg;
           dias.forEach(function (d) { if (d[0] !== 'seg') { estadoH[d[0]] = { aberto: base.aberto, turnos: base.turnos.map(function (t) { return [t[0], t[1]]; }) }; redesenhar(d[0]); } });
-          UI.avisar('Segunda copiada pros outros dias. Ajuste o que for diferente.');
+          UI.avisar('Segunda copiada para os outros dias. Ajuste o que for diferente.');
         } }),
       ]));
       var bloco = el('div', { class: 'campo largo' }, [
@@ -1760,7 +1766,7 @@
       var passo = Promise.resolve();
       if (tokenMP && window.LigeiroMP) {
         passo = window.LigeiroMP.guardarToken(slug, tokenMP)
-          .catch(function () { throw new Error('Não deu pra guardar o token do Mercado Pago. Confira a internet e tente de novo.'); })
+          .catch(function () { throw new Error('Não deu para guardar o token do Mercado Pago. Confira a internet e tente de novo.'); })
           .then(function () { if (estado.loja.mpAtivo) ligarMP(); });
       }
 
@@ -1781,7 +1787,7 @@
       }
       passo.then(function () { return salvarLoja(mudancas, 'Ajustes salvos'); })
         .then(function () { window.scrollTo(0, 0); desenharAjustes(); })
-        .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra salvar. Tente de novo.'); });
+        .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu para salvar. Tente de novo.'); });
     }
 
     function novoCupom() {
