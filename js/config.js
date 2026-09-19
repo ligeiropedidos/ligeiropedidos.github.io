@@ -50,7 +50,7 @@ window.LIGEIRO_CONFIG = {
   fundador: { vagas: 10, jaOcupadas: 1 }, /* 10 vagas (era 20): mais urgencia e cada vaga e R$ 10 a menos por mes para sempre. jaOcupadas: a Dom Conizza */
   /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
      A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
-  capacidade: { maxLojas: 25 }, /* inicial e conservador; a Central aumenta quando a estrutura crescer */
+  capacidade: { maxLojas: 8 }, /* seguro para o codigo de hoje no Firebase gratis; sobe a cada otimizacao (meta: 30) */
   /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
      um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
   planos: [
