@@ -104,7 +104,7 @@
         if (!lojas.length) UI.limpar(rodapeLojas); /* sem loja, o convite grande ja esta no meio da tela */
         if (!lojas.length) {
           lista.appendChild(el('div', { class: 'vazio hub-vazio' }, [
-            el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
+            el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
             el('p', { class: 'forte', text: 'Você ainda não tem loja no Ligeiro.' }),
             el('p', { class: 'muted', text: 'Leva três minutos: nome, WhatsApp e frete. Os primeiros ' + diasGratis() + ' dias são grátis.' }),
             el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis' }),

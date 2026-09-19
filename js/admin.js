@@ -210,7 +210,7 @@
       tirarSplash();
       UI.limpar(raiz);
       var erro = el('div', { class: 'msg-erro', hidden: true });
-      var marca = el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]);
+      var marca = el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]);
       /* na nuvem nao existe senha: so entra o Google do Ligeiro (adminEmail), e as regras do banco conferem de novo */
       if (!D.modoDemo) {
         raiz.appendChild(el('div', { class: 'login' }, [

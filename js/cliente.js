@@ -35,8 +35,8 @@
     var lembrada = UI.lerLocal(CHAVE_CIDADE);
     raiz.classList.add('fundo-hub');
     raiz.appendChild(el('div', { class: 'hub-capa hub-cidade' }, [
-      el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.png', alt: '' }),
-      el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.webp', alt: '' }),
+      el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       el('h1', { class: 'hub-titulo so-texto', text: 'Em que cidade você está?' }),
       el('p', { class: 'slogan', text: 'Peça no delivery da sua cidade. Sem app, sem cadastro, sem comissão.' }),
       el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
@@ -72,7 +72,7 @@
       var visiveis = cidades.filter(function (c) { return !termo || R.semAcento(c.nome + ' ' + (c.uf || '')).toLowerCase().indexOf(termo) >= 0; });
       if (!visiveis.length) {
         lista.appendChild(el('div', { class: 'vazio hub-vazio' }, [
-          el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
+          el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
           el('p', { class: 'forte', text: termo ? 'Ainda não tem loja em "' + busca.value.trim() + '".' : 'Nenhuma cidade cadastrada ainda.' }),
           el('p', { class: 'muted', text: 'Tem uma lanchonete, pizzaria ou marmitaria aí? Ela pode ser a primeira.' }),
           el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Cadastrar minha loja' }),
@@ -144,8 +144,8 @@
     var tituloCidade = el('h1', { class: 'hub-titulo', text: 'Carregando…' });
     raiz.classList.add('fundo-hub');
     raiz.appendChild(el('div', { class: 'hub-capa hub-cidade' }, [
-      el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.png', alt: '' }),
-      el('a', { class: 'marca centro', href: '#/cidades' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.webp', alt: '' }),
+      el('a', { class: 'marca centro', href: '#/cidades' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       tituloCidade,
       el('p', { class: 'slogan', text: 'Peça pelo link, pague no Pix e acompanhe pela senha. Sem app, sem cadastro.' }),
       el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
@@ -259,7 +259,7 @@
       }).filter(function (x) { return x.mostra; });
       if (!comItens.length) {
         lista.appendChild(el('div', { class: 'vazio hub-vazio' }, [
-          el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
+          el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
           el('p', { class: 'forte', text: termo ? 'Ninguém aqui vende "' + estadoHub.termo.trim() + '" ainda.' : (estadoHub.soAbertas ? 'Nenhuma loja aberta agora.' : 'Ainda não tem loja nesta cidade.') }),
           el('p', { class: 'muted', text: termo || estadoHub.soAbertas ? 'Tente outra palavra ou tire o filtro.' : 'Tem uma lanchonete, pizzaria ou marmitaria? Ela pode ser a primeira.' }),
           termo || estadoHub.soAbertas

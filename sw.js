@@ -3,9 +3,9 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260923j';
+var VERSAO = 'ligeiro-20260923k';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
-var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/favicon.png'];
+var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/mascote-192.webp', './img/favicon.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSAO).then(function (c) { return c.addAll(ARQUIVOS); }).then(function () { return self.skipWaiting(); }));
@@ -32,6 +32,18 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   if (url.origin !== location.origin) return;
+  /* codigo com a versao no endereco (?v=) e imagens: nao mudam dentro da mesma versao do site (versao nova = cache novo,
+     o antigo e apagado), entao saem direto do aparelho, sem esperar a internet */
+  var ehPaginaSw = e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
+  if (!ehPaginaSw && url.search.indexOf('agora=') < 0 && (/[?&]v=/.test(url.search) || /\.(png|webp|jpe?g|svg)$/.test(url.pathname))) {
+    e.respondWith(caches.match(e.request).then(function (guardado) {
+      return guardado || fetch(e.request).then(function (resposta) {
+        if (resposta && resposta.ok) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request, copia); }); }
+        return resposta;
+      });
+    }));
+    return;
+  }
   /* rede primeiro, mas com prazo: se a internet esta arrastando e ja temos copia, usa a copia */
   e.respondWith(caches.match(e.request).then(function (guardado) {
     /* tenta duas vezes: servidor engasgado por um instante nao vira tela quebrada */

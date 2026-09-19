@@ -37,6 +37,28 @@
 
   function ir(caminho) { location.hash = '#/' + caminho.replace(/^\/+/, ''); }
 
+  /* Codigo do dono (painel, Central, cozinha e entregador, conta, crie sua loja): so baixa quando uma dessas telas abre.
+     Quem so pede no site da loja nao baixa nada disso. Os arquivos baixam juntos e rodam na ordem da lista. */
+  var TAG = ((((document.querySelector('script[src*="js/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+  var GRUPO_DONO = ['js/seed.js', 'js/mp.js', 'js/cobranca.js', 'js/painel.js', 'js/admin.js', 'js/equipe.js', 'js/conta.js', 'js/comecar.js'];
+  var ROTAS_DONO = ['comecar', 'conta', 'admin', 'painel', 'cozinha', 'entrega', 'balcao'];
+  var donoPronto = null, donoCarregado = false;
+  function carregarDono() {
+    if (donoPronto) return donoPronto;
+    donoPronto = Promise.all(GRUPO_DONO.map(function (src) {
+      if (document.querySelector('script[src^="' + src + '"]')) return Promise.resolve(); /* ja veio no index (copia de teste) */
+      return new Promise(function (ok, falhou) {
+        var s = document.createElement('script');
+        s.src = src + '?v=' + TAG;
+        s.async = false;
+        s.onload = ok;
+        s.onerror = function () { falhou(new Error('Não carregou ' + src)); };
+        document.body.appendChild(s);
+      });
+    })).then(function () { donoCarregado = true; }, function (e) { donoPronto = null; throw e; });
+    return donoPronto;
+  }
+
   function render() {
     if (typeof limparTelaAtual === 'function') { try { limparTelaAtual(); } catch (_) { /* ignora */ } }
     limparTelaAtual = null;
@@ -51,6 +73,21 @@
 
     var p = partes();
     ajustarManifest(p);
+    /* tela do dono e o codigo dele ainda nao veio: bolinhas do Ligeiro ate chegar (aparecem so se demorar) */
+    if (ROTAS_DONO.indexOf(p[0]) >= 0 && !donoCarregado) {
+      raiz.appendChild(UI.el('div', { class: 'conta-carregando', role: 'status', 'aria-label': 'Carregando' }, UI.el('div', { class: 'carregando-pontos' }, [UI.el('span'), UI.el('span'), UI.el('span')])));
+      var pedido = location.hash;
+      carregarDono().then(function () { if (location.hash === pedido) render(); }, function () {
+        if (location.hash !== pedido) return;
+        UI.limpar(raiz);
+        raiz.appendChild(UI.erroCarregar('Não deu para abrir esta tela.', function () { render(); }));
+      });
+      return;
+    }
+    /* paginas de venda: o dono chega por aqui; o codigo dele vem em segundo plano, depois que a pagina aparece */
+    if (!donoCarregado && (p.length === 0 || ['lojas', 'assinar', 'entrar'].indexOf(p[0]) >= 0)) {
+      setTimeout(function () { carregarDono().catch(function () { /* tenta de novo quando precisar */ }); }, 2500);
+    }
     var C = window.LigeiroCliente;
     var P = window.LigeiroPainel;
     var A = window.LigeiroAdmin;

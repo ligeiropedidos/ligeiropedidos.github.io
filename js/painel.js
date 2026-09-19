@@ -72,7 +72,7 @@
       if (!D.modoDemo && !estado.loja.donoEmail) {
         /* loja cadastrada sem e-mail do dono: nao tem como entrar; nada de "senha errada" */
         raiz.appendChild(el('div', { class: 'login' }, [
-          el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+          el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
           el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
           el('p', { class: 'centro muted', text: 'Esta loja ainda não tem login. O Ligeiro liga o painel para você em minutos.' }),
           cfgL.whatsappLigeiro ? el('a', { class: 'btn btn-whats btn-largo', href: R.linkWhatsapp(cfgL.whatsappLigeiro, 'Oi! Quero ligar o painel da ' + estado.loja.nome + '.'), target: '_blank', rel: 'noopener', text: '💬 Chamar o Ligeiro' }) : null,
@@ -83,7 +83,7 @@
       var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••', autocomplete: 'current-password', 'aria-label': 'Senha do painel' });
       var erro = el('div', { class: 'msg-erro', hidden: true });
       var caixa = el('div', { class: 'login' }, [
-        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
         el('p', { class: 'centro muted', text: D.modoDemo && estado.loja.senhaPainel === '1234' ? 'Digite a senha do painel. Na demonstração é 1234.' : 'Digite a senha do painel.' }),
         el('div', { class: 'campo' }, campo),
@@ -116,7 +116,7 @@
       marcarLogado(false);
       UI.limpar(raiz);
       raiz.appendChild(el('div', { class: 'login' }, [
-        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
         el('p', { class: 'centro muted', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça para o dono salvar essa senha de novo em Minha loja.' }),
         el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: sairDoPainel }),

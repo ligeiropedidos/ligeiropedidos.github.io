@@ -58,7 +58,7 @@
     var assinar = el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar' }, [el('span', { class: 'rot-longo', text: 'Assinar agora' }), el('span', { class: 'rot-curto', text: 'Assinar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
-      el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       acoes,
     ]);
     /* logado: "Entrar" vira "Minha conta" e "Assinar agora" sai (o plano mora em Minha conta) */
@@ -159,7 +159,7 @@
     /* ---------- heroi ---------- */
     var seloLojas = el('span', { class: 'selo', hidden: true });
     var capa = el('div', { class: 'vender-capa' }, [
-      el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.png', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
+      el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos para delivery de cidade pequena' }),
         el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
@@ -313,7 +313,7 @@
         var exclusivo = tipo === 'exclusivo';
         return el('div', { class: 'ex-cel ' + (exclusivo ? 'ex-cel-exclusivo' : 'ex-cel-padrao') }, [
           el('div', { class: 'ex-tela' }, [
-            exclusivo ? el('img', { class: 'ex-logo', src: 'img/oficial/dom-conizza-logo.png', alt: '' }) : el('div', { class: 'ex-logo ex-logo-emoji', text: '🍕' }),
+            exclusivo ? el('img', { class: 'ex-logo', src: 'img/oficial/dom-conizza-logo.webp', alt: '' }) : el('div', { class: 'ex-logo ex-logo-emoji', text: '🍕' }),
             el('div', { class: 'ex-nome', text: exclusivo ? 'Dom Conizza' : 'Sua loja' }),
             el('div', { class: 'ex-botao', text: 'PEDIR AGORA' }),
             el('div', { class: 'ex-item' }, [el('span', { class: 'ex-foto' }), el('span', { class: 'ex-linhas' }, [el('i'), el('i')])]),
@@ -369,7 +369,7 @@
 
     /* ---------- fechamento ---------- */
     corpo.appendChild(el('section', { class: 'vender-final' }, [
-      el('img', { class: 'final-mascote', src: 'img/mascote-192.png', alt: '' }),
+      el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
       el('p', { class: 'muted', text: 'Comece grátis agora ou chame a gente: vamos até você, cadastramos tudo e os primeiros dias são por nossa conta.' }),
       botoesChamada(true),

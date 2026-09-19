@@ -123,6 +123,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
   display: flex; align-items: center; justify-content: center;
   background: var(--cz-ouro-claro); border: 3px solid var(--cz-tinta); color: var(--cz-tinta);
   font-family: var(--cz-display); font-size: 17px; box-shadow: 0 3px 0 var(--cz-tinta);
+  padding-top: 3px; /* numero no meio pela tinta: 8px em cima e 8 embaixo (a Baloo sobra embaixo da linha) */
 }
 
 /* destaques da primeira tela */

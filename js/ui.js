@@ -419,7 +419,7 @@
   /* Caixa padrao de "nao deu pra carregar" com botao pra tentar de novo (recarrega a pagina). */
   function erroCarregar(mensagem, tentar) {
     return el('div', { class: 'vazio hub-vazio', style: { paddingTop: '60px' } }, [
-      el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
+      el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
       el('p', { class: 'forte', text: mensagem || 'Não deu para carregar agora.' }),
       el('p', { class: 'muted', text: 'Confira a internet e tente de novo.' }),
       el('button', { class: 'btn btn-principal', type: 'button', text: 'Tentar de novo', onclick: tentar || function () { location.reload(); } }),
@@ -443,7 +443,7 @@
      Evita o "pisca" do visual padrao antes do tema. Devolve a funcao que tira a tela. */
   function splashOficial(o) {
     var caixa = el('div', { class: 'splash-oficial' + (o.ligeiro ? ' splash-ligeiro' : ''), style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
-      o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.png', alt: '' }),
+      o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.webp', alt: '' }),
       o.ligeiro ? el('div', { class: 'splash-marca' }, ['Ligei', el('span', { text: 'ro' })]) : null,
       el('div', { class: 'splash-pontos' }, [el('span'), el('span'), el('span')]),
     ]);
@@ -536,7 +536,7 @@
   /* Tela de carregamento do Ligeiro nos paineis (painel, cozinha, entregador, Central): fundo branco, mascote
      pulsando, "Ligeiro" e tres bolinhas nas cores da marca. Fica no minimo 0,5 s pra nao piscar. */
   function splashLigeiro() {
-    var tirar = splashOficial({ ligeiro: true, corFundo: '#FFFFFF', logo: 'img/mascote.png' });
+    var tirar = splashOficial({ ligeiro: true, corFundo: '#FFFFFF', logo: 'img/mascote.webp' });
     var inicio = Date.now();
     return function () { setTimeout(tirar, Math.max(0, 500 - (Date.now() - inicio))); };
   }

@@ -92,7 +92,7 @@
     return el('div', { class: 'conteudo' }, [
       window.LigeiroParceiro && window.LigeiroParceiro.barraTopo ? window.LigeiroParceiro.barraTopo() : null,
       el('div', { class: 'vazio hub-vazio', style: { paddingTop: '40px' } }, [
-        el('img', { class: 'mascote-vazio', src: 'img/mascote.png', alt: '' }),
+        el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
         el('p', { class: 'forte', text: titulo }),
         el('p', { class: 'muted', text: texto }),
         el('div', { class: 'pilha', style: { width: '100%', maxWidth: '360px' } }, botoes),
