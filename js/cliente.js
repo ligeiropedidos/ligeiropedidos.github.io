@@ -480,6 +480,34 @@
         var topo = raiz.querySelector('#tela-cardapio .topo');
         if (topo) document.documentElement.style.setProperty('--altura-topo', Math.round(topo.getBoundingClientRect().height || 64) + 'px');
       }
+      armarRelogioParado();
+    }
+
+    /* balcao: carrinho ou nome largado no tablet nao fica pro proximo cliente.
+       3 min sem toque no cardapio, no carrinho ou nos dados: volta pro inicio limpo. */
+    var TELAS_DO_PEDIDO = ['tela-cardapio', 'tela-carrinho', 'tela-dados'];
+    function armarRelogioParado() {
+      clearTimeout(estado.relogioParado);
+      estado.relogioParado = null;
+      if (!balcao || !vivo) return;
+      var atual = raiz.querySelector('.tela.ativa');
+      if (!atual || TELAS_DO_PEDIDO.indexOf(atual.id) < 0) return;
+      estado.relogioParado = setTimeout(function () {
+        estado.relogioParado = null;
+        if (!vivo) return;
+        if (estado.enviandoPedido) { armarRelogioParado(); return; } /* pedido saindo: espera a resposta */
+        var agora = raiz.querySelector('.tela.ativa');
+        if (!agora || TELAS_DO_PEDIDO.indexOf(agora.id) < 0) return;
+        UI.fecharModal(); /* a janela do item (fica fora da raiz) nao pode ficar aberta por cima do inicio */
+        novoPedido();
+      }, 3 * 60 * 1000);
+    }
+    /* qualquer toque ou tecla (inclusive na janela do item, que fica fora da raiz) zera o relogio */
+    function mexeuNoTablet() { if (estado.relogioParado) armarRelogioParado(); }
+    if (balcao) {
+      document.addEventListener('pointerdown', mexeuNoTablet, true);
+      document.addEventListener('touchstart', mexeuNoTablet, true);
+      document.addEventListener('keydown', mexeuNoTablet, true);
     }
 
     raiz.querySelectorAll('[data-voltar]').forEach(function (b) {
@@ -645,6 +673,7 @@
       $('descLoja').textContent = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
 
       var aberta = R.lojaAberta(l);
+      estado.abertaNaTela = aberta; /* o relogio de 60 s compara com isto */
       var selo = $('seloAberto');
       selo.classList.toggle('fechado', !aberta);
       $('seloFrete').hidden = balcao || !aberta || l.aceitaEntrega === false || R.descreverFrete(l) !== 'Entrega grátis';
@@ -677,7 +706,11 @@
       var vitrine = R.produtosAtivos(l).filter(function (p) { return !/bebida/i.test(p.categoria); }).slice(0, 2);
       $('destaques').hidden = vitrine.length === 0 || balcao || !aberta;
       vitrine.forEach(function (p) {
-        var card = el('button', { class: 'card-produto', onclick: function () { if (!aberta) return; comecarPedido(); montarGrade(p.categoria); abrirPersonalizacao(p); } }, [
+        var card = el('button', { class: 'card-produto', onclick: function () {
+          /* confere a hora de agora (a tela pode ter ficado aberta desde antes de a loja fechar) */
+          if (!R.lojaAberta(estado.loja)) { comecarPedido(); return; }
+          comecarPedido(); montarGrade(p.categoria); abrirPersonalizacao(p);
+        } }, [
           el('span', { class: 'foto' }, fotoDoProduto(p)),
           el('span', { class: 'info' }, [
             el('span', { class: 'nome', text: p.nome }),
@@ -762,9 +795,21 @@
     }
 
     function comecarPedido() {
-      if (!estado.loja || !R.lojaAberta(estado.loja)) return;
+      if (!estado.loja) return;
+      if (!R.lojaAberta(estado.loja)) {
+        /* fechou com a tela aberta: avisa e mostra a loja fechada, em vez de nao fazer nada */
+        UI.avisar('A loja fechou agora.');
+        montarInicio();
+        return;
+      }
       irPara(estado.pularEscolhaTipo ? 'tela-cardapio' : 'tela-tipo');
     }
+
+    /* horario automatico: a tela inicial abre e fecha sozinha, sem precisar recarregar a pagina */
+    estado.relogioAberta = setInterval(function () {
+      if (!vivo || !estado.loja) return;
+      if (R.lojaAberta(estado.loja) !== estado.abertaNaTela) montarInicio();
+    }, 60000);
 
     $('btnComecar').addEventListener('click', comecarPedido);
     $('btnCardapio').addEventListener('click', comecarPedido);
@@ -1038,22 +1083,28 @@
         $('btnIrDados').disabled = true;
         lista.appendChild(el('div', { class: 'msg-erro', text: 'O pedido mínimo desta loja é ' + dinheiro(minimo) + '. Faltam ' + dinheiro(minimo - orcAgora.subtotal) + '.' }));
       }
-      estado.carrinho.forEach(function (item) {
+      estado.carrinho.forEach(function (item, i) {
+        /* nome, opcoes e preco da linha pela conta de agora (o dono pode ter mudado preco ou nome no meio do pedido);
+           com erro na conta, fica o que foi guardado ao adicionar e o aviso vermelho explica */
+        var conta = orcAgora.itens && orcAgora.itens[i];
+        var nomeTamanho = conta ? (conta.tamanho && conta.tamanho.nome) : item.tamanhoNome;
+        var nomesAdicionais = conta ? conta.adicionais.map(function (a) { return a.nome; }) : (item.adicionaisNomes || []);
+        var removidos = conta ? conta.removidos : (item.removidos || []);
         var detalhes = [];
-        if (item.tamanhoNome) detalhes.push(item.tamanhoNome);
-        if (item.adicionaisNomes.length) detalhes.push('Com ' + item.adicionaisNomes.join(', '));
+        if (nomeTamanho) detalhes.push(nomeTamanho);
+        if (nomesAdicionais.length) detalhes.push('Com ' + nomesAdicionais.join(', '));
         if (item.observacao) detalhes.push('Obs: ' + item.observacao);
         var det = el('div', { class: 'detalhes', text: detalhes.join(' · ') });
-        if (item.removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + item.removidos.join(', ') }));
+        if (removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
         var produtoDoItem = (estado.loja.produtos || []).filter(function (x) { return x.id === item.produtoId; })[0];
         var srcItem = D.fotoSrc(produtoDoItem, estado.fotos);
         lista.appendChild(el('div', { class: 'item-carrinho' }, [
           el('span', { class: 'miniatura' }, srcItem ? el('img', { src: srcItem, alt: '' }) : (item.emoji || '🍽️')),
           el('div', { class: 'corpo' }, [
-            el('div', { class: 'nome', text: item.quantidade + 'x ' + item.nome }),
+            el('div', { class: 'nome', text: item.quantidade + 'x ' + (conta ? conta.nome : item.nome) }),
             det,
             el('div', { class: 'linha-preco' }, [
-              el('span', { class: 'preco', text: dinheiro(item.precoUnitario * item.quantidade) }),
+              el('span', { class: 'preco', text: dinheiro(conta ? conta.totalItem : item.precoUnitario * item.quantidade) }),
               el('button', { class: 'remover-item', type: 'button', text: 'Remover', onclick: function () {
                 estado.carrinho = estado.carrinho.filter(function (i) { return i.idLocal !== item.idLocal; });
                 UI.soar('remover');
@@ -1300,7 +1351,9 @@
         atualizarBotaoPagar();
         return;
       }
+      estado.enviandoPedido = true;
       store.criarPedido(estado.loja.slug, pedido).then(function (gravado) {
+        estado.enviandoPedido = false;
         estado.pedido = gravado;
         salvarDadosDoCliente();
         if (!balcao) guardarMeuPedido(estado.loja.slug, gravado);
@@ -1314,8 +1367,13 @@
       }).catch(function (erro) {
         UI.soar('erro');
         $('erroDados').hidden = false;
-        $('erroDados').textContent = erro.message || 'Não conseguimos enviar o pedido. Tente de novo.';
+        /* o banco recusa pedido com data e hora longe da hora certa (relogio do celular errado) */
+        var semPermissao = !!erro && (erro.code === 'permission-denied' || /permission/i.test(String(erro.message || '')));
+        $('erroDados').textContent = semPermissao
+          ? 'Não deu pra enviar o pedido. Confira se a data e a hora do celular estão certas e tente de novo.'
+          : ((erro && erro.message) || 'Não conseguimos enviar o pedido. Tente de novo.');
       }).then(function () {
+        estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
       });
@@ -1350,26 +1408,39 @@
       }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.codigo) throw new Error(j.erro || 'O Pix não veio.'); return j.codigo; }); });
     }
 
+    /* Pergunta ao mensageiro como esta o Pix do pedido. Sem mensageiro (demonstracao) ou sem internet, devolve {}. */
+    function consultarStatusPix(idPedido) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo || !cfg.proxyMercadoPago) return Promise.resolve({});
+      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(idPedido))
+        .then(function (r) { return r.json(); })
+        .then(function (j) { return j || {}; })
+        .catch(function () { return {}; });
+    }
+
+    function aindaEsperandoPix(idPedido) {
+      return vivo && !!estado.pedido && estado.pedido.id === idPedido && estado.pedido.status === R.STATUS.AGUARDANDO;
+    }
+
     /* Enquanto espera o Pix cair: pergunta ao mensageiro a cada 8 s (o webhook do Mercado Pago e o caminho principal). */
     function vigiarPix(pedido) {
       pararVigia();
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo || !cfg.proxyMercadoPago) return;
-      estado.vigiaPix = setInterval(function () {
-        if (!vivo || !estado.pedido || estado.pedido.id !== pedido.id || estado.pedido.status !== R.STATUS.AGUARDANDO) { pararVigia(); return; }
-        /* passou dos 30 minutos: o codigo nao vale mais. Antes de cancelar, pergunta ao mensageiro se o Pix caiu
-           (relogio do aparelho adiantado, pagamento em cima da hora): so cancela se a resposta NAO for "pago". */
-        if (R.pixVencido(estado.pedido)) {
+      var vigia = estado.vigiaPix = setInterval(function () {
+        if (!aindaEsperandoPix(pedido.id)) { pararVigia(); return; }
+        /* quem diz se o Pix venceu (30 min) e o relogio do servidor, no campo "vencido" da resposta:
+           celular com a hora errada nao cancela o pedido de quem ainda esta pagando.
+           Mensageiro antigo, sem esse campo (ou sem resposta): vale o relogio do aparelho, como antes. */
+        var vencidoAqui = R.pixVencido(estado.pedido);
+        consultarStatusPix(pedido.id).then(function (resp) {
+          if (estado.vigiaPix !== vigia || !aindaEsperandoPix(pedido.id)) return;
+          if (resp.status === 'pago') return; /* pagou: o acompanhamento troca a tela sozinho */
+          var vencido = typeof resp.vencido === 'boolean' ? resp.vencido : vencidoAqui;
+          if (!vencido) return;
           pararVigia();
-          fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(pedido.id))
-            .then(function (r) { return r.json(); }).catch(function () { return {}; })
-            .then(function (resp) {
-              if (!vivo || (resp && resp.status === 'pago')) return; /* pagou: o acompanhamento troca a tela sozinho */
-              return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.');
-            }).catch(function () { /* o painel da loja cancela do lado de la */ });
-          return;
-        }
-        fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(pedido.id)).catch(function () { /* tenta de novo depois */ });
+          return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.');
+        }).catch(function () { /* o painel da loja cancela do lado de la */ });
       }, 8000);
     }
     function pararVigia() { if (estado.vigiaPix) clearInterval(estado.vigiaPix); estado.vigiaPix = null; }
@@ -1417,12 +1488,37 @@
       irPara('tela-pagamento');
       acompanhar(pedido);
       vigiarPix(pedido);
+
+      /* balcao: Pix esquecido no tablet nao fica pro proximo cliente. 3 min sem pagar: cancela e volta pro inicio.
+         Conta uma vez por pedido (o codigo chegar ou "tentar de novo" nao zeram o prazo). */
+      if (balcao && estado.relogioPixDe !== pedido.id) {
+        clearTimeout(estado.relogioBalcao);
+        estado.relogioPixDe = pedido.id;
+        estado.relogioBalcao = setTimeout(function () { pixEsquecidoNoBalcao(pedido.id); }, 3 * 60 * 1000);
+      }
+    }
+
+    function pixEsquecidoNoBalcao(idPedido) {
+      if (!aindaEsperandoPix(idPedido)) return;
+      consultarStatusPix(idPedido).then(function (resp) {
+        if (!aindaEsperandoPix(idPedido) || resp.status === 'pago') return; /* caiu agora: o acompanhamento mostra a senha */
+        pararVigia();
+        return cancelarPedidoDoPix('O tempo pra pagar acabou e o pedido foi cancelado.').catch(function () {
+          /* a regra recusa quando o Pix caiu bem nessa hora: confere antes de limpar a tela */
+          return store.obterPedido(estado.loja.slug, idPedido).then(function (p) {
+            if (!vivo) return;
+            if (p && p.status !== R.STATUS.AGUARDANDO && p.status !== R.STATUS.CANCELADO) { estado.pedido = p; mostrarSenha(p); }
+            else novoPedido();
+          });
+        });
+      }).catch(function () { if (vivo) novoPedido(); });
     }
 
     $('btnTentarPix').addEventListener('click', function () { if (estado.pedido) mostrarPagamento(estado.pedido); });
 
-    /* Tira o pedido da fila da loja e devolve os itens pro carrinho. Usado no "desistir" e quando o Pix vence. */
-    function cancelarPedidoDoPix(aviso) {
+    /* Tira o pedido da fila da loja e devolve os itens pro carrinho. Usado no "desistir" e quando o Pix vence.
+       manterCarrinho: so o X "desistir" (quem esta no tablet troca a forma de pagamento sem montar tudo de novo). */
+    function cancelarPedidoDoPix(aviso, manterCarrinho) {
       if (!estado.pedido) return Promise.resolve();
       var idCancelado = estado.pedido.id;
       return store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: 'cliente' }).then(function () {
@@ -1430,7 +1526,15 @@
         pararVigia();
         atualizarMeuPedido({ id: idCancelado, status: R.STATUS.CANCELADO });
         estado.pedido = null;
-        history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
+        if (balcao && !(manterCarrinho && estado.ultimoCarrinho && estado.ultimoCarrinho.length)) {
+          /* balcao, cancelado sozinho (Pix esquecido): o proximo cliente nao herda o carrinho nem o nome de quem desistiu */
+          estado.ultimoCarrinho = null;
+          novoPedido();
+          UI.avisar(aviso);
+          return;
+        }
+        if (balcao) { clearTimeout(estado.relogioBalcao); estado.relogioPixDe = null; }
+        else history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
         if (estado.ultimoCarrinho && estado.ultimoCarrinho.length) {
           estado.carrinho = estado.ultimoCarrinho; estado.ultimoCarrinho = null;
           irPara('tela-carrinho');
@@ -1446,7 +1550,7 @@
       UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam pro carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
         if (!sim || !estado.pedido) return;
         var idDesistido = estado.pedido.id;
-        cancelarPedidoDoPix('Pedido cancelado.').catch(function () {
+        cancelarPedidoDoPix('Pedido cancelado.', true).catch(function () {
           /* a regra recusa quando o Pix caiu bem nessa hora: confere e mostra a senha em vez de um erro em ingles */
           store.obterPedido(estado.loja.slug, idDesistido).then(function (p) {
             if (p && p.status !== R.STATUS.AGUARDANDO && p.status !== R.STATUS.CANCELADO) { estado.pedido = p; UI.avisar('O Pix caiu! Seu pedido já está com a loja.'); mostrarSenha(p); }
@@ -1485,18 +1589,21 @@
 
       montarLinhaDoTempo(pedido);
 
+      /* pedido aberto por link de outro aparelho: sem o WhatsApp com o nome de quem pediu e sem voltar pro Pix */
+      var deFora = estado.pedidoDeFora === pedido.id;
       var whats = $('btnWhatsCliente');
-      if (estado.loja.whatsapp && !balcao) { whats.href = R.linkWhatsapp(estado.loja.whatsapp, R.mensagemDoCliente(estado.loja, pedido)); whats.hidden = false; }
+      if (estado.loja.whatsapp && !balcao && !deFora) { whats.href = R.linkWhatsapp(estado.loja.whatsapp, R.mensagemDoCliente(estado.loja, pedido)); whats.hidden = false; }
       else whats.hidden = true;
 
       var voltarPix = $('btnVoltarPix');
-      voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao);
+      voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora);
 
       irPara('tela-senha');
       if (pedido.status !== R.STATUS.CANCELADO) { UI.vibrar(); UI.soar('sucesso'); }
       acompanhar(pedido);
 
       if (balcao) {
+        estado.relogioPixDe = null;
         clearTimeout(estado.relogioBalcao);
         estado.relogioBalcao = setTimeout(function () { novoPedido(); }, pedido.status === R.STATUS.AGUARDANDO ? 90000 : 30000);
       }
@@ -1558,8 +1665,12 @@
       store.obterPedido(slug, id).then(function (p) {
         if (!vivo) return;
         if (!p) { UI.avisar('Não achamos esse pedido.'); return; }
+        /* pedido que nao foi feito neste aparelho (link copiado da barra e mandado pra alguem):
+           mostra so a senha e o andamento, sem a tela do Pix e sem o "desistir" */
+        var meu = balcao || lerMeusPedidos().some(function (x) { return x.id === p.id; });
+        estado.pedidoDeFora = meu ? null : p.id;
         estado.pedido = p;
-        if (p.status === R.STATUS.AGUARDANDO) mostrarPagamento(p);
+        if (p.status === R.STATUS.AGUARDANDO && meu) mostrarPagamento(p);
         else mostrarSenha(p);
       }).catch(function () { if (vivo) UI.avisar('Não deu pra abrir o pedido agora. Confira a internet e tente de novo.'); });
     }
@@ -1610,6 +1721,8 @@
     function novoPedido() {
       pararAcompanhar();
       clearTimeout(estado.relogioBalcao);
+      clearTimeout(estado.relogioParado);
+      estado.relogioPixDe = null;
       estado.carrinho = [];
       estado.pedido = null;
       estado.cupom = { codigo: '', percentual: 0, desconto: 0 };
@@ -1640,6 +1753,13 @@
       pararAcompanhar();
       pararVigia(); /* a vigia do Pix nao pode continuar rodando (e cancelando pedido) depois que a pessoa saiu da loja */
       clearTimeout(estado.relogioBalcao);
+      clearTimeout(estado.relogioParado);
+      if (balcao) {
+        document.removeEventListener('pointerdown', mexeuNoTablet, true);
+        document.removeEventListener('touchstart', mexeuNoTablet, true);
+        document.removeEventListener('keydown', mexeuNoTablet, true);
+      }
+      clearInterval(estado.relogioAberta);
       if (typeof estado.pararLoja === 'function') estado.pararLoja();
       document.title = 'Ligeiro — pedido ligeiro, sem comissão';
     };

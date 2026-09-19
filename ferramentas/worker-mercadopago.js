@@ -7,8 +7,10 @@
  *                                       O site do cliente mostra o QR na hora, mesmo com o painel fechado.
  *   POST /webhook?loja=slug          -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
  *   GET  /status?loja=slug&pedido=id -> reforco: o site do cliente pergunta a cada 8 s enquanto espera.
+ *                                       Devolve { status, vencido }: vencido pelo relogio do servidor, nunca o do aparelho.
  *   POST /                           -> repasse antigo (o painel manda o POST com o proprio token).
- *   POST /equipe   { loja, pin } + Authorization: Bearer <idToken do dono> -> define a senha da equipe da loja.
+ *   POST /equipe   { loja, pin } + Authorization: Bearer <idToken do dono> -> define a senha da equipe da loja
+ *                                       (6 a 8 numeros) e marca o usuario de equipe com { equipe: slug } pras regras do banco.
  *   Pagamentos usam a API Orders (POST /v1/orders); o webhook do Mercado Pago pode vir sem a loja na URL:
  *   o mensageiro acha pelo indice mp_indice/{orderId}. Configure o webhook na aplicacao "Ligeiro plataforma":
  *   URL https://SEU-WORKER/webhook, eventos Orders e Pagamentos.
@@ -103,13 +105,13 @@ export default {
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         const { loja, pin } = await request.json();
         const senha = String(pin || '').replace(/\D/g, '');
-        if (!idToken || !loja || senha.length < 4 || senha.length > 8) return json({ ok: false, erro: 'senha de 4 a 8 números' }, 400);
+        if (!idToken || !loja || senha.length < 6 || senha.length > 8) return json({ ok: false, erro: 'senha de 6 a 8 números' }, 400);
         const fb = await firebase(env);
         const quem = await usuarioDoToken(fb, idToken);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
         const l = await fb.get('lojas/' + loja);
         if (!l || String(l.donoEmail || '').toLowerCase() !== quem.toLowerCase()) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
-        await definirUsuarioEquipe(fb, 'equipe-' + loja + '@equipe.ligeiro.app.br', 'LIG-' + senha);
+        await definirUsuarioEquipe(fb, 'equipe-' + loja + '@equipe.ligeiro.app.br', 'LIG-' + senha, loja);
         await fb.merge('lojas/' + loja, { senhaEquipeEm: new Date().toISOString(), atualizadoEm: new Date().toISOString() });
         return json({ ok: true });
       }
@@ -156,11 +158,13 @@ export default {
         const pedido = url.searchParams.get('pedido') || '';
         if (!loja || !pedido) return json({ erro: 'faltou loja ou pedido' }, 400);
         const fb = await firebase(env);
-        const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
+        const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido, true);
         if (!p) return json({ erro: 'pedido não existe' }, 404);
-        if (p.status !== 'aguardando_pagamento' || !p.mp || !p.mp.id) return json({ status: p.status });
-        const novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env);
-        return json({ status: novo || p.status });
+        if (p.status !== 'aguardando_pagamento' || !p.mp || !p.mp.id) return json({ status: p.status, vencido: pixVencidoNoServidor(p, Date.now()) });
+        let novo = null;
+        try { novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env); } catch (_) { novo = null; /* Mercado Pago fora do ar: responde pelo que o banco tem */ }
+        const status = novo || p.status;
+        return json({ status: status, vencido: status === 'aguardando_pagamento' && pixVencidoNoServidor(p, Date.now()) });
       }
 
       /* ---- repasse antigo: o painel manda o POST com o proprio token ---- */
@@ -210,6 +214,10 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
       /* pagou e o pedido ja tinha sido cancelado (desistiu depois de copiar o codigo, ou o Pix "venceu" pelo relogio do aparelho):
          o dinheiro entrou, entao o pedido volta pra fila, marcado pra loja ver */
       await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
+    } else if (p.status === 'cancelado' && p.canceladoPor === 'pix-vencido' && p.pagoEm && !p.pagoAposCancelar) {
+      /* o painel cancelou por vencimento em cima do "pago" que o mensageiro tinha acabado de gravar:
+         o dinheiro entrou, entao volta pra fila do mesmo jeito (mantem o pagoEm de quando caiu) */
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
     }
     return 'pago';
   }
@@ -247,6 +255,15 @@ async function mp(token, caminho, opcoes) {
   return dados;
 }
 
+/* Pix vencido pelo relogio do SERVIDOR (o do aparelho pode estar errado): prazo do codigo no passado ou,
+   sem codigo, pedido que nasceu no banco ha mais de 35 min (hora do proprio Firestore, nao o criadoEm do celular) */
+function pixVencidoNoServidor(p, agora) {
+  if (!p || p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix') return false;
+  if (p.pixExpiraEm) { const fim = Date.parse(p.pixExpiraEm); return !isNaN(fim) && agora > fim; }
+  const nasceu = Date.parse(p._criadoNoBanco || '');
+  return !isNaN(nasceu) && agora > nasceu + 35 * 60 * 1000;
+}
+
 function expiracaoBrasilia(minutos) {
   const alvo = new Date(Date.now() + minutos * 60 * 1000);
   const emBrasilia = new Date(alvo.getTime() - 3 * 60 * 60 * 1000);
@@ -264,20 +281,27 @@ async function usuarioDoToken(fb, idToken) {
   if (!r.ok) return '';
   const j = await r.json().catch(() => ({}));
   const u = (j.users || [])[0];
-  return u && u.email ? String(u.email) : '';
+  /* so e-mail conferido: quem criou conta de e-mail e senha com o e-mail do dono, sem confirmar, nao passa */
+  return u && u.email && u.emailVerified === true ? String(u.email) : '';
 }
-async function definirUsuarioEquipe(fb, email, senha) {
+async function definirUsuarioEquipe(fb, email, senha, slug) {
   const base = 'https://identitytoolkit.googleapis.com/v1/projects/' + fb.projeto;
+  /* marca da equipe no login: as regras do banco reconhecem a equipe por ela (quem se cadastra sozinho nao consegue) */
+  const marca = JSON.stringify({ equipe: slug });
   const r = await fetch(base + '/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email: [email] }) });
   const j = r.ok ? await r.json().catch(() => ({})) : {};
   const u = (j.users || [])[0];
   if (u && u.localId) {
-    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha, emailVerified: true }) }); /* conferido: as regras do banco exigem */
+    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha, emailVerified: true, customAttributes: marca }) }); /* conferido: as regras do banco exigem */
     if (!r2.ok) throw new Error('não deu pra trocar a senha (' + r2.status + ')');
     return;
   }
   const r3 = await fetch(base + '/accounts', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email, password: senha, emailVerified: true, displayName: 'Equipe' }) });
   if (!r3.ok) throw new Error('não deu pra criar o usuário de equipe (' + r3.status + ' ' + (await r3.text()).slice(0, 120) + ')');
+  /* a criacao nao aceita a marca: grava logo depois. Se falhar, o dono salva a senha de novo e cai no caminho de cima */
+  const criado = await r3.json().catch(() => ({}));
+  const r4 = criado.localId ? await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: criado.localId, customAttributes: marca }) }) : null;
+  if (!r4 || !r4.ok) throw new Error('não deu pra liberar o usuário de equipe, salve a senha de novo (' + (r4 ? r4.status : 'sem id') + ')');
 }
 
 /* ---------------- Firestore pela REST, autenticado com a conta de servico (JWT RS256) ---------------- */
@@ -289,11 +313,15 @@ async function firebase(env) {
   const cab = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   return {
     cab: cab, projeto: sa.project_id,
-    async get(caminho) {
+    async get(caminho, comHora) {
       const r = await fetch(base + caminho, { headers: cab });
       if (r.status === 404) return null;
       if (!r.ok) throw new Error('Firestore get ' + r.status);
-      return deFirestore((await r.json()).fields || {});
+      const doc = await r.json();
+      const dados = deFirestore(doc.fields || {});
+      /* comHora: junta a hora em que o documento nasceu no banco (relogio do Google, nao o do aparelho) */
+      if (comHora) dados._criadoNoBanco = doc.createTime || '';
+      return dados;
     },
     async merge(caminho, dados) {
       const mask = Object.keys(dados).map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');

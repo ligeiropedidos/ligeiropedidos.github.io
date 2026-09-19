@@ -349,7 +349,7 @@
         duvida('Preciso cadastrar cartão pra testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + dinheiro(pr.mensal) + ' e pronto.'),
         duvida('Preciso ter conta no Mercado Pago?', 'Pra receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere pro banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
-        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tablet no balcão, tela na cozinha e impressora são opcionais.'),
+        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
         duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere pro banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar pra ninguém.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood pra quem vem de fora e o Ligeiro pra quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
@@ -400,6 +400,7 @@
         pr.diasGratis + ' dias grátis, sem cartão',
         p.lojas === 1 ? 'Pedidos ilimitados, tudo incluso' : (t === 'anual' ? 'Uma cobrança por ano pra todas as lojas' : 'Uma cobrança por mês pra todas as lojas'),
         'Cartão, boleto ou Pix',
+        'Suporte 24 horas',
       ];
       var sub = p.lojas > 1 ? 'Sai por menos de ' + dinheiro(porLoja) + ' por loja no mês' : (p.frase || '');
       var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
@@ -408,7 +409,7 @@
         el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
         deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
         el('div', { class: 'plano-sub', text: sub }),
-        el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', { text: '✓ ' + x }); })),
+        el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true', text: '✓' }), el('span', { text: x })]); })),
         selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '● Escolhido' : '○ Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
       ]);
       if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
@@ -555,7 +556,7 @@
     ]));
     corpo.appendChild(el('details', { class: 'avancado' }, [
       el('summary', { text: 'Sou da cozinha ou entregador' }),
-      el('p', { class: 'muted pequeno', text: 'A equipe não precisa de conta: entra pelo link da cozinha, do entregador ou do balcão com a senha da equipe. Peça o link e a senha pro dono da loja.' }),
+      el('p', { class: 'muted pequeno', text: 'A equipe não precisa de conta: entra pelo link da cozinha ou do entregador com a senha da equipe. Peça o link e a senha pro dono da loja.' }),
     ]));
     corpo.appendChild(el('p', { class: 'muted pequeno centro' }, ['Sou do Ligeiro: ', el('a', { href: '#/admin', text: 'admin' }), '.']));
     raiz.appendChild(rodape());
@@ -589,7 +590,7 @@
     var e = cfg().empresa || {};
     var quem = e.nome ? e.nome + (e.cnpj ? ' (CNPJ ' + e.cnpj + ')' : '') : 'o Ligeiro';
     return paginaLegal(raiz, 'Termos de uso', [
-      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos pra lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha, entrega e balcão, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
+      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos pra lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha e entrega, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
       ['Quem pode usar', ['Qualquer estabelecimento que venda comida ou bebida e tenha um responsável maior de 18 anos. Ao criar a loja, você confirma que tem direito de vender o que cadastra e que as informações (nome, endereço, WhatsApp, chave Pix) são suas ou da sua empresa.']],
       ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(pr.mensal) + ' por mês' + (pr.anual > 0 ? ' e o anual ' + dinheiro(pr.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale pra um período já pago.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
       ['Cancelamento', ['Não tem fidelidade. Pra cancelar, basta parar de pagar ou pedir no WhatsApp. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],

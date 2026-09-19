@@ -205,7 +205,27 @@
    * A conta do pedido (a fonte da verdade)
    * ---------------------------------------------------------- */
 
-  function calcularItens(loja, itensRecebidos) {
+  /* Nome de uma opcao pelo id, mesmo desligada (so pra mensagem de erro). */
+  function nomeDaOpcao(loja, categoriaId, id) {
+    var chaves = (loja.gruposPorCategoria || {})[categoriaId] || [];
+    for (var i = 0; i < chaves.length; i++) {
+      var ops = ((loja.grupos || {})[chaves[i]] || {}).opcoes || [];
+      for (var j = 0; j < ops.length; j++) if (ops[j].id === id) return ops[j].nome || '';
+    }
+    return '';
+  }
+
+  function opcaoQueAcabou(loja, produto, id) {
+    var nome = nomeDaOpcao(loja, produto.categoria, id);
+    return ErroDoCliente(nome ? 'Não tem mais "' + nome + '" em "' + produto.nome + '".' : 'Uma opção escolhida em "' + produto.nome + '" acabou.');
+  }
+
+  /*
+   * opcoes.tolerante: so o painel, conferindo pedido ja feito. Tamanho ou adicional que saiu
+   * depois cai no padrao / e ignorado, como antes. No pedido novo (tela do cliente), recusa.
+   */
+  function calcularItens(loja, itensRecebidos, opcoes) {
+    var tolerante = !!(opcoes && opcoes.tolerante);
     if (!Array.isArray(itensRecebidos) || itensRecebidos.length === 0) {
       throw ErroDoCliente('Seu carrinho está vazio.');
     }
@@ -234,11 +254,14 @@
       /* tamanho: escolha unica */
       var tamanho = null;
       var grupoTamanho = grupos.filter(function (g) { return g.tipo === 'unico'; })[0];
+      var pediuTamanho = bruto.tamanho != null && bruto.tamanho !== '';
       if (grupoTamanho) {
         var escolhido = null;
         for (var t = 0; t < grupoTamanho.opcoes.length; t++) {
           if (grupoTamanho.opcoes[t].id === bruto.tamanho) escolhido = grupoTamanho.opcoes[t];
         }
+        /* o tamanho escolhido acabou (o dono desligou): avisa, em vez de trocar pelo padrao calado */
+        if (!escolhido && pediuTamanho && !tolerante) throw opcaoQueAcabou(loja, produto, bruto.tamanho);
         if (!escolhido) {
           for (var d = 0; d < grupoTamanho.opcoes.length; d++) {
             if (grupoTamanho.opcoes[d].padrao) escolhido = grupoTamanho.opcoes[d];
@@ -247,12 +270,15 @@
         if (!escolhido) escolhido = grupoTamanho.opcoes[0];
         tamanho = { id: escolhido.id, nome: escolhido.nome, preco: Number(escolhido.preco) || 0 };
         unitario += tamanho.preco;
+      } else if (pediuTamanho && !tolerante) {
+        /* o grupo de tamanho inteiro saiu (todas as opcoes desligadas) */
+        throw opcaoQueAcabou(loja, produto, bruto.tamanho);
       }
 
       /* adicionais: varios (a categoria pode ter mais de um grupo desses) */
       var adicionais = [];
       var gruposAdicionais = grupos.filter(function (g) { return g.tipo === 'varios'; });
-      if (gruposAdicionais.length && Array.isArray(bruto.adicionais)) {
+      if (Array.isArray(bruto.adicionais)) {
         var vistos = {};
         for (var ga = 0; ga < gruposAdicionais.length; ga++) {
           var grupoAdicionais = gruposAdicionais[ga];
@@ -272,6 +298,13 @@
           }
           if (grupoAdicionais.max && nesteGrupo > grupoAdicionais.max) {
             throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'adicionais') + '" por item.');
+          }
+        }
+        /* adicional escolhido que acabou (desligado ou apagado): avisa, em vez de sumir do pedido calado */
+        if (!tolerante) {
+          for (var ax = 0; ax < bruto.adicionais.length; ax++) {
+            var idX = bruto.adicionais[ax];
+            if (idX != null && idX !== '' && !vistos[idX]) throw opcaoQueAcabou(loja, produto, idX);
           }
         }
       }
@@ -349,7 +382,7 @@
   }
 
   function orcar(loja, dados) {
-    var conta = calcularItens(loja, dados.itens);
+    var conta = calcularItens(loja, dados.itens, { tolerante: !!dados.tolerante });
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     var cupom = avaliarCupom(loja, dados.cupom, conta.subtotal);
     var cortesia = cupom.percentual === 100 && cupom.desconto > 0;
@@ -497,7 +530,8 @@
   /* O painel refaz a conta e compara com o total gravado. */
   function conferirTotal(loja, pedido) {
     try {
-      var o = orcar(loja, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom });
+      /* tolerante: opcao desligada depois do pedido nao derruba a conferencia (conta como antes, pelo padrao) */
+      var o = orcar(loja, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true });
       /* Cupom ja usado conta como valido aqui: o limite pode ter sido atingido por este mesmo pedido. */
       var desconto = pedido.desconto || 0;
       /* cortesia (cupom de 100%) zera a entrega tambem, mesmo que o cupom ja tenha esgotado por este pedido */
@@ -718,10 +752,19 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  /*
+   * So recomeca quando o dia gravado ficou para tras. Celular com a data adiantada nao zera
+   * a contagem da noite: se o dia gravado e hoje, ou amanha a partir das 21 h, continua nele (sem senha repetida).
+   * O limite e o mesmo das regras do banco (dia de daqui a 3 h): "amanha" antes das 21 h o banco recusa,
+   * entao recomeca de hoje. Dia gravado alem disso (ou ilegivel) esta errado: recomeca de hoje.
+   */
   function proximaSenha(contador, agora) {
-    var hoje = diaLocal(agora);
-    if (!contador || contador.dia !== hoje) return { dia: hoje, ultima: 1 };
-    return { dia: hoje, ultima: (Number(contador.ultima) || 0) + 1 };
+    var base = agora || new Date();
+    var hoje = diaLocal(base);
+    var limite = diaLocal(new Date(base.getTime() + 3 * 3600e3));
+    var dia = contador && /^\d{4}-\d{2}-\d{2}$/.test(String(contador.dia || '')) ? String(contador.dia) : '';
+    if (!dia || dia < hoje || dia > limite) return { dia: hoje, ultima: 1 };
+    return { dia: dia, ultima: (Number(contador.ultima) || 0) + 1 };
   }
 
   /* Identificador do Pix: so letras e numeros, ate 25 caracteres. */
@@ -761,7 +804,8 @@
     var pagoAte = p.pagoAte ? new Date(p.pagoAte) : null;
     if (p.status === 'ativo' && !pagoAte) return { estado: 'ativa', cortesia: true, dias: null, tipo: p.tipo || 'mensal' };
     var inicio = new Date(p.desde || (loja && loja.criadoEm) || hoje);
-    if (isNaN(inicio.getTime())) inicio = hoje;
+    /* data que nao se le (ex.: '2026-09-19x') bloqueia; antes virava "hoje" e o gratis recomecava sempre */
+    if (isNaN(inicio.getTime())) inicio = new Date(0);
     var fimGratis = new Date(inicio.getTime() + diasGratis * 864e5);
     var limite = pagoAte && pagoAte > fimGratis ? pagoAte : fimGratis;
     /* conta em dias de calendario (meia-noite local), pra bater com a data que aparece na tela */
@@ -808,12 +852,14 @@
     if (p.planoPago && (p.status === 'ativo' || pagoCorrendo)) return planoPorId(p.planoPago).id;
     return planoPorId(p.planoId).id;
   }
-  /* A conta (campo email) ou a loja (campo donoEmail) e do proprio Ligeiro? */
+  /* A conta (campo email) ou a loja (campo donoEmail) e do proprio Ligeiro?
+     Na loja vale o donoEmail (travado nas regras); um campo email gravado pelo dono na loja nao conta. */
   function ehDoLigeiro(o) {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     var admin = String(cfg.adminEmail || '').toLowerCase();
     if (!admin || !o) return false;
-    return String(o.email || o.donoEmail || '').toLowerCase() === admin;
+    var e = o.donoEmail != null ? o.donoEmail : o.email;
+    return String(e || '').toLowerCase() === admin;
   }
   /* Quantas lojas a conta pode ter. A do Ligeiro nao tem limite. */
   function limiteDeLojas(conta) {

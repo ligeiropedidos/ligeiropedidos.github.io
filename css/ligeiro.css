@@ -604,10 +604,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pedido-card .acoes .btn-pequeno { flex: none; min-height: 54px; }
 /* celular: o proximo passo ("Comecar a fazer") ganha a linha inteira; embaixo 💬 e 🖨️ em quadrados iguais e Cancelar no resto */
 @media (max-width: 640px) {
-  .pedido-card .acoes .btn-principal { flex: 1 1 100%; }
-  .pedido-card .acoes .btn-pequeno { width: 54px; height: 54px; padding: 0; }
-  .pedido-card .acoes .btn-erro { flex: 1 1 0; width: auto; min-width: 0; padding: 0 12px; }
+  .pedido-card .acoes-pedido .btn-principal { flex: 1 1 100%; }
+  .pedido-card .acoes-pedido .btn-pequeno { width: 54px; height: 54px; padding: 0; }
+  .pedido-card .acoes-pedido .btn-erro { flex: 1 1 0; width: auto; min-width: 0; padding: 0 12px; }
 }
+/* admin, cartao da loja: "Pagou" e o status na linha inteira; os atalhos em colunas iguais, uma linha cada */
+.pedido-card .admin-acoes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pedido-card .admin-acoes > .btn-principal, .pedido-card .admin-acoes > .campo { grid-column: 1 / -1; }
+.pedido-card .admin-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
+@media (max-width: 640px) { .pedido-card .admin-acoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .divergente { background: var(--erro-suave); color: var(--erro); border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; }
 
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
@@ -699,11 +704,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .passos-config .aviso { margin: 4px 0 0; }
 .aviso-falta { background: var(--orange-suave); color: #7A3B10; border-color: #F7D2B8; }
 .avancado { border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 0 14px; }
-.avancado summary { cursor: pointer; list-style: none; min-height: 52px; display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--body); }
+.avancado summary { cursor: pointer; list-style: none; padding: 14px 0; display: flex; align-items: baseline; gap: 10px; font-weight: 700; line-height: 1.35; color: var(--body); } /* 14 em cima e embaixo do titulo, seta na altura da 1a linha */
 .avancado summary::-webkit-details-marker { display: none; }
 .avancado summary::before { content: "▸"; color: var(--muted); font-size: 14px; }
 .avancado[open] summary::before { content: "▾"; }
-.avancado > * { margin-bottom: 12px; }
+.avancado > * { margin-bottom: 14px; } /* aberto: 14 entre os itens e ate a borda, o ritmo dos blocos */
 .avancado > summary { margin-bottom: 0; }
 /* horarios por dia */
 .horarios { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); overflow: hidden; }
@@ -814,7 +819,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tabela th { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .tabela tr:last-child td { border-bottom: 0; }
 /* aba "Minha loja" do painel: telas em cartoes iguais + bloco de divulgar */
-.telas-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 12px; }
+.telas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 12px; }
 @media (max-width: 760px) { .telas-grade { grid-template-columns: 1fr; } }
 .tela-card { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
 .tela-card .icone { font-size: 28px; line-height: 1; margin-bottom: 4px; }
@@ -1149,6 +1154,8 @@ button.plano-card { cursor: pointer; }
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
 .plano-sub { color: var(--body); font-weight: 600; }
 .plano-linhas { list-style: none; padding: 0; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
+.plano-linhas li { display: flex; align-items: baseline; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
+.plano-check { flex: none; }
 .plano-marca { font-weight: 700; color: var(--deep); }
 .checklist { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
 .checklist li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
@@ -1202,7 +1209,7 @@ button.plano-card { cursor: pointer; }
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
-.conta-acoes .btn-principal { grid-column: 1 / -1; }
+.conta-acoes .btn-principal, .conta-acoes .conta-senha { grid-column: 1 / -1; }
 .conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
 .conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }

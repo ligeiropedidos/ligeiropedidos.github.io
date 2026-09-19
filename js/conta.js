@@ -2,7 +2,7 @@
  * Ligeiro - conta do dono (#/conta).
  *
  * A pessoa entra com Google ou e-mail e ve as lojas dela: status da
- * assinatura, botoes pro painel, cozinha, entregador e balcao, link e QR.
+ * assinatura, botoes pro painel, cozinha e entregador, link e QR.
  * Dali cria outra loja. E o "meu perfil" do lojista.
  *
  * Na demonstracao a conta e de mentira (fica so neste aparelho) e todas as
@@ -202,8 +202,7 @@
         el('div', { class: 'conta-acoes' }, [
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: '🧾 Balcão' }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔑 Senha', title: 'Senha da equipe: cozinha, entregador e balcão', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno conta-senha', type: 'button', text: '🔑 Senha da equipe', title: 'Senha da equipe: cozinha e entregador', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
         ]),
       ]);
     }

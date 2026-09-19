@@ -23,6 +23,48 @@
   function logado(slug) { try { return sessionStorage.getItem(chaveSessao(slug)) === '1'; } catch (_) { return false; } }
   function marcarLogado(slug) { try { sessionStorage.setItem(chaveSessao(slug), '1'); } catch (_) { /* ignora */ } }
 
+  /* Recarga depois que o banco recusa a fila: no maximo uma vez por sessao (a mesma marca do painel).
+     Sem isso, uma conta sem acesso recarrega sem fim. Sair zera a marca, e a fila de pe por 60 s tambem. */
+  function chaveRecarga(slug) { return 'ligeiro:recarga:' + slug; }
+  function podeRecarregar(slug) {
+    try {
+      if (sessionStorage.getItem(chaveRecarga(slug)) === '1') return false;
+      sessionStorage.setItem(chaveRecarga(slug), '1');
+      return true;
+    } catch (_) { return false; }
+  }
+  function esquecerRecarga(slug) { try { sessionStorage.removeItem(chaveRecarga(slug)); } catch (_) { /* ignora */ } }
+  /* Fila de pe 60 s sem o banco recusar: zera a marca, pra uma queda de verdade mais tarde poder recarregar.
+     Nao usa o primeiro retorno da fila: com o cache ligado ele pode vir antes da recusa. Devolve a funcao que cancela. */
+  function zerarRecargaDepois(slug) {
+    var t = setTimeout(function () { esquecerRecarga(slug); }, 60000);
+    return function () { clearTimeout(t); };
+  }
+
+  /* O banco recusou a fila (senha da equipe trocada, sessao caiu ou conta sem acesso). */
+  function sessaoCaiu(raiz, slug, titulo, nomeLoja, parar) {
+    try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ }
+    if (podeRecarregar(slug)) {
+      UI.avisar('A senha da equipe mudou ou a sessão caiu. Entre de novo.');
+      /* token novo antes de recarregar: pega a permissao que acabou de mudar */
+      var token = store.obterIdToken ? store.obterIdToken(true) : Promise.resolve();
+      token.catch(function () { /* sem conta: a recarga pede a senha */ }).then(function () { setTimeout(function () { location.reload(); }, 1500); });
+      return;
+    }
+    parar();
+    UI.limpar(raiz);
+    raiz.appendChild(el('div', { class: 'login' }, [
+      el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('h2', { class: 'centro', text: titulo + ' · ' + nomeLoja }),
+      el('p', { class: 'muted centro', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça pro dono salvar essa senha de novo em Minha loja.' }),
+      el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: function () {
+        esquecerRecarga(slug);
+        var recarregar = function () { location.reload(); };
+        (store.sair ? store.sair() : Promise.resolve()).then(recarregar, recarregar);
+      } }),
+    ]));
+  }
+
   /* Carrega a loja, pede a senha se precisar e chama montar(loja). Devolve a funcao de limpeza. */
   function abrirComSenha(raiz, slug, titulo, montar) {
     var limpar = function () {};
@@ -57,14 +99,25 @@
       function pedirSenha() {
       var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••', 'aria-label': 'Senha' });
       var erro = el('p', { class: 'cupom-recado', hidden: true, text: 'Senha errada.' });
+      var btnEntrar = el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar });
+      var entrando = false; /* Enter + toque no botao: uma entrada so, senao a tela monta duas vezes */
       function entrar() {
+        if (entrando) return;
+        entrando = true;
+        btnEntrar.disabled = true;
         store.entrarPainel(slug, campo.value).then(function (ok) {
           if (!vivo) return;
-          if (!ok) { erro.hidden = false; campo.value = ''; campo.focus(); UI.soar('erro'); return; }
+          if (!ok) { erro.textContent = 'Senha errada.'; erro.hidden = false; campo.value = ''; campo.focus(); UI.soar('erro'); return; }
           marcarLogado(slug);
           UI.limpar(raiz);
+          limpar(); /* derruba uma montagem anterior, se houver */
           limpar = montar(loja) || limpar;
-        });
+        }, function (e) {
+          /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
+          if (!vivo) return;
+          erro.textContent = e && e.message ? e.message : 'Não deu pra entrar agora. Tente de novo.';
+          erro.hidden = false; UI.soar('erro');
+        }).then(function () { entrando = false; btnEntrar.disabled = false; });
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(el('div', { class: 'login' }, [
@@ -72,7 +125,7 @@
         el('h2', { class: 'centro', text: titulo + ' · ' + loja.nome }),
         el('p', { class: 'muted centro', text: 'Senha da equipe (o dono define em Minha loja ou Minha conta).' }),
         campo, erro,
-        el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar }),
+        btnEntrar,
       ]));
       setTimeout(function () { campo.focus(); }, 50);
       }
@@ -80,17 +133,17 @@
     return function () { vivo = false; limpar(); UI.limparTemaOficial(raiz); };
   }
 
-  /* Modal "Senha da equipe": 4 a 8 numeros. Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */
+  /* Modal "Senha da equipe": 6 a 8 numeros. Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */
   function definirSenha(loja) {
-    var campo = el('input', { type: 'text', inputmode: 'numeric', maxlength: '8', placeholder: 'Ex: 2580', 'aria-label': 'Senha da equipe', autocomplete: 'off' });
+    var campo = el('input', { type: 'text', inputmode: 'numeric', maxlength: '8', placeholder: 'Ex: 258013', 'aria-label': 'Senha da equipe', autocomplete: 'off' });
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-      el('p', { text: 'Essa senha abre a cozinha, o entregador e o balcão da ' + loja.nome + '. Só números, de 4 a 8.' }),
+      el('p', { text: 'Essa senha abre a cozinha e o entregador da ' + loja.nome + '. Só números, de 6 a 8.' }),
       el('div', { class: 'campo' }, [el('label', { text: 'Nova senha da equipe' }), campo]),
       el('p', { class: 'muted pequeno', text: 'Anote e passe pra quem trabalha com você. Quem já estava logado continua até fechar a tela.' }),
     ]);
     function salvar() {
       var pin = campo.value.replace(/\D/g, '');
-      if (pin.length < 4 || pin.length > 8) return UI.avisar('Use de 4 a 8 números.');
+      if (pin.length < 6 || pin.length > 8) return UI.avisar('Use de 6 a 8 números.');
       var promessa = D.modoDemo
         ? store.salvarLoja({ slug: loja.slug, senhaPainel: pin })
         : store.obterIdToken().then(function (idToken) {
@@ -184,6 +237,8 @@
       }
 
       estado.parar.push(store.assistirLoja(slug, function (loja) { if (loja) estado.loja = loja; }));
+      var pararZerar = zerarRecargaDepois(slug);
+      estado.parar.push(pararZerar);
       var desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       estado.parar.push(store.assistirPedidos(slug, function (lista) {
         var novos = 0;
@@ -200,14 +255,16 @@
         estado.pedidos = lista;
         if (novos) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
         desenhar();
-      }, { desde: desde, aoErro: function () { try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ } UI.avisar('A senha da equipe mudou ou a sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1500); } }));
+      }, { desde: desde, aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
       estado.relogio = setInterval(desenhar, 30000);
 
-      return function () {
+      function pararCozinha() {
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
+        estado.parar = [];
         clearInterval(estado.relogio);
         document.body.classList.remove('cozinha-modo');
-      };
+      }
+      return pararCozinha;
     });
   }
 
@@ -279,14 +336,18 @@
       }
 
       estado.parar.push(store.assistirLoja(slug, function (loja) { if (loja) estado.loja = loja; }));
+      var pararZerar = zerarRecargaDepois(slug);
+      estado.parar.push(pararZerar);
       var desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { desde: desde, aoErro: function () { try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ } UI.avisar('A senha da equipe mudou ou a sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1500); } }));
+      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { desde: desde, aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
       estado.relogio = setInterval(desenhar, 60000);
 
-      return function () {
+      function pararEntrega() {
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
+        estado.parar = [];
         clearInterval(estado.relogio);
-      };
+      }
+      return pararEntrega;
     });
   }
 

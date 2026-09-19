@@ -344,6 +344,8 @@
     var c = l && (l.cupons || []).filter(function (x) { return x.codigo === codigo; })[0];
     return Promise.resolve(c ? (Number(c.usos) || 0) : 0);
   };
+  /* Cupom novo com codigo de um cupom excluido: na demonstracao os usos ficam no proprio cupom, nada a zerar. */
+  DemoStore.prototype.zerarUsosDoCupom = function () { return Promise.resolve(true); };
 
   /* Vagas de fundador ja ocupadas (numero publico, de verdade). */
   DemoStore.prototype.obterFundadores = function () {
@@ -452,6 +454,16 @@
     Object.assign(p, clonar(mudancas), { atualizadoEm: agoraISO() });
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve(clonar(p));
+  };
+
+  /* Pix vencido sai da fila so se o pedido ainda espera o pagamento e nao tem pagoEm. Devolve true se cancelou. */
+  DemoStore.prototype.cancelarPixVencido = function (lojaSlug, id) {
+    var db = this._ler();
+    var p = db.pedidos[lojaSlug] && db.pedidos[lojaSlug][id];
+    if (!p || p.status !== R.STATUS.AGUARDANDO || p.pagoEm) return Promise.resolve(false);
+    Object.assign(p, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido', atualizadoEm: agoraISO() });
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve(true);
   };
 
   DemoStore.prototype.entrarPainel = function (lojaSlug, senha) {
@@ -904,6 +916,13 @@
         .then(function (d) { return d.exists ? (Number(d.data().usos) || 0) : 0; });
     }.bind(this)).catch(function () { return 0; });
   };
+  /* Cupom novo com codigo de um cupom excluido: apaga o contador antigo, senao ele nasce esgotado (so dono e admin podem). */
+  FirebaseStore.prototype.zerarUsosDoCupom = function (lojaSlug, codigo) {
+    return this._pronto.then(function () {
+      return this.db.collection('lojas').doc(lojaSlug).collection('contadores').doc('cupom-' + String(codigo || '').toUpperCase()).delete()
+        .then(function () { return true; });
+    }.bind(this));
+  };
 
   FirebaseStore.prototype.obterPedido = function (lojaSlug, id) {
     return this._pronto.then(function () {
@@ -936,6 +955,23 @@
     }.bind(this));
   };
 
+  /* Pix vencido: transacao que rele o pedido e so cancela se ainda espera o pagamento e nao tem pagoEm
+     (o mensageiro pode ter gravado o "pago" nesse meio tempo). Devolve true se cancelou. */
+  FirebaseStore.prototype.cancelarPixVencido = function (lojaSlug, id) {
+    var eu = this;
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id);
+      return eu.db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (d) {
+          var p = d.exists ? d.data() : null;
+          if (!p || p.status !== R.STATUS.AGUARDANDO || p.pagoEm) return false;
+          tx.update(ref, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido', atualizadoEm: agoraISO() });
+          return true;
+        });
+      });
+    });
+  };
+
   /* No modo de verdade, o painel entra com e-mail do dono + senha (Firebase Auth). */
   /* E-mail do usuario de equipe da loja (criado pelo mensageiro quando o dono define a senha da equipe). */
   function emailEquipe(slug) { return 'equipe-' + slug + '@equipe.ligeiro.app.br'; }
@@ -947,16 +983,23 @@
       /* 1) senha da equipe; 2) dono com e-mail e senha (quem criou a conta sem Google) */
       return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; }).catch(function () {
         if (!loja.donoEmail) return false;
-        return eu.auth.signInWithEmailAndPassword(loja.donoEmail, pin).then(function () { return true; }).catch(function () { return false; });
+        return eu.auth.signInWithEmailAndPassword(loja.donoEmail, pin).then(function (r) {
+          if (r && r.user && r.user.emailVerified === true) return true;
+          /* e-mail ainda nao conferido: o banco recusa tudo. Manda o e-mail de confirmacao, sai e avisa (senao o painel recarrega sem fim) */
+          var enviar = r && r.user ? r.user.sendEmailVerification().catch(function () { /* ja mandou ha pouco */ }) : Promise.resolve();
+          return enviar.then(function () { return eu.auth.signOut(); }).catch(function () { /* segue */ }).then(function () {
+            throw new Error('Falta confirmar o seu e-mail. Mandamos um link para ' + loja.donoEmail + ' (olhe também no spam). Toque no link e entre de novo.');
+          });
+        }, function () { return false; });
       });
     });
   };
-  /* Token de identidade do usuario logado (pro mensageiro conferir quem esta pedindo). */
-  FirebaseStore.prototype.obterIdToken = function () {
+  /* Token de identidade do usuario logado (pro mensageiro conferir quem esta pedindo). forcar = pega um token novo. */
+  FirebaseStore.prototype.obterIdToken = function (forcar) {
     return this._pronto.then(function () {
       var u = this.auth.currentUser;
       if (!u) throw new Error('Entre na sua conta primeiro.');
-      return u.getIdToken();
+      return u.getIdToken(forcar === true);
     }.bind(this));
   };
 
@@ -993,7 +1036,7 @@
   /* ---- conta do dono (Firebase Authentication: Google ou e-mail e senha) ---- */
   function usuarioDoFirebase(u) {
     if (!u || !u.email) return null;
-    return { email: String(u.email).toLowerCase(), nome: u.displayName || '', foto: u.photoURL || '', via: (u.providerData && u.providerData[0] && u.providerData[0].providerId) || '' };
+    return { email: String(u.email).toLowerCase(), nome: u.displayName || '', foto: u.photoURL || '', via: (u.providerData && u.providerData[0] && u.providerData[0].providerId) || '', emailVerified: u.emailVerified === true };
   }
   FirebaseStore.prototype.usuarioAtual = function () {
     return this._pronto.then(function () {
@@ -1065,7 +1108,8 @@
   };
   FirebaseStore.prototype.donoLogado = function (loja) {
     return this.usuarioAtual().then(function (u) {
-      if (!u) return false;
+      /* e-mail nao conferido: as regras do banco recusam o dono, entao nao abre o painel sem senha */
+      if (!u || u.emailVerified !== true) return false;
       var admin = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
       return u.email === String(loja.donoEmail || '').toLowerCase() || (!!admin && u.email === admin);
     });

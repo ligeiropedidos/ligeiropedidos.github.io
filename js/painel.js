@@ -20,6 +20,17 @@
 
     function logado() { try { return sessionStorage.getItem(chaveSessao) === '1'; } catch (_) { return false; } }
     function marcarLogado(v) { try { if (v) sessionStorage.setItem(chaveSessao, '1'); else sessionStorage.removeItem(chaveSessao); } catch (_) { /* ignora */ } }
+    /* Recarga depois que o banco recusa a fila: no maximo uma vez por sessao (a mesma marca da cozinha).
+       Sem isso, uma conta sem acesso recarrega sem fim. Sair zera a marca, e a fila de pe por 60 s tambem. */
+    var chaveRecarga = 'ligeiro:recarga:' + slug;
+    function podeRecarregar() {
+      try {
+        if (sessionStorage.getItem(chaveRecarga) === '1') return false;
+        sessionStorage.setItem(chaveRecarga, '1');
+        return true;
+      } catch (_) { return false; }
+    }
+    function esquecerRecarga() { try { sessionStorage.removeItem(chaveRecarga); } catch (_) { /* ignora */ } }
 
     UI.abrirOficialCedo(raiz, slug);
     store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
@@ -86,11 +97,30 @@
           if (!ok) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Senha errada. Tente de novo.'; campo.value = ''; campo.focus(); return; }
           marcarLogado(true);
           montarPainel();
+        }, function (e) {
+          /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
+          if (!vivo) return;
+          UI.soar('erro'); erro.hidden = false; erro.textContent = e && e.message ? e.message : 'Não deu pra entrar agora. Tente de novo.';
         });
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(caixa);
       setTimeout(function () { campo.focus(); }, 50);
+    }
+
+    function sairDoPainel() { pararTudo(); marcarLogado(false); esquecerRecarga(); if (store.sair) store.sair(); telaLogin(); }
+
+    /* O banco recusou a fila de novo logo depois da recarga: esta conta nao tem acesso (sem laco de recarga). */
+    function telaSemAcesso() {
+      pararTudo();
+      marcarLogado(false);
+      UI.limpar(raiz);
+      raiz.appendChild(el('div', { class: 'login' }, [
+        el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+        el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
+        el('p', { class: 'centro muted', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça pro dono salvar essa senha de novo em Minha loja.' }),
+        el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: sairDoPainel }),
+      ]));
     }
 
     /* ---------------------------------------------------------- painel */
@@ -141,7 +171,7 @@
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), '🌐', 'Ver loja', 'Loja'),
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), '👤', 'Minha conta', 'Conta'),
           btnImp, btnSom,
-          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: function () { pararTudo(); marcarLogado(false); if (store.sair) store.sair(); telaLogin(); } }), '🚪', 'Sair', 'Sair'),
+          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), '🚪', 'Sair', 'Sair'),
         ]),
       ]));
 
@@ -172,6 +202,10 @@
         if (estado.aba === 'cardapio') desenharCardapio(true);
         carregarFotos(loja).then(function (mudou) { if (mudou && estado.aba === 'cardapio') desenharCardapio(true); });
       }));
+      /* fila de pe 60 s sem o banco recusar: zera a marca da recarga (o primeiro retorno pode vir do cache, antes da recusa) */
+      var zerarRecarga = setTimeout(esquecerRecarga, 60000);
+      var pararZerar = function () { clearTimeout(zerarRecarga); };
+      estado.parar.push(pararZerar);
       var desde = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
       estado.parar.push(store.assistirPedidos(slug, function (lista) {
         var novos = [];
@@ -197,12 +231,7 @@
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id] = true; });
         estado.pedidos = lista;
-        /* Pix vencido que ficou pra tras (cliente fechou a aba): sai da fila sozinho */
-        lista.forEach(function (p) {
-          if (!R.pixVencido(p) || estado.vencendo && estado.vencendo[p.id]) return;
-          estado.vencendo = estado.vencendo || {}; estado.vencendo[p.id] = true;
-          store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido' }).catch(function () { /* tenta na proxima */ estado.vencendo[p.id] = false; });
-        });
+        conferirPixVencidos(lista);
         estado.novos = novos;
         if (novos.length) { UI.soar('apito'); UI.vibrar([200, 100, 200]); UI.avisar(novos.length === 1 ? 'Pedido novo!' : novos.length + ' pedidos novos!'); }
         imprimirNovosSozinho(lista);
@@ -210,8 +239,15 @@
         atualizarBadge();
         if (estado.aba === 'pedidos') desenharPedidos();
       }, { desde: desde, aoErro: function () {
-        /* o banco recusou a fila: a conta saiu (ou caiu). Volta pro login em vez de ficar mostrando "nenhum pedido" */
-        marcarLogado(false); UI.avisar('Sua sessão caiu. Entre de novo.'); setTimeout(function () { location.reload(); }, 1200);
+        /* o banco recusou a fila: a conta saiu (ou caiu). Volta pro login em vez de ficar mostrando "nenhum pedido".
+           Recarrega uma vez so; se recusar de novo, mostra que a conta nao tem acesso */
+        pararZerar();
+        marcarLogado(false);
+        if (!podeRecarregar()) { telaSemAcesso(); return; }
+        UI.avisar('Sua sessão caiu. Entre de novo.');
+        /* token novo antes de recarregar: pega e-mail recem conferido ou permissao nova */
+        var token = store.obterIdToken ? store.obterIdToken(true) : Promise.resolve();
+        token.catch(function () { /* sem conta: a recarga pede a senha */ }).then(function () { setTimeout(function () { location.reload(); }, 1200); });
       } }));
 
       /* Pix automatico (Mercado Pago), se a loja ligou */
@@ -222,6 +258,7 @@
       /* "ha 3 min" precisa andar mesmo sem pedido novo */
       var relogio = setInterval(function () {
         if (estado.aba === 'pedidos') desenharPedidos();
+        conferirPixVencidos(estado.pedidos || []); /* Pix vence mesmo sem mudar nada na fila */
         /* pedido pago parado em "Novos" ha mais de 5 minutos: lembrete suave, no maximo a cada 2 minutos */
         var parados = (estado.pedidos || []).filter(function (p) { return p.status === R.STATUS.PAGO && Date.now() - new Date(p.pagoEm || p.criadoEm).getTime() > 5 * 60 * 1000; });
         if (parados.length && Date.now() - (estado.ultimoLembrete || 0) > 2 * 60 * 1000) {
@@ -233,6 +270,37 @@
       estado.parar.push(function () { clearInterval(relogio); });
 
       trocarAba(estado.aba);
+    }
+
+    /* Pix vencido que ficou pra tras (cliente fechou a aba): sai da fila sozinho.
+       O relogio deste aparelho so diz quando perguntar; quem decide e o mensageiro, pelo relogio dele. */
+    function conferirPixVencidos(lista) {
+      estado.vencendo = estado.vencendo || {};
+      lista.forEach(function (p) {
+        var marca = estado.vencendo[p.id];
+        if (!R.pixVencido(p) || marca === true || (marca && Date.now() < marca)) return;
+        estado.vencendo[p.id] = true;
+        pixVenceuMesmo(p).then(function (venceu) {
+          if (!vivo) return;
+          /* ainda nao venceu (ou sem resposta): pergunta de novo daqui a 2 minutos */
+          if (!venceu) { estado.vencendo[p.id] = Date.now() + 2 * 60 * 1000; return; }
+          /* transacao: so cancela se o pedido ainda espera o Pix (o pagamento pode ter caido agora) */
+          return store.cancelarPixVencido(slug, p.id);
+        }).catch(function () { /* tenta na proxima */ estado.vencendo[p.id] = false; });
+      });
+    }
+    /* Pergunta ao mensageiro (/status). O novo responde "vencido"; o antigo nao, e ai vale o relogio daqui, como antes. */
+    function pixVenceuMesmo(p) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo || !cfg.proxyMercadoPago) return Promise.resolve(true);
+      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(slug) + '&pedido=' + encodeURIComponent(p.id))
+        .then(function (r) { return r.json().then(function (j) { return r.ok && j && typeof j === 'object' ? j : null; }); })
+        .catch(function () { return null; })
+        .then(function (resp) {
+          if (!resp || resp.status === 'pago') return false; /* sem resposta nao cancela as cegas; pago: o pedido muda sozinho */
+          if ('vencido' in resp) return resp.vencido === true;
+          return true;
+        });
     }
 
     function pararTudo() {
@@ -468,7 +536,7 @@
         el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
       ]));
 
-      var acoes = el('div', { class: 'acoes' });
+      var acoes = el('div', { class: 'acoes acoes-pedido' });
       var proximo = R.proximoStatus(p);
       if (proximo) {
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
@@ -982,7 +1050,11 @@
         } else {
           categorias = estado.loja.categorias.map(function (c) { return c.id === cat.id ? Object.assign({}, c, { nome: n, emoji: emoji.valor(), ativa: ligada.chave.ligado }) : c; });
         }
-        salvarLoja({ categorias: categorias }, 'Categoria salva').then(function () { UI.fecharModal(); desenharCardapio(); });
+        /* trava o botao ate o banco responder: toque duplo com internet lenta criava duas categorias */
+        var botao = this;
+        botao.disabled = true; botao.textContent = 'Salvando…';
+        salvarLoja({ categorias: categorias }, 'Categoria salva').then(function () { UI.fecharModal(); desenharCardapio(); })
+          .catch(function () { botao.disabled = false; botao.textContent = novo ? 'Criar' : 'Salvar'; });
       } })];
       if (!novo) botoes.unshift(el('button', { class: 'btn btn-erro btn-pequeno', text: 'Excluir', onclick: function () { UI.fecharModal(); excluirCategoria(cat); } }));
       UI.abrirModal({ titulo: novo ? 'Nova categoria' : 'Categoria', corpo: corpo, rodape: botoes });
@@ -1108,7 +1180,11 @@
         var k = 2;
         while (grupos[chave].opcoes.some(function (o) { return o.id === id; })) id = base + '-' + (k++);
         grupos[chave].opcoes.push({ id: id, nome: n, preco: preco.centavos(), ativo: true, padrao: grupos[chave].tipo === 'unico' && grupos[chave].opcoes.length === 0 });
-        salvarLoja({ grupos: grupos }, 'Opção adicionada').then(function () { UI.fecharModal(); desenharCardapio(); });
+        /* trava o botao ate o banco responder: toque duplo criava a opcao repetida */
+        var botao = this;
+        botao.disabled = true; botao.textContent = 'Salvando…';
+        salvarLoja({ grupos: grupos }, 'Opção adicionada').then(function () { UI.fecharModal(); desenharCardapio(); })
+          .catch(function () { botao.disabled = false; botao.textContent = 'Adicionar'; });
       } })] });
       setTimeout(function () { nome.input.focus(); }, 60);
     }
@@ -1151,7 +1227,19 @@
           if (cb && cb.checked) lista.push(k);
           gpc[c.id] = lista;
         });
-        salvarLoja({ grupos: grupos, gruposPorCategoria: gpc }, 'Grupo salvo').then(function () { UI.fecharModal(); desenharCardapio(); });
+        /* o site so guarda uma escolha "Escolhe so um" por item: dois na mesma categoria, o segundo apaga o primeiro */
+        if (grupos[k].tipo === 'unico') {
+          var repetido = estado.loja.categorias.some(function (c) {
+            var doCat = gpc[c.id] || [];
+            return doCat.indexOf(k) >= 0 && doCat.some(function (x) { return x !== k && grupos[x] && grupos[x].tipo === 'unico'; });
+          });
+          if (repetido) return UI.avisar('Só um grupo "Escolhe só um" por categoria. Use "Pode escolher vários" com máximo 1.');
+        }
+        /* trava o botao ate o banco responder: toque duplo criava dois grupos iguais */
+        var botao = this;
+        botao.disabled = true; botao.textContent = 'Salvando…';
+        salvarLoja({ grupos: grupos, gruposPorCategoria: gpc }, 'Grupo salvo').then(function () { UI.fecharModal(); desenharCardapio(); })
+          .catch(function () { botao.disabled = false; botao.textContent = novo ? 'Criar grupo' : 'Salvar'; });
       } })];
       if (!novo) botoes.unshift(el('button', { class: 'btn btn-erro btn-pequeno', text: 'Excluir', onclick: function () {
         UI.perguntar('Excluir o grupo "' + g.titulo + '" e todas as opções dele?', { sim: 'Excluir', perigo: true }).then(function (sim) {
@@ -1382,13 +1470,15 @@
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
       var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
       f.mpAtivo = interruptorCampo('Pix automático', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
-      f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Na demonstração, digite SIMULACAO' : 'Cole aqui (começa com APP_USR-)', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só pra trocar.' });
+      f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só pra trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
+      f.mpToken.lido = false; /* vira true quando a leitura da conexao responde */
 
       /* caixa da conexao: "Conectar com Mercado Pago" ou "Conectado desde ..." */
       var conexao = el('div', { class: 'mp-conexao' });
       function desenharConexao(c) {
+        f.mpToken.lido = true;
         UI.limpar(conexao);
         if (c && c.token) {
           f.mpToken.temSalvo = true;
@@ -1415,7 +1505,7 @@
       pagamento.appendChild(f.mpAtivo);
       if (temConexao) pagamento.appendChild(conexao);
       var avancadoMP = el('details', { class: 'avancado' }, [
-        el('summary', { text: temConexao ? 'Prefere colar o Access Token? (avançado)' : 'Access Token do Mercado Pago' }),
+        el('summary', { text: temConexao ? 'Colar o token (avançado)' : 'Colar o token do Mercado Pago' }),
         f.mpToken,
         el('ol', { class: 'passos-mp' }, [
           el('li', {}, [el('b', { text: 'Tenha uma conta no Mercado Pago' }), ' (app, grátis) com uma chave Pix cadastrada nela. É lá que o dinheiro do cliente cai; você transfere pro banco quando quiser.']),
@@ -1450,8 +1540,12 @@
             salvarLoja({ cupons: estado.loja.cupons.filter(function (x) { return x.codigo !== c.codigo; }) }, 'Cupom excluído').then(desenharAjustes);
           });
         } });
+        function textoUsos(usos) { return (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? usos + ' de ' + c.limite + ' usos' : usos + ' usos'); }
+        var usosTexto = el('small', { text: textoUsos(c.usos || 0) });
+        /* na nuvem os usos contam em contadores/cupom-CODIGO (o numero do cupom nao muda): mostra o de verdade */
+        if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
         listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
-          el('div', { class: 'nome' }, [c.codigo + ' · ' + c.percentual + '%', el('small', { text: (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? (c.usos || 0) + ' de ' + c.limite + ' usos' : (c.usos || 0) + ' usos') })]),
+          el('div', { class: 'nome' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
           excluir,
           chave,
         ]));
@@ -1605,7 +1699,10 @@
       if (!horarios) return;
       var tokenDigitado = f.mpToken.input.value.trim();
       var aceitaPix = f.mpAtivo.chave.ligado;
-      if (aceitaPix && !tokenDigitado && !f.mpToken.temSalvo) return UI.avisar('Cole o Access Token do Mercado Pago ou desligue o Pix.');
+      /* Pix que ja estava ligado so passa sem token enquanto a leitura da conexao nao respondeu (ela pode atrasar).
+         Depois que respondeu sem token, trava: loja com Pix ligado e sem token nao recebe Pix nenhum. */
+      var aindaLendo = estado.loja.mpAtivo === true && !f.mpToken.lido;
+      if (aceitaPix && !tokenDigitado && !f.mpToken.temSalvo && !aindaLendo) return UI.avisar('Cole o Access Token do Mercado Pago ou desligue o Pix.');
       var mudancas = {
         nome: f.nome.input.value.trim() || estado.loja.nome,
         tipo: f.tipo.input.value.trim(),
@@ -1656,18 +1753,23 @@
       /* Token do Mercado Pago: segredo, fora do documento da loja. So grava se a pessoa digitou algo. */
       var tokenMP = f.mpToken.input.value.trim();
       if (tokenMP && !/^(APP_USR-|TEST-)/.test(tokenMP) && !(D.modoDemo && tokenMP === 'SIMULACAO')) {
-        UI.avisar('Esse token não parece do Mercado Pago: o de produção começa com APP_USR-. Confira em Credenciais › Produção.');
-        tokenMP = '';
+        /* para aqui: salvar assim ligaria o Pix sem token nenhum */
+        return UI.avisar('Esse token não parece do Mercado Pago: o de produção começa com APP_USR-. Confira em Credenciais › Produção.');
       }
-      if (tokenMP && window.LigeiroMP) window.LigeiroMP.guardarToken(slug, tokenMP).then(function () { if (estado.loja.mpAtivo) ligarMP(); });
+      /* token primeiro: o Pix so liga na loja depois que o segredo ficou guardado */
+      var passo = Promise.resolve();
+      if (tokenMP && window.LigeiroMP) {
+        passo = window.LigeiroMP.guardarToken(slug, tokenMP)
+          .catch(function () { throw new Error('Não deu pra guardar o token do Mercado Pago. Confira a internet e tente de novo.'); })
+          .then(function () { if (estado.loja.mpAtivo) ligarMP(); });
+      }
 
       /* Capa: e uma foto grande, vai num documento separado (igual as fotos dos produtos). */
       var capa = f.capa.valor();
       var capaAntiga = estado.loja.capa;
-      var passo = Promise.resolve();
       if (capa.dados) {
         var idCapa = 'capa-' + D.idAleatorio(8);
-        passo = store.salvarFoto(slug, idCapa, capa.dados).then(function () {
+        passo = passo.then(function () { return store.salvarFoto(slug, idCapa, capa.dados); }).then(function () {
           mudancas.capa = idCapa;
           mudancas.capaUrl = '';
           if (capaAntiga) return store.excluirFoto(slug, capaAntiga).catch(function () { /* ignora */ });
@@ -1675,7 +1777,7 @@
       } else if (capa.removida) {
         mudancas.capa = '';
         mudancas.capaUrl = '';
-        if (capaAntiga) passo = store.excluirFoto(slug, capaAntiga).catch(function () { /* ignora */ });
+        if (capaAntiga) passo = passo.then(function () { return store.excluirFoto(slug, capaAntiga).catch(function () { /* ignora */ }); });
       }
       passo.then(function () { return salvarLoja(mudancas, 'Ajustes salvos'); })
         .then(function () { window.scrollTo(0, 0); desenharAjustes(); })
@@ -1695,18 +1797,20 @@
         var antigo = (estado.loja.cupons || []).filter(function (c) { return c.codigo === cod; })[0];
         var lista = (estado.loja.cupons || []).filter(function (c) { return c.codigo !== cod; });
         lista.push({ codigo: cod, percentual: pct, minimo: minimo.centavos(), limite: Number(limite.input.value) || 0, usos: antigo ? (antigo.usos || 0) : 0, ativo: true });
-        salvarLoja({ cupons: lista }, 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado')).then(function () { UI.fecharModal(); desenharAjustes(); });
+        /* codigo novo (ou de um cupom excluido): zera o contador antigo antes, senao o cupom nasce esgotado.
+           Se o banco recusar (regra antiga), segue e cria do mesmo jeito. */
+        var zerar = antigo || !store.zerarUsosDoCupom ? Promise.resolve() : store.zerarUsosDoCupom(slug, cod).catch(function () { /* ignora */ });
+        zerar.then(function () { return salvarLoja({ cupons: lista }, 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado')); }).then(function () { UI.fecharModal(); desenharAjustes(); });
       } })] });
     }
 
     /* ---------------------------------------------------------- links */
-    /* Aba "Minha loja": as telas da loja (site, cozinha, entregador, balcao) e o material pra divulgar. */
+    /* Aba "Minha loja": as telas da equipe (cozinha e entregador) e o material pra divulgar. */
     function desenharLinks() {
       var s = $('secaoPainel');
       UI.limpar(s);
       var l = estado.loja;
       var linkLoja = UI.linkDaLoja(l);
-      var linkBalcao = UI.linkDoBalcao(l);
       var linkPainel = UI.linkDoPainel(l);
       var base = UI.baseUrl();
 
@@ -1725,11 +1829,10 @@
 
       /* 1. telas */
       s.appendChild(el('h2', { text: 'Minha loja' }));
-      s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As três usam a senha da equipe, que você define aqui embaixo.' }));
+      s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As duas usam a senha da equipe, que você define aqui embaixo.' }));
       s.appendChild(el('div', { class: 'telas-grade' }, [
         tela('👨‍🍳', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', base + '#/cozinha/' + l.slug),
         tela('🛵', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', base + '#/entrega/' + l.slug),
-        tela('🧾', 'Balcão', 'Tablet no caixa vira totem: o cliente pede sozinho e a tela volta pro início.', linkBalcao),
       ]));
       s.appendChild(el('p', { class: 'muted pequeno linha-painel-link' }, [
         'Este painel em outro aparelho: ',
@@ -1738,7 +1841,7 @@
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [
           el('div', { class: 'bloco-titulo', text: '🔑 Senha da equipe' }),
-          el('p', { class: 'muted pequeno', text: 'Cozinha, entregador e balcão abrem com ela (4 a 8 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
+          el('p', { class: 'muted pequeno', text: 'Cozinha e entregador abrem com ela (6 a 8 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
         ]),
         el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));

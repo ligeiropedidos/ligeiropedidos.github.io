@@ -47,8 +47,12 @@ Ou, pelo Claude Code, o servidor `ligeiro` do `.claude/launch.json` abre em
 
 - O dono define em Minha loja ou Minha conta. O mensageiro (`POST /equipe`,
   com o idToken do dono) cria ou troca o usuário `equipe-<slug>@equipe.ligeiro.app.br`
-  no Firebase Auth com senha `LIG-<pin>`. As regras dão a esse usuário só
-  `list`/`update` nos pedidos da própria loja (`isEquipe`).
+  no Firebase Auth com senha `LIG-<pin>` e grava nele a marca `{equipe: <slug>}`.
+  As regras dão a quem tem essa marca só `list`/`update` nos pedidos da própria
+  loja (`isEquipe`); o e-mail sozinho não vale mais.
+- Ao publicar esta versão: primeiro o mensageiro novo, depois as regras. Em
+  seguida cada dono salva a senha da equipe de novo (6 números), fora do
+  horário de movimento; até lá a equipe daquela loja fica sem ver os pedidos.
 - `FirebaseStore.entrarPainel` tenta a equipe e, se falhar, o dono por e-mail e senha.
   Dono logado com Google abre cozinha/entrega/balcão sem senha (`donoLogado`).
 - Esqueceu? Define outra: a antiga para de valer na hora.
@@ -282,11 +286,20 @@ service cloud.firestore {
     function conferido() { return logado() && request.auth.token.email_verified == true; }
     function doisDig(n) { return n < 10 ? '0' + string(n) : string(n); }
     function hojeISO() { return string(request.time.year()) + '-' + doisDig(request.time.month()) + '-' + doisDig(request.time.day()); }
+    /* data (AAAA-MM-DD) e data com hora (AAAA-MM-DDTHH) de um instante, em UTC, no formato do toISOString */
+    function dataISO(t) { return string(t.year()) + '-' + doisDig(t.month()) + '-' + doisDig(t.day()); }
+    function horaISO(t) { return dataISO(t) + 'T' + doisDig(t.hours()); }
+    /* senha do dia: datas de Brasilia (UTC-3) que valem agora, com folga de 3 h pra cada lado */
+    function diaBaixo() { return dataISO(request.time - duration.value(6, 'h')); }
+    function diaAlto() { return dataISO(request.time); }
     function isAdmin() { return conferido() && request.auth.token.email == 'SEU-EMAIL-ADMIN'; }
     function donoDaLoja(loja) { return get(/databases/$(db)/documents/lojas/$(loja)).data.donoEmail; }
     function isDonoDaLoja(loja) { return conferido() && request.auth.token.email == donoDaLoja(loja); }
-    /* usuario de equipe da loja (cozinha, entregador, balcao): criado pelo mensageiro quando o dono define a senha da equipe */
-    function isEquipe(loja) { return conferido() && request.auth.token.email == 'equipe-' + loja + '@equipe.ligeiro.app.br'; }
+    /* usuario de equipe da loja (cozinha, entregador, balcao): o mensageiro grava a marca {equipe: <loja>} no login
+       quando o dono define a senha da equipe. Quem se cadastra sozinho nao consegue essa marca.
+       Publique o mensageiro novo ANTES destas regras; depois, cada dono salva a senha da equipe de novo
+       (6 numeros), fora do horario de movimento. Ate salvar, a equipe daquela loja fica sem ver os pedidos. */
+    function isEquipe(loja) { return logado() && request.auth.token.get('equipe', '') == loja; }
     function planoDe(d) { return d.get('plano', {}); }
     /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
     function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
@@ -327,17 +340,24 @@ service cloud.firestore {
     match /contas/{email} {
       allow read: if isAdmin() || (conferido() && request.auth.token.email == email);
       allow create: if isAdmin() || (conferido() && request.auth.token.email == email
-        /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo */
+        /* o campo email e o do proprio dono (o e-mail do Ligeiro ali daria cortesia) */
+        && request.resource.data.get('email', email) == email
+        /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo.
+           E tem que ser data de verdade (formato do toISOString): lixo virava "gratis pra sempre" */
         && planoDe(request.resource.data).get('desde', '') is string
-        && planoDe(request.resource.data).get('desde', '').size() >= 10
+        && planoDe(request.resource.data).get('desde', '').matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
         && planoDe(request.resource.data).get('desde', '')[0:10] <= hojeISO()
         && planoDe(request.resource.data).get('status', 'teste') == 'teste'
         && semPago(planoDe(request.resource.data))
         && planoDe(request.resource.data).get('planoPago', '') == ''
-        && planoDe(request.resource.data).get('fundador', false) == false);
+        && planoDe(request.resource.data).get('fundador', false) == false
+        && planoDe(request.resource.data).get('ultimoPagamentoEm', '') == '');
       allow update: if isAdmin() || (conferido() && request.auth.token.email == email
+        && request.resource.data.get('email', email) == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
-        && statusPermitido(planoDe(request.resource.data), planoDe(resource.data)));
+        && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
+        /* ultimo pagamento decide se a conta ainda ganha o preco de fundador: so o admin mexe */
+        && planoDe(request.resource.data).get('ultimoPagamentoEm', '') == planoDe(resource.data).get('ultimoPagamentoEm', ''));
       allow delete: if isAdmin();
     }
 
@@ -346,6 +366,8 @@ service cloud.firestore {
     match /vitrine/{loja} {
       allow read: if true;
       allow create, update: if isAdmin() || (isDonoDaLoja(loja)
+        /* resumo sem e-mail: o e-mail do Ligeiro aqui daria cortesia no hub */
+        && !request.resource.data.keys().hasAny(['email', 'donoEmail'])
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
         && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true)
         && request.resource.data.get('verificada', false) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('verificada', false));
@@ -369,33 +391,66 @@ service cloud.firestore {
                     && request.resource.data.keys().hasAll(['nome', 'whatsapp', 'criadoEm'])
                     && request.resource.data.nome is string && request.resource.data.nome.size() <= 60
                     && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() <= 16
-                    && request.resource.data.get('loja', '').size() <= 80
-                    && request.resource.data.get('cidade', '').size() <= 80
-                    && request.resource.data.get('pagina', '').size() <= 200;
+                    && request.resource.data.get('loja', '') is string && request.resource.data.get('loja', '').size() <= 80
+                    && request.resource.data.get('cidade', '') is string && request.resource.data.get('cidade', '').size() <= 80
+                    && request.resource.data.get('pagina', '') is string && request.resource.data.get('pagina', '').size() <= 200
+                    && request.resource.data.get('uf', '') is string && request.resource.data.get('uf', '').size() <= 2
+                    && request.resource.data.get('origem', '') is string && request.resource.data.get('origem', '').size() <= 40
+                    /* nasce do jeito que o formulario manda: id igual ao do documento e ainda nao atendido */
+                    && request.resource.data.get('id', id) == id
+                    && request.resource.data.get('atendidoEm', '') == ''
+                    /* criadoEm e data e hora de verdade, sem ir pro futuro (senao fica pra sempre no topo da lista do admin) */
+                    && request.resource.data.criadoEm is string
+                    && request.resource.data.criadoEm.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
+                    && request.resource.data.criadoEm[0:13] <= horaISO(request.time + duration.value(3, 'h'));
       allow read, update, delete: if isAdmin();
     }
 
     match /lojas/{loja} {
-      allow read: if true;
+      /* cada loja e publica pelo endereco (o site do cliente le); a lista inteira nao:
+         so o admin, e o dono listando as proprias (listarMinhasLojas filtra por donoEmail) */
+      /* PENDENTE (achado 17): os cupons ainda ficam em loja.cupons, que qualquer um le, e o pedido de total 0
+         nasce pago. So a regra nao resolve: falta o site e o painel (dados.js, painel.js, cliente.js) passarem
+         a usar lojas/{loja}/cupons/{CODIGO}, com get publico e list e write so do dono e do admin */
+      allow get: if true;
+      allow list: if isAdmin() || (logado() && resource.data.donoEmail == request.auth.token.email);
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
         || (conferido() && request.resource.data.donoEmail == request.auth.token.email
             && request.resource.data.get('verificada', false) == false
+            /* campo email na loja daria cortesia do Ligeiro: so o admin grava */
+            && !request.resource.data.keys().hasAny(['email'])
             && planoCopiaDaConta(planoDe(request.resource.data)));
-      allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto());
+      allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']));
       allow delete: if isAdmin();
 
       /* senha do dia (dia, ultima) e usos de cupom: o cliente escreve sem login, dentro da transacao do pedido.
-         So os dois nomes de documento, e o contador so anda um passo por vez. */
+         O dono e o admin gravam e apagam o que precisarem (pra consertar um contador torto). */
       match /contadores/{c} {
         allow read: if true;
-        allow write: if (c == 'senha' || c.matches('cupom-[A-Z0-9]{1,20}'))
-          && request.resource.data.keys().hasOnly(['dia', 'ultima', 'usos', 'atualizadoEm'])
-          && request.resource.data.get('usos', 0) is int && request.resource.data.get('ultima', 0) is int
-          && (resource == null
-              || (request.resource.data.get('usos', 0) >= resource.data.get('usos', 0)
-                  && request.resource.data.get('usos', 0) <= resource.data.get('usos', 0) + 1
-                  && request.resource.data.get('ultima', 0) <= resource.data.get('ultima', 0) + 1));
+        allow write: if isDonoDaLoja(loja) || isAdmin();
+        /* senha: so {dia, ultima}. Documento novo ou dia novo comeca em 1; no mesmo dia anda um passo so.
+           O dia e a data de Brasilia de agora (folga de 3 h pra cada lado). Das 21 h as 3 h valem duas datas
+           e a senha pode recomecar em 1 mais de uma vez: repete numero, mas nenhum pedido e recusado
+           (tablet com o app antigo aberto ha dias, ou celular com o relogio uns minutos atrasado) */
+        allow create, update: if c == 'senha'
+          && request.resource.data.keys().hasOnly(['dia', 'ultima'])
+          && request.resource.data.dia is string && request.resource.data.dia.size() == 10
+          && (request.resource.data.dia == diaBaixo() || request.resource.data.dia == diaAlto())
+          && request.resource.data.ultima is int
+          && ((resource == null && request.resource.data.ultima == 1)
+              || (resource != null && resource.data.get('dia', '') != request.resource.data.dia
+                  && request.resource.data.ultima == 1)
+              || (resource != null && resource.data.get('dia', '') == request.resource.data.dia
+                  && request.resource.data.ultima == resource.data.get('ultima', 0) + 1));
+        /* cupom: so {usos, atualizadoEm}. Nasce em 1 e anda um passo por vez */
+        allow create, update: if c.matches('cupom-[A-Z0-9]{1,20}')
+          && request.resource.data.keys().hasOnly(['usos', 'atualizadoEm'])
+          && request.resource.data.usos is int
+          && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 40
+          && ((resource == null && request.resource.data.usos == 1)
+              || (resource != null && request.resource.data.usos == resource.data.get('usos', 0) + 1));
       }
       match /fotos/{foto} {
         allow read: if true;
@@ -415,6 +470,12 @@ service cloud.firestore {
           && request.resource.data.get('cliente', {}) is map && request.resource.data.get('cliente', {}).get('nome', '') is string
           && request.resource.data.size() <= 40
           && request.resource.data.get('clientePagou', false) == false
+          /* criadoEm: texto ISO (toISOString) com a hora, em UTC, entre agora - 3 h e agora + 3 h.
+             Celular com relogio muito errado faria o pedido sumir da fila da loja (a fila filtra por criadoEm) */
+          && request.resource.data.criadoEm is string
+          && request.resource.data.criadoEm.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
+          && request.resource.data.criadoEm[0:13] >= horaISO(request.time - duration.value(3, 'h'))
+          && request.resource.data.criadoEm[0:13] <= horaISO(request.time + duration.value(3, 'h'))
           /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */
           && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoAposCancelar'])
           /* so tres jeitos de nascer: de graca (cupom de 100%), Pix esperando pagamento, ou pra cobrar na porta */
@@ -423,7 +484,9 @@ service cloud.firestore {
               || (request.resource.data.formaPagamento != 'pix' && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
         allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
         allow list: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
-        allow update: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin()
+        allow update: if isDonoDaLoja(loja) || isAdmin()
+          /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
+          || (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm']))
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
               && request.resource.data.clientePagou == true)
@@ -441,7 +504,9 @@ service cloud.firestore {
 Troque `SEU-EMAIL-ADMIN` pelo mesmo e-mail de `config.adminEmail` (minúsculas). Site publicado em https://ligeiropedidos.github.io (repositório ligeiropedidos/ligeiropedidos.github.io); projeto Firebase ligeiro-18df1.
 O que as regras garantem: dono só mexe na própria loja e não se dá plano pago;
 cliente só cria pedido, avisa "já paguei" e cancela enquanto aguarda; contadores
-só sobem; fotos, segredos e fila de pedidos só da própria loja.
+andam um passo por vez (a senha volta pra 1 no dia novo); fotos, segredos e fila
+de pedidos só da própria loja. Ainda falta: os códigos de cupom ficam à vista no
+documento da loja (achado 17, depende do site e do painel).
 
 Detalhes do modo nuvem que valem saber:
 

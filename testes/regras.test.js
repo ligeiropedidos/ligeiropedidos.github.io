@@ -56,7 +56,7 @@ test('telefone aceita DDD + numero, com ou sem 55', () => {
 test('conta do item usa tamanho e adicionais do cardapio, nunca da tela', () => {
   const loja = lojaDeTeste();
   const c = R.calcularItens(loja, [
-    { produtoId: 'x', quantidade: 2, tamanho: 'g', adicionais: ['bacon', 'ovo', 'bacon', 'off'], removidos: ['Tomate', 'Inventado'], precoUnitario: 1 },
+    { produtoId: 'x', quantidade: 2, tamanho: 'g', adicionais: ['bacon', 'ovo', 'bacon'], removidos: ['Tomate', 'Inventado'], precoUnitario: 1 },
   ]);
   assert.equal(c.itens[0].precoUnitario, 1800 + 700 + 400 + 200);
   assert.equal(c.itens[0].totalItem, 2 * 3100);
@@ -65,10 +65,12 @@ test('conta do item usa tamanho e adicionais do cardapio, nunca da tela', () => 
   assert.equal(c.subtotal, 6200);
 });
 
-test('tamanho invalido cai no padrao; produto desligado e recusado', () => {
+test('sem tamanho cai no padrao; tamanho que nao existe e produto desligado sao recusados', () => {
   const loja = lojaDeTeste();
-  const c = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'zzz' }]);
+  const c = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }]);
   assert.equal(c.itens[0].tamanho.id, 'p');
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: '' }]).itens[0].tamanho.id, 'p');
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'zzz' }]), /em "X-Burguer"/);
   assert.throws(() => R.calcularItens(loja, [{ produtoId: 'sumiu', quantidade: 1 }]), /sair do cardápio/);
   assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 0 }]), /Quantidade/);
   assert.throws(() => R.calcularItens(loja, []), /vazio/);
@@ -415,4 +417,76 @@ test('CNPJ: confere os digitos, aceita com ou sem pontuacao e formata', () => {
   assert.equal(R.cnpjValido(''), '');
   assert.equal(R.cnpjValido('123'), '');
   assert.equal(R.formatarCnpj('11222333000181'), '11.222.333/0001-81');
+});
+
+test('opcao desligada com o item no carrinho e recusada (nao troca calada)', () => {
+  const loja = lojaDeTeste();
+  loja.grupos.tamanho.opcoes[1].ativo = false; /* G desligado */
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]), /Não tem mais "G" em "X-Burguer"/);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, adicionais: ['off'] }]), /Não tem mais "Desligado" em "X-Burguer"/);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, adicionais: ['apagado'] }]), /Uma opção escolhida em "X-Burguer" acabou/);
+  /* grupo inteiro desligado */
+  const semExtras = lojaDeTeste();
+  semExtras.grupos.extras.opcoes.forEach((o) => { o.ativo = false; });
+  assert.throws(() => R.calcularItens(semExtras, [{ produtoId: 'x', quantidade: 1, adicionais: ['bacon'] }]), /"Bacon"/);
+  const semTamanho = lojaDeTeste();
+  semTamanho.grupos.tamanho.opcoes.forEach((o) => { o.ativo = false; });
+  assert.throws(() => R.calcularItens(semTamanho, [{ produtoId: 'x', quantidade: 1, tamanho: 'p' }]), /"P"/);
+  /* o pedido tambem nao sai */
+  assert.throws(() => R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }] }), /Não tem mais "G"/);
+  /* o que continua ligado passa normal */
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'p', adicionais: ['bacon'] }]).itens[0].precoUnitario, 1800 + 400);
+});
+
+test('conferencia do painel segue tolerante com opcao desligada depois do pedido', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1, tamanho: 'g', adicionais: ['bacon'] }] });
+  assert.equal(p.total, 1800 + 700 + 400);
+  loja.grupos.tamanho.opcoes[1].ativo = false;
+  loja.grupos.extras.opcoes[0].ativo = false;
+  const c = R.conferirTotal(loja, p);
+  /* conta como antes (tamanho padrao, sem o adicional) e mostra a diferenca, em vez de esconder */
+  assert.equal(c.ok, false);
+  assert.equal(c.esperado, 1800);
+});
+
+test('loja nao vira cortesia do Ligeiro por um campo email gravado pelo dono', () => {
+  const antes = global.window;
+  try {
+    global.window = { LIGEIRO_CONFIG: { adminEmail: 'ligeiro@exemplo.com' } };
+    const truque = { donoEmail: 'dono@exemplo.com', email: 'ligeiro@exemplo.com', plano: { status: 'teste', desde: '2020-01-01T00:00:00Z' } };
+    assert.equal(R.ehDoLigeiro(truque), false);
+    assert.equal(R.assinatura(truque).cortesia, undefined);
+    assert.equal(R.lojaBloqueada(truque), true);
+    assert.equal(R.ehDoLigeiro({ donoEmail: 'Ligeiro@Exemplo.com' }), true);
+    assert.equal(R.ehDoLigeiro({ email: 'ligeiro@exemplo.com' }), true, 'conta do Ligeiro (so tem email)');
+    assert.equal(R.ehDoLigeiro({ donoEmail: 'dono@exemplo.com' }), false);
+  } finally { global.window = antes; }
+});
+
+test('assinatura: data que nao se le bloqueia em vez de dar gratis pra sempre', function () {
+  var hoje = new Date('2026-09-17T12:00:00Z');
+  var loja = lojaDeTeste();
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'teste', desde: '2026-09-19x' } }), hoje).estado, 'bloqueada');
+  assert.equal(R.lojaBloqueada(Object.assign({}, loja, { plano: { status: 'teste', desde: 'lixo' } }), hoje), true);
+  /* quem pagou continua valendo pelo pagoAte, mesmo com o desde estragado */
+  var pagoAte = new Date(hoje.getTime() + 20 * 864e5).toISOString();
+  assert.equal(R.assinatura(Object.assign({}, loja, { plano: { status: 'ativo', desde: 'lixo', pagoAte: pagoAte } }), hoje).estado, 'ativa');
+});
+
+test('senha: so recomeca quando o dia gravado ficou para tras (celular adiantado nao zera)', () => {
+  const agora = new Date(2026, 8, 19, 21, 30);
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-18', ultima: 40 }, agora), { dia: '2026-09-19', ultima: 1 });
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-19', ultima: 7 }, agora), { dia: '2026-09-19', ultima: 8 });
+  /* outro celular ja gravou amanha: continua no dia gravado, sem repetir senha */
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-20', ultima: 1 }, agora), { dia: '2026-09-20', ultima: 2 });
+  assert.deepEqual(R.proximaSenha({ dia: '2026-10-01', ultima: 4 }, new Date(2026, 8, 30, 23, 0)), { dia: '2026-10-01', ultima: 5 });
+  /* amanha gravado antes das 21 h o banco nao aceita: recomeca de hoje; das 21 h em diante continua */
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-20', ultima: 6 }, new Date(2026, 8, 19, 12, 0)), { dia: '2026-09-19', ultima: 1 });
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-20', ultima: 6 }, new Date(2026, 8, 19, 20, 59)), { dia: '2026-09-19', ultima: 1 });
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-20', ultima: 6 }, new Date(2026, 8, 19, 22, 0)), { dia: '2026-09-20', ultima: 7 });
+  /* dia gravado longe demais ou ilegivel: recomeca de hoje */
+  assert.deepEqual(R.proximaSenha({ dia: '2026-09-25', ultima: 3 }, agora), { dia: '2026-09-19', ultima: 1 });
+  assert.deepEqual(R.proximaSenha({ dia: 'lixo', ultima: 3 }, agora), { dia: '2026-09-19', ultima: 1 });
+  assert.deepEqual(R.proximaSenha(null, agora), { dia: '2026-09-19', ultima: 1 });
 });

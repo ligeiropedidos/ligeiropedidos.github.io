@@ -82,8 +82,11 @@
       UI.limpar(raiz);
       raiz.appendChild(el('header', { class: 'painel-topo' }, [
         el('div', { class: 'nome', text: 'Ligeiro · estabelecimentos' }),
-        el('button', { class: 'btn btn-pequeno', text: 'Ver as lojas', onclick: function () { window.LigeiroApp.ir('cidades'); } }),
-        el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { try { sessionStorage.removeItem(chave); } catch (_) { /* ignora */ } if (store.sair) store.sair(); telaLogin(); } }),
+        /* mesma fileira do topo do painel: no celular os dois lado a lado, metades iguais */
+        el('div', { class: 'painel-topo-acoes' }, [
+          el('button', { class: 'btn btn-pequeno', text: 'Ver as lojas', onclick: function () { window.LigeiroApp.ir('cidades'); } }),
+          el('button', { class: 'btn btn-pequeno', text: 'Sair', onclick: function () { try { sessionStorage.removeItem(chave); } catch (_) { /* ignora */ } if (store.sair) store.sair(); telaLogin(); } }),
+        ]),
       ]));
       var secao = el('section', { class: 'secao', id: 'secaoAdmin' });
       raiz.appendChild(secao);
@@ -259,7 +262,7 @@
         el('div', { class: 'endereco', text: (l.whatsapp ? 'WhatsApp ' + R.formatarTelefone(l.whatsapp) + ' · ' : '') + 'Pix: ' + (l.pix && l.pix.chave ? l.pix.chave : 'não cadastrado') + (D.modoDemo ? ' · senha do painel: ' + (l.senhaPainel || '—') : ' · login: ' + (l.donoEmail || 'sem e-mail')) }),
         avisoPag,
         el('div', { class: 'caixa-link', text: linkLoja }),
-        el('div', { class: 'acoes' }, [
+        el('div', { class: 'acoes admin-acoes' }, [
           !l.donoEmail ? el('button', { class: 'btn btn-principal btn-pequeno', title: 'Loja sem conta: libera direto nela', text: '✓ Pagou ' + R.dinheiro(precos.mensal || 7900) + ' (+30 dias)', onclick: function () { confirmar(30); } }) : null,
           el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar link', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : '✔ Verificar loja', onclick: function () {
@@ -267,8 +270,7 @@
           } }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: 'Ver loja' }),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/painel/' + l.slug, text: 'Painel' }),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/balcao/' + l.slug, text: 'Balcão' }),
-          el('div', { class: 'campo', style: { flex: '1', minWidth: '160px' } }, sel),
+          el('div', { class: 'campo' }, sel),
         ]),
       ]);
     }
@@ -292,7 +294,7 @@
       UI.mascaraTelefone(f.whatsapp.input);
       f.senha = D.modoDemo
         ? campo('Senha do painel', String(1000 + Math.floor(Math.random() * 9000)), { max: 20, ajuda: 'Anote e entregue pro dono.' })
-        : campo('E-mail do dono (login do painel)', '', { max: 80, tipo: 'email', ajuda: 'Crie esse usuário em Authentication no Firebase, com a senha combinada com o dono.' });
+        : campo('E-mail do dono (login do painel)', '', { max: 80, tipo: 'email', ajuda: 'O dono entra com o Google deste e-mail.' });
       var modeloSel = el('select', {}, MODELOS.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
       f.modelo = el('div', { class: 'campo largo' }, [el('label', { text: 'Começar com que cardápio?' }), el('p', { class: 'ajuda', text: 'O modelo vem com categorias, itens e adicionais típicos. Depois é só ajustar nome e preço no painel.' }), modeloSel]);
       var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.cidade, f.whatsapp, f.senha, f.modelo]);
@@ -323,6 +325,9 @@
         } else if (modelo === 'vazio') {
           dados.categorias = [{ id: 'cardapio', nome: 'Cardápio', emoji: emoji }];
         }
+        /* trava o botao ate o banco responder: toque duplo cadastrava a loja duas vezes */
+        var botao = this;
+        botao.disabled = true; botao.textContent = 'Salvando…';
         /* loja com e-mail do dono: garante a conta dele (a assinatura mora la) */
         var conta = dados.donoEmail && store.obterConta
           ? store.obterConta(dados.donoEmail).then(function (c) { return c || store.salvarConta(dados.donoEmail, { plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: new Date().toISOString() } }); })
@@ -334,7 +339,7 @@
           UI.fecharModal();
           UI.soar('sucesso');
           mostrarLinks(loja);
-        }).catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu pra cadastrar.'); });
+        }).catch(function (e) { botao.disabled = false; botao.textContent = 'Cadastrar'; UI.avisar(e && e.message ? e.message : 'Não deu pra cadastrar.'); });
       } })] });
       setTimeout(function () { f.nome.input.focus(); }, 60);
     }
@@ -343,12 +348,11 @@
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
         el('p', { text: 'Pronto! Entregue estes dois links pro dono:' }),
         el('div', {}, [el('b', { text: 'Cardápio (pro cliente)' }), el('div', { class: 'caixa-link', text: UI.linkDaLoja(loja) })]),
-        el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link', text: UI.linkDoPainel(loja) }), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', com a senha combinada' })]),
-        el('div', {}, [el('b', { text: 'Balcão (tablet)' }), el('div', { class: 'caixa-link', text: UI.linkDoBalcao(loja) })]),
+        el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link', text: UI.linkDoPainel(loja) }), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
       ]);
       UI.abrirModal({ titulo: loja.nome + ' cadastrado', corpo: corpo, rodape: [
         el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Copiar tudo', onclick: function () {
-          var texto = loja.nome + '\nCardápio: ' + UI.linkDaLoja(loja) + '\nPainel: ' + UI.linkDoPainel(loja) + (D.modoDemo ? ' (senha ' + loja.senhaPainel + ')' : ' (login ' + (loja.donoEmail || '') + ')') + '\nBalcão: ' + UI.linkDoBalcao(loja);
+          var texto = loja.nome + '\nCardápio: ' + UI.linkDaLoja(loja) + '\nPainel: ' + UI.linkDoPainel(loja) + (D.modoDemo ? ' (senha ' + loja.senhaPainel + ')' : ' (login ' + (loja.donoEmail || '') + ')');
           UI.copiar(texto).then(function () { UI.avisar('Copiado'); });
         } }),
         el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Abrir o painel', onclick: function () { UI.fecharModal(); window.LigeiroApp.ir('painel/' + loja.slug); } }),
