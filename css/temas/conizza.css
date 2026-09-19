@@ -144,6 +144,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .card-produto { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); transition: transform 0.08s ease, box-shadow 0.08s ease; }
 /* a letra da casa e mais alta: o texto do cartao tem 116px, entao foto (e o mascote do cartao da casa) com 116 deixa a sobra igual nos quatro lados */
 .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 116px; height: 116px; }
+@media (max-width: 360px) { .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 96px; height: 96px; } } /* celular pequeno: preco e PEDIR cabem na mesma linha */
 .tema-conizza .card-produto:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .card-produto .foto { border: 3px solid var(--cz-tinta); border-radius: 14px; background: linear-gradient(160deg, var(--cz-ouro-claro), var(--cz-ouro)); }
 .tema-conizza .card-produto .nome { font-family: var(--cz-display); font-weight: 800; font-size: 20px; }
@@ -179,7 +180,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* topo com cara de app (icone em cima no celular): no estilo da casa, cartao creme com borda e sombra de desenho */
 .tema-conizza .topo-app .btn-pequeno { border-radius: 16px; font-family: var(--cz-display); font-weight: 800; }
 @media (hover: hover) { .tema-conizza .topo-app .btn-pequeno:hover { background: var(--cz-branco); } .tema-conizza .topo-app .btn-pequeno.on:hover { background: var(--cz-ouro-claro); } }
-@media (max-width: 760px) { .tema-conizza .topo-app .btn-pequeno { box-shadow: 0 4px 0 var(--cz-tinta); padding-top: 11px; padding-bottom: 5px; } .tema-conizza .topo-app .topo-ico { font-size: 23px; } }
+@media (max-width: 1199px) { .tema-conizza .topo-app .btn-pequeno { box-shadow: 0 4px 0 var(--cz-tinta); padding-top: 11px; padding-bottom: 5px; } .tema-conizza .topo-app .topo-ico { font-size: 23px; } }
 .tema-conizza .abas-painel { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
 .tema-conizza .aba-painel { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba-painel.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
@@ -208,6 +209,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .barras .b .lab { color: var(--cz-tinta-suave); font-weight: 700; }
 .tema-conizza .metrica .l { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .previa-capa { background: linear-gradient(180deg, #fbe3d6, var(--cz-branco)); }
+.tema-conizza .previa-botao { font-size: clamp(20px, 6.5vw, 27px); } /* o celular da previa e menor que a tela: "PEDIR AGORA" numa linha so */
 .tema-conizza .tabela { border: 3px solid var(--cz-tinta); }
 /* janela do item: o preco nao quebra em duas linhas */
 .tema-conizza .modal-caixa .btn { font-size: 18px; white-space: nowrap; padding-left: 14px; padding-right: 14px; min-height: 56px; }
@@ -217,6 +219,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aba-painel .badge, .tema-conizza .aba-painel.ativa .badge { background: var(--cz-ouro-claro); color: var(--cz-tinta); border: 2px solid var(--cz-tinta); font-weight: 800; }
 /* as categorias do cardapio usam a mesma classe das abas: sem o recuo, a borda e o fundo delas */
 .tema-conizza .abas-categorias { padding: 0; border: 0; background: transparent; }
+.tema-conizza .aba-categoria { padding-right: 9px; } /* borda de 3: 3 + 9 = 12, a mesma sobra de cima e de baixo do numero */
 /* botao do 2o turno no cabecalho do dia, na linguagem do tema */
 .tema-conizza .dia-acao { border: 2px solid var(--cz-tinta); background: var(--cz-creme); color: var(--cz-tinta); box-shadow: 0 2px 0 var(--cz-tinta); }
 .tema-conizza .dia-acao.tirar { background: #fbe3dc; color: var(--cz-vermelho); border-color: var(--cz-tinta); }

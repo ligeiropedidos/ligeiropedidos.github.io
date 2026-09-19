@@ -157,7 +157,7 @@
       /* Impressao automatica: cada pedido novo (pago ou pra cobrar na entrega) sai na impressora sozinho.
          No computador do caixa, abra o Chrome com --kiosk-printing pra nao aparecer a janela de imprimir. */
       function pintarImp() {
-        rotuloTopo(btnImp, '🖨️', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Sozinho' : 'Imprimir');
+        rotuloTopo(btnImp, '🖨️', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Automático' : 'Manual');
       }
       var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', onclick: function () {
         estado.impressaoAuto = !estado.impressaoAuto;
@@ -1135,9 +1135,11 @@
 
     function blocoGrupo(chave, g, categoriaId) {
       var bloco = el('div', { class: 'cartao' });
-      bloco.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' } }, [
-        el('h3', { text: g.titulo, style: { flex: '1' } }),
-        el('span', { class: 'selo cinza', text: g.tipo === 'unico' ? 'escolhe 1' : 'vários' + (g.max ? ', até ' + g.max : '') }),
+      bloco.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' } }, [
+        el('div', { style: { flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' } }, [
+          el('h3', { text: g.titulo }),
+          el('span', { class: 'selo cinza', style: { whiteSpace: 'nowrap' }, text: g.tipo === 'unico' ? 'escolhe 1' : 'vários' + (g.max ? ', até ' + g.max : '') }),
+        ]),
         el('button', { class: 'editar', style: { border: '1.5px solid #B9CBAB', background: '#fff', borderRadius: '10px', minHeight: '40px', padding: '0 10px' }, text: '✏️', onclick: function () { editarGrupo(chave, categoriaId); } }),
       ]));
       var lista = el('div', { class: 'pilha' });
@@ -1355,9 +1357,15 @@
             var termo = R.semAcento(String(filtro.value || '')).toLowerCase().trim();
             var visiveis = termo ? listaClientes.filter(function (c) { return R.semAcento(String(c.nome + ' ' + c.bairro + ' ' + c.telefone)).toLowerCase().indexOf(termo) >= 0; }) : listaClientes;
             if (!visiveis.length) { caixaTabela.appendChild(el('p', { class: 'muted', text: 'Nenhum cliente com esse nome.' })); return; }
-            var tabela = el('table', { class: 'tabela' }, [el('tr', {}, [el('th', { text: 'Cliente' }), el('th', { text: 'WhatsApp' }), el('th', { text: 'Pedidos' }), el('th', { text: 'Gastou' })])]);
+            var tabela = el('table', { class: 'tabela tabela-clientes' }, [el('tr', {}, [el('th', { text: 'Cliente' }), el('th', { text: 'WhatsApp' }), el('th', { text: 'Pedidos' }), el('th', { text: 'Gastou' })])]);
             visiveis.slice(0, mostrar).forEach(function (c) {
-              tabela.appendChild(el('tr', {}, [el('td', { text: c.nome + (c.bairro ? ' · ' + c.bairro : '') }), el('td', { text: R.formatarTelefone(c.telefone) }), el('td', { text: String(c.pedidos) }), el('td', { text: dinheiro(c.total) })]));
+              /* no celular as colunas do meio somem e aparecem como segunda linha (tab-sub) */
+              tabela.appendChild(el('tr', {}, [
+                el('td', {}, [c.nome + (c.bairro ? ' · ' + c.bairro : ''), c.telefone ? el('span', { class: 'tab-sub', text: R.formatarTelefone(c.telefone) }) : null]),
+                el('td', { class: 'sem-quebra', text: R.formatarTelefone(c.telefone) }),
+                el('td', { text: String(c.pedidos) }),
+                el('td', { class: 'sem-quebra' }, [dinheiro(c.total), el('span', { class: 'tab-sub', text: c.pedidos + (c.pedidos === 1 ? ' pedido' : ' pedidos') })]),
+              ]));
             });
             caixaTabela.appendChild(tabela);
             if (visiveis.length > mostrar) caixaTabela.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '8px' }, text: 'Mostrar mais (' + (visiveis.length - mostrar) + ' restantes)', onclick: function () { mostrar += 25; desenharClientes(); } }));
@@ -1366,7 +1374,7 @@
           if (listaClientes.length > 8) conteudo.appendChild(filtro);
           conteudo.appendChild(caixaTabela);
           desenharClientes();
-          conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar lista (abre no Excel)', onclick: function () {
+          conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar para o Excel', onclick: function () {
             var csv = 'Nome;WhatsApp;Bairro;Pedidos;Total\n' + listaClientes.map(function (c) { return [c.nome, c.telefone, c.bairro, c.pedidos, (c.total / 100).toFixed(2).replace('.', ',')].join(';'); }).join('\n');
             UI.copiar(csv).then(function () { UI.avisar('Lista copiada. Cole no Excel ou no Planilhas.'); });
           } }));

@@ -160,7 +160,7 @@
       el('div', { class: 'bloco-titulo' }, [el('span', { class: 'bloco-numero', text: '2' }), 'Seu acesso ao painel']),
       el('div', { class: 'grade-form' }, D.modoDemo ? [(f.senha.classList.add('largo'), f.senha)] : [f.email, f.senha]),
     ]);
-    if (!D.modoDemo) blocoAcesso.insertBefore(el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Continuar com o Google', onclick: function () {
+    if (!D.modoDemo) blocoAcesso.insertBefore(el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function () {
       store.entrarComGoogle().then(function (u) { if (u) usarConta(u); }).catch(function (e) { falhar(e.message); });
     } }), blocoAcesso.children[1]);
     function usarConta(u) {

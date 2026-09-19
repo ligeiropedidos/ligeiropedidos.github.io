@@ -137,6 +137,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 360px) { .btn-gigante { font-size: 18px; padding-left: 14px; padding-right: 14px; } } /* celular pequeno: o botao grande nao quebra linha */
 .btn .sub { display: block; font-family: var(--corpo); font-weight: 600; font-size: 14px; opacity: 0.8; }
 .pilha { display: flex; flex-direction: column; gap: 12px; }
+.pilha > .linha-produto.opcao { margin-top: 0; } /* adicional no painel: o vao e so o da lista (12), sem os 8 da opcao do cliente */
 .linha-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
 .linha-botoes .btn { flex: 1; }
 
@@ -200,6 +201,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hub-cidade .marca { font-size: 28px; text-decoration: none; color: #fff; }
 .hub-cidade .marca span span { color: var(--lime2); }
 .hub-titulo { font-family: var(--display); font-size: 30px; line-height: 1.1; margin: 8px 0 2px; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; white-space: pre-wrap; }
+.hub-titulo.so-texto { display: block; text-align: center; text-wrap: balance; } /* so texto: quebra em duas linhas iguais, dentro da caixa */
 .hub-cidade .slogan { max-width: 520px; color: #DCEFE3; font-size: 15.5px; }
 .hub-selos { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; font-weight: 700; color: var(--lime2); margin-top: 4px; }
 .hub-trocar { font-size: 13.5px; font-weight: 600; color: #fff; text-decoration: none; padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.35); margin-top: 6px; transition: background 0.15s; }
@@ -323,7 +325,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* ---------- Abertura da loja ---------- */
 
-.abertura { padding: 26px var(--margem) 12px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.abertura { padding: 24px var(--margem) 12px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 /* ritmo da primeira tela: 16 entre blocos, 24 antes de uma secao, 12 entre cartoes */
 #destaques > div:first-child { margin: 8px 0 12px !important; }
 #descLoja { margin-top: -8px !important; }
@@ -386,8 +388,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 2 linhas: a altura do cartao (e da foto) fica sob controle */
 .card-produto .nome { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-produto .rodape-card { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
-.card-produto .preco { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--deep); }
+.card-produto .preco { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--deep); white-space: nowrap; }
+.card-produto .mais { white-space: nowrap; }
 .card-produto .mais { font-size: 14px; font-weight: 700; color: var(--texto-no-destaque); background: var(--lime); padding: 8px 14px; border-radius: 10px; }
+@media (max-width: 360px) { .card-produto .foto { width: 96px; height: 96px; } .card-produto .preco { font-size: 17px; } .card-produto .mais { padding: 8px 10px; } .card-produto .rodape-card { gap: 8px; } } /* preco e PEDIR na mesma linha, inteiros */
 
 /* ---------- Barra do carrinho ---------- */
 
@@ -398,11 +402,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding: 12px var(--margem) calc(12px + env(safe-area-inset-bottom));
 }
 .barra-carrinho.visivel { transform: none; }
-.barra-carrinho .linha-barra { display: flex; align-items: center; gap: 14px; max-width: 720px; margin: 0 auto; }
-.barra-carrinho .resumo { flex: 1; }
+.barra-carrinho .linha-barra { display: flex; align-items: center; gap: 12px; max-width: 720px; margin: 0 auto; }
+.barra-carrinho .resumo { flex: 1; min-width: 0; }
 .barra-carrinho .qtd { font-size: 14px; color: var(--muted); }
-.barra-carrinho .valor { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--deep); }
-.barra-carrinho .btn { min-height: 56px; }
+.barra-carrinho .valor { font-family: var(--display); font-size: clamp(19px, 6vw, 24px); font-weight: 700; color: var(--deep); white-space: nowrap; } /* o total nunca quebra no meio */
+.barra-carrinho .btn { min-height: 56px; white-space: nowrap; }
+@media (max-width: 360px) { .barra-carrinho .btn { font-size: 17px; padding-left: 16px; padding-right: 16px; } }
 .progresso-entrega { max-width: 720px; margin: 0 auto 10px; font-size: 14px; font-weight: 600; color: var(--deep2); }
 .progresso-trilho { height: 8px; background: var(--lime-suave); border-radius: 4px; margin-top: 6px; overflow: hidden; }
 .progresso-trilho span { display: block; height: 100%; background: var(--lime); border-radius: 4px; transition: width 0.3s; }
@@ -500,7 +505,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* ---------- Formularios ---------- */
 
-.bloco-form { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.bloco-form { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .bloco-form > .pilha:empty { display: none; } /* lista vazia (ex.: sem cupons) nao cria vao duplo */
 /* formulario do pedido: blocos com o mesmo respiro entre si que os cartoes da pagina */
 #formDados { display: flex; flex-direction: column; gap: 12px; }
@@ -536,11 +541,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* ---------- Pix ---------- */
 
-.pix { padding: 20px var(--margem) 30px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.pix { padding: 24px var(--margem) 30px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .valor-grande { font-family: var(--display); font-size: 46px; font-weight: 700; color: var(--deep); line-height: 1; }
 .qr-caixa { width: min(280px, 80vw); aspect-ratio: 1; background: #fff; border: 1.5px solid var(--line); border-radius: 22px; padding: 12px; display: flex; align-items: center; justify-content: center; }
 .qr-caixa svg { width: 100%; height: 100%; }
-.passos-pix { width: 100%; max-width: 440px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.passos-pix { width: 100%; max-width: 440px; text-align: left; display: flex; flex-direction: column; gap: 12px; }
 .passo-pix { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px 14px; }
 .passo-pix .numero { width: 32px; height: 32px; border-radius: 50%; background: var(--lime); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
 .codigo-pix { display: block; width: 100%; max-width: 440px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); word-break: break-all; background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 10px; text-align: left; }
@@ -550,7 +555,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* ---------- Senha ---------- */
 
-.sucesso { padding: 26px var(--margem) 30px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.sucesso { padding: 24px var(--margem) 30px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .confirmado { font-weight: 700; color: var(--lime-escuro); font-size: 18px; }
 .painel-senha { width: 100%; max-width: 420px; background: var(--deep); color: #fff; border-radius: 26px; padding: 22px 20px 24px; }
 .painel-senha .rotulo { font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: #BFE3C9; font-weight: 700; }
@@ -570,13 +575,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .painel-topo .nome { font-family: var(--display); font-size: 19px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .painel-topo-acoes { display: flex; align-items: center; gap: 12px; flex: none; }
 .painel-topo .rot-curto { display: none; }
-@media (max-width: 760px) {
+/* celular, tablet e notebook pequeno: nome numa linha, botoes iguais embaixo (numa linha so, ate uns 1200px, eles passavam da tela ou cortavam o nome) */
+@media (max-width: 1199px) {
   .painel-topo { flex-wrap: wrap; row-gap: 8px; }
-  .painel-topo .nome { flex: 1 1 0; }
+  .painel-topo .nome { flex: 1 1 0; white-space: normal; text-wrap: balance; } /* no celular o nome tem a linha inteira: quebra, nao corta */
   .painel-topo-acoes { flex: 1 1 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
   .painel-topo .btn-pequeno { width: 100%; min-width: 0; min-height: 40px; font-size: 13.5px; line-height: 1; padding: 0 4px; white-space: nowrap; }
 }
-@media (max-width: 480px) {
+/* quadrinhos (celular e tablet): nome curto em todos, iguais; no PC, o nome completo */
+@media (max-width: 1199px) {
   .painel-topo .rot-longo { display: none; }
   .painel-topo .rot-curto { display: inline; }
 }
@@ -585,7 +592,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* topo do painel com cara de app: icone e nome; no celular, icone grande em cima e o nome embaixo (Ligeiro e temas) */
 .topo-app .btn-pequeno { min-height: 42px; padding: 0 16px; gap: 8px; border-radius: 12px; font-size: 15px; }
 .topo-app .topo-ico { font-size: 17px; line-height: 1; }
-@media (max-width: 760px) {
+@media (max-width: 1199px) {
   .topo-app .btn-pequeno { flex-direction: column; gap: 6px; min-height: 60px; padding: 10px 4px 6px; border-radius: 14px; font-size: 13px; line-height: 1.1; } /* 2px a mais em cima: centro pela linha do texto, nao pela perna do p */
   .topo-app .topo-ico { font-size: 22px; }
 }
@@ -611,14 +618,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sugestao:hover, .sugestao:focus { background: var(--lime-suave); outline: none; }
 .aba-painel .badge { background: var(--orange); color: #fff; font-size: 12px; min-width: 22px; height: 22px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
 .aba-painel.ativa .badge { background: var(--lime); color: var(--ink); }
-.secao { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 14px; }
+.secao { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 12px; }
 .secao h2 { font-size: 20px; }
 .fila-titulo { display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--muted); margin-top: 6px; }
 .pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .pedido-card.novo { border-color: var(--lime); box-shadow: 0 0 0 4px var(--lime-suave); animation: piscar 1s ease-in-out 3; }
 .pedido-card.atencao { border-color: var(--orange); }
 @keyframes piscar { 50% { box-shadow: 0 0 0 8px #D9F3B3; } }
-.pedido-card .cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pedido-card .cabeca { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
 .pedido-card .senha { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1; }
 .pedido-card .quando { margin-left: auto; font-size: 13.5px; color: var(--muted); }
 .pedido-card .cliente { font-weight: 700; }
@@ -632,12 +639,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pedido-card .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
 .pedido-card .acoes .btn { flex: 1; min-height: 54px; font-size: 17px; }
 .pedido-card .acoes .btn-pequeno { flex: none; min-height: 54px; }
+/* entregador: colunas exatamente iguais (em flex a borda do "Mapa" deixava ele 2px mais largo) */
+.pedido-card .acoes-entrega { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.pedido-card .acoes-entrega .btn { min-width: 0; }
 /* celular: o proximo passo ("Comecar a fazer") ganha a linha inteira; embaixo 💬 e 🖨️ em quadrados iguais e Cancelar no resto */
 @media (max-width: 640px) {
   .pedido-card .acoes-pedido .btn-principal { flex: 1 1 100%; }
   .pedido-card .acoes-pedido .btn-pequeno { width: 54px; height: 54px; padding: 0; }
   .pedido-card .acoes-pedido .btn-erro { flex: 1 1 0; width: auto; min-width: 0; padding: 0 12px; }
+  /* entregador: Mapa e Cliente lado a lado; "Entregue" (o passo principal) com a linha inteira embaixo */
+  .pedido-card .acoes-entrega { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pedido-card .acoes-entrega .btn-principal, .pedido-card .acoes-entrega > .btn:only-child, .pedido-card .acoes-entrega > .btn-fantasma:has(+ .btn-principal) { grid-column: 1 / -1; }
 }
+@media (max-width: 360px) { .pedido-card .acoes .btn { padding-left: 8px; padding-right: 8px; font-size: 16px; } }
 .divergente { background: var(--erro-suave); color: var(--erro); border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; }
 
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
@@ -674,7 +688,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .campo-estilo .estilo-linha .rotulo { width: 130px; text-align: right; }
 /* categorias do cardapio no painel */
 .abas-categorias { position: static; z-index: auto; padding: 0; border: 0; background: transparent; flex-wrap: wrap; overflow: visible; gap: 8px; }
-.aba-categoria { gap: 6px; padding-right: 8px; }
+.aba-categoria { gap: 6px; padding-right: 9.5px; } /* 1,5 de borda + 9,5 = 11: o numero fica a mesma distancia da ponta e de cima/baixo (concentrico com a curva) */
 .aba-categoria .cat-emoji { font-size: 18px; line-height: 1; }
 .aba-categoria .cat-qtd { background: var(--lime-suave); color: var(--deep2); }
 .aba-categoria.ativa .cat-qtd { background: var(--lime); color: var(--ink); }
@@ -689,7 +703,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .emoji-opcao.marcado { border-color: var(--deep); background: var(--lime-suave); box-shadow: 0 0 0 2px var(--lime-suave); }
 /* Aparencia: celular + controles */
 .aparencia { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-.aparencia-controles { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.aparencia-controles { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .aparencia-controles > .campo > label { font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--deep2); margin-bottom: 8px; text-align: left; }
 .aparencia-controles > .campo > .ajuda { display: none; }
 .aparencia-controles .campo-cor, .aparencia-controles .campo-estilo { align-items: stretch; text-align: left; }
@@ -710,7 +724,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .aparencia-controles .estilo-linha { min-width: 0; }
 .aparencia-controles .estilo-linha .aba-painel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .previa-acoes { width: 100%; }
-@media (max-width: 480px) { .aparencia-controles .campo-estilo .estilos { grid-template-columns: 1fr; } }
+@media (max-width: 480px), (min-width: 760px) and (max-width: 1099px) { .aparencia-controles .campo-estilo .estilos { grid-template-columns: 1fr; } } /* coluna estreita (celular ou tablet com a previa do lado): um estilo por linha, nada cortado */
 @media (min-width: 760px) {
   .aparencia { grid-template-columns: 340px minmax(0, 1fr); gap: 28px; }
   .aparencia .previa-bloco { align-self: start; } /* parada no lugar: acompanhar a rolagem fazia ela entrar embaixo das abas */
@@ -740,7 +754,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dia-linha { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; min-height: 64px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .dia-linha:last-of-type { border-bottom: 0; }
 .dia-cabeca { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.dia-nome { width: 78px; font-weight: 700; }
+.dia-nome { width: 88px; font-weight: 700; white-space: nowrap; }
 .dia-estado { font-size: 13.5px; font-weight: 600; color: var(--lime-escuro); }
 .dia-linha.fechado .dia-estado { color: var(--muted); }
 .dia-linha.fechado .dia-nome { color: var(--muted); }
@@ -757,7 +771,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 0; }
   .dia-cabeca { justify-content: flex-start; min-height: 36px; gap: 10px; }
   .dia-cabeca .dia-nome { width: auto; flex: 1 1 auto; min-width: 0; }
-  .dia-linha.fechado .dia-nome { flex: 0 0 78px; }
+  .dia-linha.fechado .dia-nome { flex: 0 0 88px; }
   .dia-linha:not(.fechado) .dia-estado { display: none; } /* a chave verde ja diz que esta aberto */
   .dia-cabeca .chave { order: 4; margin-left: auto; }
   .dia-linha:not(.fechado) .dia-cabeca .chave { margin-left: 0; }
@@ -814,7 +828,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .linha-produto.item .chave, .linha-produto.opcao .chave { grid-row: 2; grid-column: -2 / -1; }
 }
 
-.metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .metrica { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
 .metrica .v { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--deep); }
 .metrica .l { font-size: 13px; color: var(--muted); }
@@ -843,6 +857,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tabela th, .tabela td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .tabela th { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .tabela tr:last-child td { border-bottom: 0; }
+.tabela .sem-quebra { white-space: nowrap; }
+.tabela .tab-sub { display: none; }
+@media (max-width: 560px) {
+  .tabela-clientes th:nth-child(2), .tabela-clientes td:nth-child(2), .tabela-clientes th:nth-child(3), .tabela-clientes td:nth-child(3) { display: none; }
+  .tabela-clientes .tab-sub { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .tabela-clientes th:last-child, .tabela-clientes td:last-child { text-align: right; }
+}
 /* aba "Minha loja" do painel: telas em cartoes iguais + bloco de divulgar */
 .telas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 12px; }
 @media (max-width: 760px) { .telas-grade { grid-template-columns: 1fr; } }
@@ -852,6 +873,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tela-card p { margin: 0; font-size: 14px; color: var(--muted); flex: 1; }
 .tela-card .linha-botoes { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tela-card .linha-botoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 6px; white-space: nowrap; font-size: 15px; }
+@media (max-width: 360px) {
+  .tela-card .linha-botoes { grid-template-columns: minmax(0, 1fr); } /* um botao por linha: "Copiar link" inteiro */
+  .divulgar-acoes .btn, .linha-painel-link .btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; }
+  .aparencia-controles .estilo-linha .aba-painel { font-size: 13px; }
+  .mp-conexao .btn { font-size: 15px; }
+}
 .linha-painel-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
 .linha-painel-link .btn { flex: none; }
 .divulgar { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; }
@@ -959,7 +986,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ex-preco b { font-family: var(--display); font-size: 38px; line-height: 1; color: #FDE68A; }
 .ex-obs { font-size: 14px; color: rgba(255, 255, 255, 0.86); flex-basis: 100%; }
 .ex-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
-.ex-botoes .btn { flex: 1 1 200px; min-height: 58px; }
+.ex-botoes .btn { flex: 1 1 200px; min-height: 58px; white-space: nowrap; } /* nao cabe inteiro do lado? desce pra linha de baixo */
 .ex-botoes .ex-ver { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.5); }
 @media (min-width: 560px) { .ex-recursos { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) {
@@ -1027,10 +1054,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .mp-selo { font-weight: 700; color: var(--deep2); }
 .mp-conectado .btn { margin-left: auto; }
 /* tela do Pix do cliente: gerando / falhou */
-.pix-gerando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 26px 12px; font-weight: 700; color: var(--deep2); }
+.pix-gerando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 12px; font-weight: 700; color: var(--deep2); }
 .pix-gerando .girando { width: 22px; height: 22px; border: 3px solid var(--line-forte); border-top-color: var(--deep2); border-radius: 50%; animation: girar 0.9s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
-.pix-falhou { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px; background: var(--erro-suave); border: 1px solid var(--erro); border-radius: var(--raio-p); text-align: center; }
+.pix-falhou { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: var(--erro-suave); border: 1px solid var(--erro); border-radius: var(--raio-p); text-align: center; }
 .pix-falhou p { margin: 0; font-size: 14.5px; }
 /* modal de pagar assinatura: cartao/boleto em cima, Pix embaixo */
 .cobranca-opcoes { display: flex; flex-direction: column; gap: 10px; }
@@ -1040,6 +1067,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
 .tabela-concorrentes { min-width: 480px; }
 .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: nowrap; }
+.tabela-concorrentes td:first-child b { white-space: nowrap; } /* nome do concorrente inteiro ("Delivery Direto") */
 .tabela-concorrentes tr.destaque td { background: var(--lime-suave); }
 .tabela-concorrentes tr.destaque td:first-child { box-shadow: inset 4px 0 0 var(--lime); }
 @media (max-width: 520px) {
@@ -1082,7 +1110,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .paleta .outra input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 .previa-cor { align-self: flex-start; margin-top: 10px; pointer-events: none; }
 .estilos { display: flex; flex-direction: column; gap: 10px; }
-.estilo-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.estilo-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .estilo-linha .rotulo { width: 120px; font-weight: 600; color: var(--body); font-size: 15px; }
 .estilo-linha .aba-painel { min-height: 40px; }
 .medidas { font-size: 13.5px; color: var(--muted); margin: -2px 0 6px; line-height: 1.4; }
@@ -1104,7 +1132,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
 .vender-sub { font-size: 17px; color: var(--body); max-width: 520px; }
 .vender-selos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.vender { gap: 26px; }
+.vender { gap: 24px; }
 .vender-bloco { display: flex; flex-direction: column; gap: 12px; }
 .vender-bloco > * { margin: 0; }
 .vender-bloco .kicker { font-size: 12.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--deep2); font-weight: 700; margin-bottom: -6px; }
@@ -1201,7 +1229,8 @@ button.plano-card { cursor: pointer; }
 .raio b { font-family: var(--display); font-size: 17px; }
 .raio p { font-size: 14.5px; color: var(--body); }
 .raio .tag { align-self: flex-start; margin-top: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); }
-.prova { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.prova { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 480px) { .prova .metrica { padding: 12px 8px; } .prova .metrica .v { font-size: clamp(16px, 5.3vw, 22px); white-space: nowrap; } } /* "1 preço" e "3 min" numa linha ate em 320 */
 .vender-grade, .planos, .checklist, .antes-depois, .raiox, .faq, .passos-venda, .calc-linhas { gap: 12px; }
 .calc-entrada, .calc-resultado { gap: 12px; }
 .assinar { max-width: 640px; margin: 0 auto; width: 100%; }
@@ -1211,8 +1240,15 @@ button.plano-card { cursor: pointer; }
 .texto-legal { max-width: 720px; margin: 0 auto; width: 100%; gap: 8px; }
 /* login e conta do dono */
 .btn-google { background: #fff; color: var(--ink); border: 1.5px solid var(--line-forte); }
+.barra-topo .rot-curto { display: none; }
+@media (max-width: 360px) {
+  .barra-topo .rot-longo { display: none; }
+  .barra-topo .rot-curto { display: inline; }
+  .btn-google { font-size: 16px; padding-left: 14px; padding-right: 14px; } /* "Entrar com o Google" numa linha so, com o G do lado */
+}
 .btn-google::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(#EA4335 0 25%, #FBBC05 0 50%, #34A853 0 75%, #4285F4 0); mask: radial-gradient(circle, transparent 42%, #000 44%); -webkit-mask: radial-gradient(circle, transparent 42%, #000 44%); }
 .login-caixa { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+@media (max-width: 360px) { .login-caixa { padding: 16px; } } /* sobra espaco pro "Entrar com o Google" */
 .login-caixa .ou { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .login-caixa .ou::before, .login-caixa .ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .login-caixa .linha-botoes { justify-content: space-between; }
@@ -1275,7 +1311,8 @@ button.plano-card { cursor: pointer; }
 .plano-dado { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
 .plano-dado.largo { grid-column: 1 / -1; }
 .plano-dado-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.plano-dado-valor { font-family: var(--display); font-size: 22px; line-height: 1.15; color: var(--ink); }
+.plano-dado-valor { font-family: var(--display); font-size: clamp(18px, 5vw, 22px); line-height: 1.15; color: var(--ink); white-space: nowrap; }
+@media (max-width: 360px) { .plano-dados { grid-template-columns: minmax(0, 1fr); } } /* tela ampliada do iPhone: cada quadro com a linha inteira */
 .plano-dado-sub { font-size: 13px; color: var(--muted); }
 .plano-barra { display: block; height: 8px; border-radius: 999px; background: var(--lime-suave); overflow: hidden; margin-top: 6px; }
 .plano-barra i { display: block; height: 100%; border-radius: 999px; background: var(--lime); }
@@ -1312,7 +1349,7 @@ button.plano-card { cursor: pointer; }
 .texto-legal p { color: var(--body); line-height: 1.5; }
 @media (min-width: 560px) { .planos { grid-template-columns: 1fr 1fr; } .checklist { grid-template-columns: 1fr 1fr; } .antes-depois { grid-template-columns: 1fr 1fr; } .raiox { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .checklist { grid-template-columns: 1fr 1fr 1fr; } .raiox { grid-template-columns: repeat(3, 1fr); } .teste-caixa { padding: 32px; } .planos { max-width: 760px; margin: 0 auto; width: 100%; } }
-.calc-entrada, .calc-resultado, .preco-texto { display: flex; flex-direction: column; gap: 10px; }
+.calc-entrada, .calc-resultado, .preco-texto { display: flex; flex-direction: column; gap: 12px; }
 
 /* Computador: a pagina de vendas ganha colunas em vez de esticar a coluna do celular */
 @media (min-width: 760px) {
@@ -1328,7 +1365,7 @@ button.plano-card { cursor: pointer; }
   .heroi-texto .vender-selos { justify-content: flex-start; }
   .vender-titulo { font-size: 44px; max-width: 640px; }
   .vender-sub { font-size: 19px; max-width: 560px; }
-  .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 44px; }
+  .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 48px; } /* PC: o dobro do ritmo de 24 */
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }
   .passo-venda { flex: 1; flex-direction: column; gap: 10px; }
@@ -1452,6 +1489,7 @@ button.plano-card { cursor: pointer; }
 .adm-cabeca-texto p { font-size: 15px; line-height: 1.4; color: var(--muted); }
 .adm-cabeca > .btn { flex: none; min-height: 48px; padding: 0 20px; font-size: 16px; white-space: nowrap; }
 @media (max-width: 640px) { .adm-cabeca > .btn { flex: 1 1 100%; } }
+@media (max-width: 360px) { .adm-cabeca > .btn { padding: 0 12px; } } /* "+ Cadastrar estabelecimento" inteiro */
 
 /* indicadores: 4 colunas iguais no PC, 2 no celular; numero alinhado pela mesma linha */
 .adm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -1464,6 +1502,7 @@ button.plano-card { cursor: pointer; }
 .adm-kpi-valor .adm-pos { margin-left: 6px; }
 .adm-kpi-apoio { padding-top: 4px; font-size: 13.5px; line-height: 1.35; color: var(--body); } /* colado no numero: se quebrar em 2 linhas, a primeira continua alinhada com a do vizinho */
 @media (max-width: 400px) { .adm-kpi { padding: 12px; } .adm-kpi-rotulo { font-size: 13px; } .adm-kpi-valor { font-size: 24px; } .adm-kpi-apoio { font-size: 13px; } }
+@media (max-width: 360px) { .adm-kpi { padding: 12px 10px; } .adm-kpi-rotulo { font-size: 12.5px; } } /* "Receita por mes" inteiro */
 
 /* faixa das vagas de fundador (mesmo dourado do cartao de fundador da pagina de vendas) */
 .adm-fundadores { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "texto barra livres"; align-items: center; gap: 12px 24px; padding: 16px; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--raio-p); }
@@ -1507,8 +1546,8 @@ button.plano-card { cursor: pointer; }
 .adm-data { font-size: 13px; line-height: 1.3; color: var(--muted); white-space: nowrap; }
 .adm-lista-vazia { padding: 24px 16px; text-align: center; color: var(--muted); }
 .adm-so-pc, .adm-cab { display: none; }
-/* celular bem estreito: o selo desce pra baixo do nome (alinhado com o texto) e o nome ganha a largura toda */
-@media (max-width: 360px) {
+/* celular: o selo desce pra baixo do nome (alinhado com o texto) e o nome (e-mail) ganha a largura toda */
+@media (max-width: 480px) {
   .adm-linha { grid-template-columns: minmax(0, 1fr) 12px; row-gap: 8px; }
   .adm-linha > .adm-c-status { grid-column: 1; grid-row: 2; align-items: flex-start; }
   .adm-linha.adm-com-logo > .adm-c-status { padding-left: 52px; }
@@ -1558,6 +1597,7 @@ button.plano-card { cursor: pointer; }
 .adm-contato.feito .adm-nome { color: var(--body); }
 .adm-contato-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .adm-contato-acoes .btn { width: 100%; min-width: 0; min-height: 44px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
+@media (max-width: 360px) { .adm-contato-acoes .btn { font-size: 14px; } } /* "Ja chamei" com folga */
 @media (min-width: 760px) { .adm-contato { grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: 16px; } }
 
 /* ferramentas: cartoes iguais, botao sempre no pe */
@@ -1576,12 +1616,13 @@ button.plano-card { cursor: pointer; }
 .adm-precos > .adm-pc-num { padding-left: 12px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .adm-precos > .adm-pc-cab { padding-top: 0; border-top: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
 .adm-precos > .adm-pc-nome { font-weight: 600; }
+@media (max-width: 360px) { .adm-precos { font-size: 13.5px; } .adm-precos > .adm-pc-num { padding-left: 8px; } } /* "Uma loja" numa linha */
 .adm-precos > .adm-pc-fund { grid-column: 1 / -1; padding-top: 0; border-top: 0; font-size: 13px; color: #6B4A00; }
 .adm-precos-nota { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
 
 /* fichas (modal) de loja e de conta; e-mail comprido no titulo quebra em vez de empurrar a tela */
 .adm-modal .modal-topo > div:first-child { min-width: 0; }
-.adm-modal .modal-topo .titulo { overflow-wrap: anywhere; }
+.adm-modal .modal-topo .titulo { overflow-wrap: anywhere; font-size: clamp(18px, 5.6vw, 22px); } /* e-mail no titulo cabe inteiro no celular */
 .adm-ficha { display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px; }
 .adm-ficha h3 { font-size: 17px; margin-top: 8px; }
 .adm-selos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -1601,6 +1642,11 @@ button.plano-card { cursor: pointer; }
   .adm-par dt { flex: none; }
   .adm-par dd { min-width: 0; text-align: right; }
 }
+/* celular pequeno: rotulo em cima e valor embaixo ("Ultimo pagamento" + "Nenhum ainda" nao cabiam lado a lado) */
+@media (max-width: 360px) {
+  .adm-par { flex-direction: column; align-items: stretch; gap: 2px; }
+  .adm-par dd { text-align: left; }
+}
 .adm-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .adm-numeros > p { grid-column: 1 / -1; }
 .adm-numeros .adm-kpi-valor { font-size: 26px; }
@@ -1615,10 +1661,11 @@ button.plano-card { cursor: pointer; }
   .adm-acoes-1 { grid-template-columns: minmax(0, 1fr); }
   .adm-acoes > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
-@media (max-width: 360px) { .adm-acoes .btn { font-size: 14px; padding: 0 6px; } }
+@media (max-width: 360px) { .adm-acoes .btn { font-size: 13.5px; padding: 0 6px; } .adm-acoes-linha .btn { font-size: 14.5px; padding: 0 8px; } } /* "Pagou R$ 89,00 (+30 dias)" e "Ja chamei" inteiros */
 .adm-caixa { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .adm-plano { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
 .adm-plano .btn { width: 100%; min-width: 0; min-height: 56px; padding: 0 12px; font-size: 16px; white-space: nowrap; }
+@media (max-width: 360px) { .adm-plano .btn { font-size: 14.5px; padding: 0 8px; } } /* "Pagou R$ 89,00 (+30 dias)" inteiro */
 @media (max-width: 560px) { .adm-plano { grid-template-columns: minmax(0, 1fr); } }
 .adm-conta-linha { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
 .adm-conta-linha .adm-textos { flex: 1 1 220px; }

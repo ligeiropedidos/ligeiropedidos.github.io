@@ -37,7 +37,7 @@
     raiz.appendChild(el('div', { class: 'hub-capa hub-cidade' }, [
       el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.png', alt: '' }),
       el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
-      el('h1', { class: 'hub-titulo', text: 'Em que cidade você está?' }),
+      el('h1', { class: 'hub-titulo so-texto', text: 'Em que cidade você está?' }),
       el('p', { class: 'slogan', text: 'Peça no delivery da sua cidade. Sem app, sem cadastro, sem comissão.' }),
       el('div', { class: 'hub-selos' }, [el('span', { text: '✓ Sem taxa' }), el('span', { text: '✓ Pix pelo Mercado Pago' }), el('span', { text: '✓ Acompanha pela senha' })]),
     ]));

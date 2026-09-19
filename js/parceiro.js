@@ -54,7 +54,8 @@
   /* Barra do topo: marca, Entrar e Assinar. Igual em todas as paginas daqui. */
   function barraTopo() {
     var entrar = el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrar', text: 'Entrar' });
-    var assinar = el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar', text: 'Assinar agora' });
+    /* celular pequeno (ate 360): "Assinar"; o "agora" nao cabe do lado do Entrar */
+    var assinar = el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar' }, [el('span', { class: 'rot-longo', text: 'Assinar agora' }), el('span', { class: 'rot-curto', text: 'Assinar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
       el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
@@ -529,7 +530,7 @@
     }
     function depois(u) { if (u) { UI.soar('sucesso'); window.LigeiroApp.ir(destino()); } }
 
-    var btnGoogle = el('button', { class: 'btn btn-google btn-largo', type: 'button', text: D().modoDemo ? 'Entrar na demonstração' : 'Continuar com o Google', onclick: function () {
+    var btnGoogle = el('button', { class: 'btn btn-google btn-largo', type: 'button', text: D().modoDemo ? 'Entrar na demonstração' : 'Entrar com o Google', onclick: function () {
       btnGoogle.disabled = true;
       store.entrarComGoogle().then(depois).catch(function (e) { falhar(e.message); }).then(function () { btnGoogle.disabled = false; });
     } });
