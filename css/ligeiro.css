@@ -985,23 +985,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ex-cel-exclusivo .ex-linhas i:last-child { background: #c0392b; }
 .ex-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
 .ex-cel-exclusivo .ex-rotulo { color: #FDE68A; }
-.ex-texto { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ex-texto { display: flex; flex-direction: column; gap: 16px; min-width: 0; container-type: inline-size; }
 .ex-kicker { font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #FDE68A; }
 .exclusiva h2 { color: #fff; font-size: 28px; line-height: 1.12; margin: -8px 0 0; }
 .ex-sub { margin: 0; color: rgba(255, 255, 255, 0.86); font-size: 16px; line-height: 1.5; }
-.ex-recursos { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 12px; }
-.ex-recurso { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); }
-.ex-icone { font-size: 22px; line-height: 1.1; flex: none; }
-.ex-recurso b { display: block; font-size: 15px; line-height: 1.25; color: #fff; }
-.ex-recurso span { display: block; font-size: 13.5px; line-height: 1.35; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }
+.ex-recursos { display: grid; grid-template-columns: 1fr; gap: 12px; } /* uma coluna: cada cartao do tamanho do seu texto */
+.ex-recurso { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); }
+.ex-icone { font-size: 22px; line-height: 1.1; flex: none; width: 30px; text-align: center; } /* caixa fixa: o texto comeca no mesmo x em todos os cartoes, seja qual for o emoji */
+.ex-recurso > div > b { display: block; font-size: 15px; line-height: 1.25; color: #fff; }
+.ex-recurso > div > span { display: block; font-size: 13.5px; line-height: 1.35; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }
 .ex-preco { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
 .ex-apartir { font-size: 14px; color: rgba(255, 255, 255, 0.78); }
 .ex-preco b { font-family: var(--display); font-size: 38px; line-height: 1; color: #FDE68A; }
 .ex-obs { font-size: 14px; color: rgba(255, 255, 255, 0.86); flex-basis: 100%; }
 .ex-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
-.ex-botoes .btn { flex: 1 1 200px; min-height: 58px; white-space: nowrap; } /* nao cabe inteiro do lado? desce pra linha de baixo */
+.ex-botoes .btn { flex: 1 1 260px; min-width: max-content; min-height: 58px; white-space: nowrap; } /* base maior que o texto mais largo: lado a lado so com os dois do mesmo tamanho; senao desce */
 .ex-botoes .ex-ver { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.5); }
-@media (min-width: 560px) { .ex-recursos { grid-template-columns: 1fr 1fr; } }
+@container (min-width: 580px) { .ex-recursos { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; } } /* duas colunas so quando cada cartao cabe o titulo numa linha; todos da mesma altura */
 @media (max-width: 420px) {
   .exclusiva { padding: 24px 16px; gap: 20px; border-radius: 24px; }
   .ex-vitrine { gap: 8px; }

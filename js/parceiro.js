@@ -331,17 +331,17 @@
           el('div', { class: 'ex-texto' }, [
             el('div', { class: 'ex-kicker', text: 'Serviço extra · sob medida' }),
             el('h2', { text: 'Uma loja com a cara da sua marca' }),
-            el('p', { class: 'ex-sub', text: 'Toda loja do Ligeiro já escolhe cor, logo e capa no painel. No design exclusivo a gente desenha o site inteiro do seu jeito, como fizemos na Dom Conizza.' }),
+            el('p', { class: 'ex-sub', text: 'Toda loja do Ligeiro já escolhe cor, logo e capa no painel. No design exclusivo, a gente desenha o site inteiro do seu jeito, como fizemos na Dom Conizza.' }),
             el('div', { class: 'ex-recursos' }, [
-              recurso('🎨', 'Sua identidade', 'Cores, letras e botões da sua marca'),
-              recurso('✨', 'Abertura animada', 'Sua logo grande chegando na tela'),
-              recurso('⏳', 'Carregamento com sua logo', 'O cliente vê você desde o primeiro segundo'),
-              recurso('🧑‍🍳', 'Tudo no mesmo visual', 'Painel, cozinha e entregador combinando'),
+              recurso('🎨', 'Sua identidade', 'Suas cores, letras e botões'),
+              recurso('✨', 'Abertura animada', 'Sua logo entra em cena'),
+              recurso('⏳', 'Espera com sua logo', 'Sem tela branca ao abrir'),
+              recurso('🍳', 'Tudo combinando', 'Até no painel e na cozinha'),
             ]),
             el('div', { class: 'ex-preco' }, [
               el('span', { class: 'ex-apartir', text: lc.aPartirDe ? 'a partir de' : '' }),
               el('b', { text: lc.aPartirDe ? dinheiro(lc.aPartirDe) : 'Sob orçamento' }),
-              el('span', { class: 'ex-obs', text: 'pago uma vez · a mensalidade não muda' }),
+              el('span', { class: 'ex-obs' }, [el('span', { class: 'sem-quebra', text: 'Pago uma vez só.' }), ' ', el('span', { class: 'sem-quebra', text: 'A mensalidade não muda.' })]), /* se quebrar, quebra entre as frases */
             ]),
             el('div', { class: 'ex-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma ex-ver', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
           ]),

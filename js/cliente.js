@@ -294,6 +294,11 @@
         fundo.style.backgroundColor = tinta || '';
         var src = capas[l.slug] || (lojaOficial(l.slug) && lojaOficial(l.slug).logo) || D.logoSrc(l) || '';
         fundo.style.backgroundImage = src ? 'url("' + String(src).replace(/"/g, '%22') + '")' : 'none';
+        /* capa so de quem esta escolhida: baixar a de todas a cada visita gastava o Firebase gratis a toa */
+        if (!(l.slug in capas) && l.capa && store.obterFoto) {
+          capas[l.slug] = '';
+          store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
+        }
       }
       function pintarDetalhe(x) {
         var l = x.loja;
@@ -346,7 +351,6 @@
         trilho.appendChild(t);
         UI.lembrarCor(l.slug, l.cor || '#84CC16', true); /* so semente: quem manda e a pagina da loja (dados completos) */
         if (l.capaUrl) capas[l.slug] = l.capaUrl;
-        else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
       });
       /* tem mais quadrado do que cabe: a borda direita do trilho esmaece (mostra que rola, sem cortar seco) */
       setTimeout(function () { if (trilho.scrollWidth > trilho.clientWidth + 2) trilho.classList.add('rola'); }, 60);
