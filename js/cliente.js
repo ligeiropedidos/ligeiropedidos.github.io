@@ -344,6 +344,7 @@
         t.addEventListener('focus', function () { escolher(l.slug, false); });
         tiles[l.slug] = t;
         trilho.appendChild(t);
+        UI.lembrarCor(l.slug, l.cor || '#84CC16');
         if (l.capaUrl) capas[l.slug] = l.capaUrl;
         else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
       });
@@ -438,7 +439,8 @@
     var oficialCedo = UI.lojaOficial(slug);
     var tirarSplash = function () {};
     if (oficialCedo) { UI.aplicarTemaOficial(raiz, slug); tirarSplash = UI.splashOficial(oficialCedo); }
-    /* as outras lojas abrem direto, sem tela de carregamento (decisao do Mateus em 18/09/2026) */
+    /* as outras lojas: tela simples, tres bolinhas na cor da loja (sem marca do Ligeiro), ate a loja estar inteira */
+    else tirarSplash = UI.splashLoja(slug);
     var o = opcoes || {};
     var balcao = !!o.balcao;
 
@@ -504,6 +506,7 @@
         return;
       }
       if (R.lojaBloqueada(dados)) {
+        tirarSplash();
         raiz.innerHTML = '';
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [
           el('div', { class: 'icone', text: (dados.emoji || '🍽️') }),
@@ -575,7 +578,9 @@
       estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
-      if (primeira) UI.oficialPronto(estado.oficial, estado.oficial ? 600 : 120).then(tirarSplash);
+      if (primeira && estado.oficial) UI.oficialPronto(estado.oficial, 600).then(tirarSplash);
+      if (primeira && !estado.oficial) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
+      UI.lembrarCor(dados.slug, dados.cor || '#84CC16');
       montarInicio();
       configurarFluxo();
       if (primeira) {
@@ -1627,6 +1632,7 @@
 
     return function () {
       vivo = false;
+      tirarSplash();
       raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').trim();
       UI.limparTema();
       pararAcompanhar();

@@ -453,6 +453,46 @@
     return tirar;
   }
 
+  /* Tela de carregamento das lojas comuns: so o fundo da pagina e tres bolinhas iguais na cor da loja.
+     A cor e a da ultima visita (ou do quadro de lojas); loja nunca vista usa cinza neutro. */
+  var CHAVE_CORES = 'ligeiro:cores';
+  function lembrarCor(slug, cor) {
+    if (!slug || !corValida(cor)) return;
+    var mapa = lerLocal(CHAVE_CORES) || {};
+    if (mapa[slug] === cor) return;
+    delete mapa[slug];
+    mapa[slug] = cor;
+    var chaves = Object.keys(mapa);
+    while (chaves.length > 80) delete mapa[chaves.shift()];
+    guardarLocal(CHAVE_CORES, mapa);
+  }
+  function splashLoja(slug) {
+    var cor = (lerLocal(CHAVE_CORES) || {})[slug];
+    var caixa = el('div', { class: 'splash-loja', role: 'status', 'aria-label': 'Abrindo a loja' }, [
+      el('div', { class: 'carregando-pontos' }, [el('span'), el('span'), el('span')]),
+    ]);
+    if (corValida(cor)) caixa.style.setProperty('--cor-bolinha', cor);
+    document.body.appendChild(caixa);
+    var tirou = false;
+    function tirar() {
+      if (tirou) return; tirou = true;
+      caixa.classList.add('saindo');
+      setTimeout(function () { if (caixa.parentNode) caixa.parentNode.removeChild(caixa); }, 280);
+    }
+    setTimeout(tirar, 6000);
+    return tirar;
+  }
+  /* Espera as imagens de um pedaco da tela (logo, capa) terminarem, no maximo 'teto' ms.
+     Foto com loading="lazy" (fora da tela) nao entra: ela so baixa quando aparece e seguraria a espera a toa. */
+  function imagensProntas(raiz, teto) {
+    var imgs = raiz ? [].slice.call(raiz.querySelectorAll('img')).filter(function (i) { return i.loading !== 'lazy'; }) : [];
+    var todas = Promise.all(imgs.map(function (i) {
+      if (i.complete) return true;
+      return new Promise(function (r) { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); });
+    }));
+    return Promise.race([todas, new Promise(function (r) { setTimeout(r, teto || 2500); })]);
+  }
+
   var temaPronto = Promise.resolve(true);
   /* Loja oficial do Ligeiro (config.lojasOficiais): devolve a configuracao ou null. */
   function lojaOficial(slug) {
@@ -509,7 +549,7 @@
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

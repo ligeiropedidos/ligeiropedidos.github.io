@@ -601,6 +601,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pedido-card .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
 .pedido-card .acoes .btn { flex: 1; min-height: 54px; font-size: 17px; }
 .pedido-card .acoes .btn-pequeno { flex: none; min-height: 54px; }
+/* celular: o proximo passo ("Comecar a fazer") ganha a linha inteira; embaixo 💬 e 🖨️ em quadrados iguais e Cancelar no resto */
+@media (max-width: 640px) {
+  .pedido-card .acoes .btn-principal { flex: 1 1 100%; }
+  .pedido-card .acoes .btn-pequeno { width: 54px; height: 54px; padding: 0; }
+  .pedido-card .acoes .btn-erro { flex: 1 1 0; width: auto; min-width: 0; padding: 0 12px; }
+}
 .divergente { background: var(--erro-suave); color: var(--erro); border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; }
 
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
@@ -731,7 +737,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
   .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
   .turno .muted:first-child { display: none; } /* "das" some: o "ate" no meio ja explica */
-  .turno input[type="time"] { width: 100%; min-width: 0; min-height: 48px; text-align: center; padding: 6px 4px; }
+  /* appearance none: no iPhone o campo de hora tem largura minima propria e passava da coluna */
+  .turno input[type="time"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; text-align: center; padding: 6px 4px; }
+  .turno input[type="time"]::-webkit-date-and-time-value { text-align: center; margin: 0; }
   /* no celular o toque no campo ja abre o relogio: o icone so roubava espaco e cortava a hora */
   .turno input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
 }
@@ -954,6 +962,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .splash-ligeiro img { width: min(170px, 46vw); }
 .splash-ligeiro .splash-pontos span, .splash-ligeiro .splash-pontos span:nth-child(2), .splash-ligeiro .splash-pontos span:nth-child(3) { background: #84CC16; }
 .splash-ligeiro .splash-pontos span:nth-child(2) { background: #1B6B4A; }
+/* tela de carregamento das lojas comuns: fundo da pagina e tres bolinhas iguais na cor da loja.
+   As bolinhas so aparecem depois de 0,25 s: loja que abre rapido nem mostra. */
+.splash-loja { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: opacity 0.25s ease; }
+.splash-loja.saindo { opacity: 0; pointer-events: none; }
+.carregando-pontos { display: flex; gap: 10px; opacity: 0; animation: splash-surgir 0.2s ease 0.25s forwards; }
+.carregando-pontos span { width: 14px; height: 14px; border-radius: 50%; background: var(--cor-bolinha, #B4BCB6); animation: splash-ponto 0.9s ease-in-out infinite; }
+.carregando-pontos span:nth-child(2) { animation-delay: 0.15s; }
+.carregando-pontos span:nth-child(3) { animation-delay: 0.3s; }
 /* fim da primeira tela da loja: confianca e bloco da loja oficial */
 .fim-inicio { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 var(--margem); }
 .fim-inicio:empty { display: none; }
@@ -1319,6 +1335,11 @@ button.plano-card { cursor: pointer; }
   .splash-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .splash-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
   .splash-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
+  .splash-loja { transition: opacity 0.25s ease !important; }
+  .carregando-pontos { animation: splash-surgir 0.2s ease 0.25s forwards !important; }
+  .carregando-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
+  .carregando-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
+  .carregando-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
 }
 .senha-equipe { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
 .senha-equipe-texto { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
