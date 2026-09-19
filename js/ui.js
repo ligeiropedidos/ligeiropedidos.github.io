@@ -59,8 +59,8 @@
   }
 
   /* ---------- Sons (gerados na hora, sem arquivo) ---------- */
-  var menosMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var som = { contexto: null, ligado: lerLocal('ligeiro:som') !== false && !menosMovimento };
+  /* apito nasce ligado em todo aparelho (antes nascia desligado com "Reduzir movimento", e pedido passava sem som) */
+  var som = { contexto: null, ligado: lerLocal('ligeiro:som') !== false };
 
   function prepararSom() {
     if (som.contexto) { if (som.contexto.state === 'suspended') som.contexto.resume(); return; }

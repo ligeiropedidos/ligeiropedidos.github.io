@@ -954,7 +954,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .splash-ligeiro img { width: min(170px, 46vw); }
 .splash-ligeiro .splash-pontos span, .splash-ligeiro .splash-pontos span:nth-child(2), .splash-ligeiro .splash-pontos span:nth-child(3) { background: #84CC16; }
 .splash-ligeiro .splash-pontos span:nth-child(2) { background: #1B6B4A; }
-@media (prefers-reduced-motion: reduce) { .splash-oficial img, .splash-pontos span { animation: none; } }
 /* fim da primeira tela da loja: confianca e bloco da loja oficial */
 .fim-inicio { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 var(--margem); }
 .fim-inicio:empty { display: none; }
@@ -1310,10 +1309,12 @@ button.plano-card { cursor: pointer; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* a marca fica de fora da trava e anda igual no PC: tela de carregamento da loja oficial, logo chegando e boiando,
+     enfeites. Muito iPhone vem com "Reduzir movimento" ligado e a loja parecia parada. (:where deixa a especificidade 0) */
+  :where(:not(.splash-oficial, .splash-oficial *, .tema-conizza .logo-grande, .tema-conizza .enfeites span)) { animation: none !important; transition: none !important; }
+  *::before, *::after { animation: none !important; transition: none !important; }
   /* a flutuacao lenta dos mascotes e pequena (8 px) e fica: e a cara da marca, nao um efeito que enjoa */
   .heroi-mascote { animation: flutuar 4s ease-in-out infinite !important; }
-  .tema-conizza .logo-grande { animation: cz-flutuar 4.5s ease-in-out infinite !important; }
 }
 .senha-equipe { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
 .senha-equipe-texto { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }

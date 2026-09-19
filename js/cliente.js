@@ -821,7 +821,12 @@
 
       var corpo = el('div');
       var srcFoto = D.fotoSrc(produto, estado.fotos);
-      if (srcFoto) corpo.appendChild(el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]));
+      if (srcFoto) {
+        var fotoGrande = el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]);
+        /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
+        fotoGrande.firstChild.addEventListener('error', function () { fotoGrande.remove(); });
+        corpo.appendChild(fotoGrande);
+      }
 
       if (podePersonalizar) {
         grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
