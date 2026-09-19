@@ -18,6 +18,10 @@
   var el = UI.el;
 
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
+  /* carregando da pagina: as tres bolinhas do Ligeiro (surgem depois de um instante, pra nao piscar) */
+  function carregandoEl() {
+    return el('div', { class: 'conta-carregando', role: 'status', 'aria-label': 'Carregando' }, el('div', { class: 'carregando-pontos' }, [el('span'), el('span'), el('span')]));
+  }
   function diasGratis() { var p = (window.LIGEIRO_CONFIG || {}).precos || {}; return p.diasGratis || 7; }
 
   function abrir(raiz) {
@@ -27,7 +31,7 @@
     raiz.appendChild(window.LigeiroParceiro.barraTopo());
     var corpo = el('div', { class: 'conteudo conta' });
     raiz.appendChild(corpo);
-    corpo.appendChild(el('p', { class: 'centro muted', text: 'Carregando…' }));
+    corpo.appendChild(carregandoEl());
 
     store.usuarioAtual().then(function (u) {
       if (!vivo) return;
@@ -52,18 +56,41 @@
       var caixaPlano = el('div');
       corpo.appendChild(caixaPlano);
       var lista = el('div', { class: 'conta-lojas' });
-      corpo.appendChild(el('div', { class: 'hub-secao', text: 'Suas lojas' }));
+      var tituloLojas = el('div', { class: 'hub-secao', text: 'Suas lojas', hidden: true });
+      corpo.appendChild(tituloLojas);
       corpo.appendChild(lista);
       var rodapeLojas = el('div', { class: 'linha-botoes', style: { justifyContent: 'center' } });
       corpo.appendChild(rodapeLojas);
 
+      var vezes = 0, desenhou = false;
+      /* plano e lojas chegam juntos: enquanto nao chegam, o carregando (ou o erro) ocupa o lugar dos dois */
+      function semConteudo(no) {
+        tituloLojas.hidden = true;
+        UI.limpar(caixaPlano); UI.limpar(lista); UI.limpar(rodapeLojas);
+        caixaPlano.appendChild(no);
+      }
+      function falhou(texto) {
+        desenhou = false;
+        semConteudo(UI.erroCarregar(texto, function () { carregar(); }));
+      }
       carregar = function () {
+      var vez = ++vezes;
+      /* primeira carga (ou depois de um erro): mostra o carregando, a tela nunca fica em branco */
+      if (!desenhou) semConteudo(carregandoEl());
+      var demorou = setTimeout(function () { if (vivo && vez === vezes && !desenhou) falhou('Está demorando pra carregar sua conta.'); }, 15000);
       Promise.all([store.listarMinhasLojas(u.email), store.obterConta ? store.obterConta(u.email) : Promise.resolve(null)]).catch(function () {
-        if (vivo) { UI.limpar(lista); lista.appendChild(UI.erroCarregar('Não deu pra carregar suas lojas.')); }
+        clearTimeout(demorou);
+        if (vivo && vez === vezes) falhou('Não deu pra carregar sua conta.');
         return null;
       }).then(function (r) {
-        if (!vivo || !r) return;
+        clearTimeout(demorou);
+        if (!vivo || !r || vez !== vezes) return;
+        try { desenharTudo(r); desenhou = true; } catch (e) { falhou('Não deu pra mostrar sua conta.'); }
+      });
+      };
+      function desenharTudo(r) {
         var lojas = r[0], conta = r[1];
+        tituloLojas.hidden = false;
         var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email; }).length;
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
         desenharPlano(caixaPlano, conta, reais);
@@ -85,8 +112,7 @@
           return;
         }
         lojas.forEach(function (l) { lista.appendChild(cartaoLoja(l)); });
-      });
-      };
+      }
       carregar();
     });
 

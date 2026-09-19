@@ -501,6 +501,7 @@
     return Promise.resolve(u);
   };
   DemoStore.prototype.recuperarSenha = function () { return Promise.resolve(true); };
+  DemoStore.prototype.pareceLogado = function () { return !!contaDemo(); };
   DemoStore.prototype.sair = function () { try { localStorage.removeItem(CHAVE_CONTA); } catch (_) { /* ignora */ } return Promise.resolve(true); };
   /* Na demonstracao, as lojas de exemplo (sem dono) sao suas tambem. */
   DemoStore.prototype.listarMinhasLojas = function (email) {
@@ -549,15 +550,26 @@
   FirebaseStore.prototype._iniciar = function () {
     var eu = this;
     var base = 'https://www.gstatic.com/firebasejs/10.14.1/';
+    /* banco e login so dependem do app: baixam juntos (um vai e volta a menos na internet do celular) */
     return carregarScript(base + 'firebase-app-compat.js')
-      .then(function () { return carregarScript(base + 'firebase-firestore-compat.js'); })
-      .then(function () { return carregarScript(base + 'firebase-auth-compat.js'); })
+      .then(function () { return Promise.all([carregarScript(base + 'firebase-firestore-compat.js'), carregarScript(base + 'firebase-auth-compat.js')]); })
       .then(function () {
         window.firebase.initializeApp(eu.config);
         eu.db = window.firebase.firestore();
         eu.auth = window.firebase.auth();
+        eu.auth.onAuthStateChanged(function (u) { lembrarSessao(!!usuarioDoFirebase(u)); });
         return eu.db.enablePersistence({ synchronizeTabs: true }).catch(function () { /* ok sem cache */ });
       });
+  };
+
+  /* Marca, neste aparelho, se tem alguem logado. Serve so pra desenhar a barra do topo certa na hora
+     ("Minha conta" em vez de "Entrar" piscando); quem manda de verdade e o Firebase, que confirma logo depois. */
+  var CHAVE_SESSAO = 'ligeiro:sessao';
+  function lembrarSessao(tem) {
+    try { if (tem) localStorage.setItem(CHAVE_SESSAO, '1'); else localStorage.removeItem(CHAVE_SESSAO); } catch (_) { /* ignora */ }
+  }
+  FirebaseStore.prototype.pareceLogado = function () {
+    try { return localStorage.getItem(CHAVE_SESSAO) === '1'; } catch (_) { return false; }
   };
 
   FirebaseStore.prototype.pronto = function () { return this._pronto; };
@@ -1118,6 +1130,7 @@
   /* Sair de verdade: derruba a sessao do Firebase (tablet compartilhado nao fica logado). */
   FirebaseStore.prototype.sair = function () {
     var eu = this;
+    lembrarSessao(false);
     return this._pronto.then(function () { return eu.auth.signOut(); }).catch(function () { return true; });
   };
 

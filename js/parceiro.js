@@ -55,17 +55,24 @@
   function barraTopo() {
     var entrar = el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrar', text: 'Entrar' });
     var assinar = el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar', text: 'Assinar agora' });
+    var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
       el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.png', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
-      el('div', { class: 'barra-acoes' }, [entrar, assinar]),
+      acoes,
     ]);
-    /* logado: "Entrar" vira "Minha conta" e "Assinar agora" vira "Meu plano" */
-    if (D() && D().store.usuarioAtual) D().store.usuarioAtual().then(function (u) {
-      if (!u || !barra.isConnected) return;
-      entrar.textContent = '👤 Minha conta'; entrar.setAttribute('href', '#/conta');
-      assinar.remove(); /* logado, o plano mora em Minha conta */
-      entrar.classList.remove('btn-fantasma'); entrar.classList.add('btn-principal');
-    });
+    /* logado: "Entrar" vira "Minha conta" e "Assinar agora" sai (o plano mora em Minha conta) */
+    function comoLogado(sim) {
+      entrar.textContent = sim ? '👤 Minha conta' : 'Entrar';
+      entrar.setAttribute('href', sim ? '#/conta' : '#/entrar');
+      entrar.classList.toggle('btn-principal', sim);
+      entrar.classList.toggle('btn-fantasma', !sim);
+      if (sim) { if (assinar.parentNode) assinar.remove(); } else if (!assinar.parentNode) acoes.appendChild(assinar);
+    }
+    var store = D() && D().store;
+    /* ja entrou antes neste aparelho: abre direto com "Minha conta", sem piscar "Entrar" */
+    if (store && store.pareceLogado && store.pareceLogado()) comoLogado(true);
+    /* o Firebase confirma e corrige se a sessao tiver caido */
+    if (store && store.usuarioAtual) store.usuarioAtual().then(function (u) { comoLogado(!!u); });
     return barra;
   }
 
