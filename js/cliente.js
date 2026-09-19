@@ -884,7 +884,7 @@
       if (podePersonalizar) {
         grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
         if (produto.ingredientes && produto.ingredientes.length) corpo.appendChild(montarGrupoRemover(produto.ingredientes));
-        var obs = el('div', { class: 'campo', style: { marginTop: '18px' } }, [
+        var obs = el('div', { class: 'campo', style: { marginTop: '16px' } }, [
           el('label', { for: 'obsItem', html: 'Algum recado sobre este item? <span class="opcional">opcional</span>' }),
           el('textarea', { id: 'obsItem', maxlength: '140', placeholder: 'Ex: bem passado, pouca cebola…' }),
         ]);
@@ -1842,7 +1842,7 @@
           '<div class="cupom-valendo" id="cupomValendo" hidden><span>🎟️ <b id="cupomNome"></b> <span id="cupomQuanto"></span></span><button type="button" id="btnTirarCupom">Tirar</button></div>' +
         '</div>' +
         '<div class="totais" id="totaisCarrinho"></div>' +
-        '<button class="btn btn-fantasma btn-largo" id="btnAddMais">+ Adicionar mais alguma coisa</button>' +
+        '<button class="btn btn-fantasma btn-largo" id="btnAddMais">+ Adicionar mais</button>' +
       '</div>' +
       '<div class="barra-carrinho visivel"><div class="linha-barra"><div class="resumo"><div class="qtd" id="carrinhoBarraQtd"></div><div class="valor" id="carrinhoBarraValor"></div></div><button class="btn btn-principal" id="btnIrDados">Continuar →</button></div></div>' +
     '</section>' +

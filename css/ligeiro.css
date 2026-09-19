@@ -74,7 +74,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tela.ativa { display: flex; }
 @keyframes entrar { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-.conteudo { padding: 18px var(--margem) 30px; display: flex; flex-direction: column; gap: 16px; }
+.conteudo { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 16px; }
 .centro { text-align: center; }
 .muted { color: var(--muted); }
 .pequeno { font-size: 15px; }
@@ -163,7 +163,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* ---------- Escolhas grandes (uma decisao por tela) ---------- */
 
-.escolhas { display: flex; flex-direction: column; gap: 14px; padding: 18px var(--margem); }
+.escolhas { display: flex; flex-direction: column; gap: 12px; padding: 16px var(--margem); }
 .escolha-grande {
   display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
   min-height: 92px; padding: 18px 20px;
@@ -345,10 +345,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .faixa-acompanhar .seta { margin-left: auto; }
 .faixa-teste { background: repeating-linear-gradient(135deg, var(--lemon) 0 14px, #FCE36B 14px 28px); color: #4A3A00; font-size: 13px; font-weight: 700; text-align: center; padding: 6px 10px; letter-spacing: 0.04em; }
-.rodape { margin-top: auto; padding: 16px var(--margem) 30px; text-align: center; color: var(--muted); font-size: 14.5px; display: flex; flex-direction: column; gap: 10px; }
-.rodape .contatos { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.rodape { margin-top: auto; padding: 16px var(--margem) 30px; text-align: center; color: var(--muted); font-size: 14.5px; display: flex; flex-direction: column; gap: 12px; }
+.rodape .contatos { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .rodape a.btn { min-height: 46px; font-size: 15px; border-radius: 12px; }
-.rodape .ligeiro { font-size: 12.5px; color: #97A399; margin-top: 6px; }
+.rodape .ligeiro { font-size: 12.5px; color: #97A399; margin-top: 4px; } /* 12 + 4 = 16 antes do "Feito com Ligeiro" */
 .rodape-legal { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .rodape-legal span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .rodape-legal .selo-mini { margin: 0; vertical-align: 0; }
@@ -370,7 +370,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .abas::-webkit-scrollbar { display: none; }
 .aba { flex: none; min-height: 46px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; }
 .aba.ativa { background: var(--deep); color: #fff; border-color: var(--deep); }
-.grade { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 6px var(--margem) 24px; }
+.grade { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 4px var(--margem) 24px; } /* 12 da barra de categorias + 4 = 16 ate o primeiro cartao */
 @media (min-width: 560px) { .grade { grid-template-columns: 1fr 1fr; } }
 .card-produto {
   display: flex; gap: 14px; align-items: stretch; text-align: left; width: 100%;
@@ -454,7 +454,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .btn-adicionar { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; padding-left: 12px; padding-right: 12px; line-height: 1.15; }
 .btn-adicionar .add-rotulo, .btn-adicionar .add-valor { white-space: nowrap; }
 .btn-adicionar .add-valor { font-family: var(--display); }
-.grupo { margin-top: 18px; }
+.grupo { margin-top: 16px; }
 .grupo-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; }
 .grupo-dica { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
 .opcao { position: relative; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 12px; margin-top: 8px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--card); cursor: pointer; }
@@ -1011,10 +1011,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fim-inicio:empty { display: none; }
 .confianca { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin: 0; max-width: 440px; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.4; }
 .confianca span { white-space: nowrap; }
+.fim-inicio > .confianca:first-child { margin-top: 4px; } /* loja sem o cartao da casa: 12 + 4 = 16 dos cartoes ate os selos, igual a oficial */
 /* pedaco vazio do rodape nao conta como vao */
 .rodape > :empty { display: none; }
-.oficial-extra { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 440px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); text-align: left; }
-.oficial-extra img { width: 92px; height: 92px; object-fit: contain; flex: none; }
+.oficial-extra { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 440px; padding: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); text-align: left; }
+.oficial-extra img { width: 108px; height: 108px; object-fit: contain; flex: none; } /* mesma medida e recuo da foto dos cartoes de cima: desenho e texto alinhados com eles */
 .oficial-extra b { display: block; font-family: var(--display); font-size: 17px; line-height: 1.2; }
 .oficial-extra span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
 .painel-topo .logo-mini { height: 40px; width: 40px; object-fit: contain; flex: none; }

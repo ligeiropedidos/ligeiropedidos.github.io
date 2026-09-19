@@ -138,9 +138,12 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 
 /* ---------- cardapio ---------- */
 .tema-conizza .abas { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
+.tema-conizza .grade { padding-top: 12px; } /* a barra tem linha embaixo: primeiro cartao a 12 dela, como entre os cartoes */
 .tema-conizza .aba { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
 .tema-conizza .card-produto { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); transition: transform 0.08s ease, box-shadow 0.08s ease; }
+/* a letra da casa e mais alta: o texto do cartao tem 116px, entao foto (e o mascote do cartao da casa) com 116 deixa a sobra igual nos quatro lados */
+.tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 116px; height: 116px; }
 .tema-conizza .card-produto:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .card-produto .foto { border: 3px solid var(--cz-tinta); border-radius: 14px; background: linear-gradient(160deg, var(--cz-ouro-claro), var(--cz-ouro)); }
 .tema-conizza .card-produto .nome { font-family: var(--cz-display); font-weight: 800; font-size: 20px; }
