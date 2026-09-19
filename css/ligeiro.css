@@ -1295,14 +1295,16 @@ button.plano-card { cursor: pointer; }
 .conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 2px 0; }
 .conta-lojas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; } /* minmax: texto comprido nunca alarga o cartao alem da tela */
 .conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); }
-.conta-loja-topo { display: flex; align-items: flex-start; gap: 14px; } /* logo no alto, na altura do nome (texto de varias linhas nao deixa ela solta no meio) */
+.conta-loja-topo { display: flex; align-items: center; gap: 14px; } /* logo no meio do nome + tipo (os selos ficam numa linha propria embaixo) */
 .conta-logo { width: 64px; height: 64px; border-radius: var(--raio-logo-p, 16px); background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 30px; flex: none; overflow: hidden; }
-.conta-loja-topo .conta-logo { margin-top: 4px; } /* topo da logo = topo das letras do nome (a caixa do texto tem 4px de folga em cima) */
 .conta-logo img { width: 100%; height: 100%; object-fit: cover; }
 .conta-loja-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.conta-loja-nome { font-family: var(--display); font-size: 20px; font-weight: 700; line-height: 1.15; }
+.conta-loja-nome { font-family: var(--display); font-size: 20px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.conta-loja-info .muted { text-wrap: balance; } /* quebra em linhas iguais: nada de "Ze" sozinho embaixo */
 .conta-selos { display: flex; flex-wrap: wrap; gap: 6px; }
 .conta-selos .selo { font-size: 12.5px; padding: 4px 10px; white-space: nowrap; } /* selo e pilula de uma linha so */
+.conta-selos .rot-curto { display: none; }
+@media (max-width: 360px) { .conta-selos .rot-longo { display: none; } .conta-selos .rot-curto { display: inline; } } /* 320: "Aberta" + o outro selo cabem lado a lado */
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }

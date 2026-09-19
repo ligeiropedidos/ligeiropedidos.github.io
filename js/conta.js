@@ -238,11 +238,12 @@
           el('div', { class: 'conta-loja-info' }, [
             el('div', { class: 'conta-loja-nome', text: l.nome }),
             el('div', { class: 'muted pequeno', text: (l.tipo ? R.tipoVisivel(l) + ' · ' : '') + (l.cidade || '') + (l.uf ? '/' + l.uf : '') }),
-            el('div', { class: 'conta-selos' }, [
-              el('span', { class: 'selo ' + (aberta ? '' : 'fechado'), text: aberta ? '● Aberta agora' : '● Fechada agora' }),
-              el('span', { class: 'selo ' + classeSelo, text: textos[a.estado] || a.estado }),
-            ]),
           ]),
+        ]),
+        /* selos numa linha propria, com a largura toda do cartao: lado a lado ate em 320 */
+        el('div', { class: 'conta-selos' }, [
+          el('span', { class: 'selo ' + (aberta ? '' : 'fechado') }, [el('span', { class: 'rot-longo', text: aberta ? '● Aberta agora' : '● Fechada agora' }), el('span', { class: 'rot-curto', text: aberta ? '● Aberta' : '● Fechada' })]),
+          el('span', { class: 'selo ' + classeSelo, text: textos[a.estado] || a.estado }),
         ]),
         /* entrada principal: o painel. Depois o site da loja e, separadas, as telas da equipe. */
         el('a', { class: 'btn btn-principal conta-painel', href: '#/painel/' + l.slug }, [
