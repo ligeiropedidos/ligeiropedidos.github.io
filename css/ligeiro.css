@@ -430,9 +430,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* foto grande do item: quadrado exato (igual a lista), a imagem preenche tudo recortando pelo centro, nunca estica */
 .foto-modal { position: relative; width: 100%; margin: 4px 0 10px; border-radius: 16px; overflow: hidden; background: var(--lime-suave); aspect-ratio: 1 / 1; }
 .foto-modal img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
-/* tela larga (PC, tablet, celular deitado): quadrado de 320 no meio, como a foto do produto no totem.
-   Celular em pe (ate 479px) usa a largura toda. */
-@media (min-width: 480px) { .foto-modal { width: min(100%, 320px); margin-left: auto; margin-right: auto; } }
+/* item aberto em tela larga: a gaveta fica da largura de um celular grande e a foto quadrada ocupa a largura toda,
+   alinhada com o titulo e as opcoes (igual no celular). A largura acompanha a altura da tela pra sobrar lugar pras opcoes. */
+@media (min-width: 480px) { .modal-caixa.modal-item { max-width: clamp(380px, 46vh, 520px); } } /* foto em ~42% da altura, como no celular */
 .btn-adicionar { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; padding-left: 12px; padding-right: 12px; line-height: 1.15; }
 .btn-adicionar .add-rotulo, .btn-adicionar .add-valor { white-space: nowrap; }
 .btn-adicionar .add-valor { font-family: var(--display); }

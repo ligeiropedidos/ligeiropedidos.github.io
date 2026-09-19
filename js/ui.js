@@ -121,6 +121,7 @@
     var modal = $('modal');
     var caixa = $('modalCaixa');
     limpar(caixa);
+    caixa.className = 'modal-caixa' + (opcoes.classe ? ' ' + opcoes.classe : '');
     var topo = el('div', { class: 'modal-topo' }, [
       el('div', { style: { flex: '1' } }, [
         el('div', { class: 'titulo', text: opcoes.titulo || '' }),

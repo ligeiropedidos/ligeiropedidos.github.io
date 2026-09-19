@@ -911,6 +911,7 @@
       m.atualizarPreco = atualizarPreco;
 
       UI.abrirModal({
+        classe: 'modal-item',
         titulo: produto.nome,
         sub: produto.descricao || '',
         corpo: corpo,
