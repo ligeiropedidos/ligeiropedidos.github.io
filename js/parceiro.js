@@ -402,6 +402,8 @@
       var normal = t === 'anual' && p.anual > 0 ? p.anual : p.mensal;
       var deFundador = preco < normal;
       var porLoja = Math.ceil(preco / (t === 'anual' ? 12 : 1) / p.lojas / 100) * 100;
+      /* anual: quanto sai mais barato que pagar 12 meses no mensal (mesmo preco, de fundador ou nao) */
+      var economia = t === 'anual' ? R.precoDoPlano(p.id, 'mensal') * 12 - preco : 0;
       var destaque = i === 1 && lista.length > 2 ? 'Mais escolhido' : '';
       var linhas = [
         p.lojas === 1 ? '1 loja na sua conta' : 'Até ' + p.lojas + ' lojas na mesma conta',
@@ -411,17 +413,21 @@
         'Suporte 24 horas',
       ];
       /* o valor nunca parte no meio ("R$" numa linha e "70,00" na outra) */
-      var sub = p.lojas > 1 ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por loja no mês'] : (p.frase || '');
+      var sub = p.lojas > 1 ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por loja no mês']
+        : (t === 'anual' ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por mês'] : (p.frase || ''));
       var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
-        el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })]),
+        el('div', { class: 'plano-preco-caixa' }, el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })])),
+        economia > 0 ? el('div', { class: 'plano-economia' }, [el('b', { text: 'Economize ' + dinheiro(economia) }), ' no ano']) : null,
         deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
         el('div', { class: 'plano-sub' }, sub),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true', text: '✓' }), el('span', { text: x })]); })),
         selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '✓ Escolhido' : 'Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
       ]);
       if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
+      /* quantas partes o cartao tem (a etiqueta flutua e nao conta): vira as linhas do subgrid */
+      card.style.setProperty('--partes', [].filter.call(card.children, function (f) { return !f.classList.contains('plano-etiqueta'); }).length);
       return card;
     }));
     var temFundador = lista.some(function (p) { var n = t === 'anual' && p.anual > 0 ? p.anual : p.mensal; return R.precoDoPlano(p.id, t) < n; });
@@ -430,13 +436,14 @@
     return grade;
   }
 
-  /* Mensal | Anual (paga 10 meses, usa 12) */
+  /* Mensal | Anual (paga 10 meses, usa 12: o selo mostra isso antes de tocar) */
   function seletorTipo(tipo, aoMudar) {
     var pr = precos();
     if (!(pr.anual > 0)) return el('span');
     var caixa = el('div', { class: 'estilo-linha seletor-tipo' });
-    [['mensal', 'Mensal'], ['anual', 'Anual · paga 10, usa 12']].forEach(function (op) {
-      caixa.appendChild(el('button', { type: 'button', class: 'aba-painel' + (tipo === op[0] ? ' ativa' : ''), text: op[1], onclick: function () { aoMudar(op[0]); } }));
+    [['mensal', 'Mensal'], ['anual', 'Anual', '2 meses grátis']].forEach(function (op) {
+      caixa.appendChild(el('button', { type: 'button', class: 'aba-painel' + (tipo === op[0] ? ' ativa' : ''), onclick: function () { aoMudar(op[0]); } },
+        [op[1], op[2] ? el('span', { class: 'tipo-selo', text: op[2] }) : null]));
     });
     return caixa;
   }
@@ -497,7 +504,9 @@
     desenhar();
     D().store.usuarioAtual().then(function (u) {
       if (!u || !raiz.isConnected) return;
-      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; escolhido = (c.plano && c.plano.planoId) || escolhido; tipo = (c.plano && c.plano.tipo) || tipo; desenhar(); } });
+      /* o plano da conta so vale quando o link nao escolheu ("Começar grátis" do anual abre no anual, mesmo logado) */
+      var linkEscolheu = lista.some(function (p) { return p.id === planoInicial; }), linkTipo = tipoInicial === 'anual' || tipoInicial === 'mensal' || planoInicial === 'anual';
+      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; if (!linkEscolheu) escolhido = (c.plano && c.plano.planoId) || escolhido; if (!linkTipo) tipo = (c.plano && c.plano.tipo) || tipo; desenhar(); } });
     });
 
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [

@@ -933,8 +933,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fundador-barra { height: 8px; border-radius: 999px; background: #FDE68A; overflow: hidden; }
 .fundador-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #F59E0B, #FBBF24); }
 @media (min-width: 560px) { .fundador { grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; } .fundador-vagas { text-align: right; } }
-.plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin-top: -2px; }
+.plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* fundo sai 10px para fora: o texto fica na mesma linha do titulo e do preco */
 .plano-fundador s { color: #7A5A12; }
+.plano-economia { font-size: 13px; line-height: 1.35; color: #14532D; background: #DCFCE7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* anual: o desconto em reais, colado no preco */
+.plano-economia + .plano-fundador { margin-top: 0; }
+.tipo-selo { font-size: 12px; font-weight: 700; line-height: 1; padding: 5px 8px; border-radius: 999px; background: #DCFCE7; color: #14532D; white-space: nowrap; }
+.aba-painel.ativa .tipo-selo { background: var(--lime); color: var(--ink); }
+@media (max-width: 360px) { .estilo-linha.seletor-tipo { gap: 8px; } .seletor-tipo .aba-painel { padding: 8px 12px; gap: 6px; } .seletor-tipo .tipo-selo { padding: 5px 6px; } } /* tela ampliada do iPhone: Mensal e Anual na mesma linha */
 .selo.selo-fundador { background: #FDE68A; color: #3F2A00; }
 /* avisos do plano (Minha conta): cartao com icone, titulo e uma linha */
 .aviso-plano { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid; text-align: left; }
@@ -1226,14 +1231,21 @@ button.plano-card { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .plano-card.escolhido { animation: none; } }
 .plano-etiqueta { position: absolute; top: -11px; right: 16px; z-index: 1; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; } /* em cima da borda: nunca encosta no titulo, em nenhuma largura */
 .plano-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--deep2); }
-.plano-card { container-type: inline-size; }
+.plano-preco-caixa { container-type: inline-size; min-width: 0; } /* a medida do preco mora aqui (no cartao, travaria o alinhamento entre cartoes) */
 .plano-preco { font-family: var(--display); font-size: 40px; font-size: clamp(24px, 12cqi, 40px); font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; } /* preco e /mes sempre numa linha: a letra acompanha a largura do cartao */
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
 .plano-sub { color: var(--body); font-weight: 600; }
-.plano-linhas { list-style: none; padding: 0; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
+.plano-linhas { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
 .plano-linhas li { display: flex; align-items: baseline; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
 .plano-check { flex: none; }
 .plano-marca { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); font-weight: 700; color: var(--deep); white-space: nowrap; } /* sempre no pe do cartao, mesma altura nos dois */
+/* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
+@supports (grid-template-rows: subgrid) {
+  .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }
+  .planos > .plano-card > .plano-marca { justify-self: start; align-self: end; }
+  .planos > .plano-card > .btn { align-self: end; } /* botao da pagina de vendas continua da largura do cartao */
+  .planos > .plano-card > .plano-linhas { align-self: start; }
+}
 .plano-card.escolhido .plano-marca { background: var(--lime); border-color: var(--lime); color: var(--texto-no-destaque, var(--ink)); }
 .checklist { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
 .checklist li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
