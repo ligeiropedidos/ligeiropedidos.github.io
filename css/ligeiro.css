@@ -737,8 +737,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
   .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
   .turno .muted:first-child { display: none; } /* "das" some: o "ate" no meio ja explica */
-  /* appearance none: no iPhone o campo de hora tem largura minima propria e passava da coluna */
-  .turno input[type="time"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; text-align: center; padding: 6px 4px; }
+  /* appearance none: no iPhone o campo de hora tem largura minima propria e passava da coluna.
+     flex + align-items: e o que o proprio iPhone usa pra centrar a hora na altura (com display block ela subia) */
+  .turno input[type="time"] { -webkit-appearance: none; appearance: none; display: flex; align-items: center; justify-content: center; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; text-align: center; padding: 0 4px; }
   .turno input[type="time"]::-webkit-date-and-time-value { text-align: center; margin: 0; }
   /* no celular o toque no campo ja abre o relogio: o icone so roubava espaco e cortava a hora */
   .turno input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
