@@ -230,24 +230,31 @@
         var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
         if (proximo) {
           f.appendChild(el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', text: rotulo, onclick: function () {
+            if (proximo !== R.STATUS.PRODUCAO) estado.movidosAqui[p.id] = true; /* saiu da fila por esta tela: nao e cancelamento */
             store.atualizarPedido(slug, p.id, { status: proximo }).then(function () { UI.soar('toque'); }).catch(function (e) { UI.avisar(e.message); });
           } }));
         }
         return f;
       }
 
-      estado.parar.push(store.assistirLoja(slug, function (loja) { if (loja) estado.loja = loja; }));
+      /* a loja veio uma vez ao abrir; a cozinha nao precisa da loja inteira de novo a cada vez que o dono salva algo */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
-      var desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      estado.movidosAqui = {};
       estado.parar.push(store.assistirPedidos(slug, function (lista) {
         var novos = 0;
         if (estado.conhecidos) lista.forEach(function (p) { if (p.status === R.STATUS.PAGO && !estado.conhecidos[p.id + p.status]) novos += 1; });
-        /* pedido que a cozinha ja via (pra fazer ou fazendo) e foi cancelado: som e aviso, pra ninguem fazer a toa */
-        if (estado.statusAntes) lista.forEach(function (p) {
-          var antes = estado.statusAntes[p.id];
-          if (p.status === R.STATUS.CANCELADO && (antes === R.STATUS.PAGO || antes === R.STATUS.PRODUCAO)) { UI.soar('cancelado'); UI.avisar('Senha ' + p.senha + ' foi cancelada. Pode parar.'); }
-        });
+        /* saiu da fila sem ter sido esta tela (cancelado, ou o painel mexeu): confere 1 vez; cancelado ganha som e aviso */
+        if (estado.statusAntes) {
+          var agora = {};
+          lista.forEach(function (p) { agora[p.id] = true; });
+          Object.keys(estado.statusAntes).forEach(function (id) {
+            if (agora[id] || estado.movidosAqui[id]) return;
+            store.obterPedido(slug, id).then(function (p) {
+              if (p && p.status === R.STATUS.CANCELADO) { UI.soar('cancelado'); UI.avisar('Senha ' + p.senha + ' foi cancelada. Pode parar.'); }
+            }).catch(function () { /* sem internet: segue */ });
+          });
+        }
         estado.statusAntes = {};
         lista.forEach(function (p) { estado.statusAntes[p.id] = p.status; });
         estado.conhecidos = estado.conhecidos || {};
@@ -255,7 +262,7 @@
         estado.pedidos = lista;
         if (novos) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
         desenhar();
-      }, { desde: desde, aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
+      }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO], aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
       estado.relogio = setInterval(desenhar, 30000);
 
       function pararCozinha() {
@@ -339,11 +346,10 @@
         return card;
       }
 
-      estado.parar.push(store.assistirLoja(slug, function (loja) { if (loja) estado.loja = loja; }));
+      /* so as entregas em andamento (a loja veio uma vez ao abrir) */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
-      var desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { desde: desde, aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
+      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
       estado.relogio = setInterval(desenhar, 60000);
 
       function pararEntrega() {

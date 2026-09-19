@@ -33,7 +33,9 @@
     function esquecerRecarga() { try { sessionStorage.removeItem(chaveRecarga); } catch (_) { /* ignora */ } }
 
     UI.abrirOficialCedo(raiz, slug);
-    store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
+    /* a loja chega uma vez so: a primeira foto abre o painel e as mudancas seguem pela mesma escuta */
+    var lojaViva = store.lojaAoVivo ? store.lojaAoVivo(slug) : { primeira: store.obterLoja(slug), assistir: function (cb) { return store.assistirLoja(slug, cb); }, parar: function () {} };
+    lojaViva.primeira.catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
       if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir o painel.')); return; }
       if (!loja) {
@@ -210,7 +212,7 @@
       raiz.appendChild(el('section', { class: 'secao', id: 'secaoPainel' }));
 
       pararTudo();
-      estado.parar.push(store.assistirLoja(slug, function (loja) {
+      estado.parar.push(lojaViva.assistir(function (loja) {
         if (!loja) return;
         var mpMudou = !!estado.loja && !!loja.mpAtivo !== !!estado.loja.mpAtivo;
         estado.loja = loja;
@@ -223,7 +225,11 @@
       var zerarRecarga = setTimeout(esquecerRecarga, 60000);
       var pararZerar = function () { clearTimeout(zerarRecarga); };
       estado.parar.push(pararZerar);
-      var desde = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+      /* fila do dia de operacao (desde as 5h; de madrugada, desde as 5h de ontem): o inicio nao muda a cada abertura,
+         entao reabrir em menos de 30 min so paga o que mudou */
+      var inicio = new Date(); if (inicio.getHours() < 5) inicio.setDate(inicio.getDate() - 1);
+      inicio.setHours(5, 0, 0, 0);
+      var desde = inicio.toISOString();
       estado.parar.push(store.assistirPedidos(slug, function (lista) {
         var novos = [];
         if (estado.conhecidos) {
@@ -629,7 +635,7 @@
     function salvarLoja(mudancas, aviso) {
       var nova = Object.assign({ slug: slug }, mudancas);
       delete nova.fotosVersao; /* so salvarFoto/excluirFoto mexem nisso */
-      return store.salvarLoja(nova).then(function (salva) {
+      return store.salvarLoja(nova, Object.assign({}, estado.loja || {}, nova)).then(function (salva) {
         estado.loja = Object.assign({}, estado.loja, salva || nova);
         if (aviso) UI.avisar(aviso);
         return estado.loja;
@@ -1913,7 +1919,7 @@
       ]));
     }
 
-    return function () { vivo = false; pararTudo(); UI.limparTemaOficial(raiz); };
+    return function () { vivo = false; pararTudo(); lojaViva.parar(); UI.limparTemaOficial(raiz); };
   }
 
   window.LigeiroPainel = { abrir: abrir };

@@ -48,6 +48,11 @@
     var vagas = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
       if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
     }).catch(function () { /* fica o que tinha */ }) : Promise.resolve();
+    /* e conta agora as lojas no ar (a Central so conta quando abre): com o limite batido, ninguem passa */
+    var lojasAgora = null;
+    var contagem = store.listarVitrine ? store.listarVitrine({ semCache: true }).then(function (lista) {
+      lojasAgora = (lista || []).filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l); }).length;
+    }).catch(function () { /* fica a contagem da Central */ }) : Promise.resolve();
     function listaDeEspera() {
       UI.limpar(raiz);
       var P = window.LigeiroParceiro || {};
@@ -56,9 +61,9 @@
         el('a', { class: 'btn btn-fantasma btn-largo', href: '#/lojas', text: 'Voltar' }),
       ]));
     }
-    vagas.then(function () { return store.usuarioAtual(); }).then(function (u) {
+    Promise.all([vagas, contagem]).then(function () { return store.usuarioAtual(); }).then(function (u) {
       if (!vivo) return;
-      var fechado = R.capacidadeLojas().fechado;
+      var fechado = R.capacidadeLojas(lojasAgora).fechado;
       /* sem conta e sem vaga: nem pede login, vai direto para a lista */
       if (!u && fechado) { listaDeEspera(); return; }
       if (!u) {
@@ -67,6 +72,9 @@
         window.LigeiroApp.ir('entrar');
         return;
       }
+      /* vagas fechadas ou limite batido: ninguem abre loja nova (nem quem ja e cliente); o Ligeiro sempre pode.
+         Vem antes de tudo: sem vaga, nao adianta mandar trocar de plano. As lojas que ja existem continuam normais. */
+      if (fechado && !R.ehDoLigeiro({ email: u.email })) { listaDeEspera(); return; }
       /* conta no limite do plano (ou vencida): guia pra trocar de plano em vez de mostrar o formulario */
       var pedidos = [store.obterConta ? store.obterConta(u.email) : Promise.resolve(null), store.listarMinhasLojas ? store.listarMinhasLojas(u.email) : Promise.resolve([])];
       Promise.all(pedidos).catch(function () { return [null, []]; }).then(function (r) {
@@ -96,8 +104,6 @@
             return;
           }
         }
-        /* cliente novo (sem loja) com vagas fechadas: lista de espera. Quem ja tem loja segue dentro do plano; o Ligeiro sempre pode. */
-        if (fechado && reais === 0 && !R.ehDoLigeiro({ email: u.email })) { listaDeEspera(); return; }
         UI.limpar(raiz);
         montar(raiz, opcoes, u);
       });

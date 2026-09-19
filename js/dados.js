@@ -56,6 +56,18 @@
    * que o hub e a pagina das cidades leem. Na nuvem vive em vitrine/{slug} e e
    * gravado junto com a loja. Uns 5 a 20 KB em vez de 100+ KB por loja.
    */
+  /* resumo com a logo pequena (160 px, ~8 KB em vez de ~30 KB): e o que o hub e a pagina da cidade baixam por loja */
+  var miniLogos = {};
+  function resumoLeve(l) {
+    var r = resumoDaLoja(l);
+    var logo = r.logoDados;
+    if (!logo || !/^data:image\//.test(logo) || logo.length < 12000) return Promise.resolve(r);
+    if (miniLogos[logo]) { r.logoDados = miniLogos[logo]; return Promise.resolve(r); }
+    return miniatura(logo, 160, 0.78).then(function (mini) {
+      if (mini && mini.length < logo.length) { miniLogos[logo] = mini; r.logoDados = mini; }
+      return r;
+    }).catch(function () { return r; });
+  }
   function resumoDaLoja(l) {
     var ativos = (l.produtos || []).filter(function (p) { return p.ativo !== false; });
     return {
@@ -245,6 +257,16 @@
     var entregar = function () { eu.obterPedido(lojaSlug, id).then(cb); };
     entregar();
     return this.assistir(entregar);
+  };
+
+  /* na demonstracao ler e de graca: primeira = obterLoja, e o assistir e o assistirLoja de sempre */
+  DemoStore.prototype.lojaAoVivo = function (slug) {
+    var eu = this, paradas = [];
+    return {
+      primeira: eu.obterLoja(slug),
+      assistir: function (cb) { var p = eu.assistirLoja(slug, cb); paradas.push(p); return p; },
+      parar: function () { paradas.forEach(function (p) { try { p(); } catch (_) { /* ignora */ } }); paradas = []; },
+    };
   };
 
   DemoStore.prototype.assistirLoja = function (slug, cb) {
@@ -464,7 +486,8 @@
     var db = this._ler();
     var todos = db.pedidos[lojaSlug] || {};
     var lista = Object.keys(todos).map(function (k) { return todos[k]; });
-    if (o.desde) lista = lista.filter(function (p) { return p.criadoEm >= o.desde; });
+    if (o.status) lista = lista.filter(function (p) { return o.status.indexOf(p.status) >= 0 && (!o.tipoEntrega || p.tipoEntrega === o.tipoEntrega); });
+    else if (o.desde) lista = lista.filter(function (p) { return p.criadoEm >= o.desde; });
     lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
     if (o.limite) lista = lista.slice(0, o.limite);
     return Promise.resolve(lista.map(clonar));
@@ -599,6 +622,31 @@
 
   FirebaseStore.prototype.pronto = function () { return this._pronto; };
 
+  /* Loja ao vivo com UMA leitura: a primeira foto abre a tela (no lugar do get) e as seguintes chegam por aqui.
+     Antes era get + onSnapshot = a loja inteira (com a logo) baixada 2 vezes a cada visita. */
+  FirebaseStore.prototype.lojaAoVivo = function (slug) {
+    var eu = this, ouvintes = [], ultimo, tem = false, parar = function () {}, cancelado = false, resolver, rejeitar;
+    var primeira = new Promise(function (ok, erro) { resolver = ok; rejeitar = erro; });
+    this._pronto.then(function () {
+      if (cancelado) return;
+      parar = eu.db.collection('lojas').doc(slug).onSnapshot(function (d) {
+        ultimo = d.exists ? daNuvem(d.data()) : null;
+        if (!tem) { tem = true; resolver(ultimo); return; }
+        ouvintes.slice().forEach(function (f) { try { f(ultimo); } catch (_) { /* um ouvinte com erro nao derruba os outros */ } });
+      }, function (e) { if (!tem) { tem = true; rejeitar(e); } });
+    }).catch(function (e) { if (!tem) { tem = true; rejeitar(e); } });
+    return {
+      primeira: primeira,
+      /* como o assistirLoja: entrega o estado atual na hora e depois cada mudanca */
+      assistir: function (cb) {
+        ouvintes.push(cb);
+        if (tem) setTimeout(function () { if (ouvintes.indexOf(cb) >= 0) cb(ultimo); }, 0);
+        return function () { ouvintes = ouvintes.filter(function (f) { return f !== cb; }); };
+      },
+      parar: function () { cancelado = true; ouvintes = []; parar(); },
+    };
+  };
+
   FirebaseStore.prototype.assistirLoja = function (slug, cb) {
     var parar = function () {};
     var cancelado = false;
@@ -616,13 +664,22 @@
     this._pronto.then(function () {
       if (cancelado) return;
       var q = this.db.collection('lojas').doc(lojaSlug).collection('pedidos');
-      if (o.desde) q = q.where('criadoEm', '>=', o.desde);
-      q = q.orderBy('criadoEm', 'desc');
-      if (o.limite) q = q.limit(o.limite);
+      /* filtro por situacao (cozinha, entregador): so o que esta em andamento, sem ordenar no banco (dispensa indice composto) */
+      if (o.status) {
+        q = q.where('status', 'in', o.status); /* so um filtro no banco: o tipo de entrega e separado no aparelho (sem indice composto) */
+      } else {
+        if (o.desde) q = q.where('criadoEm', '>=', o.desde);
+        q = q.orderBy('criadoEm', 'desc');
+        if (o.limite) q = q.limit(o.limite);
+      }
       parar = q.onSnapshot(function (snap) {
         var lista = [];
         /* pedido torto (sem cliente ou sem itens) nao pode derrubar a fila inteira da loja */
         snap.forEach(function (d) { var x = d.data(); if (!x.cliente || typeof x.cliente !== 'object') x.cliente = {}; if (!Array.isArray(x.itens)) x.itens = []; lista.push(x); });
+        if (o.status) {
+          if (o.tipoEntrega) lista = lista.filter(function (p) { return p.tipoEntrega === o.tipoEntrega; });
+          lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
+        }
         cb(lista);
       }, function (e) {
         /* banco recusou (saiu da conta, senha da equipe trocada): a tela precisa saber, senao fica muda pra sempre */
@@ -739,9 +796,10 @@
 
   function limparCacheVitrine() { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } }
   /* Vitrine na nuvem: 1 leitura por loja, documentos pequenos, e cache de 5 minutos no aparelho. */
-  FirebaseStore.prototype.listarVitrine = function () {
+  /* opcoes.semCache: lista de agora (o cadastro conta as lojas no ar antes de deixar criar outra) */
+  FirebaseStore.prototype.listarVitrine = function (opcoes) {
     var chave = 'ligeiro:vitrine';
-    try {
+    if (!(opcoes && opcoes.semCache)) try {
       var c = JSON.parse(localStorage.getItem(chave) || 'null');
       if (c && c.em && Date.now() - c.em < 5 * 60 * 1000 && Array.isArray(c.lista)) return Promise.resolve(c.lista);
     } catch (_) { /* segue */ }
@@ -780,16 +838,18 @@
   };
 
   /* update() troca cada campo inteiro (um grupo apagado some de verdade); set+merge fundiria mapas e ressuscitaria o grupo. */
-  FirebaseStore.prototype.salvarLoja = function (loja) {
+  /* completa: a loja inteira ja com as mudancas (o painel tem). Com ela a vitrine sai sem reler o documento (50 KB). */
+  FirebaseStore.prototype.salvarLoja = function (loja, completa) {
     var nova = Object.assign({}, clonar(loja), { atualizadoEm: agoraISO() });
     var eu = this;
     return this._pronto.then(function () {
       var ref = eu.db.collection('lojas').doc(loja.slug);
       return ref.update(paraNuvem(nova)).then(function () {
         /* vitrine acompanha: precisa da loja inteira pra montar o resumo */
-        return ref.get().then(function (d) {
-          if (!d.exists) return nova;
-          return eu.db.collection('vitrine').doc(loja.slug).set(paraNuvem(resumoDaLoja(daNuvem(d.data())))).then(function () { limparCacheVitrine(); return nova; });
+        var inteira = completa ? Promise.resolve(Object.assign({}, clonar(completa), nova)) : ref.get().then(function (d) { return d.exists ? daNuvem(d.data()) : null; });
+        return inteira.then(function (l) {
+          if (!l) return nova;
+          return resumoLeve(l).then(function (r) { return eu.db.collection('vitrine').doc(loja.slug).set(paraNuvem(r)); }).then(function () { limparCacheVitrine(); return nova; });
         }).catch(function () { return nova; });
       });
     });
@@ -798,9 +858,11 @@
   FirebaseStore.prototype.reconstruirVitrine = function () {
     var eu = this;
     return this.listarTodasLojas().then(function (lojas) {
-      var lote = eu.db.batch();
-      lojas.forEach(function (l) { lote.set(eu.db.collection('vitrine').doc(l.slug), paraNuvem(resumoDaLoja(l))); });
-      return lote.commit().then(function () { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } return lojas.length; });
+      return Promise.all(lojas.map(resumoLeve)).then(function (resumos) {
+        var lote = eu.db.batch();
+        resumos.forEach(function (r) { lote.set(eu.db.collection('vitrine').doc(r.slug), paraNuvem(r)); });
+        return lote.commit();
+      }).then(function () { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } return lojas.length; });
     });
   };
 
@@ -817,7 +879,7 @@
           });
           /* primeiro a loja, depois a vitrine: a regra da vitrine le a loja pra saber quem e o dono */
           return col.doc(slug).set(paraNuvem(loja)).then(function () {
-            return eu.db.collection('vitrine').doc(slug).set(paraNuvem(resumoDaLoja(loja)));
+            return resumoLeve(loja).then(function (r) { return eu.db.collection('vitrine').doc(slug).set(paraNuvem(r)); });
           }).then(function () { limparCacheVitrine(); return loja; });
         });
       };

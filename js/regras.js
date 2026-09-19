@@ -915,12 +915,13 @@
 
   /* ---- vagas de loja (limite do sistema) ---- */
   /* max: limite (0 = sem limite); lojas: quantas existem (a Central conta); fechado: cliente novo vai para a lista de espera */
-  function capacidadeLojas() {
+  /* lojasAgora (opcional): contagem feita agora (cadastro), no lugar da ultima contagem gravada pela Central */
+  function capacidadeLojas(lojasAgora) {
     var w = typeof window !== 'undefined' ? window : {};
     var cfg = w.LIGEIRO_CONFIG || {};
     var pub = (w.LigeiroFundadores && w.LigeiroFundadores.capacidade) || {};
     var max = pub.max != null ? Number(pub.max) || 0 : (cfg.capacidade && Number(cfg.capacidade.maxLojas)) || 0;
-    var lojas = Number(pub.lojas) || 0;
+    var lojas = typeof lojasAgora === 'number' ? lojasAgora : Number(pub.lojas) || 0;
     var fechado = pub.fechado === true || (max > 0 && lojas >= max);
     return { max: max, lojas: lojas, fechado: fechado, restam: max > 0 ? Math.max(0, max - lojas) : null, perto: max > 0 && lojas >= Math.ceil(max * 0.8) };
   }

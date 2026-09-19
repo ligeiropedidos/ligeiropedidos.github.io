@@ -520,7 +520,10 @@
 
     /* ---------- carregar a loja ---------- */
 
-    store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (dados) {
+    /* a loja chega uma vez so: a primeira foto abre a pagina e as mudancas (abriu, fechou, preco) seguem pela mesma escuta */
+    var lojaViva = store.lojaAoVivo ? store.lojaAoVivo(slug) : { primeira: store.obterLoja(slug), assistir: function (cb) { return store.assistirLoja(slug, cb); }, parar: function () {} };
+    estado.pararLoja = lojaViva.parar;
+    lojaViva.primeira.catch(function () { return { _erro: true }; }).then(function (dados) {
       if (!vivo) return;
       if (!dados || dados._erro || dados.ativa === false) tirarSplash();
       if (dados && dados._erro) {
@@ -559,7 +562,7 @@
       carregarFotos(dados).then(function () {
         if (!vivo) return;
         aplicarLoja(dados);
-        estado.pararLoja = store.assistirLoja(slug, function (nova) {
+        lojaViva.assistir(function (nova) {
           if (nova && vivo) carregarFotos(nova).then(function () { if (vivo) aplicarLoja(nova, true); });
         });
         if (o.pedidoId) abrirPedidoSalvo(o.pedidoId);
