@@ -40,7 +40,7 @@
         el('p', { class: 'fundador-texto', text: 'Para as ' + total + ' primeiras lojas. O preço fica travado enquanto você não cancelar.' }),
       ]),
       el('div', { class: 'fundador-conta' }, [
-        el('span', { class: 'fundador-vagas' }, ['Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
+        el('span', { class: 'fundador-vagas' }, [el('span', { class: 'fundador-relogio', 'aria-hidden': 'true', text: '⏳' }), 'Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
         barra,
       ]),
     ]);

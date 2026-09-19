@@ -224,3 +224,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* botao do 2o turno no cabecalho do dia, na linguagem do tema */
 .tema-conizza .dia-acao { border: 2px solid var(--cz-tinta); background: var(--cz-creme); color: var(--cz-tinta); box-shadow: 0 2px 0 var(--cz-tinta); }
 .tema-conizza .dia-acao.tirar { background: #fbe3dc; color: var(--cz-vermelho); border-color: var(--cz-tinta); }
+/* botoes da Conizza mantem a altura de linha de antes (letra Baloo, medidas proprias): link herda, botao usa a do navegador */
+.tema-conizza :where(a.btn) { line-height: inherit; } /* forca de .btn: regras mais especificas (topo do painel) continuam valendo */
+.tema-conizza :where(button.btn) { line-height: normal; }

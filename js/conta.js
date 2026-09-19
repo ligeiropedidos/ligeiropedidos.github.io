@@ -237,7 +237,8 @@
           el('span', { class: 'conta-logo' }, logo ? el('img', { src: logo, alt: '' }) : (l.emoji || '🍔')),
           el('div', { class: 'conta-loja-info' }, [
             el('div', { class: 'conta-loja-nome', text: l.nome }),
-            el('div', { class: 'muted pequeno', text: (l.tipo ? R.tipoVisivel(l) + ' · ' : '') + (l.cidade || '') + (l.uf ? '/' + l.uf : '') }),
+            /* se quebrar, quebra depois do ponto: nunca uma linha comecando com "·" */
+            el('div', { class: 'muted pequeno' }, [l.tipo ? R.tipoVisivel(l) + '\u00A0· ' : '', el('span', { class: 'sem-quebra', text: (l.cidade || '') + (l.uf ? '/' + l.uf : '') })]),
           ]),
         ]),
         /* selos numa linha propria, com a largura toda do cartao: lado a lado ate em 320 */

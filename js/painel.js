@@ -418,9 +418,13 @@
         el('p', { class: 'pequeno', text: (textos[a.estado] || '') + (estado.conta ? ' Vale para todas as lojas da sua conta.' : '') }),
       ];
       if (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) {
+        /* pagamento avisado: o mesmo aviso de Minha conta (icone, titulo e uma linha), em vez de selo que virava bolha em 2 linhas */
+        if (plano.avisoPagamentoEm) filhos.push(el('div', { class: 'aviso-plano aviso-espera aviso-no-cartao', role: 'note' }, [
+          el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true', text: '⏳' }),
+          el('span', { class: 'aviso-plano-texto' }, [el('b', { text: 'Pagamento avisado' }), el('span', { text: 'Em ' + dataBR(plano.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.' })]),
+        ]));
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
           el('button', { class: 'btn ' + (tranquila ? 'btn-fantasma' : 'btn-principal') + ' btn-pequeno', type: 'button', text: (a.gratis ? 'Assinar · ' : 'Pagar ') + dinheiro(valor), onclick: abrirPagamentoAssinatura }),
-          plano.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(plano.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
         ]));
       }
       return el('div', { class: 'cartao' + (tranquila ? '' : ' destaque'), id: 'cartaoAssinatura' }, filhos);
