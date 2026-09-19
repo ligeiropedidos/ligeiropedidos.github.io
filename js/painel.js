@@ -305,8 +305,8 @@
     }
 
     /*
-     * Cartao "Assinatura". Na aba Pedidos so aparece quando precisa de atencao
-     * (vencendo, vencida, bloqueada ou mes gratis acabando); em Ajustes, sempre.
+     * Cartao "Assinatura" na aba Pedidos: so aparece quando precisa de atencao (vencendo, vencida, bloqueada ou
+     * periodo gratis). Em dia, some. Mudar plano, encerrar e pagar em dia ficam em Minha conta.
      */
     function cartaoAssinatura(sempre) {
       var fonte = fonteAssinatura();
@@ -315,7 +315,7 @@
       var valor = precoAssinatura(a.tipo);
       var periodo = a.tipo === 'anual' ? 'ano' : 'mês';
       var nomePlano = R.planoPorId(plano.planoId || 'uma').nome;
-      var tranquila = (a.estado === 'gratis' || a.estado === 'ativa') && (a.cortesia || a.dias > 15);
+      var tranquila = a.estado === 'ativa' || (a.estado === 'gratis' && (a.cortesia || a.dias > 15));
       if (!sempre && tranquila) return null;
       var textos = {
         gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + ' (' + a.dias + ' dias). Depois é ' + dinheiro(valor) + ' por ' + periodo + ': cartão, boleto ou Pix, aqui mesmo.',
@@ -324,7 +324,7 @@
         vencida: 'Assinatura vencida desde ' + dataBR(a.limite) + '. A loja segue no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
         bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': o site parou de aceitar pedidos. Assine e ele volta na hora.' : 'Assinatura vencida há mais de ' + a.tolerancia + ' dias: o site parou de aceitar pedidos. Pague e ele volta assim que confirmarmos.',
         pausada: 'Assinatura pausada pelo Ligeiro. Fale com a gente.',
-        cancelada: 'Assinatura encerrada. Pra voltar, reative em Ajustes ou em Minha conta.',
+        cancelada: 'Assinatura encerrada. Pra voltar, reative em Minha conta.',
       };
       if (a.encerrando) textos.ativa = 'Assinatura encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? É só reativar.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada';
@@ -339,29 +339,6 @@
         ]));
       }
       return el('div', { class: 'cartao' + (tranquila ? '' : ' destaque'), id: 'cartaoAssinatura' }, filhos);
-    }
-
-    /* Mudar de plano, encerrar ou reativar: so quem tem conta (a assinatura e da conta). */
-    function controlesDoPlano() {
-      if (!estado.conta || !estado.conta.plano) return null;
-      var a = R.assinatura(estado.conta);
-      var p = estado.conta.plano;
-      var linha = el('div', { class: 'linha-botoes' });
-      linha.appendChild(el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar', text: '🔁 Mudar de plano' }));
-      linha.appendChild(el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/conta', text: '👤 Minha conta' }));
-      if (p.status === 'cancelado') {
-        linha.appendChild(el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar assinatura', onclick: function () {
-          store.salvarConta(estado.conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { estado.conta = c; var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix pra suas lojas voltarem ao ar.' : 'Assinatura reativada.'); desenharAjustes(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); });
-        } }));
-      } else if (a.estado !== 'pausada') {
-        linha.appendChild(el('button', { class: 'btn btn-erro btn-pequeno', type: 'button', text: 'Encerrar assinatura', onclick: function () {
-          UI.perguntar('Encerrar a assinatura? Suas lojas continuam no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois param de receber pedidos. Os dados ficam guardados 90 dias.', { sim: 'Encerrar', perigo: true }).then(function (sim) {
-            if (!sim) return;
-            store.salvarConta(estado.conta.email, { plano: { status: 'cancelado', canceladoEm: new Date().toISOString() } }).then(function (c) { estado.conta = c; UI.avisar('Assinatura encerrada. Obrigado por usar o Ligeiro.'); desenharAjustes(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); });
-          });
-        } }));
-      }
-      return el('div', { class: 'campo largo' }, [el('label', { text: 'Seu plano' }), el('p', { class: 'ajuda', text: R.planoPorId(p.planoId || 'uma').nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') + '. A assinatura é da sua conta e vale pra todas as suas lojas.' }), linha]);
     }
 
     function abrirPagamentoAssinatura() {
@@ -1458,9 +1435,6 @@
       f.mostrarOutras = interruptorCampo('Mostrar "outros estabelecimentos da cidade" no meu site', 'Desligado, o seu link é só seu: o cliente não vê concorrente. Ligado, sua loja vira parte da vitrine da cidade e ganha o link de volta.', l.mostrarOutras === true);
       [f.aceitaCartaoEntrega, f.aceitaDinheiroEntrega, f.aceitaPagarNoBalcao, f.permitePersonalizar, f.mostrarOutras].forEach(function (c) { pagamento.appendChild(c); });
       s.appendChild(pagamento);
-
-      var assinatura = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Assinatura do Ligeiro' }), cartaoAssinatura(true), controlesDoPlano()]);
-      s.appendChild(assinatura);
 
       var cupons = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
       var listaCupons = el('div', { class: 'pilha' });

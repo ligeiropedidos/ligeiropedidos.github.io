@@ -483,6 +483,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- Formularios ---------- */
 
 .bloco-form { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.bloco-form > .pilha:empty { display: none; } /* lista vazia (ex.: sem cupons) nao cria vao duplo */
 /* formulario do pedido: blocos com o mesmo respiro entre si que os cartoes da pagina */
 #formDados { display: flex; flex-direction: column; gap: 12px; }
 #formDados .msg-erro[hidden], #formDados .nota[hidden] { display: none; }
@@ -723,7 +724,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* celular: cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
    [hora] ate [hora], ocupando a largura inteira, uma embaixo da outra. */
 @media (max-width: 640px) {
-  .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px; min-height: 0; }
+  .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 0; }
   .dia-cabeca { justify-content: flex-start; min-height: 36px; gap: 10px; }
   .dia-cabeca .dia-nome { width: auto; flex: 1 1 auto; min-width: 0; }
   .dia-linha.fechado .dia-nome { flex: 0 0 78px; }
@@ -984,7 +985,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .oficial-extra span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
 .painel-topo .logo-mini { height: 40px; width: 40px; object-fit: contain; flex: none; }
 /* conexao com o Mercado Pago (painel) */
-.mp-conexao { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 10px; }
+.mp-conexao { display: flex; flex-direction: column; gap: 14px; margin: 0; } /* 14 em cima, 14 ate o texto, 14 embaixo: o ritmo do bloco */
 .btn-mp { background: #009EE3; color: #fff; }
 .btn-mp:hover { background: #0089c5; }
 .mp-conectado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio-p); }
