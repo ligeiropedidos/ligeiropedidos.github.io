@@ -121,7 +121,10 @@
     var modal = $('modal');
     var caixa = $('modalCaixa');
     limpar(caixa);
-    caixa.className = 'modal-caixa' + (opcoes.classe ? ' ' + opcoes.classe : '');
+    caixa.className = 'modal-caixa' + (opcoes.classe ? ' ' + opcoes.classe : '') + (opcoes.lado ? ' com-lado' : '');
+    modal.classList.toggle('modal-centro', !!(opcoes.lado || opcoes.centro)); /* no PC: janela no meio (o CSS decide pela largura) */
+    /* "lado": coluna da esquerda no PC (a foto do item). No celular ela fica escondida e vale a do corpo. */
+    if (opcoes.lado) caixa.appendChild(el('div', { class: 'modal-lado' }, [opcoes.lado]));
     var topo = el('div', { class: 'modal-topo' }, [
       el('div', { style: { flex: '1' } }, [
         el('div', { class: 'titulo', text: opcoes.titulo || '' }),

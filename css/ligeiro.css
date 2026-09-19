@@ -433,6 +433,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* item aberto em tela larga: a gaveta fica da largura de um celular grande e a foto quadrada ocupa a largura toda,
    alinhada com o titulo e as opcoes (igual no celular). A largura acompanha a altura da tela pra sobrar lugar pras opcoes. */
 @media (min-width: 480px) { .modal-caixa.modal-item { max-width: clamp(380px, 46vh, 520px); } } /* foto em ~42% da altura, como no celular */
+/* PC (900px ou mais): janela larga e baixa no meio da tela. Foto quadrada na esquerda (ate 480), nome, escolhas e
+   Adicionar na direita. Altura = foto + 24 em cima e embaixo; a base do Adicionar alinha com a base da foto. */
+.modal-lado { display: none; }
+@media (min-width: 900px) and (min-height: 480px) {
+  .modal.modal-centro { align-items: center; padding: 24px; }
+  .modal-caixa.modal-item.com-lado { --margem: 24px; --foto-lado: min(480px, calc(100vh - 96px), 48vw); max-width: calc(var(--foto-lado) + 480px); height: calc(var(--foto-lado) + 48px); max-height: none; border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); display: grid; grid-template-columns: calc(var(--foto-lado) + 24px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .com-lado .modal-lado { display: block; grid-column: 1; grid-row: 1 / -1; align-self: start; padding: 24px 0 24px 24px; }
+  .com-lado .modal-lado .foto-modal { width: var(--foto-lado); margin: 0; }
+  .com-lado .modal-topo { grid-column: 2; grid-row: 1; padding-top: 24px; }
+  .com-lado .modal-corpo { grid-column: 2; grid-row: 2; }
+  .com-lado .modal-rodape { grid-column: 2; grid-row: 3; padding-top: 16px; padding-bottom: 24px; }
+  .com-lado .modal-corpo .foto-modal { display: none; }
+  /* item sem foto: janela no meio, 560 de largura, a mesma moldura de 24 */
+  .modal-caixa.modal-item:not(.com-lado) { --margem: 24px; max-width: 560px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
+  .modal-item:not(.com-lado) .modal-topo { padding-top: 24px; }
+  .modal-item:not(.com-lado) .modal-rodape { padding-top: 16px; padding-bottom: 24px; }
+}
 .btn-adicionar { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; padding-left: 12px; padding-right: 12px; line-height: 1.15; }
 .btn-adicionar .add-rotulo, .btn-adicionar .add-valor { white-space: nowrap; }
 .btn-adicionar .add-valor { font-family: var(--display); }

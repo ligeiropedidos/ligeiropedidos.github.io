@@ -873,12 +873,13 @@
 
       var corpo = el('div');
       var srcFoto = D.fotoSrc(produto, estado.fotos);
-      if (srcFoto) {
-        var fotoGrande = el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]);
-        /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
-        fotoGrande.firstChild.addEventListener('error', function () { fotoGrande.remove(); });
-        corpo.appendChild(fotoGrande);
+      /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
+      function montarFoto() {
+        var caixaFoto = el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]);
+        caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) cx.classList.remove('com-lado'); });
+        return caixaFoto;
       }
+      if (srcFoto) corpo.appendChild(montarFoto());
 
       if (podePersonalizar) {
         grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
@@ -912,6 +913,8 @@
 
       UI.abrirModal({
         classe: 'modal-item',
+        centro: true,
+        lado: srcFoto ? montarFoto() : null, /* no PC: foto quadrada na esquerda, escolhas na direita */
         titulo: produto.nome,
         sub: produto.descricao || '',
         corpo: corpo,
