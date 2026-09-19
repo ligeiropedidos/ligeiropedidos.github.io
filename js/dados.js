@@ -286,6 +286,11 @@
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve(clonar(db.leads[id]));
   };
+  DemoStore.prototype.listarListaEspera = function () {
+    var l = this._ler().leads || {};
+    return Promise.resolve(Object.keys(l).map(function (k) { return clonar(l[k]); }).filter(function (c) { return c.origem === 'lista-espera'; })
+      .sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; }));
+  };
   DemoStore.prototype.listarLeads = function () {
     var db = this._ler();
     var l = db.leads || {};
@@ -348,14 +353,24 @@
   DemoStore.prototype.zerarUsosDoCupom = function () { return Promise.resolve(true); };
 
   /* Vagas de fundador ja ocupadas (numero publico, de verdade). */
-  DemoStore.prototype.obterFundadores = function () {
+  DemoStore.prototype.obterFundadores = function () { /* opcoes { semCache } nao importam aqui: tudo e local */
     var db = this._ler();
-    return Promise.resolve({ usados: ((db.publico || {}).fundadores || {}).usados || 0 });
+    var f = (db.publico || {}).fundadores || {};
+    return Promise.resolve({ usados: f.usados || 0, capacidade: f.capacidade || null });
+  };
+  /* limite de lojas e vagas abertas/fechadas (so o admin muda) */
+  DemoStore.prototype.salvarCapacidade = function (mudancas) {
+    var db = this._ler();
+    db.publico = db.publico || {};
+    var f = db.publico.fundadores = db.publico.fundadores || {};
+    f.capacidade = Object.assign({}, f.capacidade || {}, clonar(mudancas), { atualizadoEm: agoraISO() });
+    this._gravar(db);
+    return Promise.resolve(clonar(f.capacidade));
   };
   DemoStore.prototype.ocuparVagaFundador = function () {
     var db = this._ler();
     db.publico = db.publico || {};
-    db.publico.fundadores = { usados: (((db.publico.fundadores || {}).usados) || 0) + 1, atualizadoEm: agoraISO() };
+    db.publico.fundadores = Object.assign({}, db.publico.fundadores || {}, { usados: (((db.publico.fundadores || {}).usados) || 0) + 1, atualizadoEm: agoraISO() });
     this._gravar(db);
     return Promise.resolve(db.publico.fundadores);
   };
@@ -363,7 +378,7 @@
   DemoStore.prototype.liberarVagaFundador = function () {
     var db = this._ler();
     db.publico = db.publico || {};
-    db.publico.fundadores = { usados: Math.max(0, (((db.publico.fundadores || {}).usados) || 0) - 1), atualizadoEm: agoraISO() };
+    db.publico.fundadores = Object.assign({}, db.publico.fundadores || {}, { usados: Math.max(0, (((db.publico.fundadores || {}).usados) || 0) - 1), atualizadoEm: agoraISO() });
     this._gravar(db);
     return Promise.resolve(db.publico.fundadores);
   };
@@ -698,6 +713,15 @@
       return ref.set(lead).then(function () { return lead; });
     }.bind(this));
   };
+  /* so a lista de espera, sem limite de 200 (uma condicao de igualdade: nao precisa de indice) */
+  FirebaseStore.prototype.listarListaEspera = function () {
+    return this._pronto.then(function () {
+      return this.db.collection('leads').where('origem', '==', 'lista-espera').get().then(function (snap) {
+        var l = []; snap.forEach(function (d) { l.push(d.data()); });
+        return l.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
+      });
+    }.bind(this));
+  };
   FirebaseStore.prototype.listarLeads = function () {
     return this._pronto.then(function () {
       return this.db.collection('leads').orderBy('criadoEm', 'desc').limit(200).get().then(function (snap) {
@@ -999,17 +1023,31 @@
     });
   };
 
-  /* Vagas de fundador ja ocupadas: documento publico publico/fundadores (so o admin escreve). Cache de 10 min. */
-  FirebaseStore.prototype.obterFundadores = function () {
+  /* Vagas de fundador ja ocupadas e o limite de lojas: documento publico publico/fundadores (so o admin escreve). Cache de 10 min. */
+  /* opcoes.semCache: le do servidor (cadastro e Central decidem vagas com o numero de agora). Falhou: devolve null
+     (quem chama fica com o que ja sabia; nunca vira "vaga aberta" por erro de rede). */
+  FirebaseStore.prototype.obterFundadores = function (opcoes) {
     var chave = 'ligeiro:fundadores';
-    try { var c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c && Date.now() - c.em < 10 * 60 * 1000) return Promise.resolve({ usados: c.usados || 0 }); } catch (_) { /* segue */ }
+    if (!(opcoes && opcoes.semCache)) {
+      try { var c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c && Date.now() - c.em < 10 * 60 * 1000) return Promise.resolve({ usados: c.usados || 0, capacidade: c.capacidade || null }); } catch (_) { /* segue */ }
+    }
     return this._pronto.then(function () {
       return this.db.collection('publico').doc('fundadores').get().then(function (d) {
-        var usados = d.exists ? (Number(d.data().usados) || 0) : 0;
-        try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados })); } catch (_) { /* ignora */ }
-        return { usados: usados };
+        var dados = d.exists ? d.data() : {};
+        var usados = Number(dados.usados) || 0;
+        var capacidade = dados.capacidade || null;
+        try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados, capacidade: capacidade })); } catch (_) { /* ignora */ }
+        return { usados: usados, capacidade: capacidade };
       });
-    }.bind(this)).catch(function () { return { usados: 0 }; });
+    }.bind(this)).catch(function () { return null; });
+  };
+  /* Admin: limite de lojas e vagas abertas/fechadas. merge: nao mexe no contador de fundadores. */
+  FirebaseStore.prototype.salvarCapacidade = function (mudancas) {
+    var eu = this;
+    var dados = Object.assign({}, clonar(mudancas), { atualizadoEm: agoraISO() });
+    return this._pronto.then(function () {
+      return eu.db.collection('publico').doc('fundadores').set({ capacidade: dados }, { merge: true });
+    }).then(function () { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return dados; });
   };
   FirebaseStore.prototype.ocuparVagaFundador = function () {
     var eu = this;
@@ -1018,7 +1056,7 @@
       return eu.db.runTransaction(function (tx) {
         return tx.get(ref).then(function (d) {
           var usados = (d.exists ? (Number(d.data().usados) || 0) : 0) + 1;
-          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() });
+          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() }, { merge: true });
           return { usados: usados };
         });
       }).then(function (r) { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return r; });
@@ -1033,7 +1071,7 @@
       return eu.db.runTransaction(function (tx) {
         return tx.get(ref).then(function (d) {
           var usados = Math.max(0, (d.exists ? (Number(d.data().usados) || 0) : 0) - 1);
-          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() });
+          tx.set(ref, { usados: usados, atualizadoEm: agoraISO() }, { merge: true });
           return { usados: usados };
         });
       }).then(function (r) { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return r; });

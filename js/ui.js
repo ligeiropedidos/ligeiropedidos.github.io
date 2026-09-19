@@ -218,6 +218,36 @@
     return dataCurta(iso) + ' ' + horaCurta(iso);
   }
 
+  /* Selo de horario do pedido: relogio, hora do pedido e ha quanto tempo. esperandoDesde (pedido pago que ainda nao
+     comecou): laranja com 5 min, vermelho com 15. */
+  var ICONE_RELOGIO = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function tempoPassado(iso) {
+    var min = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+    if (min < 1) return 'agora';
+    if (min < 60) return 'há ' + min + ' min';
+    /* ate 3 h com os minutos ("ha 1 h 53"): cortar para "ha 1 h" escondia quase uma hora */
+    if (min < 180) { var mm = min % 60; return 'há ' + Math.floor(min / 60) + ' h' + (mm ? ' ' + (mm < 10 ? '0' : '') + mm : ''); }
+    var h = Math.round(min / 60);
+    if (h < 24) return 'há ' + h + ' h';
+    var d = Math.floor(min / 1440);
+    return 'há ' + d + (d === 1 ? ' dia' : ' dias');
+  }
+  function seloHorario(iso, esperandoDesde) {
+    var velho = Date.now() - new Date(iso).getTime() >= 864e5;
+    var hora = horaCurta(iso); /* sempre HH:MM: selo do mesmo tamanho em todo cartao; a data fica no title */
+    var cor = 'cinza';
+    if (esperandoDesde) {
+      var espera = (Date.now() - new Date(esperandoDesde).getTime()) / 60000;
+      cor = espera >= 15 ? 'fechado' : (espera >= 5 ? 'laranja' : 'cinza');
+    }
+    var titulo = 'Pedido feito ' + (velho ? 'em ' + dataCurta(iso) + ' às ' : 'às ') + horaCurta(iso) + (esperandoDesde ? ' · pago ' + tempoPassado(esperandoDesde) + ', esperando começar' : '');
+    return el('span', { class: 'selo ' + cor + ' quando', title: titulo }, [
+      el('span', { class: 'quando-ico', html: ICONE_RELOGIO }),
+      el('span', { class: 'quando-hora', text: hora + ' ·' }),
+      el('span', { class: 'quando-rel', text: tempoPassado(iso) }),
+    ]);
+  }
+
   /* Campo de dinheiro: a pessoa digita so numeros e ve "R$ 12,50". */
   function centavosDoCampo(texto) {
     var digitos = String(texto || '').replace(/[^0-9]/g, '');
@@ -581,7 +611,7 @@
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,
-    horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo,
+    horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
     baseUrl: baseUrl, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,

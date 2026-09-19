@@ -146,13 +146,17 @@
   window.LigeiroApp = { ir: ir, render: render, partes: partes };
 
   /* vagas de fundador: valor guardado neste aparelho na hora; o numero de verdade chega em seguida e, se mudou, redesenha a pagina de vendas */
-  try { var cf = JSON.parse(localStorage.getItem('ligeiro:fundadores') || 'null'); window.LigeiroFundadores = { usados: (cf && cf.usados) || 0 }; } catch (_) { window.LigeiroFundadores = { usados: 0 }; }
+  try { var cf = JSON.parse(localStorage.getItem('ligeiro:fundadores') || 'null'); window.LigeiroFundadores = { usados: (cf && cf.usados) || 0, capacidade: (cf && cf.capacidade) || null }; } catch (_) { window.LigeiroFundadores = { usados: 0, capacidade: null }; }
   if (window.LigeiroDados && window.LigeiroDados.store.obterFundadores) {
     window.LigeiroDados.store.obterFundadores().then(function (f) {
+      if (!f) return; /* nao deu para ler: fica o que tinha */
       var antes = window.LigeiroFundadores.usados;
-      window.LigeiroFundadores = { usados: f.usados || 0 };
+      var fechadoAntes = window.LigeiroRegras.capacidadeLojas().fechado;
+      window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
       var p = partes();
-      if (antes !== f.usados && (p.length === 0 || p[0] === 'lojas' || p[0] === 'assinar')) render();
+      /* vagas de fundador ou de loja mudaram: redesenha as paginas de venda (o cadastro confere sozinho ao abrir) */
+      var mudou = antes !== f.usados || fechadoAntes !== window.LigeiroRegras.capacidadeLojas().fechado;
+      if (mudou && (p.length === 0 || p[0] === 'lojas' || p[0] === 'assinar')) render();
     }).catch(function () { /* fica o que tinha */ });
   }
 

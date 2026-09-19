@@ -490,3 +490,51 @@ test('senha: so recomeca quando o dia gravado ficou para tras (celular adiantado
   assert.deepEqual(R.proximaSenha({ dia: 'lixo', ultima: 3 }, agora), { dia: '2026-09-19', ultima: 1 });
   assert.deepEqual(R.proximaSenha(null, agora), { dia: '2026-09-19', ultima: 1 });
 });
+
+test('vagas de loja: limite, fechado na mao e sem limite', () => {
+  const antes = global.window;
+  try {
+    global.window = { LIGEIRO_CONFIG: { capacidade: { maxLojas: 60 } }, LigeiroFundadores: { usados: 0, capacidade: { lojas: 47 } } };
+    let c = R.capacidadeLojas();
+    assert.equal(c.max, 60); assert.equal(c.restam, 13); assert.equal(c.fechado, false); assert.equal(c.perto, false);
+    global.window.LigeiroFundadores.capacidade = { lojas: 48 };
+    assert.equal(R.capacidadeLojas().perto, true);
+    global.window.LigeiroFundadores.capacidade = { lojas: 60 };
+    assert.equal(R.capacidadeLojas().fechado, true);
+    /* limite da Central vale mais que o do config */
+    global.window.LigeiroFundadores.capacidade = { lojas: 60, max: 80 };
+    c = R.capacidadeLojas(); assert.equal(c.fechado, false); assert.equal(c.restam, 20);
+    /* fechado na mao, mesmo com vaga */
+    global.window.LigeiroFundadores.capacidade = { lojas: 10, max: 80, fechado: true };
+    assert.equal(R.capacidadeLojas().fechado, true);
+    /* sem limite */
+    global.window = { LIGEIRO_CONFIG: {}, LigeiroFundadores: { usados: 0, capacidade: null } };
+    c = R.capacidadeLojas(); assert.equal(c.max, 0); assert.equal(c.fechado, false); assert.equal(c.restam, null);
+  } finally { global.window = antes; }
+});
+
+test('vagas de loja: o que a Central grava ao abrir', () => {
+  /* primeira vez, com limite no config: grava o limite e a contagem */
+  assert.deepEqual(R.decidirCapacidade(null, 10, 60), { lojas: 10, max: 60 });
+  /* bateu o limite: fecha sozinha */
+  assert.deepEqual(R.decidirCapacidade({ max: 60, lojas: 59 }, 60, 0), { lojas: 60, fechado: true, automatico: true });
+  /* fechada por ela e caiu abaixo do limite: reabre */
+  assert.deepEqual(R.decidirCapacidade({ max: 60, lojas: 60, fechado: true, automatico: true }, 58, 0), { lojas: 58, fechado: false, automatico: false });
+  /* fechada na mao: nunca reabre sozinha */
+  assert.deepEqual(R.decidirCapacidade({ max: 60, lojas: 30, fechado: true, automatico: false }, 30, 0), {});
+  /* sem limite: so conta */
+  assert.deepEqual(R.decidirCapacidade({ max: 0, lojas: 3 }, 4, 0), { lojas: 4 });
+});
+
+test('vagas de loja: mudar o limite', () => {
+  /* abaixo das lojas: fecha (automatico) */
+  assert.deepEqual(R.novoLimite({ max: 60, lojas: 55 }, 55, 50), { max: 50, fechado: true, automatico: true });
+  /* fechada na mao e limite baixou: continua na mao (nao reabre sozinha depois) */
+  assert.deepEqual(R.novoLimite({ max: 60, fechado: true, automatico: false }, 55, 50), { max: 50, fechado: true, automatico: false });
+  /* fechada pelo limite e o limite subiu: reabre */
+  assert.deepEqual(R.novoLimite({ max: 60, fechado: true, automatico: true }, 60, 80), { max: 80, fechado: false, automatico: false });
+  /* fechada na mao e o limite subiu: continua fechada */
+  assert.deepEqual(R.novoLimite({ max: 60, fechado: true, automatico: false }, 40, 80), { max: 80 });
+  /* sem limite (0) e estava fechada pelo limite: reabre */
+  assert.deepEqual(R.novoLimite({ max: 60, fechado: true, automatico: true }, 60, 0), { max: 0, fechado: false, automatico: false });
+});

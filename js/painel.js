@@ -537,11 +537,11 @@
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
       card.appendChild(el('div', { class: 'cabeca' }, [
         el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
-        el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
+        UI.seloHorario(p.criadoEm, p.status === R.STATUS.PAGO ? (p.pagoEm || p.criadoEm) : null), /* pago esperando comecar: cor avisa o atraso */
         el('div', { class: 'cabeca-selos' }, selos),
         el('div', { class: 'cabeca-selos' }, extras), /* extras numa linha propria: a de cima fica igual em todo cartao */
       ]));
-      card.appendChild(el('div', { class: 'cliente', text: p.cliente.nome + (p.cliente.telefone ? ' · ' + R.formatarTelefone(p.cliente.telefone) : '') }));
+      card.appendChild(el('div', { class: 'cliente' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : '']) /* telefone nunca parte no meio */);
       if (entrega) {
         var e = p.endereco || {};
         var end = el('div', { class: 'endereco' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);

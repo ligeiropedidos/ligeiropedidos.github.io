@@ -336,7 +336,9 @@
         store.listarTodasLojas(),
         store.listarContas ? store.listarContas().catch(function () { return null; }) : Promise.resolve([]),
         store.listarLeads ? store.listarLeads().catch(function () { return null; }) : Promise.resolve([]),
-        store.obterFundadores ? store.obterFundadores().then(function (f) { window.LigeiroFundadores = { usados: (f && f.usados) || 0 }; }).catch(function () { /* fica o que tinha */ }) : null,
+        /* vagas: sempre do servidor (a Central decide e grava em cima disso); se falhar, nao sincroniza nada */
+        store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) { estado.capacidadeLida = !!f; if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null }; }).catch(function () { estado.capacidadeLida = false; }) : null,
+        store.listarListaEspera ? store.listarListaEspera().catch(function () { return null; }) : Promise.resolve([]),
       ]).then(function (r) {
         if (!vivo || !$('secaoAdmin')) return false;
         if (vez < estado.aplicada) return true; /* chegou depois de uma resposta mais nova: fica a mais nova */
@@ -346,7 +348,9 @@
         estado.contas = (r[1] || []).slice().sort(function (a, b) { return (b.plano && b.plano.avisoPagamentoEm ? 1 : 0) - (a.plano && a.plano.avisoPagamentoEm ? 1 : 0); });
         estado.leadsOk = r[2] !== null;
         estado.leads = r[2] || [];
+        estado.espera = r[4] || null;
         estado.carregadoEm = new Date();
+        sincronizarCapacidade();
         pintar();
         if (estado.hoje === null) carregarHoje();
         return true;
@@ -358,6 +362,68 @@
         else UI.avisar('Não deu para atualizar agora. ' + erroTexto(e, ''));
         return false;
       });
+    }
+
+    /* ---------- vagas de loja ---------- */
+    /* lojas que pesam no sistema: ativas e no ar (em teste ou pagando); parada por falta de pagamento nao pesa */
+    function lojasNoSistema() { return (estado.lojas || []).filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l); }).length; }
+    /* a Central e quem conta: grava o numero, fecha sozinha ao bater o limite e reabre se foi ela que fechou */
+    function sincronizarCapacidade() {
+      if (!store.salvarCapacidade || !estado.capacidadeLida) return; /* sem leitura nova do servidor, nao decide nada */
+      var pub = (window.LigeiroFundadores && window.LigeiroFundadores.capacidade) || {};
+      var mudancas = R.decidirCapacidade(pub, lojasNoSistema(), ((window.LIGEIRO_CONFIG || {}).capacidade || {}).maxLojas);
+      estado.contadoEm = new Date();
+      if (!Object.keys(mudancas).length) return;
+      salvarCapacidade(mudancas, mudancas.fechado === true ? 'O limite de lojas chegou: vagas fechadas. Cliente novo agora entra na lista de espera.' : '');
+    }
+    function salvarCapacidade(mudancas, aviso) {
+      return store.salvarCapacidade(mudancas).then(function () {
+        var f = window.LigeiroFundadores || { usados: 0 };
+        window.LigeiroFundadores = { usados: f.usados || 0, capacidade: Object.assign({}, f.capacidade || {}, mudancas) };
+        if (aviso) UI.avisar(aviso);
+        if (estado.aba === 'geral') pintar();
+      }).catch(function (e) { UI.avisar('Não deu para salvar as vagas. ' + erroTexto(e, '')); });
+    }
+    function mudarLimite() {
+      var cap = R.capacidadeLojas();
+      var campo = el('input', { type: 'number', min: '0', step: '1', inputmode: 'numeric', value: String(cap.max || ''), placeholder: 'Ex: 60' });
+      var ok = el('button', { class: 'btn btn-principal', type: 'button', text: 'Salvar limite', onclick: function () {
+        var v = Math.max(0, Math.floor(Number(campo.value) || 0));
+        var m = R.novoLimite(window.LigeiroFundadores.capacidade, lojasNoSistema(), v);
+        UI.fecharModal();
+        salvarCapacidade(m, v ? 'Limite salvo: ' + v + ' lojas.' : 'Sem limite de lojas.');
+      } });
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } });
+      UI.abrirModal({ titulo: 'Limite de lojas', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
+        el('p', { class: 'muted pequeno', text: 'Quantas lojas o sistema aguenta hoje. Ao chegar nesse número, cliente novo entra na lista de espera; quem já tem loja continua normal. 0 = sem limite.' }),
+        el('div', { class: 'campo' }, [el('label', { text: 'Limite de lojas' }), campo]),
+      ]), rodape: [el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Cancelar', onclick: UI.fecharModal }), ok] });
+      setTimeout(function () { campo.focus(); campo.select(); }, 80);
+    }
+    function quadroCapacidade() {
+      var cap = R.capacidadeLojas();
+      var n = lojasNoSistema();
+      var espera = (estado.espera || (estado.leads || []).filter(function (c) { return c.origem === 'lista-espera'; })).filter(function (c) { return !c.atendidoEm; }).length;
+      var pct = cap.max > 0 ? Math.min(100, Math.round(n / cap.max * 100)) : 0;
+      var classe = cap.fechado ? ' cheio' : (cap.max > 0 && n >= Math.ceil(cap.max * 0.8) ? ' perto' : '');
+      var situacao = cap.fechado ? 'Vagas fechadas: cliente novo vai para a lista de espera' : (cap.max > 0 ? plural(Math.max(0, cap.max - n), 'vaga livre', 'vagas livres') : 'Sem limite');
+      var peloLimite = cap.max > 0 && n >= cap.max;
+      var naMao = !peloLimite && (window.LigeiroFundadores.capacidade || {}).fechado === true;
+      return el('div', { class: 'adm-capacidade' + classe }, [
+        el('div', { class: 'adm-capacidade-texto' }, ['Lojas no sistema: ', el('b', { text: cap.max > 0 ? n + ' de ' + cap.max : String(n) })]),
+        el('div', { class: 'adm-capacidade-barra', role: 'progressbar', 'aria-label': 'Lojas no sistema', 'aria-valuemin': '0', 'aria-valuemax': String(cap.max || n), 'aria-valuenow': String(n) }, el('i', { style: { width: (cap.max > 0 ? Math.max(2, pct) : 0) + '%' } })),
+        el('div', { class: 'adm-capacidade-situacao', text: situacao + (espera ? ' · ' + plural(espera, 'na lista de espera', 'na lista de espera') : '') }),
+        el('div', { class: 'adm-capacidade-nota', text: 'Contado às ' + horaBR(estado.contadoEm || estado.carregadoEm || new Date()) + ', ao abrir a Central. Loja parada por falta de pagamento não conta.' }),
+        /* cheio pelo limite: so aumentando o limite abre vaga. Fechado na mao: abrir. Aberto: mudar limite ou fechar. */
+        el('div', { class: 'adm-capacidade-acoes' }, peloLimite
+          ? [el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Aumentar limite', onclick: mudarLimite })]
+          : [
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Mudar limite', onclick: mudarLimite }),
+            naMao
+              ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Abrir vagas', onclick: function () { salvarCapacidade({ fechado: false, automatico: false }, 'Vagas abertas.'); } })
+              : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Fechar vagas', onclick: function () { salvarCapacidade({ fechado: true, automatico: false }, 'Vagas fechadas: cliente novo vai para a lista de espera.'); } }),
+          ]),
+      ]);
     }
 
     function atualizar() {
@@ -499,6 +565,8 @@
           el('div', { class: 'adm-fundadores-livres', text: plural(totalVagas - usadas, 'vaga livre', 'vagas livres') }),
         ]));
       }
+
+      s.appendChild(quadroCapacidade());
 
       var itens = itensAtencao();
       s.appendChild(tituloComNumero('Precisa de atenção', itens.length));
@@ -750,7 +818,7 @@
     function linhaContato(c) {
       var pendente = !c.atendidoEm;
       var link = R.linkWhatsapp(c.whatsapp, mensagemLead(c));
-      var detalhes = [c.loja, c.cidade ? c.cidade + (c.uf ? '/' + c.uf : '') : '', c.whatsapp ? R.formatarTelefone(c.whatsapp) : '', c.origem ? 'veio de: ' + c.origem : ''].filter(Boolean);
+      var detalhes = [c.loja, c.cidade ? c.cidade + (c.uf ? '/' + c.uf : '') : '', c.whatsapp ? R.formatarTelefone(c.whatsapp) : '', c.origem === 'lista-espera' ? '⏳ lista de espera' : (c.origem ? 'veio de: ' + c.origem : '')].filter(Boolean);
       var trava = { ocupado: false };
       function marcar(atendido) {
         return function () {
@@ -1065,7 +1133,7 @@
         var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
         var novo = new Date(base + dias * 864e5).toISOString();
         store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
-          .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; })
+          .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
           .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu para confirmar.'); concluir(marca, trava); });
@@ -1073,7 +1141,7 @@
       function tornarFundador() {
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
         store.salvarConta(c.email, { plano: { fundador: true } })
-          .then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null; })
+          .then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' agora é fundador'); concluir(marca, trava); })
           .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu agora.'); concluir(marca, trava); }); /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
@@ -1102,7 +1170,7 @@
           + (novo.fundador === false ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
         comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function () {
           return store.salvarConta(c.email, { plano: novo }).then(function () {
-            return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = { usados: f.usados }; }) : null;
+            return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null;
           });
         }, 'Pagamento desfeito');
       }

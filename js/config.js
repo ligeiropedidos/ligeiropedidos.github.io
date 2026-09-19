@@ -48,6 +48,9 @@ window.LIGEIRO_CONFIG = {
   /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo enquanto nao cancelarem (campo "fundador" de cada plano).
      A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
   fundador: { vagas: 20, jaOcupadas: 1 }, /* jaOcupadas: a Dom Conizza ja conta como loja fundadora */
+  /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
+     A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
+  capacidade: { maxLojas: 25 }, /* inicial e conservador; a Central aumenta quando a estrutura crescer */
   /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
      um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
   planos: [

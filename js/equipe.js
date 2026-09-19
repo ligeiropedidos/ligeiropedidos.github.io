@@ -321,10 +321,10 @@
         var card = el('div', { class: 'pedido-card' + (naRua ? '' : ' cinza') });
         card.appendChild(el('div', { class: 'cabeca' }, [
           el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
-          el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
+          UI.seloHorario(p.criadoEm),
           el('div', { class: 'cabeca-selos' }, cobrar),
         ]));
-        card.appendChild(el('div', { class: 'cliente', text: p.cliente.nome + (p.cliente.telefone ? ' · ' + R.formatarTelefone(p.cliente.telefone) : '') }));
+        card.appendChild(el('div', { class: 'cliente' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : '']) /* telefone nunca parte no meio */);
         var end = el('div', { class: 'endereco grande' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
         if (e.referencia) end.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
         card.appendChild(end);

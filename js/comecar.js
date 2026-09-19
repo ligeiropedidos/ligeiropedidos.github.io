@@ -43,8 +43,24 @@
   function abrir(raiz, opcoes) {
     var vivo = true;
     raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
-    store.usuarioAtual().then(function (u) {
+    /* vagas de loja: numero de agora, direto do servidor (quem foi chamado da lista entra na hora); se a leitura falhar,
+       vale o que este aparelho ja sabia */
+    var vagas = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
+      if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
+    }).catch(function () { /* fica o que tinha */ }) : Promise.resolve();
+    function listaDeEspera() {
+      UI.limpar(raiz);
+      var P = window.LigeiroParceiro || {};
+      raiz.appendChild(telaAviso('Vagas cheias por enquanto', 'Abrimos vagas aos poucos para o Ligeiro continuar rápido para quem já vende com a gente. Entre na lista de espera: assim que abrir vaga, chamamos você no WhatsApp, na ordem da lista.', [
+        el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { if (P.abrirContato) P.abrirContato('lista-espera'); } }),
+        el('a', { class: 'btn btn-fantasma btn-largo', href: '#/lojas', text: 'Voltar' }),
+      ]));
+    }
+    vagas.then(function () { return store.usuarioAtual(); }).then(function (u) {
       if (!vivo) return;
+      var fechado = R.capacidadeLojas().fechado;
+      /* sem conta e sem vaga: nem pede login, vai direto para a lista */
+      if (!u && fechado) { listaDeEspera(); return; }
       if (!u) {
         try { sessionStorage.setItem('ligeiro:depois', location.hash); } catch (_) { /* ignora */ }
         UI.avisar('Entre na sua conta para criar a loja. Leva 10 segundos.');
@@ -80,6 +96,8 @@
             return;
           }
         }
+        /* cliente novo (sem loja) com vagas fechadas: lista de espera. Quem ja tem loja segue dentro do plano; o Ligeiro sempre pode. */
+        if (fechado && reais === 0 && !R.ehDoLigeiro({ email: u.email })) { listaDeEspera(); return; }
         UI.limpar(raiz);
         montar(raiz, opcoes, u);
       });

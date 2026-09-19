@@ -29,6 +29,16 @@
     return { mensal: R.precoDoPlano('uma', 'mensal'), anual: R.precoDoPlano('uma', 'anual'), diasGratis: p.diasGratis || 7 };
   }
   /* Faixa "preco de fundador": primeira linha da grade de planos. So aparece enquanto existir vaga de verdade. */
+  /* vagas de loja cheias: faixa no topo dos planos, com a lista de espera (quem ja e cliente segue normal) */
+  function faixaEspera() {
+    return el('div', { class: 'fundador espera' }, [
+      el('div', { class: 'fundador-lado' }, [
+        el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true', text: '⏳' }), 'Vagas cheias por enquanto']),
+        el('p', { class: 'fundador-texto', text: 'Abrimos vagas aos poucos para o Ligeiro continuar rápido para quem já vende com a gente. Entre na lista e chamamos você na ordem.' }),
+      ]),
+      el('div', { class: 'fundador-conta' }, [el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Entrar na lista de espera', onclick: function () { abrirContato('lista-espera'); } })]),
+    ]);
+  }
   function faixaFundador() {
     var restam = R.vagasFundador();
     var total = (cfg().fundador || {}).vagas || 0;
@@ -86,11 +96,15 @@
     return b;
   }
 
+  /* textos do formulario quando ele e a lista de espera (vagas de loja fechadas) */
+  var ESPERA = { titulo: 'Lista de espera', intro: 'Deixe seu WhatsApp. Assim que abrir vaga, a gente chama você, na ordem da lista.', botao: 'Entrar na lista', sucesso: 'Pronto! Você está na lista. A gente chama no WhatsApp quando abrir vaga.' };
   function abrirContato(origem) {
     var c = cfg();
+    var espera = origem === 'lista-espera';
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
-    if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener', text: '💬 Chamar no WhatsApp agora' }));
-    corpo.appendChild(el('p', { class: 'muted pequeno' + (c.whatsappLigeiro ? ' centro' : ''), text: c.whatsappLigeiro ? 'Ou deixe seu número que a gente chama você:' : 'Deixe seu número que a gente chama você no WhatsApp, sem compromisso:' }));
+    if (espera) corpo.appendChild(el('p', { class: 'muted pequeno', text: ESPERA.intro }));
+    else if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener', text: '💬 Chamar no WhatsApp agora' }));
+    if (!espera) corpo.appendChild(el('p', { class: 'muted pequeno' + (c.whatsappLigeiro ? ' centro' : ''), text: c.whatsappLigeiro ? 'Ou deixe seu número que a gente chama você:' : 'Deixe seu número que a gente chama você no WhatsApp, sem compromisso:' }));
     var f = {
       nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
       whatsapp: campoSimples('Seu WhatsApp', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', autocomplete: 'tel' }),
@@ -99,7 +113,7 @@
     };
     UI.mascaraTelefone(f.whatsapp.input);
     corpo.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja, f.cidade]));
-    var btn = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Pode me chamar', onclick: function () {
+    var btn = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: espera ? ESPERA.botao : 'Pode me chamar', onclick: function () {
       var nome = f.nome.input.value.trim();
       var whatsapp = f.whatsapp.input.value.replace(/\D/g, '');
       if (whatsapp.length > 11 && whatsapp.indexOf('55') === 0) whatsapp = whatsapp.slice(2);
@@ -109,11 +123,11 @@
       var cid = (f.cidade.valor && f.cidade.valor()) || { nome: f.cidade.input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };
       btn.disabled = true;
       D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: location.hash })
-        .then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Recebemos! A gente chama você no WhatsApp.'); })
+        .then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar(espera ? ESPERA.sucesso : 'Recebemos! A gente chama você no WhatsApp.'); })
         .catch(function (e) { btn.disabled = false; UI.avisar(e && e.message ? e.message : 'Não deu para enviar. Tente de novo.'); });
     } });
     [f.nome, f.whatsapp, f.loja].forEach(function (c) { c.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } }); });
-    UI.abrirModal({ titulo: 'Fale com a gente', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', text: 'Fechar', onclick: UI.fecharModal }), btn] });
+    UI.abrirModal({ titulo: espera ? ESPERA.titulo : 'Fale com a gente', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', text: 'Fechar', onclick: UI.fecharModal }), btn] });
     setTimeout(function () { f.nome.input.focus(); }, 80);
   }
 
@@ -393,7 +407,9 @@
   }
 
   /* Cartoes de plano (por quantidade de lojas). tipo = 'mensal' | 'anual'. Em #/assinar viram escolha. */
-  function cartoesPlanos(selecionavel, escolhidoId, aoEscolher, tipo) {
+  function cartoesPlanos(selecionavel, escolhidoId, aoEscolher, tipo, ehCliente) {
+    /* vagas cheias so mudam a tela de quem ainda nao e cliente (quem ja tem conta so troca de plano) */
+    var fechado = R.capacidadeLojas().fechado && !ehCliente;
     var pr = precos();
     var t = tipo === 'anual' ? 'anual' : 'mensal';
     var lista = R.planos();
@@ -423,7 +439,10 @@
         deFundador ? el('div', { class: 'plano-fundador' }, [el('b', { text: '★ Fundador' }), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
         el('div', { class: 'plano-sub' }, sub),
         el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true', text: '✓' }), el('span', { text: x })]); })),
-        selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '✓ Escolhido' : 'Escolher' }) : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' }),
+        selecionavel ? el('span', { class: 'plano-marca', text: escolhidoId === p.id ? '✓ Escolhido' : 'Escolher' })
+          : (fechado
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Lista de espera', onclick: function () { abrirContato('lista-espera'); } })
+            : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' })),
       ]);
       if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
       /* quantas partes o cartao tem (a etiqueta flutua e nao conta): vira as linhas do subgrid */
@@ -431,7 +450,7 @@
       return card;
     }));
     var temFundador = lista.some(function (p) { var n = t === 'anual' && p.anual > 0 ? p.anual : p.mensal; return R.precoDoPlano(p.id, t) < n; });
-    var faixa = temFundador ? faixaFundador() : null;
+    var faixa = fechado ? faixaEspera() : (temFundador ? faixaFundador() : null);
     if (faixa) grade.insertBefore(faixa, grade.firstChild);
     return grade;
   }
@@ -469,7 +488,7 @@
     function desenhar() {
       UI.limpar(caixaTipo); caixaTipo.appendChild(seletorTipo(tipo, function (t) { tipo = t; desenhar(); }));
       UI.limpar(caixaPlanos);
-      caixaPlanos.appendChild(cartoesPlanos(true, escolhido, function (id) { escolhido = id; desenhar(); }, tipo));
+      caixaPlanos.appendChild(cartoesPlanos(true, escolhido, function (id) { escolhido = id; desenhar(); }, tipo, !!conta));
       var plano = R.planoPorId(escolhido);
       var valor = R.precoDoPlano(escolhido, tipo);
       var fim = new Date(Date.now() + pr.diasGratis * 864e5);
@@ -499,6 +518,13 @@
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'A partir de ' + dataBR(fim) + ' (' + pr.diasGratis + ' dias)' }), el('b', { text: dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') })]));
         resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Sem cartão agora. Quando o período grátis terminar, o Pix aparece na sua conta e no painel. Não gostou? Não paga e pronto.' }));
         continuar.setAttribute('href', '#/comecar/' + escolhido + '/' + tipo);
+        continuar.textContent = 'Criar minha loja';
+        continuar.onclick = null;
+        if (R.capacidadeLojas().fechado) {
+          continuar.textContent = 'Entrar na lista de espera';
+          continuar.setAttribute('href', '#');
+          continuar.onclick = function (ev) { ev.preventDefault(); abrirContato('lista-espera'); };
+        }
       }
     }
     desenhar();
@@ -671,5 +697,5 @@
     return el('details', { class: 'duvida' }, [el('summary', { text: pergunta }), el('p', { text: resposta })]);
   }
 
-  window.LigeiroParceiro = { abrir: abrir, assinar: assinar, entrar: entrar, termos: termos, privacidade: privacidade, barraTopo: barraTopo };
+  window.LigeiroParceiro = { abrir: abrir, assinar: assinar, entrar: entrar, termos: termos, privacidade: privacidade, barraTopo: barraTopo, abrirContato: abrirContato };
 })();

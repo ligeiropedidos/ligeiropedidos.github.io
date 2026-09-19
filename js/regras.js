@@ -913,6 +913,39 @@
     return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8, 12) + '-' + n.slice(12);
   }
 
+  /* ---- vagas de loja (limite do sistema) ---- */
+  /* max: limite (0 = sem limite); lojas: quantas existem (a Central conta); fechado: cliente novo vai para a lista de espera */
+  function capacidadeLojas() {
+    var w = typeof window !== 'undefined' ? window : {};
+    var cfg = w.LIGEIRO_CONFIG || {};
+    var pub = (w.LigeiroFundadores && w.LigeiroFundadores.capacidade) || {};
+    var max = pub.max != null ? Number(pub.max) || 0 : (cfg.capacidade && Number(cfg.capacidade.maxLojas)) || 0;
+    var lojas = Number(pub.lojas) || 0;
+    var fechado = pub.fechado === true || (max > 0 && lojas >= max);
+    return { max: max, lojas: lojas, fechado: fechado, restam: max > 0 ? Math.max(0, max - lojas) : null, perto: max > 0 && lojas >= Math.ceil(max * 0.8) };
+  }
+  /* Central ao abrir: o que gravar dado o estado publico (pub), as lojas contadas (n) e o limite do config.
+     Fecha sozinha ao bater o limite; so reabre sozinha o que ela mesma fechou (automatico). */
+  function decidirCapacidade(pub, n, maxConfig) {
+    var p = pub || {};
+    var max = p.max != null ? Number(p.max) || 0 : Number(maxConfig) || 0;
+    var m = {};
+    if (Number(p.lojas) !== n) m.lojas = n;
+    if (p.max == null && max > 0) m.max = max;
+    if (max > 0 && n >= max && p.fechado !== true) { m.fechado = true; m.automatico = true; }
+    else if (p.fechado === true && p.automatico === true && max > 0 && n < max) { m.fechado = false; m.automatico = false; }
+    return m;
+  }
+  /* Admin mudou o limite para v: fecha se ja bateu (mantendo "na mao" se estava fechado na mao); reabre so o automatico. */
+  function novoLimite(pub, n, v) {
+    var p = pub || {};
+    var m = { max: v };
+    var naMao = p.fechado === true && p.automatico !== true;
+    if (v > 0 && n >= v) { m.fechado = true; m.automatico = !naMao; }
+    else if (p.fechado === true && p.automatico === true) { m.fechado = false; m.automatico = false; }
+    return m;
+  }
+
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
@@ -1024,6 +1057,9 @@
     ehDoLigeiro: ehDoLigeiro,
     limiteDeLojas: limiteDeLojas,
     vagasFundador: vagasFundador,
+    capacidadeLojas: capacidadeLojas,
+    decidirCapacidade: decidirCapacidade,
+    novoLimite: novoLimite,
     ehPrecoFundador: ehPrecoFundador,
     linkDeCobranca: linkDeCobranca,
     dentroDoHorario: dentroDoHorario,

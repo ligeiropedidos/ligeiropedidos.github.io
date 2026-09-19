@@ -627,20 +627,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .secao { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 12px; }
 .secao h2 { font-size: 20px; }
 .fila-titulo { display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--muted); margin-top: 6px; }
-.pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
 .pedido-card.novo { border-color: var(--lime); box-shadow: 0 0 0 4px var(--lime-suave); animation: piscar 1s ease-in-out 3; }
 .pedido-card.atencao { border-color: var(--orange); }
 @keyframes piscar { 50% { box-shadow: 0 0 0 8px #D9F3B3; } }
-.pedido-card .cabeca { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; } /* linha 1: senha e "ha X"; linha 2: os selos */
+.pedido-card .cabeca { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px 12px; } /* a ficha tem a largura dela; o selo de horario fica no que sobra, colado a direita */ /* linha 1: senha e "ha X"; linha 2: os selos */
 .pedido-card .cabeca-selos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .pedido-card .cabeca-selos:empty { display: none; }
 .pedido-card .cabeca-selos .selo { white-space: nowrap; } /* selo inteiro: quebra entre selos, nunca dentro */
 @media (max-width: 360px) { .pedido-card .cabeca-selos { gap: 6px; } .pedido-card .cabeca-selos .selo { font-size: 13px; padding: 5px 10px; } } /* tela ampliada: pagamento e entrega na mesma linha */
 /* senha como ficha de totem: rotulo pequeno + numero grande num bloco escuro */
-.pedido-card .senha { justify-self: start; display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
-.pedido-card .senha small { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lime); }
-.pedido-card .senha b { font-size: 28px; font-variant-numeric: tabular-nums; } /* todo digito da mesma largura: fichas iguais */
-.pedido-card .quando { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.pedido-card .senha { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
+.pedido-card .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); } /* tira o espaco que sobra depois da ultima letra; a direita do numero e 13 porque o 2 ja tem 1px de folga propria: tinta 14 dos dois lados */
+.pedido-card .senha b { font-size: 28px; } /* numero com a largura dele: folga igual dos dois lados em qualquer senha */
+/* horario do pedido: selo com relogio, hora e ha quanto tempo */
+.pedido-card .quando { justify-self: end; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pedido-card .quando-ico { display: inline-flex; width: 14px; height: 14px; flex: none; }
+.pedido-card .quando-ico svg { width: 100%; height: 100%; }
+.pedido-card .quando-hora { display: none; }
+@container (min-width: 420px) { .pedido-card .quando-hora { display: inline; } } /* hora do pedido so com folga de sobra; mesma decisao em todos os cartoes da lista */
 .pedido-card .cliente { font-weight: 700; }
 .pedido-card .endereco { font-size: 15px; color: var(--body); }
 .pedido-card .endereco b { color: #B4501A; }
@@ -955,6 +960,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes fundador-virar { 0%, 40% { transform: rotate(0deg); } 50%, 90% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
 @keyframes fundador-brilho { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
 @media (min-width: 560px) { .fundador { grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; } .fundador-vagas { text-align: right; } }
+.fundador.espera { background: #FFF4E5; border-color: #F7D2B8; }
+.fundador.espera .fundador-texto { color: #7A3B10; }
+.fundador.espera .fundador-conta .btn { width: 100%; white-space: nowrap; }
+@media (min-width: 560px) { .fundador.espera { grid-template-columns: minmax(0, 1fr) auto; } }
 .plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* fundo sai 10px para fora: o texto fica na mesma linha do titulo e do preco */
 .plano-fundador s { color: #7A5A12; }
 .plano-economia { font-size: 13px; line-height: 1.35; color: #14532D; background: #DCFCE7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* anual: o desconto em reais, colado no preco */
@@ -1567,6 +1576,22 @@ button.plano-card { cursor: pointer; }
 .adm-estrela { color: #D97706; margin-right: 6px; }
 .adm-fundadores-barra { grid-area: barra; height: 10px; border-radius: 999px; background: #FDE68A; overflow: hidden; }
 .adm-fundadores-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+/* vagas de loja (limite do sistema): verde; perto do limite, laranja; cheio, vermelho */
+.adm-capacidade { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "texto barra situacao" "nota nota nota" "acoes acoes acoes"; align-items: center; gap: 12px 24px; padding: 16px; background: var(--lime-suave); border: 1px solid #C9E7A1; border-radius: var(--raio-p); } /* mesmo vao e mesmos cantos da faixa de fundadores */
+.adm-capacidade-texto { grid-area: texto; font-size: 15px; line-height: 1.35; color: var(--deep2); white-space: nowrap; }
+.adm-capacidade-texto b { font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums; }
+.adm-capacidade-barra { grid-area: barra; height: 10px; border-radius: 999px; background: #DDEFC4; overflow: hidden; }
+.adm-capacidade-barra i { display: block; height: 100%; border-radius: 999px; background: var(--lime-escuro); }
+.adm-capacidade-situacao { grid-area: situacao; font-size: 14px; color: var(--deep2); white-space: nowrap; }
+.adm-capacidade-nota { grid-area: nota; font-size: 13px; line-height: 1.4; color: var(--muted); margin-top: -4px; }
+.adm-capacidade-acoes { grid-area: acoes; display: flex; gap: 12px; flex-wrap: wrap; }
+.adm-capacidade.perto { background: #FFF4E5; border-color: #F7D2B8; }
+.adm-capacidade.perto .adm-capacidade-barra i { background: var(--orange); }
+.adm-capacidade.cheio { background: var(--erro-suave); border-color: #F3B8B0; }
+.adm-capacidade.cheio .adm-capacidade-barra i { background: var(--erro); }
+@media (max-width: 900px) { .adm-capacidade { grid-template-columns: minmax(0, 1fr); grid-template-areas: "texto" "barra" "situacao" "nota" "acoes"; } .adm-capacidade-texto, .adm-capacidade-situacao { white-space: normal; } }
+@media (max-width: 480px) { .adm-capacidade-acoes .btn { flex: 1 1 0; min-width: 0; white-space: nowrap; } }
+@media (max-width: 400px) { .adm-capacidade-acoes .btn { flex-basis: 100%; } } /* tela pequena: um botao por linha, texto inteiro */
 .adm-fundadores-livres { grid-area: livres; font-size: 14px; color: #6B4A00; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {
   .adm-fundadores { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "texto livres" "barra barra"; }
