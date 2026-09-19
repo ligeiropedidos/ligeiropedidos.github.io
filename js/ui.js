@@ -135,8 +135,16 @@
     if (opcoes.rodape) caixa.appendChild(el('div', { class: 'modal-rodape' }, opcoes.rodape));
     modal.classList.add('aberto');
     document.body.style.overflow = 'hidden';
+    medirBarraDoModal();
     return { corpo: corpo };
   }
+  /* largura da barra de rolagem do corpo (0 no celular), pro CSS descontar do padding da direita */
+  function medirBarraDoModal() {
+    var caixa = $('modalCaixa');
+    var corpo = caixa && caixa.querySelector('.modal-corpo');
+    if (corpo) caixa.style.setProperty('--barra', Math.max(0, corpo.offsetWidth - corpo.clientWidth) + 'px');
+  }
+  window.addEventListener('resize', function () { var m = $('modal'); if (m && m.classList.contains('aberto')) medirBarraDoModal(); });
 
   var focoAntesDoModal = null;
   function fecharModal() {

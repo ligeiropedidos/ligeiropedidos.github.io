@@ -821,7 +821,7 @@
 
       var corpo = el('div');
       var srcFoto = D.fotoSrc(produto, estado.fotos);
-      if (srcFoto) corpo.appendChild(el('div', { class: 'foto-modal' }, [el('img', { class: 'fundo', src: srcFoto, alt: '', 'aria-hidden': 'true' }), el('img', { class: 'frente', src: srcFoto, alt: produto.nome })]));
+      if (srcFoto) corpo.appendChild(el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]));
 
       if (podePersonalizar) {
         grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
