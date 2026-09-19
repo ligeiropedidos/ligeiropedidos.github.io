@@ -936,6 +936,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin-top: -2px; }
 .plano-fundador s { color: #7A5A12; }
 .selo.selo-fundador { background: #FDE68A; color: #3F2A00; }
+/* avisos do plano (Minha conta): cartao com icone, titulo e uma linha */
+.aviso-plano { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid; text-align: left; }
+.aviso-plano-ico { flex: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
+.aviso-plano-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aviso-plano-texto b { font-family: var(--display); font-size: 16px; line-height: 1.25; }
+.aviso-plano-texto span { font-size: 14px; line-height: 1.4; }
+.aviso-plano-texto span b { font-family: inherit; font-size: inherit; white-space: nowrap; } /* "17 vagas" nunca separa */
+.aviso-fundador { background: #FFFBEB; border-color: #FCD34D; color: #5B3A00; }
+.aviso-fundador .aviso-plano-ico { background: #FDE68A; color: #B45309; }
+.aviso-fundador .aviso-plano-texto > b { color: #3F2A00; }
+.aviso-espera { background: var(--orange-suave); border-color: #F7D2B8; color: #7A3B10; }
+.aviso-espera .aviso-plano-ico { background: #FDE0CC; }
+.aviso-espera .aviso-plano-texto > b { color: #5C2A08; }
 .conta-ola { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
 .conta-ola .selo { font-family: var(--corpo, inherit); line-height: 1; }
 .conta-ola .selo[hidden] { display: none; }

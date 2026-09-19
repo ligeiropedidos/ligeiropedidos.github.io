@@ -165,8 +165,8 @@
           quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
         ]),
         (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }) : null,
-        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? el('span', { class: 'selo laranja', text: 'Assine agora e trave o preço de fundador: restam ' + R.vagasFundador() + ' vagas' }) : null),
-        p.avisoPagamentoEm ? el('span', { class: 'selo laranja', text: 'Pagamento avisado em ' + dataBR(p.avisoPagamentoEm) + ', aguardando confirmação' }) : null,
+        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', '★', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
+        p.avisoPagamentoEm ? avisoPlano('espera', '⏳', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
         el('div', { class: 'plano-acoes' }, [
           /* em dia nao tem o que pagar: o botao volta 7 dias antes de vencer, ou quando trocou pra um plano maior */
@@ -182,6 +182,14 @@
               } }) : null),
         ]),
       ]));
+    }
+
+    /* aviso do plano: icone num circulo, titulo e uma linha curta (tipo: 'fundador' dourado, 'espera' laranja) */
+    function avisoPlano(tipo, icone, titulo, texto) {
+      return el('div', { class: 'aviso-plano aviso-' + tipo, role: 'note' }, [
+        el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true', text: icone }),
+        el('span', { class: 'aviso-plano-texto' }, [el('b', { text: titulo }), el('span', {}, texto)]),
+      ]);
     }
 
     function abrirPagamento(conta, valor, periodo, aoAvisar) {
