@@ -44,6 +44,11 @@
         ]),
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
       ]));
+      /* so a conta do Ligeiro: atalho pra Central (o #/admin confere o Google de novo, ninguem mais entra) */
+      if (R.ehDoLigeiro({ email: u.email })) corpo.appendChild(el('a', { class: 'btn btn-escuro conta-painel conta-central', href: '#/admin' }, [
+        el('span', { class: 'conta-painel-texto' }, [el('b', { text: '🛠️ Central do Ligeiro' }), el('small', { text: 'Lojas, assinaturas, contatos e pagamentos' })]),
+        el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
+      ]));
       var caixaPlano = el('div');
       corpo.appendChild(caixaPlano);
       var lista = el('div', { class: 'conta-lojas' });

@@ -123,15 +123,16 @@
     var f = {};
     f.nome = campo('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', largo: true });
     var tipoSel = el('select', {}, TIPOS.map(function (t) { return el('option', { value: t[0], text: t[1] + ' ' + t[0] }); }));
-    f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), tipoSel]);
+    /* linha de ajuda igual a do WhatsApp ao lado: rotulo e caixa das duas colunas na mesma altura */
+    f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), el('p', { class: 'ajuda', text: 'O cardápio já vem montado pra ele.' }), tipoSel]);
     f.cidade = window.LigeiroCidades.campo('', '', { rotulo: 'Cidade', placeholder: 'Ex: Juquiá', ajuda: 'Digite e escolha na lista (todas as cidades do Brasil).', largo: true });
     f.whatsapp = campo('WhatsApp da loja', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', ajuda: 'É por onde o cliente fala com você.' });
     UI.mascaraTelefone(f.whatsapp.input);
     /* Frete: gratis ou taxa. Fica gravado na loja e o dono troca quando quiser em Ajustes. */
     var freteModo = 'taxa';
-    f.taxaEntrega = campo('Taxa de entrega', { max: 12, inputmode: 'numeric', placeholder: 'R$ 0,00', ajuda: 'O que o cliente paga pela entrega. Depois dá pra colocar "grátis a partir de R$ X" no painel.' });
+    f.taxaEntrega = campo('Taxa de entrega', { max: 12, inputmode: 'numeric', placeholder: 'R$ 0,00', largo: true, ajuda: 'O que o cliente paga pela entrega. Depois dá pra colocar "grátis a partir de R$ X" no painel.' });
     UI.mascaraDinheiro(f.taxaEntrega.input);
-    var botoesFrete = [['gratis', '🛵 Entrega grátis'], ['taxa', 'Cobro taxa']].map(function (op) {
+    var botoesFrete = [['gratis', 'Entrega grátis'], ['taxa', 'Cobro taxa']].map(function (op) {
       var b = el('button', { type: 'button', class: 'aba-painel' + (freteModo === op[0] ? ' ativa' : ''), text: op[1], dataset: { valor: op[0] } });
       b.addEventListener('click', function () {
         freteModo = op[0];
@@ -140,7 +141,8 @@
       });
       return b;
     });
-    var linhaFrete = el('div', { class: 'estilo-linha' }, botoesFrete);
+    /* dois botoes grandes de mesma largura, a linha inteira (totem) */
+    var linhaFrete = el('div', { class: 'estilo-linha frete-opcoes' }, botoesFrete);
     f.frete = el('div', { class: 'campo largo' }, [el('label', { text: 'Frete' }), el('p', { class: 'ajuda', text: 'Você decide, e troca quando quiser no painel.' }), linhaFrete]);
     if (D.modoDemo) {
       f.senha = campo('Senha do painel', { max: 20, inputmode: 'numeric', placeholder: '4 números', ajuda: 'Você digita ela pra ver os pedidos.' });
@@ -164,7 +166,7 @@
     function usarConta(u) {
       contaLogada = u;
       UI.limpar(blocoAcesso);
-      blocoAcesso.appendChild(el('div', { class: 'bloco-titulo' }, [el('span', { class: 'bloco-numero', text: '3' }), 'Seu acesso ao painel']));
+      blocoAcesso.appendChild(el('div', { class: 'bloco-titulo' }, [el('span', { class: 'bloco-numero', text: '2' }), 'Seu acesso ao painel']));
       blocoAcesso.appendChild(el('p', { class: 'aviso', text: '✅ Entrando como ' + u.email + (D.modoDemo ? ' (demonstração)' : '') + '. A loja fica na sua conta.' }));
     }
     if (usuario && !D.modoDemo) usarConta(usuario); else if (usuario) contaLogada = usuario;

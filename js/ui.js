@@ -444,6 +444,7 @@
   function splashOficial(o) {
     var caixa = el('div', { class: 'splash-oficial' + (o.ligeiro ? ' splash-ligeiro' : ''), style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
       o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.png', alt: '' }),
+      o.ligeiro ? el('div', { class: 'splash-marca' }, ['Ligei', el('span', { text: 'ro' })]) : null,
       el('div', { class: 'splash-pontos' }, [el('span'), el('span'), el('span')]),
     ]);
     document.body.appendChild(caixa);
@@ -532,10 +533,23 @@
     var teto = new Promise(function (r) { setTimeout(r, 4000); });
     return Promise.race([tudo, teto]);
   }
-  /* Telas internas da loja oficial (painel, cozinha, entregador, balcao): tema cedo + tela de carregamento. */
+  /* Tela de carregamento do Ligeiro nos paineis (painel, cozinha, entregador, Central): fundo branco, mascote
+     pulsando, "Ligeiro" e tres bolinhas nas cores da marca. Fica no minimo 0,5 s pra nao piscar. */
+  function splashLigeiro() {
+    var tirar = splashOficial({ ligeiro: true, corFundo: '#FFFFFF', logo: 'img/mascote.png' });
+    var inicio = Date.now();
+    return function () { setTimeout(tirar, Math.max(0, 500 - (Date.now() - inicio))); };
+  }
+  /* tira a tela quando a tela de baixo ganhar conteudo (login, painel ou aviso de erro) */
+  function tirarQuandoMontar(raiz, tirar) {
+    if (!raiz || !window.MutationObserver) { setTimeout(tirar, 800); return; }
+    var obs = new MutationObserver(function () { if (raiz.children.length) { obs.disconnect(); tirar(); } });
+    obs.observe(raiz, { childList: true });
+  }
+  /* Telas internas (painel, cozinha, entregador): loja oficial com tema cedo e a tela dela; as outras com a do Ligeiro. */
   function abrirOficialCedo(raiz, slug) {
     var o = lojaOficial(slug);
-    if (!o || !o.tema) return;
+    if (!o || !o.tema) { tirarQuandoMontar(raiz, splashLigeiro()); return; }
     aplicarTemaOficial(raiz, slug);
     var tirar = splashOficial(o);
     oficialPronto(o, 500).then(tirar);
@@ -555,7 +569,7 @@
 
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar,
-    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
+    guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,

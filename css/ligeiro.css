@@ -625,11 +625,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .pedido-card .acoes-pedido .btn-pequeno { width: 54px; height: 54px; padding: 0; }
   .pedido-card .acoes-pedido .btn-erro { flex: 1 1 0; width: auto; min-width: 0; padding: 0 12px; }
 }
-/* admin, cartao da loja: "Pagou" e o status na linha inteira; os atalhos em colunas iguais, uma linha cada */
-.pedido-card .admin-acoes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.pedido-card .admin-acoes > .btn-principal, .pedido-card .admin-acoes > .campo { grid-column: 1 / -1; }
-.pedido-card .admin-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
-@media (max-width: 640px) { .pedido-card .admin-acoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .divergente { background: var(--erro-suave); color: var(--erro); border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; }
 
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
@@ -979,13 +974,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .splash-pontos span:nth-child(2) { animation-delay: 0.15s; background: #efa92c; }
 .splash-pontos span:nth-child(3) { animation-delay: 0.3s; background: #2e7d32; }
 @keyframes splash-ponto { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-8px); opacity: 1; } }
-/* lojas comuns: mascote do Ligeiro, pontinhos verdes, e so aparece se o carregamento passar de um instante */
-.splash-ligeiro { opacity: 0; animation: splash-surgir 0.25s ease 0.18s forwards; }
-.splash-ligeiro.saindo { animation: none; opacity: 0; }
+/* paineis (lojista, cozinha, entregador, Central): a tela do Ligeiro. O fundo branco cobre tudo na hora; mascote, nome
+   e bolinhas surgem depois de um instante. Cores fixas da marca (nao mudam com a cor de cada loja). */
 @keyframes splash-surgir { to { opacity: 1; } }
-.splash-ligeiro img { width: min(170px, 46vw); }
-.splash-ligeiro .splash-pontos span, .splash-ligeiro .splash-pontos span:nth-child(2), .splash-ligeiro .splash-pontos span:nth-child(3) { background: #84CC16; }
+@keyframes splash-entrar { from { opacity: 0; } to { opacity: 1; } }
+.splash-ligeiro img { width: min(150px, 40vw); animation: splash-entrar 0.25s ease 0.18s both, splash-pulsar 1.1s ease-in-out infinite; }
+.splash-ligeiro .splash-marca, .splash-ligeiro .splash-pontos { animation: splash-entrar 0.25s ease 0.18s both; }
+.splash-marca { margin-top: -6px; font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; color: #0F3D2E; }
+.splash-marca span { color: #5E9A0C; }
+.splash-ligeiro .splash-pontos span { background: #84CC16; }
 .splash-ligeiro .splash-pontos span:nth-child(2) { background: #1B6B4A; }
+.splash-ligeiro .splash-pontos span:nth-child(3) { background: #0F3D2E; }
 /* tela de carregamento das lojas comuns: fundo da pagina e tres bolinhas iguais na cor da loja.
    As bolinhas so aparecem depois de 0,25 s: loja que abre rapido nem mostra. */
 .splash-loja { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: opacity 0.25s ease; }
@@ -1232,6 +1231,11 @@ button.plano-card { cursor: pointer; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
 .conta-painel-texto small { font-size: 13.5px; font-weight: 600; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conta-painel-seta { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; line-height: 1; }
+.conta-central .conta-painel-seta { background: rgba(255, 255, 255, 0.16); } /* seta clara no botao escuro */
+/* criar loja: frete em dois botoes iguais que ocupam a linha toda */
+.frete-opcoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.frete-opcoes .aba-painel { width: 100%; min-width: 0; min-height: 52px; padding: 0 8px; justify-content: center; font-size: 16px; white-space: nowrap; }
+@media (max-width: 360px) { .frete-opcoes .aba-painel { font-size: 14.5px; } }
 .conta-grupo { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 .conta-plano { display: flex; flex-direction: column; gap: 12px; }
 .conta-plano > .selo { align-self: flex-start; }
@@ -1390,3 +1394,198 @@ button.plano-card { cursor: pointer; }
   .linha-botoes.dupla .btn { font-size: 14px; padding: 0 4px; }
 }
 @media (max-width: 480px) { .btn-mp { font-size: 16px; white-space: nowrap; padding-left: 8px; padding-right: 8px; } }
+
+/* ==========================================================
+   Central do Ligeiro (#/admin). Tudo aqui tem o prefixo adm-.
+   Ritmo: 16 entre blocos, 12 entre itens, 24 antes de titulo.
+   ========================================================== */
+
+/* topo e abas (mesma moldura do painel do dono) */
+.adm-topo .btn-pequeno { gap: 8px; }
+@media (max-width: 480px) { .adm-topo-ico { display: none; } }
+.adm-aba-extra { display: inline-flex; align-items: center; gap: 6px; }
+.adm-aba-extra:empty { display: none; }
+.adm-ponto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--orange); }
+
+/* secao: 16 entre blocos; titulo ganha mais 8 (24 antes dele) */
+.adm-secao { gap: 16px; padding-top: 24px; padding-bottom: 48px; }
+.adm-titulo { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.adm-carregando { padding: 48px 16px; text-align: center; color: var(--muted); }
+.adm-cabeca { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; }
+.adm-cabeca-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.adm-cabeca-texto h2 { font-size: 22px; }
+.adm-cabeca-texto p { font-size: 15px; line-height: 1.4; color: var(--muted); }
+.adm-cabeca > .btn { flex: none; min-height: 48px; padding: 0 20px; font-size: 16px; white-space: nowrap; }
+@media (max-width: 640px) { .adm-cabeca > .btn { flex: 1 1 100%; } }
+
+/* indicadores: 4 colunas iguais no PC, 2 no celular; numero alinhado pela mesma linha */
+.adm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 899px) { .adm-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.adm-kpi { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
+.adm-kpi-rotulo { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-kpi-valor { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1.15; color: var(--deep); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-kpi-valor small { font-size: 0.55em; font-weight: 700; color: var(--deep2); }
+.adm-kpi-valor .adm-pre { margin-right: 4px; }
+.adm-kpi-valor .adm-pos { margin-left: 6px; }
+.adm-kpi-apoio { padding-top: 4px; font-size: 13.5px; line-height: 1.35; color: var(--body); } /* colado no numero: se quebrar em 2 linhas, a primeira continua alinhada com a do vizinho */
+@media (max-width: 400px) { .adm-kpi { padding: 12px; } .adm-kpi-rotulo { font-size: 13px; } .adm-kpi-valor { font-size: 24px; } .adm-kpi-apoio { font-size: 13px; } }
+
+/* faixa das vagas de fundador (mesmo dourado do cartao de fundador da pagina de vendas) */
+.adm-fundadores { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "texto barra livres"; align-items: center; gap: 12px 24px; padding: 16px; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--raio-p); }
+.adm-fundadores-texto { grid-area: texto; font-size: 15px; line-height: 1.35; color: #3F2A00; white-space: nowrap; }
+.adm-fundadores-texto b { font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums; }
+.adm-estrela { color: #D97706; margin-right: 6px; }
+.adm-fundadores-barra { grid-area: barra; height: 10px; border-radius: 999px; background: #FDE68A; overflow: hidden; }
+.adm-fundadores-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+.adm-fundadores-livres { grid-area: livres; font-size: 14px; color: #6B4A00; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .adm-fundadores { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "texto livres" "barra barra"; }
+  .adm-fundadores-texto { white-space: normal; }
+}
+@media (max-width: 480px) {
+  .adm-fundadores { grid-template-columns: minmax(0, 1fr); grid-template-areas: "texto" "barra"; }
+  .adm-fundadores-livres { display: none; }
+}
+
+/* listas: cartao unico com divisorias finas; linha inteira clicavel */
+.adm-lista { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); overflow: hidden; }
+.adm-linha { display: grid; grid-template-columns: minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background 0.14s; }
+.adm-lista > .adm-linha:first-child, .adm-lista > .adm-cab + .adm-linha { border-top: 0; }
+@media (hover: hover) { .adm-linha:hover { background: var(--bg); } }
+.adm-linha:active { background: var(--lime-suave); }
+.adm-linha:focus-visible { outline: 3px solid var(--lemon); outline-offset: -3px; }
+.adm-linha.desligada .adm-c-principal, .adm-linha.desligada .adm-c { opacity: 0.55; }
+.adm-c-principal { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.adm-logo { flex: none; width: 40px; height: 40px; border-radius: 10px; overflow: hidden; background: var(--lime-suave); display: inline-flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
+.adm-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adm-textos { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-nome { font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
+.adm-nome .selo-verificada { width: 18px; height: 18px; margin-left: 6px; vertical-align: -3px; }
+.adm-sub { font-size: 14px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.adm-sub.adm-aviso-txt { color: #B4501A; font-weight: 600; }
+.adm-sub.adm-ok-txt { color: var(--deep2); font-weight: 600; }
+.adm-c { min-width: 0; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.adm-c-status { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
+.adm-selos-linha { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.adm-seta { font-size: 22px; line-height: 1; color: var(--muted); text-align: right; }
+.selo.adm-selo { padding: 4px 10px; font-size: 13px; line-height: 1.3; white-space: nowrap; }
+.adm-data { font-size: 13px; line-height: 1.3; color: var(--muted); white-space: nowrap; }
+.adm-lista-vazia { padding: 24px 16px; text-align: center; color: var(--muted); }
+.adm-so-pc, .adm-cab { display: none; }
+/* celular bem estreito: o selo desce pra baixo do nome (alinhado com o texto) e o nome ganha a largura toda */
+@media (max-width: 360px) {
+  .adm-linha { grid-template-columns: minmax(0, 1fr) 12px; row-gap: 8px; }
+  .adm-linha > .adm-c-status { grid-column: 1; grid-row: 2; align-items: flex-start; }
+  .adm-linha.adm-com-logo > .adm-c-status { padding-left: 52px; }
+  .adm-linha > .adm-seta { grid-column: 2; grid-row: 1 / span 2; }
+  .adm-linha .adm-selos-linha { flex-direction: row; align-items: center; gap: 6px; }
+}
+/* PC: a lista vira tabela, colunas alinhadas pela mesma borda do cabecalho */
+@media (min-width: 900px) {
+  .adm-tabela .adm-so-pc { display: block; }
+  .adm-tabela .adm-so-cel { display: none; }
+  .adm-tabela .adm-cab { display: grid; align-items: center; min-height: 44px; padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; line-height: 1.2; color: var(--muted); }
+  .adm-tabela .adm-linha, .adm-tabela .adm-cab { grid-template-columns: minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 2.2fr) minmax(0, 1.4fr) 12px; gap: 16px; }
+  .adm-tabela-contas .adm-linha, .adm-tabela-contas .adm-cab { grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.4fr) 12px; }
+  .adm-tabela .adm-c-status { align-items: flex-start; }
+  .adm-tabela .adm-selos-linha { flex-direction: row; align-items: center; gap: 6px; }
+}
+
+/* busca e filtros: chips numa linha so; no celular a linha rola de lado, de borda a borda */
+.adm-barra { display: flex; flex-direction: column; gap: 12px; }
+.adm-chips { display: flex; gap: 8px; margin: -4px 0; padding: 4px 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.adm-chips::-webkit-scrollbar { display: none; }
+.adm-chips .aba-painel { flex: none; min-height: 40px; padding: 0 14px; font-size: 14.5px; line-height: 1; white-space: nowrap; }
+@media (max-width: 640px) { .adm-chips { margin: -4px calc(-1 * var(--margem)); padding: 4px var(--margem); scroll-padding: 0 var(--margem); } }
+
+/* precisa de atencao: icone, texto e o botao na mesma altura, botoes da mesma largura */
+.adm-atencao-linha { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.adm-atencao > :first-child { border-top: 0; }
+.adm-ico { flex: none; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1; background: var(--lime-suave); color: var(--deep2); }
+.adm-ico.laranja { background: var(--orange-suave); }
+.adm-ico.erro { background: var(--erro-suave); }
+.adm-atencao-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-atencao-texto b { font-size: 15.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.adm-atencao-texto span { font-size: 14px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.adm-atencao-linha .btn { flex: none; width: 112px; min-width: 0; min-height: 44px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
+.adm-tudo-ok { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; font-weight: 700; color: var(--deep2); }
+.adm-tudo-ok .adm-ico { background: var(--lime); color: var(--ink); font-weight: 700; }
+.adm-mais { display: block; width: 100%; min-height: 48px; margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid var(--line); background: var(--card); color: var(--deep2); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+@media (hover: hover) { .adm-mais:hover { background: var(--bg); } }
+@media (max-width: 480px) { .adm-atencao-linha .btn { width: 92px; } }
+@media (max-width: 400px) { .adm-atencao-linha .adm-ico { display: none; } }
+
+/* contatos: acoes a direita no PC (duas colunas iguais); no celular embaixo, metades iguais */
+.adm-contato { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-height: 64px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.adm-lista > .adm-contato:first-child { border-top: 0; }
+.adm-contato-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.adm-contato-topo .adm-data { flex: none; }
+.adm-contato.feito .adm-nome { color: var(--body); }
+.adm-contato-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.adm-contato-acoes .btn { width: 100%; min-width: 0; min-height: 44px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
+@media (min-width: 760px) { .adm-contato { grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: 16px; } }
+
+/* ferramentas: cartoes iguais, botao sempre no pe */
+.adm-ferramentas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1000px) { .adm-ferramentas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .adm-ferramentas { grid-template-columns: minmax(0, 1fr); } }
+.adm-ferramenta { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
+.adm-ferramenta-topo { display: flex; align-items: center; gap: 12px; }
+.adm-ferramenta-topo b { font-family: var(--display); font-size: 17px; line-height: 1.25; }
+.adm-ferramenta > p { font-size: 14.5px; line-height: 1.45; color: var(--body); overflow-wrap: anywhere; }
+.adm-ferramenta-pe { margin-top: auto; }
+.adm-ferramenta-pe .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 12px; font-size: 15px; white-space: nowrap; }
+.adm-precos-caixa { display: flex; flex-direction: column; gap: 12px; }
+.adm-precos { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; font-size: 14.5px; line-height: 1.35; }
+.adm-precos > span { padding: 8px 0; border-top: 1px solid var(--line); }
+.adm-precos > .adm-pc-num { padding-left: 12px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adm-precos > .adm-pc-cab { padding-top: 0; border-top: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.adm-precos > .adm-pc-nome { font-weight: 600; }
+.adm-precos > .adm-pc-fund { grid-column: 1 / -1; padding-top: 0; border-top: 0; font-size: 13px; color: #6B4A00; }
+.adm-precos-nota { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+
+/* fichas (modal) de loja e de conta; e-mail comprido no titulo quebra em vez de empurrar a tela */
+.adm-modal .modal-topo > div:first-child { min-width: 0; }
+.adm-modal .modal-topo .titulo { overflow-wrap: anywhere; }
+.adm-ficha { display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px; }
+.adm-ficha h3 { font-size: 17px; margin-top: 8px; }
+.adm-selos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.adm-link { display: flex; align-items: stretch; gap: 12px; }
+.adm-link .caixa-link { flex: 1; min-width: 0; display: flex; align-items: center; }
+.adm-link .btn { flex: none; min-height: 48px; white-space: nowrap; }
+.adm-alerta { padding: 12px 16px; background: var(--orange-suave); border: 1px solid #F7D2B8; border-radius: var(--raio-p); color: #7A3B10; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.adm-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin: 0; padding: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--raio-p); }
+.adm-par { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-par dt { font-size: 13.5px; line-height: 1.3; color: var(--muted); }
+.adm-par dd { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+/* celular: uma linha por dado, rotulo na esquerda e valor na direita, com divisoria fina */
+@media (max-width: 560px) {
+  .adm-dados { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 4px 16px; }
+  .adm-par { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .adm-par:first-child { border-top: 0; }
+  .adm-par dt { flex: none; }
+  .adm-par dd { min-width: 0; text-align: right; }
+}
+.adm-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.adm-numeros > p { grid-column: 1 / -1; }
+.adm-numeros .adm-kpi-valor { font-size: 26px; }
+.adm-acoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.adm-acoes-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.adm-acoes-1 { grid-template-columns: minmax(0, 1fr); }
+.adm-acoes .btn, .adm-acoes-linha .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
+.adm-acoes-linha { display: flex; flex-direction: column; gap: 12px; }
+.adm-acoes-linha .btn { min-height: 52px; font-size: 16px; }
+@media (max-width: 640px) {
+  .adm-acoes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adm-acoes-1 { grid-template-columns: minmax(0, 1fr); }
+  .adm-acoes > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (max-width: 360px) { .adm-acoes .btn { font-size: 14px; padding: 0 6px; } }
+.adm-caixa { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--raio-p); }
+.adm-plano { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.adm-plano .btn { width: 100%; min-width: 0; min-height: 56px; padding: 0 12px; font-size: 16px; white-space: nowrap; }
+@media (max-width: 560px) { .adm-plano { grid-template-columns: minmax(0, 1fr); } }
+.adm-conta-linha { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.adm-conta-linha .adm-textos { flex: 1 1 220px; }
+.adm-conta-linha .btn { flex: none; min-height: 44px; white-space: nowrap; }
+@media (max-width: 480px) { .adm-conta-linha .btn { flex: 1 1 100%; } }
