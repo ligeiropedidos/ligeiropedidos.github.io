@@ -631,9 +631,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pedido-card.novo { border-color: var(--lime); box-shadow: 0 0 0 4px var(--lime-suave); animation: piscar 1s ease-in-out 3; }
 .pedido-card.atencao { border-color: var(--orange); }
 @keyframes piscar { 50% { box-shadow: 0 0 0 8px #D9F3B3; } }
-.pedido-card .cabeca { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.pedido-card .cabeca { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 8px 12px; } /* linha 1: senha e "ha X"; linha 2: os selos */
+.pedido-card .cabeca-selos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.pedido-card .cabeca-selos:empty { display: none; }
+.pedido-card .cabeca-selos .selo { white-space: nowrap; } /* selo inteiro: quebra entre selos, nunca dentro */
+@media (max-width: 360px) { .pedido-card .cabeca-selos { gap: 6px; } .pedido-card .cabeca-selos .selo { font-size: 13px; padding: 5px 10px; } } /* tela ampliada: pagamento e entrega na mesma linha */
 .pedido-card .senha { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1; }
-.pedido-card .quando { margin-left: auto; font-size: 13.5px; color: var(--muted); }
+.pedido-card .quando { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
 .pedido-card .cliente { font-weight: 700; }
 .pedido-card .endereco { font-size: 15px; color: var(--body); }
 .pedido-card .endereco b { color: #B4501A; }

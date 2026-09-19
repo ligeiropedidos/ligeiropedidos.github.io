@@ -521,16 +521,26 @@
       var entrega = p.tipoEntrega === 'entrega';
       var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (p.status === R.STATUS.AGUARDANDO && p.clientePagou ? ' atencao' : '') });
 
-      var selos = [];
-      if (p.pagoAposCancelar) selos.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado: confira com o cliente' }));
-      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Cliente diz que pagou o Pix' : 'Aguardando o Pix' }));
+      /* ordem fixa em todo cartao: pagamento e entrega numa linha, extras (troco, cancelado) na linha de baixo */
+      var selos = [], extras = [];
+      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Diz que pagou' : 'Aguardando Pix' })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
       else if (p.formaPagamento === 'pix') selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix confirmado' }));
-      else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: entrega ? 'Maquininha na entrega' : 'Maquininha no balcão' }));
-      else if (p.formaPagamento === 'dinheiro_entrega') selos.push(el('span', { class: 'selo laranja', text: (entrega ? 'Dinheiro na entrega' : 'Dinheiro no balcão') + (p.trocoPara > 0 ? ' · troco ' + dinheiro(p.trocoPara - p.total) : '') }));
+      else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: 'Maquininha' })); /* onde paga ja esta no selo do lado (Entrega, Retirada, Balcao) */
+      else if (p.formaPagamento === 'dinheiro_entrega') {
+        selos.push(el('span', { class: 'selo laranja', text: 'Dinheiro' }));
+        if (p.trocoPara > 0) extras.push(el('span', { class: 'selo laranja', text: 'Troco de ' + dinheiro(p.trocoPara - p.total) }));
+      }
       selos.push(el('span', { class: 'selo cinza', text: entrega ? '🛵 Entrega' : (p.origem === 'balcao' ? '🧾 Balcão' : '🛍️ Retirada') }));
-      if (p.status === R.STATUS.CANCELADO) selos.push(el('span', { class: 'selo fechado', text: 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
+      if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
+      if (p.pagoAposCancelar) extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
 
-      card.appendChild(el('div', { class: 'cabeca' }, [el('span', { class: 'senha', text: 'Senha ' + p.senha })].concat(selos, [el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) })])));
+      /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
+      card.appendChild(el('div', { class: 'cabeca' }, [
+        el('span', { class: 'senha', text: 'Senha ' + p.senha }),
+        el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
+        el('div', { class: 'cabeca-selos' }, selos),
+        el('div', { class: 'cabeca-selos' }, extras), /* extras numa linha propria: a de cima fica igual em todo cartao */
+      ]));
       card.appendChild(el('div', { class: 'cliente', text: p.cliente.nome + (p.cliente.telefone ? ' · ' + R.formatarTelefone(p.cliente.telefone) : '') }));
       if (entrega) {
         var e = p.endereco || {};

@@ -277,12 +277,16 @@
     return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(texto);
   }
 
+  /* o que o entregador cobra, em selos curtos (um selo comprido virava bolha de duas linhas) */
   function oQueCobrar(p) {
-    if (p.status === R.STATUS.AGUARDANDO) return { texto: 'Pix ainda não confirmado', classe: 'fechado' };
-    if (p.formaPagamento === 'pix') return { texto: 'Já pago no Pix, não cobrar', classe: '' };
-    if (p.formaPagamento === 'cartao_entrega') return { texto: 'Cobrar ' + dinheiro(p.total) + ' na maquininha', classe: 'laranja' };
-    if (p.formaPagamento === 'dinheiro_entrega') return { texto: 'Cobrar ' + dinheiro(p.total) + ' em dinheiro' + (p.trocoPara > 0 ? ' · levar troco de ' + dinheiro(p.trocoPara - p.total) + ' (paga com ' + dinheiro(p.trocoPara) + ')' : ' · sem troco'), classe: 'laranja' };
-    return { texto: 'Total ' + dinheiro(p.total), classe: 'cinza' };
+    function selo(texto, classe) { return el('span', { class: 'selo ' + (classe || ''), text: texto }); }
+    if (p.status === R.STATUS.AGUARDANDO) return [selo('Pix ainda não confirmado', 'fechado')];
+    if (p.formaPagamento === 'pix') return [selo('Já pago no Pix, não cobrar')];
+    if (p.formaPagamento === 'cartao_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
+    if (p.formaPagamento === 'dinheiro_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0
+      ? [selo('Paga com ' + dinheiro(p.trocoPara), 'laranja'), selo('Levar troco de ' + dinheiro(p.trocoPara - p.total), 'laranja')]
+      : [selo('Sem troco', 'laranja')]);
+    return [selo('Total ' + dinheiro(p.total), 'cinza')];
   }
 
   function abrirEntrega(raiz, slug) {
@@ -317,8 +321,8 @@
         var card = el('div', { class: 'pedido-card' + (naRua ? '' : ' cinza') });
         card.appendChild(el('div', { class: 'cabeca' }, [
           el('span', { class: 'senha', text: 'Senha ' + p.senha }),
-          el('span', { class: 'selo ' + cobrar.classe, text: cobrar.texto }),
           el('span', { class: 'quando', text: UI.tempoRelativo(p.criadoEm) }),
+          el('div', { class: 'cabeca-selos' }, cobrar),
         ]));
         card.appendChild(el('div', { class: 'cliente', text: p.cliente.nome + (p.cliente.telefone ? ' · ' + R.formatarTelefone(p.cliente.telefone) : '') }));
         var end = el('div', { class: 'endereco grande' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
