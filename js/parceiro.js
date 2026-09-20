@@ -336,8 +336,11 @@
           el('div', { class: 'ex-rotulo', text: exclusivo ? 'Exclusivo' : 'Padrão' }),
         ]);
       }
+      /* icone: um emoji, ou uma imagem (o selo verde). Nos dois casos ele vai na mesma caixa de 30px,
+         para o texto comecar no mesmo x em todos os cartoes. */
       function recurso(icone, titulo, texto) {
-        return el('div', { class: 'ex-recurso' }, [el('span', { class: 'ex-icone', text: icone }), el('div', {}, [el('b', { text: titulo }), el('span', { text: texto })])]);
+        var caixa = typeof icone === 'string' ? el('span', { class: 'ex-icone', text: icone }) : el('span', { class: 'ex-icone' }, icone);
+        return el('div', { class: 'ex-recurso' }, [caixa, el('div', {}, [el('b', { text: titulo }), el('span', { text: texto })])]);
       }
       corpo.appendChild(el('section', { class: 'vender-bloco' }, [
         el('div', { class: 'exclusiva' }, [
@@ -351,7 +354,9 @@
               recurso('✨', 'Abertura animada', 'Sua logo entra em cena'),
               recurso('⏳', 'Espera com sua logo', 'Sem tela branca ao abrir'),
               recurso('🍳', 'Tudo combinando', 'Até no painel e na cozinha'),
-            ]),
+              recurso('🛠️', 'A gente faz tudo', 'Você não mexe em nada'),
+              recurso(el('img', { class: 'ex-selo', src: 'img/selo-verificado.svg', alt: '' }), 'Loja verificada', 'O selo verde na sua loja'),
+            ]), /* sempre em numero par: nas duas colunas nao sobra cartao sozinho */
             el('div', { class: 'ex-preco' }, [
               el('span', { class: 'ex-apartir', text: lc.aPartirDe ? 'a partir de' : '' }),
               el('b', { text: lc.aPartirDe ? dinheiro(lc.aPartirDe) : 'Sob orçamento' }),
