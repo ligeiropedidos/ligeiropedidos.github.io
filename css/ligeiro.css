@@ -1136,7 +1136,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .tabela-concorrentes td:nth-child(2)::before { content: 'Por mês: '; color: var(--muted); }
   .tabela-concorrentes td:nth-child(3)::before { content: 'Comissão: '; color: var(--muted); }
   .tabela-concorrentes tr.destaque { background: var(--lime-suave); box-shadow: inset 4px 0 0 var(--lime); }
-  .tabela-concorrentes tr.destaque td { background: transparent; box-shadow: none; }
+  /* td:first-child junto: a barra do computador (td:first-child) tem mais forca que so "td" e voltava no nome */
+  .tabela-concorrentes tr.destaque td, .tabela-concorrentes tr.destaque td:first-child { background: transparent; box-shadow: none; }
 }
 .caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; word-break: break-all; }
 .grade-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
