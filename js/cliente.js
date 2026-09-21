@@ -646,6 +646,8 @@
       UI.limpar(logo);
       var srcLogo = (estado.oficial && estado.oficial.logo) || D.logoSrc(l);
       logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: l.nome }) : document.createTextNode(l.emoji || '🍽️'));
+      /* a linha embaixo do nome: a frase do lojista ou "Lanchonete em Juquiá" */
+      var textoTopo = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
       /* fim da primeira tela: confianca (todas) e o bloco da loja oficial */
       var fim = $('fimInicio');
       if (fim) {
@@ -656,10 +658,11 @@
             el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno para sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
           ]));
         }
+        /* so o que nao foi dito mais acima: a entrega (gratis, taxa, tempo) ja esta no botao de pedir, e a cidade
+           so entra se a linha embaixo do nome ainda nao falou dela */
         var partes = [];
         if (pixDisponivel(l)) partes.push('🔒 Pix seguro pelo Mercado Pago');
-        if (l.cidade) partes.push('📍 Somos de ' + l.cidade);
-        if (l.aceitaEntrega !== false) partes.push('🛵 Entrega própria');
+        if (l.cidade && !R.mencionaCidade(textoTopo, l.cidade)) partes.push('📍 Somos de ' + l.cidade);
         /* cada item inteiro numa linha: quebra entre itens, nunca no meio de um */
         if (partes.length) fim.appendChild(el('div', { class: 'confianca' }, partes.map(function (t) { return el('span', { text: t }); })));
       }
@@ -677,13 +680,12 @@
       $('nomeLoja').textContent = l.nome;
       var seloV = UI.seloVerificada(l, 'no-nome');
       if (seloV) $('nomeLoja').appendChild(seloV);
-      $('descLoja').textContent = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
+      $('descLoja').textContent = textoTopo;
 
       var aberta = R.lojaAberta(l);
       estado.abertaNaTela = aberta; /* o relogio de 60 s compara com isto */
       var selo = $('seloAberto');
       selo.classList.toggle('fechado', !aberta);
-      $('seloFrete').hidden = balcao || !aberta || l.aceitaEntrega === false || R.descreverFrete(l) !== 'Entrega grátis';
       $('textoAberto').textContent = aberta ? 'Aberto agora' : 'Fechado no momento';
       /* avaliacoes no Google: so link do Google (conferido de novo aqui, o banco aceita qualquer texto); no balcao nao,
          la o cliente ja esta dentro da loja e nao pode sair da tela de pedir */
@@ -699,9 +701,11 @@
       var botao = $('btnComecar');
       botao.disabled = !aberta;
       $('btnComecarForte').textContent = aberta ? (balcao ? 'TOQUE PARA PEDIR' : 'PEDIR AGORA') : 'LOJA FECHADA';
+      /* fechada: com horario cadastrado, diz quando abre (a mesma conta da lista de lojas da cidade) */
+      var abreAs = aberta ? null : R.proximaAbertura(l);
       $('btnComecarFraca').textContent = aberta
         ? (balcao ? 'e pague aqui mesmo' : fraseEntrega(l))
-        : 'volte mais tarde';
+        : (abreAs ? 'abre às ' + abreAs : 'volte mais tarde');
 
       var formas = [];
       if (pixDisponivel(l)) formas.push('Pix');
@@ -1800,7 +1804,6 @@
         '<h1 class="promessa" id="nomeLoja"></h1>' +
         '<p class="muted" id="descLoja" style="margin-top:-6px"></p>' +
         '<div class="selos"><div class="selo" id="seloAberto"><span class="bolinha"></span><span id="textoAberto">Carregando…</span></div>' +
-        '<div class="selo" id="seloFrete" hidden>🛵 Entrega grátis</div>' +
         /* estrela em desenho (nao em letra): um simbolo de outra fonte mudaria a altura do selo */
         '<a class="selo selo-google" id="seloGoogle" hidden target="_blank" rel="noopener noreferrer">' +
           '<svg class="selo-google-estrela" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2.6l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.2l-5.9 3.2 1.3-6.5-4.9-4.5 6.6-.8z"/></svg>' +

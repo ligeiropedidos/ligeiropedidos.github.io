@@ -419,6 +419,16 @@ test('CNPJ: confere os digitos, aceita com ou sem pontuacao e formata', () => {
   assert.equal(R.formatarCnpj('11222333000181'), '11.222.333/0001-81');
 });
 
+test('texto que ja fala da cidade: palavra inteira, sem acento e sem maiuscula', () => {
+  assert.equal(R.mencionaCidade('Lanchonete em Juquiá', 'Juquiá'), true);
+  assert.equal(R.mencionaCidade('PIZZARIA EM JUQUIA', 'Juquiá'), true);
+  assert.equal(R.mencionaCidade('O melhor lanche de Sete Barras!', 'Sete Barras'), true);
+  assert.equal(R.mencionaCidade('Pizza cone quentinha na sua porta', 'Juquiá'), false);
+  assert.equal(R.mencionaCidade('Juquiazinho Lanches', 'Juquiá'), false);
+  assert.equal(R.mencionaCidade('', 'Juquiá'), false);
+  assert.equal(R.mencionaCidade('Lanchonete em Juquiá', ''), false);
+});
+
 test('link do Google: aceita Maps, busca e links de compartilhar; recusa qualquer outro site', () => {
   assert.equal(R.linkGoogle('https://maps.app.goo.gl/AbC123'), 'https://maps.app.goo.gl/AbC123');
   assert.equal(R.linkGoogle('  maps.app.goo.gl/AbC123 '), 'https://maps.app.goo.gl/AbC123');

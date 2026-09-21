@@ -63,6 +63,13 @@
   }
 
   /* "Lanchonete do Zé" -> "lanchonete-do-ze" */
+  /* O texto ja fala da cidade? Palavra inteira, sem acento e sem maiuscula: "Pizzaria em Juquiá" fala de "Juquia". */
+  function mencionaCidade(texto, cidade) {
+    var palavras = function (s) { return ' ' + semAcento(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' '; };
+    var c = palavras(cidade);
+    return c.trim() !== '' && palavras(texto).indexOf(c) >= 0;
+  }
+
   function slug(texto) {
     return semAcento(texto)
       .toLowerCase()
@@ -1055,6 +1062,7 @@
     dinheiro: dinheiro,
     limparTexto: limparTexto,
     semAcento: semAcento,
+    mencionaCidade: mencionaCidade,
     slug: slug,
     validarTelefone: validarTelefone,
     formatarTelefone: formatarTelefone,
