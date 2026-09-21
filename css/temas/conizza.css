@@ -210,6 +210,15 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .login h2 { color: var(--cz-tinta); }
 .tema-conizza .marca span span { color: var(--cz-vermelho); }
 .tema-conizza .interruptor.ligado, .tema-conizza .chave.ligada { background: var(--cz-verde); }
+/* situacao da loja no painel, nas cores da casa: borda grossa e sombra dura como os outros cartoes daqui */
+.tema-conizza .status-loja { border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); background: var(--cz-branco); }
+.tema-conizza .status-loja .status-titulo { font-family: var(--cz-display); font-weight: 800; font-size: 18px; color: var(--cz-tinta); }
+.tema-conizza .status-loja .status-ponto { top: -1.7px; } /* a Baloo desenha as maiusculas 1,7 px acima do meio da linha: a bolinha sobe junto (mesma fonte em todo aparelho) */
+.tema-conizza .status-loja.aberta { --ponto: var(--cz-verde); background: var(--cz-verde-claro); }
+.tema-conizza .status-loja.aberta .status-sub { color: var(--cz-verde); }
+.tema-conizza .status-loja.fechada { --ponto: #B9A58A; background: var(--cz-creme); }
+.tema-conizza .status-loja.horario { --ponto: var(--cz-ouro); background: #fdebd3; }
+.tema-conizza .status-loja.horario .status-sub { color: #8a3d0c; }
 
 /* respiro pras sombras duras nao encostarem no que vem embaixo nem no teto */
 .tema-conizza .abas-painel { padding: 12px var(--margem) 14px; gap: 8px; }

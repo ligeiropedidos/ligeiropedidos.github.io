@@ -419,6 +419,21 @@ test('CNPJ: confere os digitos, aceita com ou sem pontuacao e formata', () => {
   assert.equal(R.formatarCnpj('11222333000181'), '11.222.333/0001-81');
 });
 
+test('fecha as: fim da faixa de agora, inclusive a que vira a noite', () => {
+  const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  const todos = (faixas) => { const h = {}; DIAS.forEach((d) => { h[d] = faixas; }); return h; };
+  const as = (hh, mm) => new Date(2026, 8, 21, hh, mm);
+  const loja = { usarHorarios: true, horarios: todos(['11:00-14:00', '18:00-23:00']) };
+  assert.equal(R.fechamentoDeHoje(loja, as(12, 0)), '14:00');
+  assert.equal(R.fechamentoDeHoje(loja, as(20, 30)), '23:00');
+  assert.equal(R.fechamentoDeHoje(loja, as(15, 0)), null);
+  const noite = { usarHorarios: true, horarios: todos(['18:00-02:00']) };
+  assert.equal(R.fechamentoDeHoje(noite, as(23, 0)), '02:00');
+  assert.equal(R.fechamentoDeHoje(noite, as(1, 0)), '02:00');
+  assert.equal(R.fechamentoDeHoje(noite, as(3, 0)), null);
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: false, horarios: todos(['18:00-23:00']) }, as(20, 0)), null);
+});
+
 test('texto que ja fala da cidade: palavra inteira, sem acento e sem maiuscula', () => {
   assert.equal(R.mencionaCidade('Lanchonete em Juquiá', 'Juquiá'), true);
   assert.equal(R.mencionaCidade('PIZZARIA EM JUQUIA', 'Juquiá'), true);

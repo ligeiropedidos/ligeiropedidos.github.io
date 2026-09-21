@@ -281,6 +281,11 @@
       /* "ha 3 min" precisa andar mesmo sem pedido novo */
       var relogio = setInterval(function () {
         if (estado.aba === 'pedidos') desenharPedidos();
+        /* horario automatico: o cartao da loja passa de aberta para fechada (e volta) sozinho, sem ninguem mexer */
+        raiz.querySelectorAll('.status-loja').forEach(function (n) {
+          var novo = interruptorLoja();
+          if (n.dataset.situacao !== novo.dataset.situacao) n.replaceWith(novo);
+        });
         conferirPixVencidos(estado.pedidos || []); /* Pix vence mesmo sem mudar nada na fila */
         /* pedido pago parado em "Novos" ha mais de 5 minutos: lembrete suave, no maximo a cada 2 minutos */
         var parados = (estado.pedidos || []).filter(function (p) { return p.status === R.STATUS.PAGO && Date.now() - new Date(p.pagoEm || p.criadoEm).getTime() > 5 * 60 * 1000; });
@@ -354,10 +359,23 @@
     }
 
     /* ---------------------------------------------------------- pedidos */
+    /* O que o cliente ve agora: aberta (recebendo pedidos), fechada na chave, ou fechada pelo horario cadastrado
+       (a chave ligada, mas fora da faixa: abre sozinha na proxima). */
+    /* frases curtas de proposito: uma linha so ate no celular de 320 px (a coluna do texto tem 160 px), em qualquer fonte */
+    function situacaoDaLoja(l) {
+      if (l.aberta === false) return { classe: 'fechada', titulo: 'Loja fechada', sub: 'Não recebe pedidos' };
+      if (l.usarHorarios && l.horarios && !R.dentroDoHorario(l.horarios)) {
+        var abre = R.proximaAbertura(l);
+        return { classe: 'horario', titulo: 'Fora do horário', sub: abre ? 'Abre sozinha às ' + abre : 'Hoje não abre mais' };
+      }
+      var fecha = R.fechamentoDeHoje(l);
+      return { classe: 'aberta', titulo: 'Loja aberta', sub: fecha ? 'Fecha sozinha às ' + fecha : 'Recebendo pedidos' };
+    }
+
     function interruptorLoja() {
       var l = estado.loja;
       var aberta = l.aberta !== false;
-      var chave = el('button', { class: 'chave' + (aberta ? ' on' : ''), 'aria-label': 'Loja aberta' });
+      var chave = el('button', { class: 'chave' + (aberta ? ' on' : ''), type: 'button', role: 'switch', 'aria-checked': aberta ? 'true' : 'false', 'aria-label': 'Receber pedidos' });
       chave.addEventListener('click', function () {
         var nova = !(estado.loja.aberta !== false);
         var trocar = function () { salvarLoja({ aberta: nova }, nova ? 'Loja aberta para pedidos' : 'Loja fechada: pedidos novos pararam de entrar').catch(function () { /* ja avisou */ }); };
@@ -374,15 +392,16 @@
           (pix === 1 ? ' Um deles ainda espera o Pix: se o cliente pagar, ele entra normalmente.' : pix > 1 ? ' ' + pix + ' deles ainda esperam o Pix: se o cliente pagar, eles entram normalmente.' : '');
         UI.perguntar(texto, { titulo: 'Fechar a loja?', sim: 'Fechar', nao: 'Voltar' }).then(function (sim) { if (sim) trocar(); });
       });
-      var usaHorario = l.usarHorarios && l.horarios;
-      var dentro = usaHorario ? R.dentroDoHorario(l.horarios) : true;
-      return el('div', { class: 'interruptor' }, [
-        el('div', { class: 'texto' }, [
-          aberta ? 'Loja aberta para pedidos' : 'Loja fechada',
-          el('small', { text: usaHorario ? (dentro ? 'Dentro do horário cadastrado' : 'Fora do horário cadastrado: o cliente vê "fechado"') : 'Interruptor manual. Cadastre horários em Ajustes, se quiser.' }),
-        ]),
+      /* cartao na cor do estado, bolinha "ao vivo" quando esta recebendo pedidos */
+      var s = situacaoDaLoja(l);
+      var cartao = el('div', { class: 'interruptor status-loja ' + s.classe, role: 'status' }, [
+        el('span', { class: 'status-ponto', 'aria-hidden': 'true' }),
+        el('b', { class: 'status-titulo', text: s.titulo }),
+        el('small', { class: 'status-sub', text: s.sub }),
         chave,
       ]);
+      cartao.dataset.situacao = s.classe + '|' + s.sub; /* o relogio de 60 s so redesenha se isto mudar */
+      return cartao;
     }
 
     function desenharCabecaPedidos() {

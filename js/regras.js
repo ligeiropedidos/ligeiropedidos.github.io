@@ -162,6 +162,32 @@
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
+  /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
+     null se nao usa horario ou se esta fora de qualquer faixa. */
+  function fechamentoDeHoje(loja, agora) {
+    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
+    var data = agora || new Date();
+    var atual = data.getHours() * 60 + data.getMinutes();
+    var hoje = loja.horarios[DIAS[data.getDay()]];
+    var ontem = loja.horarios[DIAS[(data.getDay() + 6) % 7]];
+    var fim = null, i, f;
+    if (Array.isArray(hoje)) {
+      for (i = 0; i < hoje.length && fim === null; i++) {
+        f = faixaMinutos(hoje[i]);
+        if (f && (f[1] <= f[0] ? atual >= f[0] : atual >= f[0] && atual < f[1])) fim = f[1];
+      }
+    }
+    if (fim === null && Array.isArray(ontem)) {
+      for (i = 0; i < ontem.length && fim === null; i++) {
+        f = faixaMinutos(ontem[i]);
+        if (f && f[1] <= f[0] && atual < f[1]) fim = f[1];
+      }
+    }
+    if (fim === null) return null;
+    var h = Math.floor(fim / 60) % 24, m = fim % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
   function lojaAberta(loja, agora) {
     if (!loja) return false;
     if (loja.aberta === false) return false;
@@ -1068,6 +1094,7 @@
     formatarTelefone: formatarTelefone,
     lojaAberta: lojaAberta,
     proximaAbertura: proximaAbertura,
+    fechamentoDeHoje: fechamentoDeHoje,
     assinatura: assinatura,
     lojaBloqueada: lojaBloqueada,
     planos: planos,

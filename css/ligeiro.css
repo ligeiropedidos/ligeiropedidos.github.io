@@ -834,6 +834,24 @@ a.selo-google:hover { background: var(--lime-suave); }
 .chave:active::after { width: 32px; }
 .chave.on { background: var(--lime); }
 .chave.on::after { left: 27px; }
+
+/* ---------- Situacao da loja no painel: aberta (verde, ao vivo), fechada na chave (cinza), fechada pelo horario (ambar) ----------
+   Bolinha na linha do titulo, frase embaixo alinhada com o titulo, chave no meio da altura. Um pulso so, lento;
+   com "reduzir movimento" ligado vira um halo parado. */
+.status-loja { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; align-items: center; padding: 14px 16px; transition: background-color 0.25s, border-color 0.25s; }
+.status-loja .status-ponto { grid-row: 1; grid-column: 1; position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--ponto); }
+.status-loja .status-titulo { grid-row: 1; grid-column: 2; font-size: 16px; line-height: 1.3; }
+.status-loja .status-sub { grid-row: 2; grid-column: 2; font-size: 13.5px; line-height: 1.35; color: var(--muted); }
+.status-loja .chave { grid-row: 1 / 3; grid-column: 3; }
+.status-loja.aberta { --ponto: var(--lime-escuro); background: var(--lime-suave); border-color: var(--lime); }
+.status-loja.aberta .status-titulo { color: var(--deep); }
+.status-loja.aberta .status-sub { color: var(--deep2); }
+.status-loja.aberta .status-ponto::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--ponto); animation: status-ao-vivo 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes status-ao-vivo { 0% { transform: scale(1); opacity: 0.55; } 75%, 100% { transform: scale(2.6); opacity: 0; } }
+.status-loja.fechada { --ponto: #A3ACA1; background: #F2F4F0; }
+.status-loja.horario { --ponto: #D98A0B; background: var(--orange-suave); border-color: #F3C98B; }
+.status-loja.horario .status-sub { color: #9A5A06; }
+@media (prefers-reduced-motion: reduce) { .status-loja.aberta .status-ponto::after { animation: none; transform: scale(2); opacity: 0.22; } }
 .linha-produto { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 10px 12px; }
 .linha-produto .emoji { font-size: 26px; width: 36px; text-align: center; flex: none; }
 .linha-produto .nome { flex: 1; min-width: 0; font-weight: 600; }
