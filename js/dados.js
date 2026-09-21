@@ -626,16 +626,37 @@
   /* Loja ao vivo com UMA leitura: a primeira foto abre a tela (no lugar do get) e as seguintes chegam por aqui.
      Antes era get + onSnapshot = a loja inteira (com a logo) baixada 2 vezes a cada visita. */
   FirebaseStore.prototype.lojaAoVivo = function (slug) {
-    var eu = this, ouvintes = [], ultimo, tem = false, parar = function () {}, cancelado = false, resolver, rejeitar;
+    var eu = this, ouvintes = [], ultimo, ultimoJson, tem = false, parar = function () {}, cancelado = false, resolver, rejeitar;
+    var daMemoria = null, prazoPassou = false, prazo = null;
     var primeira = new Promise(function (ok, erro) { resolver = ok; rejeitar = erro; });
+    function abrir(valor) { if (tem) return; tem = true; clearTimeout(prazo); ultimo = valor; ultimoJson = JSON.stringify(valor); resolver(valor); }
+    function falhar(e) { if (tem) return; tem = true; clearTimeout(prazo); rejeitar(e); }
     this._pronto.then(function () {
       if (cancelado) return;
-      parar = eu.db.collection('lojas').doc(slug).onSnapshot(function (d) {
-        ultimo = d.exists ? daNuvem(d.data()) : null;
-        if (!tem) { tem = true; resolver(ultimo); return; }
+      /* A primeira foto pode vir da MEMORIA do aparelho, com dado velho (loja desativada ontem, preco antigo), e a tela
+         ficava presa nela. A tela so abre com a resposta do servidor, como era no get; a memoria so vale sem internet
+         (4 s sem resposta). includeMetadataChanges: sem ele, quando o servidor confirma um dado igual ao da memoria,
+         a escuta nao avisa nada e a tela nunca abriria. */
+      prazo = setTimeout(function () {
+        prazoPassou = true;
+        if (daMemoria) { if (daMemoria.valor) abrir(daMemoria.valor); else falhar(new Error('sem internet')); }
+      }, 4000);
+      parar = eu.db.collection('lojas').doc(slug).onSnapshot({ includeMetadataChanges: true }, function (d) {
+        var valor = d.exists ? daNuvem(d.data()) : null;
+        if (!tem) {
+          if (!d.metadata.fromCache) { abrir(valor); return; }
+          if (!prazoPassou) { daMemoria = { valor: valor }; return; }
+          /* sem internet e sem essa loja na memoria: e erro de conexao, nao "loja nao existe" */
+          if (valor) abrir(valor); else falhar(new Error('sem internet'));
+          return;
+        }
+        /* aberta: so avisa quem assiste quando o dado muda de verdade (nao a cada troca de metadados) */
+        var json = JSON.stringify(valor);
+        if (json === ultimoJson) return;
+        ultimo = valor; ultimoJson = json;
         ouvintes.slice().forEach(function (f) { try { f(ultimo); } catch (_) { /* um ouvinte com erro nao derruba os outros */ } });
-      }, function (e) { if (!tem) { tem = true; rejeitar(e); } });
-    }).catch(function (e) { if (!tem) { tem = true; rejeitar(e); } });
+      }, falhar);
+    }).catch(falhar);
     return {
       primeira: primeira,
       /* como o assistirLoja: entrega o estado atual na hora e depois cada mudanca */
@@ -644,7 +665,7 @@
         if (tem) setTimeout(function () { if (ouvintes.indexOf(cb) >= 0) cb(ultimo); }, 0);
         return function () { ouvintes = ouvintes.filter(function (f) { return f !== cb; }); };
       },
-      parar: function () { cancelado = true; ouvintes = []; parar(); },
+      parar: function () { cancelado = true; ouvintes = []; clearTimeout(prazo); parar(); },
     };
   };
 
