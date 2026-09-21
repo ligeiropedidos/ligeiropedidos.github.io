@@ -93,6 +93,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .selo#seloAberto { background: var(--cz-verde-claro); color: var(--cz-verde); }
 .tema-conizza .selo#seloAberto.fechado { background: #fdecea; color: var(--cz-vermelho-escuro); }
 .tema-conizza .selo .bolinha { background: currentColor; width: 11px; height: 11px; }
+.tema-conizza a.selo-google { box-shadow: none; } /* aqui o contorno ja e a borda grossa da casa */
+.tema-conizza a.selo-google:hover { background: var(--cz-creme); }
+.tema-conizza .selo-google-estrela { color: var(--cz-ouro); }
+/* abertura: bolinha maior aqui (11px), e a Nunito deixa as maiusculas 0,8 px acima do meio: o texto desce 0,8 px
+   (a mesma fonte em todo aparelho, entao o numero vale para todos) */
+.tema-conizza #tela-inicio .selos .selo > .bolinha { --icone: 11px; }
+.tema-conizza #tela-inicio .selos .selo { padding-top: 8.8px; padding-bottom: 7.2px; }
 .tema-conizza .selo-oficial { background: var(--cz-ouro-claro); color: var(--cz-tinta); box-shadow: 0 3px 0 var(--cz-tinta); }
 
 /* ---------- botoes ---------- */

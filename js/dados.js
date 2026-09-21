@@ -98,6 +98,7 @@
       endereco: '',
       whatsapp: '',
       instagram: '',
+      googleUrl: '',
       descricao: '',
       avisoTopo: '',
       aberta: true,

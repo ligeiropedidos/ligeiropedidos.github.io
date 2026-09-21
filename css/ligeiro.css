@@ -167,6 +167,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tile-selo.tile-oficial { background: #FDE68A; color: #3F2A00; }
 .selo .bolinha { width: 9px; height: 9px; border-radius: 50%; background: var(--lime-escuro); }
 .selo.fechado .bolinha { background: var(--erro); }
+/* avaliacoes no Google: e um link, entao fundo branco com contorno (sombra por dentro, nao borda: a borda somaria 2px e o selo
+   ficaria mais alto que o "Aberto agora" do lado) e estrela dourada */
+a.selo-google { background: var(--card); color: var(--deep2); box-shadow: inset 0 0 0 1px var(--line-forte); text-decoration: none; }
+a.selo-google:hover { background: var(--lime-suave); }
+.selo-google-estrela { flex: none; color: #E8A317; }
+/* selos da abertura: bolinha e estrela no meio das MAIUSCULAS do texto, nao no meio da caixa (cada fonte deixa a letra
+   um pouco acima ou abaixo do meio: Nunito 0,8 px acima, Segoe 0,5 px abaixo). O icone senta na linha de base do texto,
+   desce metade da propria altura e sobe metade da altura das maiusculas (cap; sem suporte, 0,35em da quase o mesmo).
+   A margem negativa tira o icone da conta da altura: o selo continua do tamanho do texto. */
+#tela-inicio .selos .selo { align-items: baseline; }
+#tela-inicio .selos .selo > .bolinha, #tela-inicio .selos .selo > .selo-google-estrela {
+  --icone: 9px;
+  margin-top: calc(-1 * var(--icone));
+  position: relative;
+  top: calc(var(--icone) / 2 - 0.35em);
+  top: calc(var(--icone) / 2 - 0.5cap);
+}
+#tela-inicio .selos .selo > .selo-google-estrela { --icone: 15px; }
 
 /* ---------- Escolhas grandes (uma decisao por tela) ---------- */
 

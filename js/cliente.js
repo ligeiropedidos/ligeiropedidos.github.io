@@ -685,6 +685,12 @@
       selo.classList.toggle('fechado', !aberta);
       $('seloFrete').hidden = balcao || !aberta || l.aceitaEntrega === false || R.descreverFrete(l) !== 'Entrega grátis';
       $('textoAberto').textContent = aberta ? 'Aberto agora' : 'Fechado no momento';
+      /* avaliacoes no Google: so link do Google (conferido de novo aqui, o banco aceita qualquer texto); no balcao nao,
+         la o cliente ja esta dentro da loja e nao pode sair da tela de pedir */
+      var google = R.linkGoogle(l.googleUrl);
+      var seloG = $('seloGoogle');
+      seloG.hidden = balcao || !google;
+      if (google) seloG.href = google; else seloG.removeAttribute('href');
 
       var aviso = $('avisoTopo');
       aviso.hidden = !l.avisoTopo;
@@ -1794,7 +1800,11 @@
         '<h1 class="promessa" id="nomeLoja"></h1>' +
         '<p class="muted" id="descLoja" style="margin-top:-6px"></p>' +
         '<div class="selos"><div class="selo" id="seloAberto"><span class="bolinha"></span><span id="textoAberto">Carregando…</span></div>' +
-        '<div class="selo" id="seloFrete" hidden>🛵 Entrega grátis</div></div>' +
+        '<div class="selo" id="seloFrete" hidden>🛵 Entrega grátis</div>' +
+        /* estrela em desenho (nao em letra): um simbolo de outra fonte mudaria a altura do selo */
+        '<a class="selo selo-google" id="seloGoogle" hidden target="_blank" rel="noopener noreferrer">' +
+          '<svg class="selo-google-estrela" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2.6l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.2l-5.9 3.2 1.3-6.5-4.9-4.5 6.6-.8z"/></svg>' +
+          'Avaliações no Google</a></div>' +
         '<div class="aviso-topo" id="avisoTopo" hidden></div>' +
         '<button class="btn btn-principal btn-gigante btn-largo" id="btnComecar" style="max-width:440px">' +
           '<span><span id="btnComecarForte">PEDIR AGORA</span><span class="sub" id="btnComecarFraca"></span></span>' +

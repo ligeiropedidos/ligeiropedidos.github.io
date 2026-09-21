@@ -1462,6 +1462,7 @@
       f.whatsapp = campoTexto('WhatsApp da loja', R.formatarTelefone(l.whatsapp), { max: 16, inputmode: 'numeric', ajuda: 'Com DDD. É para onde o cliente fala com você.' });
       UI.mascaraTelefone(f.whatsapp.input);
       f.instagram = campoTexto('Instagram (sem @)', l.instagram, { max: 40 });
+      f.google = campoTexto('Sua loja no Google (opcional)', l.googleUrl, { max: 400, inputmode: 'url', placeholder: 'https://maps.app.goo.gl/…', ajuda: 'No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.' });
       f.cnpj = campoTexto('CNPJ (opcional)', l.cnpj ? R.formatarCnpj(l.cnpj) : '', { max: 18, inputmode: 'numeric', placeholder: '00.000.000/0000-00', ajuda: 'Se preencher, aparece no rodapé do seu site. Passa confiança para o cliente.' });
       f.cnpj.input.addEventListener('input', function () { var n = f.cnpj.input.value.replace(/\D/g, '').slice(0, 14); f.cnpj.input.value = n.length === 14 ? R.formatarCnpj(n) : n; });
       /* Aparencia: celular de um lado, controles compactos do outro */
@@ -1478,7 +1479,7 @@
       aparencia.appendChild(f.logo);
       aparencia.appendChild(f.capa);
       s.appendChild(aparencia);
-      [f.nome, f.tipo, f.descricao, f.avisoTopo, f.cidade, f.endereco, f.whatsapp, f.instagram, f.cnpj].forEach(function (c) { g1.appendChild(c); });
+      [f.nome, f.tipo, f.descricao, f.avisoTopo, f.cidade, f.endereco, f.whatsapp, f.instagram, f.google, f.cnpj].forEach(function (c) { g1.appendChild(c); });
       identidade.appendChild(g1);
       s.appendChild(identidade);
 
@@ -1768,6 +1769,7 @@
         whatsapp: f.whatsapp.input.value.replace(/\D/g, ''),
         cnpj: R.cnpjValido(f.cnpj.input.value),
         instagram: f.instagram.input.value.trim().replace(/^@/, ''),
+        googleUrl: R.linkGoogle(f.google.input.value),
         aberta: f.aberta.chave.ligado,
         usarHorarios: f.usarHorarios.chave.ligado,
         horarios: horarios,
@@ -1791,6 +1793,7 @@
       if (logo.dados) { mudancas.logoDados = logo.dados; mudancas.logoUrl = ''; }
       else if (logo.removida) { mudancas.logoDados = ''; mudancas.logoUrl = ''; }
       if (f.cnpj.input.value.trim() && !mudancas.cnpj) { f.cnpj.input.focus(); return UI.avisar('Esse CNPJ não confere. Veja se digitou os 14 números certos, ou deixe o campo vazio.'); }
+      if (f.google.input.value.trim() && !mudancas.googleUrl) { f.google.input.focus(); return UI.avisar('Esse link não é do Google. No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.'); }
       if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.taxaEntrega <= 0) return UI.avisar('Taxa de entrega em branco. Coloque o valor ou marque "Entrega grátis".');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.entregaGratisAcima > 0 && mudancas.entregaGratisAcima <= mudancas.taxaEntrega) return UI.avisar('"Grátis a partir de" precisa ser maior que a taxa de entrega.');

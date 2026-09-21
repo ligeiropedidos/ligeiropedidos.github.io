@@ -892,6 +892,22 @@
     return pedido.criadoEm ? t > new Date(pedido.criadoEm).getTime() + 35 * 60 * 1000 : false;
   }
 
+  /* Link do perfil da loja no Google (Maps, busca ou link curto de compartilhar): devolve o endereco com https
+     se for mesmo do Google, senao ''. O selo diz "Avaliacoes no Google": nao pode levar o cliente para outro site. */
+  var HOSTS_GOOGLE = /^(?:(?:www|maps)\.)?google\.(?:com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$|^(?:maps\.app\.goo\.gl|goo\.gl|g\.page|g\.co|share\.google)$/;
+  function linkGoogle(texto) {
+    var t = String(texto || '').trim();
+    if (!t || t.length > 400 || /\s/.test(t)) return '';
+    if (!/^https?:\/\//i.test(t)) t = 'https://' + t;
+    /* host sem usuario (google.com@outro.site) e sem nada depois dele alem de porta, caminho, busca ou ancora */
+    var m = /^https?:\/\/([^\/?#@:]+)(?::\d+)?([\/?#].*)?$/i.exec(t);
+    if (!m) return '';
+    var host = m[1].toLowerCase();
+    if (!HOSTS_GOOGLE.test(host)) return '';
+    if (host === 'goo.gl' && !/^\/maps\//i.test(m[2] || '')) return ''; /* goo.gl sozinho encurtava qualquer site; so o /maps e do Google */
+    return 'https://' + host + (m[2] || '/');
+  }
+
   /* CNPJ: devolve os 14 numeros se for valido (confere os dois digitos verificadores), senao ''. */
   function cnpjValido(texto) {
     var n = String(texto || '').replace(/\D/g, '');
@@ -1051,6 +1067,7 @@
     precoDoPlano: precoDoPlano,
     planoQueVale: planoQueVale,
     cnpjValido: cnpjValido,
+    linkGoogle: linkGoogle,
     formatarCnpj: formatarCnpj,
     pixVencido: pixVencido,
     catalogo: catalogo,

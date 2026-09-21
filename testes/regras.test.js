@@ -419,6 +419,25 @@ test('CNPJ: confere os digitos, aceita com ou sem pontuacao e formata', () => {
   assert.equal(R.formatarCnpj('11222333000181'), '11.222.333/0001-81');
 });
 
+test('link do Google: aceita Maps, busca e links de compartilhar; recusa qualquer outro site', () => {
+  assert.equal(R.linkGoogle('https://maps.app.goo.gl/AbC123'), 'https://maps.app.goo.gl/AbC123');
+  assert.equal(R.linkGoogle('  maps.app.goo.gl/AbC123 '), 'https://maps.app.goo.gl/AbC123');
+  assert.equal(R.linkGoogle('http://maps.google.com/?cid=123'), 'https://maps.google.com/?cid=123');
+  assert.equal(R.linkGoogle('https://www.google.com/maps/place/Dom+Conizza/@-24.3,-47.6,17z'), 'https://www.google.com/maps/place/Dom+Conizza/@-24.3,-47.6,17z');
+  assert.equal(R.linkGoogle('https://www.google.com.br/search?q=dom+conizza'), 'https://www.google.com.br/search?q=dom+conizza');
+  assert.equal(R.linkGoogle('https://g.page/r/CQx9/review'), 'https://g.page/r/CQx9/review');
+  assert.equal(R.linkGoogle('https://share.google/xyz'), 'https://share.google/xyz');
+  assert.equal(R.linkGoogle('https://goo.gl/maps/abc'), 'https://goo.gl/maps/abc');
+  assert.equal(R.linkGoogle('https://goo.gl/abc'), '');
+  assert.equal(R.linkGoogle('https://google.com.golpe.com/x'), '');
+  assert.equal(R.linkGoogle('https://google.com@golpe.com/'), '');
+  assert.equal(R.linkGoogle('https://golpe.com/?u=google.com'), '');
+  assert.equal(R.linkGoogle('javascript:alert(1)'), '');
+  assert.equal(R.linkGoogle('https://maps.app.goo.gl/a b'), '');
+  assert.equal(R.linkGoogle(''), '');
+  assert.equal(R.linkGoogle(null), '');
+});
+
 test('opcao desligada com o item no carrinho e recusada (nao troca calada)', () => {
   const loja = lojaDeTeste();
   loja.grupos.tamanho.opcoes[1].ativo = false; /* G desligado */
