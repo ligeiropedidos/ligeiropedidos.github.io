@@ -469,7 +469,30 @@
 
     /* ---------- utilidades de tela ---------- */
 
+    /* Telas de montar o pedido (antes de enviar). Com a loja fechada ninguem entra nelas, venha de onde vier (botao,
+       carrinho guardado, "adicionar mais"); e se ela fechar com o cliente dentro, ele volta para o inicio com o carrinho
+       guardado, em vez de descobrir so no ultimo botao. Pagamento e senha nao: esse pedido entrou com a loja aberta e segue. */
+    var TELAS_DE_MONTAR = ['tela-tipo', 'tela-cardapio', 'tela-carrinho', 'tela-dados'];
+    function avisoLojaFechou() {
+      var abreAs = R.proximaAbertura(estado.loja);
+      UI.avisar(abreAs ? 'A loja fechou agora. Ela abre às ' + abreAs + ' e seu carrinho fica guardado.' : 'A loja fechou agora. Seu carrinho fica guardado para quando ela abrir.');
+    }
+    function fechouNoMeio() {
+      if (!estado.loja || R.lojaAberta(estado.loja)) return false;
+      var atual = raiz.querySelector('.tela.ativa');
+      if (!atual || TELAS_DE_MONTAR.indexOf(atual.id) < 0) return false;
+      UI.fecharModal(); /* a janela do item fica fora da tela: nao pode ficar aberta por cima do inicio */
+      avisoLojaFechou();
+      irPara('tela-inicio');
+      return true;
+    }
+
     function irPara(idTela) {
+      if (TELAS_DE_MONTAR.indexOf(idTela) >= 0 && estado.loja && !R.lojaAberta(estado.loja)) {
+        avisoLojaFechou();
+        montarInicio();
+        idTela = 'tela-inicio';
+      }
       var atual = raiz.querySelector('.tela.ativa');
       if (atual) atual.classList.remove('ativa');
       $(idTela).classList.add('ativa');
@@ -634,6 +657,8 @@
         atualizarBarraCarrinho();
         /* carrinho aberto acompanha o cardapio novo (preco mudou, item saiu) */
         if ($('tela-carrinho') && $('tela-carrinho').classList.contains('ativa')) montarCarrinho();
+        /* o dono fechou a loja agora: quem estava montando o pedido volta para o inicio, com o carrinho guardado */
+        fechouNoMeio();
       }
     }
 
@@ -815,7 +840,7 @@
       if (!estado.loja) return;
       if (!R.lojaAberta(estado.loja)) {
         /* fechou com a tela aberta: avisa e mostra a loja fechada, em vez de nao fazer nada */
-        UI.avisar('A loja fechou agora.');
+        avisoLojaFechou();
         montarInicio();
         return;
       }
@@ -825,7 +850,7 @@
     /* horario automatico: a tela inicial abre e fecha sozinha, sem precisar recarregar a pagina */
     estado.relogioAberta = setInterval(function () {
       if (!vivo || !estado.loja) return;
-      if (R.lojaAberta(estado.loja) !== estado.abertaNaTela) montarInicio();
+      if (R.lojaAberta(estado.loja) !== estado.abertaNaTela) { montarInicio(); fechouNoMeio(); }
     }, 60000);
 
     $('btnComecar').addEventListener('click', comecarPedido);
@@ -1360,6 +1385,7 @@
     $('btnPagar').addEventListener('click', function () {
       var dados = validarFormulario();
       if (!dados) return;
+      if (fechouNoMeio()) return; /* fechou nos ultimos segundos: nada de erro no fim, volta com o carrinho guardado */
       var botao = $('btnPagar');
       botao.disabled = true;
       botao.textContent = 'Enviando…';

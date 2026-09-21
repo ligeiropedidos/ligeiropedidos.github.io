@@ -360,7 +360,19 @@
       var chave = el('button', { class: 'chave' + (aberta ? ' on' : ''), 'aria-label': 'Loja aberta' });
       chave.addEventListener('click', function () {
         var nova = !(estado.loja.aberta !== false);
-        salvarLoja({ aberta: nova }, nova ? 'Loja aberta para pedidos' : 'Loja fechada: ninguém consegue pedir').catch(function () { /* ja avisou */ });
+        var trocar = function () { salvarLoja({ aberta: nova }, nova ? 'Loja aberta para pedidos' : 'Loja fechada: pedidos novos pararam de entrar').catch(function () { /* ja avisou */ }); };
+        if (nova) { trocar(); return; }
+        /* fechar = parar de receber pedido NOVO. O que ja entrou continua aqui ate concluir (Pix vencido nao conta:
+           ele sai da fila sozinho) */
+        var andando = estado.pedidos.filter(function (p) {
+          return [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO].indexOf(p.status) >= 0 || (p.status === R.STATUS.AGUARDANDO && !R.pixVencido(p));
+        });
+        if (!andando.length) { trocar(); return; }
+        var pix = andando.filter(function (p) { return p.status === R.STATUS.AGUARDANDO; }).length;
+        var texto = 'Pedidos novos param de entrar. ' +
+          (andando.length === 1 ? 'O pedido que já entrou continua aqui até você concluir.' : 'Os ' + andando.length + ' pedidos que já entraram continuam aqui até você concluir.') +
+          (pix === 1 ? ' Um deles ainda espera o Pix: se o cliente pagar, ele entra normalmente.' : pix > 1 ? ' ' + pix + ' deles ainda esperam o Pix: se o cliente pagar, eles entram normalmente.' : '');
+        UI.perguntar(texto, { titulo: 'Fechar a loja?', sim: 'Fechar', nao: 'Voltar' }).then(function (sim) { if (sim) trocar(); });
       });
       var usaHorario = l.usarHorarios && l.horarios;
       var dentro = usaHorario ? R.dentroDoHorario(l.horarios) : true;
