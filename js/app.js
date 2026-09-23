@@ -177,7 +177,7 @@
   if (window.LigeiroDados.modoDemo) {
     var faixa = document.createElement('div');
     faixa.className = 'faixa-teste';
-    faixa.textContent = 'MODO DEMONSTRAÇÃO — os dados ficam só neste aparelho';
+    faixa.textContent = 'MODO DEMONSTRAÇÃO: os dados ficam só neste aparelho';
     document.body.insertBefore(faixa, document.body.firstChild);
   }
 

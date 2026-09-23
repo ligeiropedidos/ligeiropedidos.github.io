@@ -817,7 +817,7 @@
             el('span', { class: 'adm-nome' }, [c.email, p.fundador === true ? el('span', { class: 'adm-fund', title: 'Fundador', 'aria-label': 'Fundador', text: '★' }) : null]),
             el('span', { class: 'adm-sub adm-so-cel', text: plano.nome + ' · ' + tipo + ' · ' + textoLojas(c, minhas.length) }),
             el('span', { class: 'adm-sub adm-so-pc', text: minhas.length ? minhas.map(function (l) { return l.nome; }).join(', ') : 'Nenhuma loja ainda' }),
-            p.avisoPagamentoEm ? el('span', { class: 'adm-sub adm-aviso-txt', text: '💸 Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) }) : null,
+            p.avisoPagamentoEm ? el('span', { class: 'adm-sub adm-aviso-txt', text: 'Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) }) : null,
           ]),
         ]),
         el('span', { class: 'adm-c adm-so-pc', text: plano.nome + ' · ' + tipo }),
@@ -858,7 +858,7 @@
     function linhaContato(c) {
       var pendente = !c.atendidoEm;
       var link = R.linkWhatsapp(c.whatsapp, mensagemLead(c));
-      var detalhes = [c.loja, c.cidade ? c.cidade + (c.uf ? '/' + c.uf : '') : '', c.whatsapp ? R.formatarTelefone(c.whatsapp) : '', c.origem === 'lista-espera' ? '⏳ lista de espera' : (c.origem ? 'veio de: ' + c.origem : '')].filter(Boolean);
+      var detalhes = [c.loja, c.cidade ? c.cidade + (c.uf ? '/' + c.uf : '') : '', c.whatsapp ? R.formatarTelefone(c.whatsapp) : '', c.origem === 'lista-espera' ? 'lista de espera' : (c.origem ? 'veio de: ' + c.origem : '')].filter(Boolean);
       var trava = { ocupado: false };
       function marcar(atendido) {
         return function () {
@@ -894,9 +894,9 @@
     function abaFerramentas(s) {
       s.appendChild(cabeca('Ferramentas', 'Manutenção, planilhas e informações do sistema.'));
       var cards = [];
-      cards.push(ferramenta('📄', 'Exportar lojas', 'Planilha com ' + plural(estado.lojas.length, 'loja', 'lojas') + ': dono, WhatsApp, plano, vencimento e selo. Abre no Excel.',
+      cards.push(ferramenta('texto', 'Exportar lojas', 'Planilha com ' + plural(estado.lojas.length, 'loja', 'lojas') + ': dono, WhatsApp, plano, vencimento e selo. Abre no Excel.',
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Baixar planilha', onclick: exportarLojas })));
-      cards.push(ferramenta('📄', 'Exportar contas', 'Planilha com ' + plural(estado.contas.length, 'conta', 'contas') + ': plano, cobrança, vencimento, fundador e lojas de cada uma.',
+      cards.push(ferramenta('texto', 'Exportar contas', 'Planilha com ' + plural(estado.contas.length, 'conta', 'contas') + ': plano, cobrança, vencimento, fundador e lojas de cada uma.',
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Baixar planilha', disabled: !estado.contasOk, onclick: exportarContas })));
       if (!D.modoDemo && store.reconstruirVitrine) {
         var btnVitrine = el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Refaz o resumo leve de todas as lojas (hub e cidades)', text: 'Reconstruir', onclick: function () {
@@ -905,29 +905,29 @@
           store.reconstruirVitrine().then(function (n) { UI.avisar('Vitrine refeita: ' + n + ' lojas.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu.'); })
             .then(function () { btnVitrine.disabled = false; btnVitrine.textContent = 'Reconstruir'; });
         } });
-        cards.push(ferramenta('♻️', 'Reconstruir vitrine', 'Refaz o resumo leve de todas as lojas, que a página das cidades usa. Use se alguma loja aparecer errada lá.', btnVitrine));
+        cards.push(ferramenta('atualizar', 'Reconstruir vitrine', 'Refaz o resumo leve de todas as lojas, que a página das cidades usa. Use se alguma loja aparecer errada lá.', btnVitrine));
       }
       if (D.modoDemo) {
-        cards.push(ferramenta('🗑️', 'Zerar demonstração', 'Apaga tudo deste navegador e volta aos dados de exemplo.', el('button', { class: 'btn btn-erro', type: 'button', text: 'Zerar demonstração', onclick: function () {
+        cards.push(ferramenta('lixeira', 'Zerar demonstração', 'Apaga tudo deste navegador e volta aos dados de exemplo.', el('button', { class: 'btn btn-erro', type: 'button', text: 'Zerar demonstração', onclick: function () {
           UI.perguntar('Apagar tudo e voltar aos dados de exemplo? Só vale neste navegador.', { sim: 'Zerar', perigo: true }).then(function (sim) { if (sim) store.zerarDemo().then(function () { UI.avisar('Demonstração zerada'); }); });
         } })));
       }
       var an = (window.LIGEIRO_CONFIG || {}).analytics || {};
-      cards.push(ferramenta('📈', 'Visitas do site', an.cloudflareToken
+      cards.push(ferramenta('vendas', 'Visitas do site', an.cloudflareToken
         ? 'Ficam no painel do Cloudflare Web Analytics (grátis, sem cookie), na sua conta Cloudflare › Analytics.'
         : 'Cole o token do Cloudflare Web Analytics em config.js (analytics.cloudflareToken) e as visitas de cada página aparecem no painel do Cloudflare, de graça e sem cookie.',
       el('a', { class: 'btn btn-fantasma', href: 'https://dash.cloudflare.com/?to=/:account/web-analytics', target: '_blank', rel: 'noopener', text: 'Abrir o Cloudflare' })));
-      cards.push(ferramenta('🏷️', 'Preços em vigor', null, null, tabelaPrecos()));
+      cards.push(ferramenta('dinheiro', 'Preços em vigor', null, null, tabelaPrecos()));
       var src = (document.querySelector('script[src*="js/admin.js"]') || {}).src || '';
       var tag = (src.match(/\?v=([0-9a-z]+)/i) || [])[1] || 'sem número';
-      cards.push(ferramenta('🔖', 'Versão do site', 'Versão ' + tag + '. ' + (D.modoDemo ? 'Modo demonstração: os dados ficam só neste navegador.' : 'Modo nuvem: dados no Firebase, iguais em todo aparelho.'),
+      cards.push(ferramenta('site', 'Versão do site', 'Versão ' + tag + '. ' + (D.modoDemo ? 'Modo demonstração: os dados ficam só neste navegador.' : 'Modo nuvem: dados no Firebase, iguais em todo aparelho.'),
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Recarregar o site', onclick: function () { location.reload(); } })));
       s.appendChild(el('div', { class: 'adm-ferramentas' }, cards));
     }
 
     function ferramenta(icone, titulo, texto, botao, extra) {
       return el('div', { class: 'adm-ferramenta' }, [
-        el('div', { class: 'adm-ferramenta-topo' }, [el('span', { class: 'adm-ico', 'aria-hidden': 'true', text: icone }), el('b', { text: titulo })]),
+        el('div', { class: 'adm-ferramenta-topo' }, [el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, [UI.iconeTraco(icone)]), el('b', { text: titulo })]),
         texto ? el('p', { text: texto }) : null,
         extra || null,
         botao ? el('div', { class: 'adm-ferramenta-pe' }, botao) : null,
@@ -1026,20 +1026,19 @@
       var corpo = el('div', { class: 'adm-ficha' });
 
       corpo.appendChild(el('div', { class: 'adm-selos' }, [
-        seloSituacao(sit), l.verificada === true ? el('span', { class: 'selo adm-selo', text: '✔ Verificada' }) : null,
+        seloSituacao(sit), l.verificada === true ? el('span', { class: 'selo adm-selo' }, [UI.iconeLinha('check'), 'Verificada']) : null,
         sit.data ? el('span', { class: 'adm-data', text: sit.data }) : null,
       ]));
       corpo.appendChild(el('div', { class: 'adm-link' }, [
         el('div', { class: 'caixa-link', text: linkLoja }),
-        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }),
+        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }, [UI.iconeLinha('copiar'), 'Copiar']),
       ]));
-      if (!l.donoEmail && plano.avisoPagamentoEm) corpo.appendChild(alerta('💸 Avisou pagamento de ' + din(plano.avisoValor || 0) + ' em ' + dataBR(plano.avisoPagamentoEm) + '. Confira no banco e confirme.'));
+      if (!l.donoEmail && plano.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(plano.avisoValor || 0) + ' em ' + dataBR(plano.avisoPagamentoEm) + '. Confira no banco e confirme.'));
 
       corpo.appendChild(el('h3', { text: 'Dados' }));
       var cat = R.catalogo(l);
       corpo.appendChild(dados([
         ['WhatsApp', l.whatsapp ? R.formatarTelefone(l.whatsapp) : 'Não cadastrado'],
-        ['Pix', l.pix && l.pix.chave ? l.pix.chave : 'Não cadastrado'],
         ['Mercado Pago', l.mpAtivo ? 'Conectado' : 'Não conectado'],
         ['Dono (login)', l.donoEmail || 'Sem conta'],
         ['Cidade', cidadeUF(l)],
@@ -1060,15 +1059,15 @@
       corpo.appendChild(el('h3', { text: 'Ações' }));
       var zap = R.linkWhatsapp(l.whatsapp, 'Oi! Aqui é do Ligeiro.');
       corpo.appendChild(grade([
-        el('a', { class: 'btn btn-fantasma', href: '#/' + l.cidadeSlug + '/' + l.slug, target: '_blank', rel: 'noopener', text: '👁️ Ver loja' }),
-        el('a', { class: 'btn btn-fantasma', href: '#/painel/' + l.slug, target: '_blank', rel: 'noopener', text: '⚙️ Abrir painel' }),
+        el('a', { class: 'btn btn-fantasma', href: '#/' + l.cidadeSlug + '/' + l.slug, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('olho'), 'Ver loja']),
+        el('a', { class: 'btn btn-fantasma', href: '#/painel/' + l.slug, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('lista'), 'Abrir painel']),
         zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp'])
           : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado' }, [UI.icone('zap'), 'WhatsApp']),
-        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, para mandar para o dono', text: '📋 Copiar links', onclick: function () {
+        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, para mandar para o dono', onclick: function () {
           var texto = l.nome + '\nCardápio: ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
           UI.copiar(texto).then(function () { UI.avisar('Links da loja e do painel copiados'); });
-        } }),
-        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : '✔ Verificar', onclick: function () {
+        } }, [UI.iconeLinha('copiar'), 'Copiar links']),
+        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : 'Verificar', onclick: function () {
           executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, verificada: l.verificada !== true }); }, l.verificada === true ? l.nome + ' sem o selo' : l.nome + ' verificada');
         } }),
         l.ativa === false
@@ -1114,7 +1113,7 @@
         corpo.appendChild(el('h3', { text: 'Assinatura' }));
         corpo.appendChild(el('div', { class: 'adm-caixa adm-conta-linha' }, [
           el('div', { class: 'adm-textos' }, [
-            el('span', { class: 'adm-sub', text: plano.avisoPagamentoEm ? '💸 A conta avisou pagamento. Assinatura na conta' : 'Assinatura na conta' }),
+            el('span', { class: 'adm-sub', text: plano.avisoPagamentoEm ? 'A conta avisou pagamento. Assinatura na conta' : 'Assinatura na conta' }),
             el('span', { class: 'adm-nome', text: l.donoEmail }),
           ]),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Abrir conta', onclick: function () { abrirConta(l.donoEmail); } }),
@@ -1235,7 +1234,7 @@
         p.fundador === true ? el('span', { class: 'selo adm-selo selo-fundador', text: '★ Fundador' }) : (viraFundador ? el('span', { class: 'selo adm-selo laranja', text: 'Vira fundador ao confirmar' }) : null),
         sit.data ? el('span', { class: 'adm-data', text: sit.data }) : null,
       ]));
-      if (p.avisoPagamentoEm) corpo.appendChild(alerta('💸 Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) + '. Confira no banco e confirme.'));
+      if (p.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) + '. Confira no banco e confirme.'));
 
       corpo.appendChild(el('h3', { text: 'Resumo' }));
       corpo.appendChild(dados([

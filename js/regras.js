@@ -735,7 +735,7 @@
   /* Ficha completa do pedido em texto, para a loja copiar ou imprimir. */
   function fichaDoPedido(loja, pedido) {
     var l = [];
-    l.push('*' + loja.nome.toUpperCase() + ' — SENHA ' + pedido.senha + '*');
+    l.push('*' + loja.nome.toUpperCase() + ' · SENHA ' + pedido.senha + '*');
     l.push(rotuloStatus(pedido) + ' • ' + horaCurta(pedido.criadoEm));
     l.push('');
     l.push('*Cliente:* ' + pedido.cliente.nome);
@@ -759,7 +759,7 @@
     if (pedido.desconto > 0) l.push('Cupom ' + pedido.cupom + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
     if (pedido.taxaEntrega > 0) l.push('Entrega: ' + dinheiro(pedido.taxaEntrega));
     if (pedido.total === 0) {
-      l.push('*CORTESIA — NADA A COBRAR*');
+      l.push('*CORTESIA: NADA A COBRAR*');
     } else if (pedido.pagamentoStatus === 'na_entrega') {
       l.push('*TOTAL A COBRAR: ' + dinheiro(pedido.total) + '*');
       if (pedido.formaPagamento === 'dinheiro_entrega') {
@@ -790,7 +790,7 @@
       var itens = ativos.filter(function (p) { return p.categoria === c.id; });
       if (!itens.length) return;
       linhas.push('*' + (c.emoji ? c.emoji + ' ' : '') + c.nome.toUpperCase() + '*');
-      itens.forEach(function (p) { linhas.push('• ' + p.nome + ' — ' + dinheiro(p.preco)); });
+      itens.forEach(function (p) { linhas.push('• ' + p.nome + ': ' + dinheiro(p.preco)); });
       linhas.push('');
     });
     if (loja.aceitaEntrega !== false) {

@@ -29,7 +29,7 @@
   function abrir(raiz) {
     var vivo = true;
     var carregar = function () {};
-    document.title = 'Minha conta — Ligeiro';
+    document.title = 'Minha conta · Ligeiro';
     raiz.appendChild(window.LigeiroParceiro.barraTopo());
     var corpo = el('div', { class: 'conteudo conta' });
     raiz.appendChild(corpo);
@@ -282,7 +282,7 @@
       ]);
     }
 
-    return function () { vivo = false; document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
+    return function () { vivo = false; document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   window.LigeiroConta = { abrir: abrir };

@@ -185,7 +185,7 @@
         estado.aba = 'ajustes';
         setTimeout(function () {
           if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix automático ligado.'); }
-          else UI.avisar('O Mercado Pago não autorizou. Tente de novo ou cole o token.');
+          else UI.avisar('O Mercado Pago não autorizou. Tente de novo em Ajustes, Pagamento.');
         }, 400);
       }
       /* loja oficial com tema (Dom Conizza): o topo usa as cores do tema; as outras, as do Ligeiro */
@@ -401,7 +401,15 @@
       estado.parar = [];
     }
 
+    /* Ajustes mudados e nao salvos: sair da aba (ou ir ao Mercado Pago) perdia tudo sem aviso */
+    function ajustesPendentes() { var s = $('secaoPainel'); return estado.aba === 'ajustes' && !!(s && s.querySelector('.salvar-estado.pendente')); }
     function trocarAba(aba) {
+      if (aba !== estado.aba && ajustesPendentes()) {
+        UI.perguntar('Você mudou os ajustes e ainda não salvou. Sair sem salvar?', { sim: 'Sair sem salvar', nao: 'Voltar para salvar' }).then(function (sim) {
+          if (sim) { var s = $('secaoPainel'); var p = s && s.querySelector('.salvar-estado.pendente'); if (p) p.classList.remove('pendente'); trocarAba(aba); }
+        });
+        return;
+      }
       estado.aba = aba;
       raiz.querySelectorAll('.aba-painel').forEach(function (b) { b.classList.toggle('ativa', b.dataset.aba === aba); });
       var s = $('secaoPainel');
@@ -1721,19 +1729,37 @@
       var cfgMP = window.LIGEIRO_CONFIG || {};
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
       var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
-      f.mpAtivo = interruptorCampo('Pix automático', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
+      f.mpAtivo = interruptorCampo(temConexao ? 'Receber Pix pelo site' : 'Pix automático', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
+      /* com o "Conectar Mercado Pago": o interruptor so aparece conectado (ligar sem conexao so dava erro ao salvar) */
+      if (temConexao) f.mpAtivo.hidden = !l.mpAtivo;
       f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só para trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
       f.mpToken.lido = false; /* vira true quando a leitura da conexao responde */
 
+      /* a linha de baixo diz o que vale de verdade: ligado so com o Mercado Pago conectado (null = ainda lendo a conexao) */
+      var avisoPix = el('p', { class: 'aviso', hidden: true });
+      function pintarAvisoPix(recebe) {
+        UI.limpar(avisoPix);
+        avisoPix.hidden = recebe === null;
+        if (recebe === null) return;
+        avisoPix.classList.toggle('aviso-falta', !recebe);
+        avisoPix.appendChild(UI.iconeLinha(recebe ? 'feito' : 'alerta'));
+        avisoPix.appendChild(el('span', { text: recebe
+          ? 'Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
+          : (!pixPossivel ? 'O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.'
+            : temConexao && !f.mpToken.temSalvo ? 'Sem o Mercado Pago conectado, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).'
+            : 'Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).') }));
+      }
       /* caixa da conexao: "Conectar com Mercado Pago" ou "Conectado desde ..." */
       var conexao = el('div', { class: 'mp-conexao' });
       function desenharConexao(c) {
         f.mpToken.lido = true;
         UI.limpar(conexao);
+        if (temConexao) f.mpAtivo.hidden = !(c && c.token) && !l.mpAtivo;
+        if (c && c.token) f.mpToken.temSalvo = true;
+        pintarAvisoPix(!!(c && c.token) && !!l.mpAtivo);
         if (c && c.token) {
-          f.mpToken.temSalvo = true;
           conexao.appendChild(el('div', { class: 'mp-conectado' }, [
             el('span', { class: 'mp-selo' }, [UI.iconeLinha('feito'), 'Mercado Pago conectado']),
             el('span', { class: 'muted pequeno', text: (c.conectadoEm ? 'desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR') : '') + (c.mpUserId ? ' · conta ' + c.mpUserId : '') }),
@@ -1747,6 +1773,7 @@
           return;
         }
         conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
+          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes de conectar: a conexão sai desta tela.'); return; }
           window.LigeiroMP.conectar(slug).then(function (r) {
             if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { desenharAjustes(); }); }
           }).catch(function (e) { UI.avisar(e.message || 'Não deu para conectar agora.'); });
@@ -1765,11 +1792,10 @@
           el('li', {}, [el('b', { text: 'Cole acima, ligue e salve.' }), ' Faça um pedido de teste de R$ 1 pelo seu site: pagou, o pedido vira "pago" sozinho em segundos.']),
         ]),
       ]);
-      if (!temConexao) avancadoMP.open = true;
-      pagamento.appendChild(avancadoMP);
-      pagamento.appendChild(el('p', { class: 'aviso' + (l.mpAtivo ? '' : ' aviso-falta') }, [UI.iconeLinha(l.mpAtivo ? 'feito' : 'alerta'), el('span', { text: l.mpAtivo
-        ? 'Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
-        : (pixPossivel ? 'Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).' : 'O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.') })]));
+      /* colar o token so onde nao ha o "Conectar" (sem o aplicativo do Ligeiro no Mercado Pago) */
+      if (!temConexao) { avancadoMP.open = true; pagamento.appendChild(avancadoMP); }
+      pagamento.appendChild(avisoPix);
+      if (!temConexao) pintarAvisoPix(!!l.mpAtivo); /* com o "Conectar", quem pinta e a leitura da conexao */
       f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', '', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
       f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, retirada só com Pix.', l.aceitaPagarNoBalcao !== false);
@@ -1958,7 +1984,7 @@
       /* Pix que ja estava ligado so passa sem token enquanto a leitura da conexao nao respondeu (ela pode atrasar).
          Depois que respondeu sem token, trava: loja com Pix ligado e sem token nao recebe Pix nenhum. */
       var aindaLendo = estado.loja.mpAtivo === true && !f.mpToken.lido;
-      if (aceitaPix && !tokenDigitado && !f.mpToken.temSalvo && !aindaLendo) return UI.avisar('Cole o Access Token do Mercado Pago ou desligue o Pix.');
+      if (aceitaPix && !tokenDigitado && !f.mpToken.temSalvo && !aindaLendo) return UI.avisar((D.modoDemo || !!(window.LIGEIRO_CONFIG || {}).mercadoPagoClientId) ? 'Conecte o Mercado Pago no botão do bloco Pagamento, ou desligue o Pix.' : 'Cole o Access Token do Mercado Pago ou desligue o Pix.');
       var mudancas = {
         nome: f.nome.input.value.trim() || estado.loja.nome,
         tipo: f.tipo.input.value.trim(),
@@ -2146,20 +2172,16 @@
       Pix.desenharQr(qr, linkLoja, 180);
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Divulgar o ' + R.catalogo(estado.loja).nome }),
-        el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram, no status e na mensagem automática do WhatsApp. Imprima o QR e cole no balcão e na sacola.' }),
+        el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram e no status. No WhatsApp Business, cole a mensagem em Ferramentas comerciais, Mensagem de saudação: quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ', sem robô pago. Imprima o QR e cole no balcão e na sacola.' }),
         el('div', { class: 'divulgar' }, [
           qr,
           el('div', { class: 'pilha divulgar-acoes' }, [
             el('div', { class: 'caixa-link', text: linkLoja }),
             el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link do ' + R.catalogo(estado.loja).nome]),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Cole em Ferramentas comerciais, Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
           ]),
         ]),
-      ]));
-      s.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Resposta automática grátis no WhatsApp' }),
-        el('p', { text: 'No WhatsApp Business, vá em Ferramentas comerciais > Mensagem de saudação e cole a mensagem com o seu link. Quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ' na hora, sem robô pago.' }),
       ]));
     }
 

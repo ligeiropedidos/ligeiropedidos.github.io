@@ -2104,3 +2104,12 @@ button.plano-card { cursor: pointer; }
 #avisoVolta .ico-traco svg { width: 24px; height: 24px; }
 .aviso > .ico-traco svg { width: 20px; height: 20px; }
 .aviso:has(> .ico-traco) { text-align: left; }
+.modal-caixa:focus { outline: none; } /* o foco entra na janela so para o leitor de tela; sem contorno em volta dela toda */
+/* pagina de vendas e Central: icones de traco */
+.item-venda .icone { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
+.item-venda .icone .ico-traco svg { width: 22px; height: 22px; }
+.ex-icone .ico-traco svg { width: 20px; height: 20px; }
+.fundador-relogio .ico-traco svg, .fundador-selo .estrela .ico-traco svg { width: 16px; height: 16px; }
+.fundador-relogio { display: inline-flex; vertical-align: -2px; }
+.fundador-selo .estrela { display: inline-flex; }
+.adm-selo .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }

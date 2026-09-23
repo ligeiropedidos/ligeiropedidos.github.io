@@ -50,7 +50,7 @@
       Promise.all([vagas, contagem]).then(function () {
         if (vivo && R.capacidadeLojas(lojasAgora).fechado && !raiz.querySelector('.montando-lista')) listaDeEspera();
       });
-      return function () { vivo = false; document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
+      return function () { vivo = false; document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
     }
     /* com conta: vagas, contagem e login ao mesmo tempo (antes era um depois do outro) */
     Promise.all([vagas, contagem, store.usuarioAtual()]).then(function (r) { return r[2]; }).then(function (u) {
@@ -96,7 +96,7 @@
         montar(raiz, opcoes, u);
       });
     });
-    return function () { vivo = false; document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
+    return function () { vivo = false; document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   /* Vagas de loja fechadas (limite do banco gratis): ninguem cria loja nova ate o Ligeiro abrir mais vagas */
@@ -445,7 +445,7 @@
     }
 
     desenhar();
-    return function () { document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
+    return function () { document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   window.LigeiroComecar = { abrir: abrir, modeloDoTipo: modeloDoTipo };

@@ -130,7 +130,7 @@
         ]),
       ]));
     }
-    filhos.push(el('div', { class: 'ligeiro' }, [el('a', { href: '#/lojas', text: 'Ligeiro — pedido ligeiro, sem comissão' })]));
+    filhos.push(el('div', { class: 'ligeiro' }, [el('a', { href: '#/lojas', text: 'Ligeiro: pedido ligeiro, sem comissão' })]));
     return el('footer', { class: 'rodape' }, filhos);
   }
 
@@ -264,7 +264,7 @@
           el('p', { class: 'muted', text: termo || estadoHub.soAbertas ? 'Tente outra palavra ou tire o filtro.' : 'Tem uma lanchonete, pizzaria ou marmitaria? Ela pode ser a primeira.' }),
           termo || estadoHub.soAbertas
             ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Limpar filtros', onclick: function () { estadoHub.termo = ''; busca.value = ''; estadoHub.soAbertas = false; estadoHub.tipo = ''; desenharChips(); desenharLista(); } })
-            : el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Cadastrar minha loja grátis' }),
+            : el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Cadastrar minha loja: 7 dias grátis' }),
         ]));
         return;
       }
@@ -674,7 +674,7 @@
 
     function montarInicio() {
       var l = estado.loja;
-      document.title = l.nome + ' — Ligeiro';
+      document.title = l.nome + ' · Ligeiro';
       var logo = $('logoLoja');
       UI.limpar(logo);
       var srcLogo = (estado.oficial && estado.oficial.logo) || D.logoSrc(l);
@@ -1106,8 +1106,8 @@
         $('barraQtd').textContent = q + (q === 1 ? ' item' : ' itens');
         $('barraValor').textContent = dinheiro(orc.subtotal);
         $('carrinhoBarraQtd').textContent = q + (q === 1 ? ' item' : ' itens');
-        $('carrinhoBarraValor').textContent = orc.erro ? '—' : (orc.total === 0 ? 'GRÁTIS' : dinheiro(orc.total));
-        $('dadosBarraValor').textContent = orc.erro ? '—' : (orc.total === 0 ? 'GRÁTIS' : dinheiro(orc.total));
+        $('carrinhoBarraValor').textContent = orc.erro ? '' : (orc.total === 0 ? 'GRÁTIS' : dinheiro(orc.total));
+        $('dadosBarraValor').textContent = orc.erro ? '' : (orc.total === 0 ? 'GRÁTIS' : dinheiro(orc.total));
       } else {
         $('barraQtd').textContent = '0 itens';
         $('barraValor').textContent = dinheiro(0);
@@ -2030,7 +2030,7 @@
       }
       clearInterval(estado.relogioAberta);
       if (typeof estado.pararLoja === 'function') estado.pararLoja();
-      document.title = 'Ligeiro — pedido ligeiro, sem comissão';
+      document.title = 'Ligeiro: pedido ligeiro, sem comissão';
     };
   }
 
@@ -2146,7 +2146,7 @@
           '</div>' +
           '<div class="msg-erro" id="semFormaPagamento" hidden>A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.</div>' +
           '<div class="bloco-form"><div class="bloco-titulo"><span class="bloco-numero">4</span> Algum recado? <span class="bloco-opcional">opcional</span></div>' +
-            '<div class="campo"><textarea id="campoObs" placeholder="Ex: sem cebola em tudo, tocar a campainha…" maxlength="300"></textarea></div>' +
+            '<div class="campo"><textarea id="campoObs" aria-label="Recado para a loja" placeholder="Ex: sem cebola em tudo, tocar a campainha…" maxlength="300"></textarea></div>' +
           '</div>' +
           '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small>Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
           (balcao ? '' : '<p class="nota">' + UI.iconeHtml('cadeado') + 'Guardamos seus dados neste aparelho para o próximo pedido ser mais rápido.</p>') +
@@ -2180,7 +2180,7 @@
     '<section class="tela" id="tela-senha">' +
       '<div class="sucesso">' +
         '<div class="confirmado" id="confirmado"></div>' +
-        '<div class="painel-senha"><div class="rotulo">Sua senha</div><div class="senha-gigante" id="senhaNumero">—</div><div class="instrucao" id="senhaInstrucao"></div></div>' +
+        '<div class="painel-senha"><div class="rotulo">Sua senha</div><div class="senha-gigante" id="senhaNumero"></div><div class="instrucao" id="senhaInstrucao"></div></div>' +
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
         '<div class="avaliar-google" id="avaliarGoogle" hidden></div>' +

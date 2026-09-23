@@ -140,6 +140,10 @@
     modal.classList.add('aberto');
     document.body.style.overflow = 'hidden';
     medirBarraDoModal();
+    /* leitor de tela: a janela tem nome e o foco entra nela (antes ficava na pagina de tras) */
+    caixa.setAttribute('aria-label', opcoes.titulo || 'Janela');
+    caixa.tabIndex = -1;
+    setTimeout(function () { if (modal.classList.contains('aberto') && !caixa.contains(document.activeElement)) { try { caixa.focus({ preventScroll: true }); } catch (_) { caixa.focus(); } } }, 60);
     return { corpo: corpo };
   }
   /* largura da barra de rolagem do corpo (0 no celular), pro CSS descontar do padding da direita */

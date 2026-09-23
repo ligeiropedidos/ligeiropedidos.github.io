@@ -327,7 +327,7 @@ test('cardápio em texto lista só itens ativos, por categoria, com link no fim'
   const texto = R.cardapioEmTexto(loja, 'https://exemplo.com/#/juquia/teste');
   assert.match(texto, /^\*Loja Teste\*/);
   assert.match(texto, /\*LANCHES\*/);
-  assert.match(texto, /• X-Burguer — R\$ 18,00/);
+  assert.match(texto, /• X-Burguer: R\$ 18,00/);
   assert.doesNotMatch(texto, /Sumido/);
   assert.match(texto, /Entrega: R\$ 5,00, grátis a partir de R\$ 60,00/);
   assert.match(R.cardapioEmTexto(Object.assign({}, loja, { freteGratis: true }), ''), /Entrega grátis/);
