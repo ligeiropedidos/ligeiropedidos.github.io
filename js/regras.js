@@ -1019,6 +1019,16 @@
     return tipo === 'anual' && p.anual > 0 ? p.anual : p.mensal;
   }
 
+  /* A loja ocupa uma vaga do limite de lojas (capacidade do banco gratis)?
+     Ativa e no ar ocupa. Parada por falta de pagamento tambem ocupa se ja pagou alguma vez (ela volta quando pagar);
+     so o teste gratis que acabou sem nunca pagar libera a vaga. Desativada pelo Ligeiro nao ocupa. */
+  function ocupaVaga(loja, agora) {
+    if (!loja || loja.ativa === false) return false;
+    if (!lojaBloqueada(loja, agora)) return true;
+    var p = loja.plano || {};
+    return !!(p.planoPago || p.pagoAte || p.ultimoPagamentoEm);
+  }
+
   function lojaBloqueada(loja, agora) {
     var e = assinatura(loja, agora).estado;
     return e === 'bloqueada' || e === 'cancelada' || e === 'pausada';
@@ -1067,8 +1077,9 @@
         porProduto[it.nome] = (porProduto[it.nome] || 0) + it.quantidade;
       }
     }
+    /* empate: pela ordem do nome (a lista sai sempre igual, venha dos pedidos ou dos resumos do dia) */
     var top = Object.keys(porProduto).map(function (n) { return { nome: n, quantidade: porProduto[n] }; })
-      .sort(function (a, b) { return b.quantidade - a.quantidade; }).slice(0, 5);
+      .sort(function (a, b) { return b.quantidade - a.quantidade || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0); }).slice(0, 5);
     return {
       pedidos: validos.length,
       total: total,
@@ -1077,6 +1088,73 @@
       porHora: porHora,
       porForma: porForma,
       maisVendidos: top,
+    };
+  }
+
+  /*
+   * Resumo de UM dia, guardado no banco (lojas/{slug}/resumos/{AAAA-MM-DD}).
+   * O relatorio de 30 dias le 30 documentos pequenos em vez de todos os pedidos do mes.
+   * Produtos e clientes em listas (nome de produto pode ter ponto, e mapa do banco nao gosta); produtos, so os 60 que mais saem.
+   * Cliente: t telefone, n nome, b bairro, p pedidos, v valor gasto.
+   */
+  function resumoDoDia(pedidos) {
+    var r = { pedidos: 0, total: 0, porHora: {}, porForma: {}, produtos: [], clientes: [] };
+    var porProduto = {};
+    var porCliente = {};
+    (pedidos || []).forEach(function (p) {
+      if (!p || p.status === STATUS.CANCELADO || p.status === STATUS.AGUARDANDO) return;
+      r.pedidos += 1;
+      r.total += Number(p.total) || 0;
+      var hora = String(new Date(p.criadoEm).getHours());
+      r.porHora[hora] = (r.porHora[hora] || 0) + 1;
+      var forma = String(p.formaPagamento || 'outro');
+      r.porForma[forma] = (r.porForma[forma] || 0) + 1;
+      (p.itens || []).forEach(function (it) { if (it && it.nome) porProduto[it.nome] = (porProduto[it.nome] || 0) + (Number(it.quantidade) || 0); });
+      var cli = p.cliente || {};
+      if (cli.telefone) {
+        var c = porCliente[cli.telefone] || (porCliente[cli.telefone] = { t: String(cli.telefone), n: String(cli.nome || ''), b: '', p: 0, v: 0 });
+        c.p += 1;
+        c.v += Number(p.total) || 0;
+        if (p.endereco && p.endereco.bairro) c.b = String(p.endereco.bairro);
+      }
+    });
+    r.clientes = Object.keys(porCliente).map(function (k) { return porCliente[k]; });
+    r.produtos = Object.keys(porProduto).map(function (n) { return { n: n, q: porProduto[n] }; })
+      .sort(function (a, b) { return b.q - a.q; }).slice(0, 60);
+    return r;
+  }
+  /* varios dias ({AAAA-MM-DD: resumoDoDia}) na mesma cara do resumoVendas; porDiaQtd e o numero de pedidos de cada dia;
+     clientes: do que mais gastou para o que menos gastou, com o bairro do pedido mais recente */
+  function juntarResumos(dias) {
+    var total = 0, n = 0, porDia = {}, porDiaQtd = {}, porHora = {}, porForma = {}, porProduto = {}, porCliente = {};
+    Object.keys(dias || {}).sort().forEach(function (k) {
+      var d = dias[k];
+      if (!d) return;
+      n += d.pedidos || 0;
+      total += d.total || 0;
+      porDia[k] = (porDia[k] || 0) + (d.total || 0);
+      porDiaQtd[k] = (porDiaQtd[k] || 0) + (d.pedidos || 0);
+      Object.keys(d.porHora || {}).forEach(function (h) { porHora[h] = (porHora[h] || 0) + d.porHora[h]; });
+      Object.keys(d.porForma || {}).forEach(function (f) { porForma[f] = (porForma[f] || 0) + d.porForma[f]; });
+      (d.produtos || []).forEach(function (x) { porProduto[x.n] = (porProduto[x.n] || 0) + x.q; });
+      (d.clientes || []).forEach(function (x) {
+        var c = porCliente[x.t] || (porCliente[x.t] = { nome: x.n, telefone: x.t, pedidos: 0, total: 0, bairro: '' });
+        c.pedidos += x.p || 0;
+        c.total += x.v || 0;
+        if (x.b) c.bairro = x.b;
+      });
+    });
+    return {
+      pedidos: n,
+      total: total,
+      ticketMedio: n ? Math.round(total / n) : 0,
+      porDia: porDia,
+      porDiaQtd: porDiaQtd,
+      porHora: porHora,
+      porForma: porForma,
+      maisVendidos: Object.keys(porProduto).map(function (x) { return { nome: x, quantidade: porProduto[x] }; })
+        .sort(function (a, b) { return b.quantidade - a.quantidade || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0); }).slice(0, 5),
+      clientes: Object.keys(porCliente).map(function (t) { return porCliente[t]; }).sort(function (a, b) { return b.total - a.total; }),
     };
   }
 
@@ -1141,6 +1219,9 @@
     diaLocal: diaLocal,
     txidPix: txidPix,
     resumoVendas: resumoVendas,
+    resumoDoDia: resumoDoDia,
+    ocupaVaga: ocupaVaga,
+    juntarResumos: juntarResumos,
     compararCustos: compararCustos,
   };
 });

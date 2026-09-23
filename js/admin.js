@@ -195,7 +195,7 @@
     /* demonstracao: vale a marca da sessao. Na nuvem a marca nao basta: sempre confere se o Google logado e o do Ligeiro. */
     if (D.modoDemo && logado()) { parar = montar(); return function () { vivo = false; tirarSplash(); if (parar) parar(); }; }
     if (!D.modoDemo && store.usuarioAtual) {
-      raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
+      raiz.appendChild(UI.carregandoMascote('Abrindo a Central…'));
       store.usuarioAtual().then(function (u) {
         if (!vivo) return;
         if (ehAdmin(u)) { try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ } parar = montar(); }
@@ -365,8 +365,8 @@
     }
 
     /* ---------- vagas de loja ---------- */
-    /* lojas que pesam no sistema: ativas e no ar (em teste ou pagando); parada por falta de pagamento nao pesa */
-    function lojasNoSistema() { return (estado.lojas || []).filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l); }).length; }
+    /* lojas que ocupam vaga: no ar (em teste ou pagando) e as paradas que ja pagaram alguma vez (voltam quando pagar) */
+    function lojasNoSistema() { return (estado.lojas || []).filter(function (l) { return R.ocupaVaga(l); }).length; }
     /* a Central e quem conta: grava o numero, fecha sozinha ao bater o limite e reabre se foi ela que fechou */
     function sincronizarCapacidade() {
       if (!store.salvarCapacidade || !estado.capacidadeLida) return; /* sem leitura nova do servidor, nao decide nada */
@@ -840,8 +840,8 @@
           pendente ? null : el('span', { class: 'adm-sub adm-ok-txt', text: '✓ Chamado em ' + dataBR(c.atendidoEm) }),
         ]),
         el('div', { class: 'adm-contato-acoes' }, [
-          link ? el('a', { class: 'btn btn-whats btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: '💬 Chamar' })
-            : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp', text: '💬 Chamar' }),
+          link ? el('a', { class: 'btn btn-whats btn-pequeno', href: link, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Chamar'])
+            : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp' }, [UI.icone('zap'), 'Chamar']),
           pendente ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '✓ Já chamei', onclick: marcar(true) })
             : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', title: 'Volta para lista de quem falta chamar', text: 'Desmarcar', onclick: marcar(false) }),
         ]),
@@ -1022,8 +1022,8 @@
       corpo.appendChild(grade([
         el('a', { class: 'btn btn-fantasma', href: '#/' + l.cidadeSlug + '/' + l.slug, target: '_blank', rel: 'noopener', text: '👁️ Ver loja' }),
         el('a', { class: 'btn btn-fantasma', href: '#/painel/' + l.slug, target: '_blank', rel: 'noopener', text: '⚙️ Abrir painel' }),
-        zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener', text: '💬 WhatsApp' })
-          : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado', text: '💬 WhatsApp' }),
+        zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp'])
+          : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado' }, [UI.icone('zap'), 'WhatsApp']),
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, para mandar para o dono', text: '📋 Copiar links', onclick: function () {
           var texto = l.nome + '\nCardápio: ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
           UI.copiar(texto).then(function () { UI.avisar('Links da loja e do painel copiados'); });
@@ -1097,9 +1097,9 @@
       var guardado = estado.pedidosLoja[slug];
       if (guardado && Date.now() - guardado.em < 5 * 60 * 1000) { mostrar(guardado); return; }
       mostrar(null);
-      var desde = inicioDoDia(6).toISOString();
-      store.listarPedidos(slug, { desde: desde }).then(function (lista) {
-        var r = { em: Date.now(), hoje: somarPedidos(lista, inicioDoDia(0).toISOString()), semana: somarPedidos(lista, desde) };
+      store.vendasDoPeriodo(slug, 7).then(function (v) {
+        var hoje = R.diaLocal(new Date());
+        var r = { em: Date.now(), hoje: { qtd: v.porDiaQtd[hoje] || 0, total: v.porDia[hoje] || 0 }, semana: { qtd: v.pedidos, total: v.total } };
         estado.pedidosLoja[slug] = r;
         if (caixa.isConnected) mostrar(r);
       }).catch(function () { if (caixa.isConnected) mostrar({ erro: true }); });

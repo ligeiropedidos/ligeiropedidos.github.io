@@ -1,38 +1,55 @@
 /*
- * Ligeiro - mensageiro do Pix (Cloudflare Workers, plano gratis).
+ * Ligeiro - mensageiro (Cloudflare Workers, plano gratis).
  *
- * O Pix do cliente e SEMPRE automatico, pela conta Mercado Pago de cada loja:
- *   POST /criar    { loja, pedido }  -> cria o pagamento Pix no Mercado Pago com o token da loja
- *                                       (lojas/{slug}/privado/mercadopago) e grava o "copia e cola" no pedido.
- *                                       O site do cliente mostra o QR na hora, mesmo com o painel fechado.
- *   POST /webhook?loja=slug          -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
- *   GET  /status?loja=slug&pedido=id -> reforco: o site do cliente pergunta a cada 8 s enquanto espera.
- *                                       Devolve { status, vencido }: vencido pelo relogio do servidor, nunca o do aparelho.
+ * Duas funcoes no mesmo worker:
+ *
+ * 1) CARDAPIO NA BORDA (o que tira o peso do banco gratis)
+ *   GET  /loja/{slug}        -> a loja (cardapio, horarios, precos) guardada no KV do Cloudflare.
+ *                               O cliente le daqui, e nao do Firestore: o banco nao gasta leitura nem download por visita.
+ *                               A copia confere o banco de novo so quando alguem pede e ela tem mais de 20 min
+ *                               (e na hora, quando o dono salva algo no painel: rota /publicar).
+ *   GET  /fotos/{slug}?v=... -> as miniaturas do cardapio, num pacote so. Guardado pela versao das fotos:
+ *                               o celular do cliente guarda para sempre e so baixa de novo quando a loja troca alguma.
+ *   GET  /foto/{slug}/{id}   -> uma foto grande (item aberto, capa). Cada foto tem nome unico: fica guardada para sempre.
+ *   GET  /vitrine            -> o resumo das lojas (pagina das cidades e pagina de vendas), conferido a cada 15 min.
+ *   POST /publicar { loja } + Authorization: Bearer <idToken do dono> -> o painel avisa que salvou; a copia se atualiza.
+ *
+ * 2) PIX AUTOMATICO pela conta Mercado Pago de cada loja
+ *   POST /criar    { loja, pedido }  -> cria o Pix no Mercado Pago com o token da loja e grava o "copia e cola" no pedido.
+ *   POST /webhook                    -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
+ *                                       O aviso ja traz a loja e o pedido (external_reference): nao precisa de indice.
+ *   GET  /status?loja&pedido&mp&expira -> reforco: o site do cliente pergunta enquanto espera. Com mp e expira,
+ *                                       pergunta direto ao Mercado Pago e so le o banco quando o Pix caiu.
+ *   POST /equipe   { loja, pin } + Authorization: Bearer <idToken do dono> -> senha da equipe da loja.
+ *   GET  /mp/volta                   -> volta do "Conectar com Mercado Pago" (OAuth).
  *   POST /                           -> repasse antigo (o painel manda o POST com o proprio token).
- *   POST /equipe   { loja, pin } + Authorization: Bearer <idToken do dono> -> define a senha da equipe da loja
- *                                       (6 a 8 numeros) e marca o usuario de equipe com { equipe: slug } pras regras do banco.
- *   Pagamentos usam a API Orders (POST /v1/orders); o webhook do Mercado Pago pode vir sem a loja na URL:
- *   o mensageiro acha pelo indice mp_indice/{orderId}. Configure o webhook na aplicacao "Ligeiro plataforma":
- *   URL https://SEU-WORKER/webhook, eventos Orders e Pagamentos.
  *
- * Como publicar (15 minutos, sem cartao):
- *   1. Cloudflare > Workers & Pages > Create Worker > nome "ligeiro-mp" > cole este arquivo > Deploy.
- *   2. Settings > Variables and Secrets (Secret):
+ * Como publicar (Cloudflare, sem cartao):
+ *   1. Storage & Databases > KV > Create a namespace > nome "ligeiro-cardapio".
+ *   2. Workers & Pages > ligeiro-mp > Edit code > apague tudo, cole este arquivo > Deploy.
+ *   3. ligeiro-mp > Settings > Bindings > Add binding > KV namespace:
+ *        Variable name: CARDAPIO      KV namespace: ligeiro-cardapio      > Save (ele publica sozinho).
+ *   4. Os segredos continuam os mesmos (Settings > Variables and Secrets):
  *        FIREBASE_SA       o JSON inteiro da conta de servico do Firebase
- *                          (Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        MP_CLIENT_ID      Client ID da aplicacao "Ligeiro plataforma" no Mercado Pago
- *        MP_CLIENT_SECRET  Client Secret da mesma aplicacao (o botao "Conectar com Mercado Pago")
- *      Na aplicacao do Mercado Pago, URL de redirecionamento: https://SEU-WORKER/mp/volta
- *   3. Copie o endereco (https://ligeiro-mp.SEU-USUARIO.workers.dev) e cole em js/config.js, proxyMercadoPago.
- *   4. Nada a fazer no Mercado Pago: o worker manda o endereco do webhook em cada pagamento (notification_url).
+ *        MP_CLIENT_SECRET  Client Secret da mesma aplicacao
+ *   Sem o KV ligado, o site percebe e continua lendo do Firestore como antes (nada quebra).
  *
- * Limite do plano gratis: 100 mil chamadas por dia. Um pedido usa umas 3 a 30.
+ * Limites do plano gratis: Workers 100 mil chamadas por dia; KV 100 mil leituras e 1 mil gravacoes por dia, 1 GB.
+ * Uma visita ao cardapio usa 1 a 2 chamadas; um pedido com Pix, umas 5 a 15.
  */
 const ORIGENS = ['https://ligeiropedidos.github.io', 'https://ligeiro.app.br', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
+const ADMIN = 'ligeiro.pedidos@gmail.com';
+/* a copia da loja confere o banco de novo depois disso (so se alguem pedir); o painel atualiza na hora ao salvar */
+const LOJA_VALE = 20 * 60 * 1000;
+const VITRINE_VALE = 15 * 60 * 1000;
+const SLUG = /^[a-z0-9-]{1,60}$/;
+/* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
+const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {} };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origem = request.headers.get('Origin') || '';
     const conferir = !ORIGENS.some((o) => o.indexOf('SEU-USUARIO') >= 0);
@@ -43,7 +60,9 @@ export default {
       'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Idempotency-Key',
       'Access-Control-Max-Age': '86400',
     };
-    const json = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+    const json = (obj, status, extra) => new Response(JSON.stringify(obj), { status: status || 200, headers: { ...cors, 'Content-Type': 'application/json', ...(extra || {}) } });
+    /* corpo ja pronto (texto ou fluxo do KV), sem montar de novo */
+    const pronto = (corpo, guardar) => new Response(corpo, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': guardar } });
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const caminho = url.pathname.replace(/\/+$/, '') || '/';
 
@@ -74,8 +93,11 @@ export default {
           tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
           conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '',
         });
+        delete MEM.mp[slug];
         await fb.merge('lojas/' + slug, { mpAtivo: true, aceitaPix: true, atualizadoEm: agora });
         await fb.merge('vitrine/' + slug, { aceitaPix: true, atualizadoEm: agora }).catch(() => {});
+        /* o Pix aparece na loja na hora, sem esperar a copia da borda vencer */
+        await atualizarLoja(env, slug).catch(() => {});
         return voltar(true);
       }
 
@@ -84,12 +106,20 @@ export default {
         let slug = url.searchParams.get('loja') || '';
         let corpo = {};
         try { corpo = await request.json(); } catch (_) { corpo = {}; }
-        const id = String((corpo.data && corpo.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id') || '');
+        const dados = corpo.data || {};
+        const id = String(dados.id || url.searchParams.get('data.id') || url.searchParams.get('id') || '');
         if (!id) return json({ ok: true, ignorado: true });
-        const fb = await firebase(env);
         let pedidoId = null;
         if (!slug) {
-          /* order: acha a loja pelo indice gravado na criacao */
+          /* o aviso de order traz o external_reference (loja__pedido): acha a loja sem ler o banco.
+             Ninguem ganha nada inventando: o pagamento e conferido no Mercado Pago com o token da loja, pela referencia e pelo valor */
+          const ref = String(dados.external_reference || '');
+          const i = ref.indexOf('__');
+          if (i > 0 && SLUG.test(ref.slice(0, i)) && /^[a-z0-9]{20}$/.test(ref.slice(i + 2))) { slug = ref.slice(0, i); pedidoId = ref.slice(i + 2); }
+        }
+        const fb = await firebase(env);
+        if (!slug) {
+          /* aviso sem referencia (ou cortada em 64 letras): acha pelo indice gravado na criacao */
           const idx = await fb.get('mp_indice/' + id);
           if (idx && idx.loja) { slug = idx.loja; pedidoId = idx.pedido || null; }
         }
@@ -99,6 +129,47 @@ export default {
       }
 
       if (conferir && origem && ORIGENS.indexOf(origem) < 0) return json({ erro: 'origem não permitida' }, 403);
+
+      /* ---- cardapio na borda (publico, so leitura) ---- */
+      if (request.method === 'GET') {
+        let m = /^\/loja\/([a-z0-9-]{1,60})$/.exec(caminho);
+        if (m) {
+          if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
+          const item = await lerLoja(env, ctx, m[1]);
+          if (!item.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
+          return pronto(item.corpo, 'public, max-age=15');
+        }
+        m = /^\/fotos\/([a-z0-9-]{1,60})$/.exec(caminho);
+        if (m) {
+          if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
+          return await servirFotos(env, ctx, m[1], url.searchParams.get('v') || '', pronto, json);
+        }
+        m = /^\/foto\/([a-z0-9-]{1,60})\/([A-Za-z0-9_-]{1,60})$/.exec(caminho);
+        if (m) return await servirFoto(env, ctx, m[1], m[2]);
+        if (caminho === '/vitrine') {
+          if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
+          return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
+        }
+      }
+
+      /* ---- o painel salvou: a copia da borda se atualiza agora (so o dono da loja ou o admin) ---- */
+      if (caminho === '/publicar' && request.method === 'POST') {
+        const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        const { loja } = await request.json().catch(() => ({}));
+        if (!idToken || !SLUG.test(loja || '')) return json({ ok: false, erro: 'faltou a loja ou o login' }, 400);
+        if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
+        const fb = await firebase(env);
+        const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
+        if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        /* confere o dono pela copia que ja existe (sem ler o banco); loja sem copia ainda: le uma vez */
+        const antes = await lerKv(env, 'loja:' + loja, 'text');
+        const donoAntes = antes && antes.metadata ? String(antes.metadata.dono || '') : '';
+        if (donoAntes && donoAntes !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        const item = await atualizarLoja(env, loja);
+        if (!item.existe) return json({ ok: false, erro: 'loja não existe' }, 404);
+        if (item.meta.dono !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        return json({ ok: true, versao: item.meta.em });
+      }
 
       /* ---- senha da equipe: o dono (logado) define; criamos/trocamos o usuario de equipe da loja ---- */
       if (caminho === '/equipe' && request.method === 'POST') {
@@ -127,15 +198,17 @@ export default {
         if (p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando Pix' }, 400);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
-        const l = await fb.get('lojas/' + loja);
-        const nome = separarNome(p.cliente && p.cliente.nome, l && l.nome);
+        /* nome da loja (sobrenome de quem pediu com um nome so): da copia da borda, sem ler o banco */
+        const nome = separarNome(p.cliente && p.cliente.nome, await nomeDaLoja(env, loja));
         /* API Orders do Mercado Pago (a de Payments vai ser descontinuada) */
         const valor = (p.total / 100).toFixed(2);
+        const inteira = loja + '__' + pedido;
+        /* a API Orders so aceita letras, numeros, hifen e sublinhado (ate 64): nada de "|" */
+        const referencia = inteira.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
         const corpo = {
           type: 'online',
           total_amount: valor,
-          /* a API Orders so aceita letras, numeros, hifen e sublinhado (ate 64): nada de "|" */
-          external_reference: (loja + '__' + pedido).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64),
+          external_reference: referencia,
           processing_mode: 'automatic',
           transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
           payer: { email: 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
@@ -147,9 +220,9 @@ export default {
         const expira = new Date(Date.now() + 30 * 60 * 1000).toISOString();
         const agora2 = new Date().toISOString();
         await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
-        /* indice pro webhook (que chega sem saber a loja) */
-        await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
-        return json({ codigo: qr, expiraEm: expira });
+        /* indice pro webhook so quando a referencia foi cortada (loja de nome muito comprido): o aviso normal ja traz loja e pedido */
+        if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
+        return json({ codigo: qr, expiraEm: expira, mp: String(ord.id) });
       }
 
       /* ---- o site pergunta se caiu ---- */
@@ -157,7 +230,17 @@ export default {
         const loja = url.searchParams.get('loja') || '';
         const pedido = url.searchParams.get('pedido') || '';
         if (!loja || !pedido) return json({ erro: 'faltou loja ou pedido' }, 400);
+        const mpId = url.searchParams.get('mp') || '';
+        const expira = Date.parse(url.searchParams.get('expira') || '');
         const fb = await firebase(env);
+        if (/^[A-Za-z0-9_-]{1,64}$/.test(mpId) && !isNaN(expira)) {
+          /* caminho leve (site novo): pergunta direto ao Mercado Pago; o banco so e lido se o Pix caiu.
+             O prazo vem do proprio pedido (pixExpiraEm) e vale pelo relogio do servidor, nunca o do aparelho */
+          let novo = null;
+          try { novo = await conferirPagamento(fb, loja, mpId, pedido, env); } catch (_) { novo = null; }
+          const status = novo || 'aguardando_pagamento';
+          return json({ status: status, vencido: status === 'aguardando_pagamento' && Date.now() > expira });
+        }
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido, true);
         if (!p) return json({ erro: 'pedido não existe' }, 404);
         if (p.status !== 'aguardando_pagamento' || !p.mp || !p.mp.id) return json({ status: p.status, vencido: pixVencidoNoServidor(p, Date.now()) });
@@ -187,12 +270,187 @@ export default {
   },
 };
 
+/* ================= cardapio na borda ================= */
+
+async function lerKv(env, chave, tipo) {
+  if (!env.CARDAPIO) return null;
+  try { return await env.CARDAPIO.getWithMetadata(chave, { type: tipo || 'text' }); } catch (_) { return null; }
+}
+async function gravarKv(env, chave, valor, metadata) {
+  if (!env.CARDAPIO) return false;
+  /* passou do limite de gravacoes do dia (1 mil no gratis): segue servindo o que leu do banco, sem guardar */
+  try { await env.CARDAPIO.put(chave, valor, { metadata: metadata }); return true; } catch (_) { return false; }
+}
+
+/* A loja pronta para o site: da memoria (1 min), do KV (e confere o banco por tras se passou de 20 min) ou do banco. */
+async function lerLoja(env, ctx, slug) {
+  const mem = MEM.lojas[slug];
+  if (mem && Date.now() - mem.lida < 60 * 1000) return mem;
+  const g = await lerKv(env, 'loja:' + slug, 'text');
+  if (g && g.value && g.metadata && g.metadata.em) {
+    const item = { existe: true, corpo: g.value, meta: g.metadata, lida: Date.now() };
+    MEM.lojas[slug] = item;
+    if (Date.now() - g.metadata.em > LOJA_VALE) atualizarDepois(ctx, 'loja:' + slug, () => atualizarLoja(env, slug));
+    return item;
+  }
+  return atualizarLoja(env, slug);
+}
+
+/* Le a loja no banco (1 leitura), tira o que nao e publico e guarda a resposta pronta no KV. */
+async function atualizarLoja(env, slug) {
+  const fb = await firebase(env);
+  const doc = await fb.get('lojas/' + slug);
+  if (!doc) {
+    const nada = { existe: false, lida: Date.now(), meta: { em: Date.now(), dono: '' } };
+    MEM.lojas[slug] = nada;
+    return nada;
+  }
+  const publica = Object.assign({}, doc);
+  delete publica.donoEmail; delete publica.senhaEquipeEm; delete publica.email;
+  const meta = {
+    em: Date.now(),
+    dono: String(doc.donoEmail || '').toLowerCase().slice(0, 200),
+    fotosVersao: String(doc.fotosVersao || '').slice(0, 60),
+    pacote: doc.fotosPacote === 1 && !doc.fotosAvulsas ? 1 : 0,
+    capa: String(doc.capa || '').slice(0, 60),
+    nome: String(doc.nome || '').slice(0, 80),
+  };
+  const corpo = '{"borda":1,"loja":' + JSON.stringify(publica) + '}';
+  await gravarKv(env, 'loja:' + slug, corpo, meta);
+  const item = { existe: true, corpo: corpo, meta: meta, lida: Date.now() };
+  MEM.lojas[slug] = item;
+  return item;
+}
+
+/* atualiza depois de responder (quem pediu nao espera); uma vez so por vez neste worker */
+function atualizarDepois(ctx, chave, fazer) {
+  if (MEM.atualizando[chave]) return;
+  MEM.atualizando[chave] = true;
+  const p = Promise.resolve().then(fazer).catch(() => {}).then(() => { delete MEM.atualizando[chave]; });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+}
+
+async function nomeDaLoja(env, slug) {
+  const mem = MEM.lojas[slug];
+  if (mem && mem.meta && mem.meta.nome) return mem.meta.nome;
+  const g = await lerKv(env, 'loja:' + slug, 'text');
+  return (g && g.metadata && g.metadata.nome) || '';
+}
+
+/* Miniaturas: guardadas pela versao das fotos da loja. Os documentos do banco vao como vieram (texto), sem o worker
+   abrir e remontar megas de foto (o plano gratis tem 10 ms de processamento por chamada); o site junta no aparelho. */
+async function servirFotos(env, ctx, slug, versaoPedida, pronto, json) {
+  const loja = await lerLoja(env, ctx, slug);
+  if (!loja.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
+  const atual = String(loja.meta.fotosVersao || '');
+  const guardar = versaoPedida && versaoPedida === atual ? 'public, max-age=31536000, immutable' : 'public, max-age=30';
+  const g = await lerKv(env, 'fotos:' + slug, 'stream');
+  if (g && g.value && g.metadata && g.metadata.versao === atual) return pronto(g.value, guardar);
+  if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+  /* versao nova: monta uma vez so (varios clientes ao mesmo tempo esperam a mesma montagem) */
+  const chave = 'fotos:' + slug + ':' + atual;
+  if (!MEM.montando[chave]) {
+    MEM.montando[chave] = montarFotos(env, slug, loja.meta).then(async (corpo) => {
+      await gravarKv(env, 'fotos:' + slug, corpo, { versao: atual });
+      return corpo;
+    }).finally(() => { delete MEM.montando[chave]; });
+  }
+  return pronto(await MEM.montando[chave], guardar);
+}
+
+async function montarFotos(env, slug, meta) {
+  const fb = await firebase(env);
+  const pasta = 'lojas/' + slug + '/fotos';
+  const docs = [];
+  let pacote = false;
+  if (meta.pacote) {
+    /* 4 pacotes de miniaturas + a capa inteira */
+    const partes = await Promise.all([0, 1, 2, 3].map((i) => fb.getTexto(pasta + '/_pacote' + i)));
+    partes.forEach((t) => { if (t) docs.push(t); });
+    if (meta.capa) { const c = await fb.getTexto(pasta + '/' + meta.capa); if (c) docs.push(c); }
+    pacote = true;
+  } else {
+    /* loja sem pacote (poucas fotos): a pasta inteira, de 50 em 50 */
+    let pagina = '';
+    for (let i = 0; i < 20; i++) {
+      const t = await fb.listarTexto(pasta, 50, pagina);
+      if (!t) break;
+      docs.push(t);
+      const prox = /"nextPageToken"\s*:\s*"([^"]+)"/.exec(t.slice(-400));
+      if (!prox) break;
+      pagina = prox[1];
+    }
+  }
+  return '{"borda":1,"versao":' + JSON.stringify(String(meta.fotosVersao || '')) + ',"pacote":' + pacote + ',"docs":[' + docs.join(',') + ']}';
+}
+
+/* Uma foto grande: nome unico por foto, entao fica guardada para sempre (no KV e no celular do cliente). */
+async function servirFoto(env, ctx, slug, id) {
+  const imagem = (bytes, tipo) => new Response(bytes, { status: 200, headers: { 'Content-Type': tipo || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', 'Access-Control-Allow-Origin': '*' } });
+  const chave = 'foto:' + slug + ':' + id;
+  const g = await lerKv(env, chave, 'arrayBuffer');
+  if (g && g.value) return imagem(g.value, g.metadata && g.metadata.tipo);
+  /* so busca no banco foto que a loja usa de verdade (item ou capa): endereco inventado nao gasta leitura */
+  const naoTem = () => new Response('', { status: 404, headers: { 'Cache-Control': 'public, max-age=300', 'Access-Control-Allow-Origin': '*' } });
+  if (env.CARDAPIO) {
+    const loja = await lerLoja(env, ctx, slug);
+    if (!loja.existe) return naoTem();
+    let usadas = loja.fotos;
+    if (!usadas) {
+      try {
+        const l = JSON.parse(loja.corpo).loja || {};
+        usadas = [l.capa].concat((l.produtos || []).map((p) => p && p.foto)).filter(Boolean);
+      } catch (_) { usadas = []; }
+      loja.fotos = usadas;
+    }
+    if (usadas.indexOf(id) < 0) return naoTem();
+  }
+  const fb = await firebase(env);
+  const d = await fb.get('lojas/' + slug + '/fotos/' + id);
+  const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(d && typeof d.dados === 'string' ? d.dados : '');
+  if (!m) return new Response('', { status: 404, headers: { 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' } });
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const gravar = gravarKv(env, chave, bytes.buffer, { tipo: m[1] });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(gravar);
+  return imagem(bytes, m[1]);
+}
+
+/* Vitrine: o resumo de todas as lojas (N leituras) no maximo a cada 15 min, e so quando alguem pede. */
+async function lerVitrine(env, ctx) {
+  if (MEM.vitrine && Date.now() - MEM.vitrine.lida < 60 * 1000) return MEM.vitrine.corpo;
+  const g = await lerKv(env, 'vitrine', 'text');
+  if (g && g.value && g.metadata && g.metadata.em) {
+    MEM.vitrine = { corpo: g.value, lida: Date.now() };
+    if (Date.now() - g.metadata.em > VITRINE_VALE) atualizarDepois(ctx, 'vitrine', () => atualizarVitrine(env));
+    return g.value;
+  }
+  return atualizarVitrine(env);
+}
+async function atualizarVitrine(env) {
+  const fb = await firebase(env);
+  const lista = await fb.listar('vitrine');
+  const corpo = '{"borda":1,"lista":' + JSON.stringify(lista.map((d) => { const x = Object.assign({}, d); delete x._id; return x; })) + '}';
+  await gravarKv(env, 'vitrine', corpo, { em: Date.now() });
+  MEM.vitrine = { corpo: corpo, lida: Date.now() };
+  return corpo;
+}
+
+/* ================= Pix ================= */
+
 /* Consulta o pagamento no Mercado Pago com o token da loja e, se aprovado, libera o pedido. Devolve o status novo. */
 async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
   const token = await tokenDaLoja(fb, slug, env);
   if (!token) return null;
   const ehOrder = String(idPagamento).indexOf('ORD') === 0;
-  const pg = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(idPagamento), {});
+  let pg;
+  try {
+    pg = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(idPagamento), {});
+  } catch (e) {
+    if (e && e.status === 401) delete MEM.mp[slug]; /* token trocado ou desconectado: le de novo na proxima */
+    throw e;
+  }
   let ref = String(pg.external_reference || '');
   if (ref.indexOf('|') > 0) ref = ref.split('|')[1];
   else if (ref.indexOf('__') > 0) ref = ref.split('__')[1];
@@ -225,12 +483,15 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
   return 'aguardando_pagamento';
 }
 
-/* Token da loja. Se veio pelo "Conectar" e esta perto de vencer, renova sozinho com o refresh_token. */
+/* Token da loja (guardado 10 min na memoria do worker: o "caiu?" de cada cliente nao le o banco).
+   Se veio pelo "Conectar" e esta perto de vencer, renova sozinho com o refresh_token. */
 async function tokenDaLoja(fb, slug, env) {
+  const m = MEM.mp[slug];
+  if (m && Date.now() - m.em < 10 * 60 * 1000) return m.token;
   const seg = await fb.get('lojas/' + slug + '/privado/mercadopago');
-  if (!seg || !seg.token) return '';
-  const vence = seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
-  if (seg.refresh && env && env.MP_CLIENT_ID && env.MP_CLIENT_SECRET && vence && vence - Date.now() < 7 * 864e5) {
+  let token = seg && seg.token ? String(seg.token).trim() : '';
+  const vence = seg && seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
+  if (token && seg.refresh && env && env.MP_CLIENT_ID && env.MP_CLIENT_SECRET && vence && vence - Date.now() < 7 * 864e5) {
     try {
       const r = await fetch(MP + '/oauth/token', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -239,11 +500,12 @@ async function tokenDaLoja(fb, slug, env) {
       const t = await r.json().catch(() => ({}));
       if (r.ok && t.access_token) {
         await fb.merge('lojas/' + slug + '/privado/mercadopago', { token: t.access_token, refresh: t.refresh_token || seg.refresh, tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() });
-        return t.access_token;
+        token = t.access_token;
       }
     } catch (_) { /* segue com o token atual */ }
   }
-  return String(seg.token).trim();
+  MEM.mp[slug] = { token: token, em: Date.now() };
+  return token;
 }
 
 async function mp(token, caminho, opcoes) {
@@ -251,7 +513,7 @@ async function mp(token, caminho, opcoes) {
   const texto = await r.text();
   let dados = {};
   try { dados = JSON.parse(texto); } catch (_) { dados = { message: texto }; }
-  if (!r.ok) throw new Error('Mercado Pago ' + r.status + ': ' + (dados.message || texto.slice(0, 120)));
+  if (!r.ok) { const e = new Error('Mercado Pago ' + r.status + ': ' + (dados.message || texto.slice(0, 120))); e.status = r.status; throw e; }
   return dados;
 }
 
@@ -264,11 +526,6 @@ function pixVencidoNoServidor(p, agora) {
   return !isNaN(nasceu) && agora > nasceu + 35 * 60 * 1000;
 }
 
-function expiracaoBrasilia(minutos) {
-  const alvo = new Date(Date.now() + minutos * 60 * 1000);
-  const emBrasilia = new Date(alvo.getTime() - 3 * 60 * 60 * 1000);
-  return emBrasilia.toISOString().replace('Z', '-03:00');
-}
 function separarNome(nomeCompleto, lojaNome) {
   const partes = String(nomeCompleto || '').trim().split(/\s+/).filter(Boolean);
   const primeiro = partes.shift() || 'Cliente';
@@ -305,28 +562,59 @@ async function definirUsuarioEquipe(fb, email, senha, slug) {
 }
 
 /* ---------------- Firestore pela REST, autenticado com a conta de servico (JWT RS256) ---------------- */
+/* A chave do Google vale 1 hora: guardada 50 min na memoria (antes era assinada de novo a cada chamada). */
 async function firebase(env) {
   if (!env.FIREBASE_SA) throw new Error('falta o segredo FIREBASE_SA no worker');
   const sa = JSON.parse(env.FIREBASE_SA);
-  const token = await tokenDaContaDeServico(sa);
+  let g = MEM.google;
+  if (!g || g.email !== sa.client_email || Date.now() > g.vence) {
+    g = MEM.google = { email: sa.client_email, token: await tokenDaContaDeServico(sa), vence: Date.now() + 50 * 60 * 1000 };
+  }
   const base = 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents/';
-  const cab = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+  const cab = { Authorization: 'Bearer ' + g.token, 'Content-Type': 'application/json' };
+  const recusou = (r) => { if (r.status === 401) MEM.google = null; }; /* chave recusada: assina outra na proxima */
   return {
     cab: cab, projeto: sa.project_id,
     async get(caminho, comHora) {
       const r = await fetch(base + caminho, { headers: cab });
       if (r.status === 404) return null;
-      if (!r.ok) throw new Error('Firestore get ' + r.status);
+      if (!r.ok) { recusou(r); throw new Error('Firestore get ' + r.status); }
       const doc = await r.json();
       const dados = deFirestore(doc.fields || {});
       /* comHora: junta a hora em que o documento nasceu no banco (relogio do Google, nao o do aparelho) */
       if (comHora) dados._criadoNoBanco = doc.createTime || '';
       return dados;
     },
+    /* o documento como o banco manda (texto), sem abrir: fotos grandes passam direto */
+    async getTexto(caminho) {
+      const r = await fetch(base + caminho, { headers: cab });
+      if (r.status === 404) return '';
+      if (!r.ok) { recusou(r); throw new Error('Firestore get ' + r.status); }
+      return r.text();
+    },
+    async listarTexto(colecao, tamanho, pagina) {
+      const r = await fetch(base + colecao + '?pageSize=' + (tamanho || 50) + (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''), { headers: cab });
+      if (r.status === 404) return '';
+      if (!r.ok) { recusou(r); throw new Error('Firestore list ' + r.status); }
+      return r.text();
+    },
+    async listar(colecao) {
+      const lista = [];
+      let pagina = '';
+      for (let i = 0; i < 20; i++) {
+        const r = await fetch(base + colecao + '?pageSize=100' + (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''), { headers: cab });
+        if (!r.ok) { recusou(r); throw new Error('Firestore list ' + r.status); }
+        const j = await r.json();
+        (j.documents || []).forEach((d) => { const x = deFirestore(d.fields || {}); x._id = String(d.name || '').split('/').pop(); lista.push(x); });
+        if (!j.nextPageToken) break;
+        pagina = j.nextPageToken;
+      }
+      return lista;
+    },
     async merge(caminho, dados) {
       const mask = Object.keys(dados).map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
       const r = await fetch(base + caminho + '?' + mask, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: camposFirestore(dados) }) });
-      if (!r.ok) throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200));
+      if (!r.ok) { recusou(r); throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200)); }
     },
   };
 }
@@ -349,6 +637,7 @@ function valorDe(v) {
   if ('doubleValue' in v) return v.doubleValue;
   if ('booleanValue' in v) return v.booleanValue;
   if ('nullValue' in v) return null;
+  if ('timestampValue' in v) return v.timestampValue;
   if ('arrayValue' in v) return (v.arrayValue.values || []).map(valorDe);
   if ('mapValue' in v) return deFirestore(v.mapValue.fields || {});
   return null;
@@ -376,3 +665,4 @@ function b64url(dados) {
   else { for (let i = 0; i < dados.length; i++) bin += String.fromCharCode(dados[i]); }
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+

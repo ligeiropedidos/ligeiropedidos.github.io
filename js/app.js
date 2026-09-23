@@ -153,6 +153,8 @@
   var vagasBuscadas = false;
   function buscarVagas() {
     var p = partes();
+    /* telas do dono e do admin usam o banco (e o login do Google tem que estar pronto no toque): ja comeca a baixar */
+    if (p.length && ROTAS_COM_VAGAS.indexOf(p[0]) >= 0 && window.LigeiroDados.store.aquecer) window.LigeiroDados.store.aquecer();
     if (vagasBuscadas || !p.length || ROTAS_COM_VAGAS.indexOf(p[0]) < 0) return;
     vagasBuscadas = true;
     window.LigeiroDados.store.obterFundadores().then(function (f) {

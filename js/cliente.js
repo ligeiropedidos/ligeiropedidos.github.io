@@ -297,7 +297,7 @@
         /* capa so de quem esta escolhida: baixar a de todas a cada visita gastava o Firebase gratis a toa */
         if (!(l.slug in capas) && l.capa && store.obterFoto) {
           capas[l.slug] = '';
-          store.obterFoto(l.slug, l.capa).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
+          (store.fotoPublica ? store.fotoPublica(l.slug, l.capa) : store.obterFoto(l.slug, l.capa)).then(function (c) { if (c) { capas[l.slug] = c; if (estadoHub.sel === l.slug) pintarFundo(l); } }).catch(function () { /* fica a logo */ });
         }
       }
       function pintarDetalhe(x) {
@@ -543,8 +543,10 @@
 
     /* ---------- carregar a loja ---------- */
 
-    /* a loja chega uma vez so: a primeira foto abre a pagina e as mudancas (abriu, fechou, preco) seguem pela mesma escuta */
-    var lojaViva = store.lojaAoVivo ? store.lojaAoVivo(slug) : { primeira: store.obterLoja(slug), assistir: function (cb) { return store.assistirLoja(slug, cb); }, parar: function () {} };
+    /* a loja chega uma vez so: a primeira foto abre a pagina e as mudancas (abriu, fechou, preco) seguem pela mesma escuta.
+       lojaPublica: vem da borda (Cloudflare), sem gastar o banco gratis; sem borda, e a escuta ao vivo do Firestore */
+    var lojaViva = store.lojaPublica ? store.lojaPublica(slug)
+      : store.lojaAoVivo ? store.lojaAoVivo(slug) : { primeira: store.obterLoja(slug), assistir: function (cb) { return store.assistirLoja(slug, cb); }, parar: function () {} };
     estado.pararLoja = lojaViva.parar;
     lojaViva.primeira.catch(function () { return { _erro: true }; }).then(function (dados) {
       if (!vivo) return;
@@ -570,7 +572,7 @@
           el('div', { class: 'icone', text: (dados.emoji || '🍽️') }),
           el('p', { class: 'forte', text: dados.nome + ' está com o cadastro pendente no Ligeiro.' }),
           el('p', { class: 'muted', text: 'Por enquanto, peça direto pelo WhatsApp da loja.' }),
-          dados.whatsapp ? el('a', { class: 'btn btn-whats', style: { marginTop: '16px' }, href: R.linkWhatsapp(dados.whatsapp, 'Oi! Quero fazer um pedido.'), target: '_blank', rel: 'noopener', text: '💬 Pedir pelo WhatsApp' }) : null,
+          dados.whatsapp ? el('a', { class: 'btn btn-whats', style: { marginTop: '16px' }, href: R.linkWhatsapp(dados.whatsapp, 'Oi! Quero fazer um pedido.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Pedir pelo WhatsApp']) : null,
           el('button', { class: 'btn btn-fantasma', style: { marginTop: '10px' }, text: 'Ver as cidades', onclick: function () { ir('cidades'); } }),
         ]));
         return;
@@ -616,7 +618,7 @@
     function carregarFotos(dados) {
       var versao = dados.fotosVersao || '';
       if (estado.fotosVersao === versao) return Promise.resolve(false);
-      return store.listarFotos(slug, versao, dados).then(function (mapa) {
+      return (store.fotosPublicas ? store.fotosPublicas(slug, versao, dados) : store.listarFotos(slug, versao, dados)).then(function (mapa) {
         estado.fotos = mapa || {};
         estado.fotosVersao = versao;
         return true;
@@ -766,8 +768,8 @@
       /* rodape */
       var contatos = $('contatosLoja');
       UI.limpar(contatos);
-      if (l.whatsapp) contatos.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(l.whatsapp, 'Olá! Vim pelo Ligeiro.'), target: '_blank', rel: 'noopener', text: '💬 WhatsApp' }));
-      if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener', text: '📷 @' + String(l.instagram).replace(/^@/, '') }));
+      if (l.whatsapp) contatos.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(l.whatsapp, 'Olá! Vim pelo Ligeiro.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp']));
+      if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener' }, [UI.icone('insta'), '@' + String(l.instagram).replace(/^@/, '')]));
       var enderecoJaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
       $('enderecoLoja').textContent = l.endereco ? '📍 ' + l.endereco + (l.cidade && !enderecoJaTemCidade ? ' · ' + l.cidade : '') : '';
       /* confianca no rodape: loja verificada (com o selo) e o CNPJ, se o lojista informou */
@@ -787,8 +789,12 @@
       outras.onclick = function () { ir(l.cidadeSlug); };
 
       atualizarFaixaAcompanhar();
-      /* pedidos "andando" guardados neste aparelho: confere o status de verdade (a aba pode ter fechado antes do fim) */
+      /* pedidos "andando" guardados neste aparelho: confere o status de verdade (a aba pode ter fechado antes do fim).
+         Uma vez por minuto no maximo: o inicio redesenha a cada mudanca da loja, e cada conferida e uma leitura */
+      estado.conferidos = estado.conferidos || {};
       lerMeusPedidos().filter(andandoAgora).forEach(function (p) {
+        if (Date.now() - (estado.conferidos[p.id] || 0) < 60000) return;
+        estado.conferidos[p.id] = Date.now();
         store.obterPedido(slug, p.id).then(function (novo) {
           if (!vivo || !novo) return;
           atualizarMeuPedido(novo);
@@ -1035,6 +1041,8 @@
     }
 
     function adicionarAoCarrinho() {
+      /* primeiro item: o programa do banco comeca a baixar agora, e ja esta pronto quando a pessoa for mandar o pedido */
+      if (store.aquecer) store.aquecer();
       var m = estado.modal;
       var grupos = R.gruposDaCategoria(estado.loja, m.produto.categoria);
       var gT = grupos.filter(function (g) { return g.tipo === 'unico'; })[0];
@@ -1389,6 +1397,28 @@
       var botao = $('btnPagar');
       botao.disabled = true;
       botao.textContent = 'Enviando…';
+      var totalVisto = orcamento().total;
+      /* a loja de agora (a copia da borda so confere a cada minuto): fechou ou mudou o preco nesse meio tempo? */
+      var conferir = lojaViva.conferirAgora && !balcao ? lojaViva.conferirAgora().catch(function () { return null; }) : Promise.resolve(null);
+      conferir.then(function (fresca) {
+        if (!vivo) return;
+        if (fresca) {
+          estado.loja = fresca;
+          if (fechouNoMeio()) { botao.disabled = false; atualizarBotaoPagar(); return; }
+          if (orcamento().total !== totalVisto) {
+            UI.soar('erro');
+            $('erroDados').hidden = false;
+            $('erroDados').textContent = 'A loja acabou de atualizar o cardápio e o total mudou para ' + dinheiro(orcamento().total) + '. Confira e toque de novo.';
+            botao.disabled = false;
+            atualizarBotaoPagar();
+            return;
+          }
+        }
+        enviarPedido(dados, botao);
+      });
+    });
+
+    function enviarPedido(dados, botao) {
       var pedido;
       try {
         pedido = R.montarPedido(estado.loja, dados);
@@ -1426,7 +1456,7 @@
         botao.disabled = false;
         atualizarBotaoPagar();
       });
-    });
+    }
 
     /* ---------- Pix ---------- */
 
@@ -1457,11 +1487,14 @@
       }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.codigo) throw new Error(j.erro || 'O Pix não veio.'); return j.codigo; }); });
     }
 
-    /* Pergunta ao mensageiro como esta o Pix do pedido. Sem mensageiro (demonstracao) ou sem internet, devolve {}. */
+    /* Pergunta ao mensageiro como esta o Pix do pedido. Sem mensageiro (demonstracao) ou sem internet, devolve {}.
+       Com o id do Mercado Pago e o prazo (vem no pedido), o mensageiro pergunta direto ao Mercado Pago e nao le o banco */
     function consultarStatusPix(idPedido) {
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo || !cfg.proxyMercadoPago) return Promise.resolve({});
-      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(idPedido))
+      var p = estado.pedido && estado.pedido.id === idPedido ? estado.pedido : null;
+      var leve = p && p.mp && p.mp.id && p.pixExpiraEm ? '&mp=' + encodeURIComponent(p.mp.id) + '&expira=' + encodeURIComponent(p.pixExpiraEm) : '';
+      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(estado.loja.slug) + '&pedido=' + encodeURIComponent(idPedido) + leve)
         .then(function (r) { return r.json(); })
         .then(function (j) { return j || {}; })
         .catch(function () { return {}; });
@@ -1471,13 +1504,15 @@
       return vivo && !!estado.pedido && estado.pedido.id === idPedido && estado.pedido.status === R.STATUS.AGUARDANDO;
     }
 
-    /* Enquanto espera o Pix cair: pergunta ao mensageiro a cada 8 s (o webhook do Mercado Pago e o caminho principal). */
+    /* Enquanto espera o Pix cair: pergunta ao mensageiro a cada 10 s (o aviso do Mercado Pago e o caminho principal
+       e chega pela escuta do pedido). Com a tela apagada ou em outra aba nao pergunta: na volta, pergunta de novo. */
     function vigiarPix(pedido) {
       pararVigia();
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo || !cfg.proxyMercadoPago) return;
       var vigia = estado.vigiaPix = setInterval(function () {
         if (!aindaEsperandoPix(pedido.id)) { pararVigia(); return; }
+        if (document.hidden) return;
         /* quem diz se o Pix venceu (30 min) e o relogio do servidor, no campo "vencido" da resposta:
            celular com a hora errada nao cancela o pedido de quem ainda esta pagando.
            Mensageiro antigo, sem esse campo (ou sem resposta): vale o relogio do aparelho, como antes. */
@@ -1490,7 +1525,7 @@
           pararVigia();
           return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.');
         }).catch(function () { /* o painel da loja cancela do lado de la */ });
-      }, 8000);
+      }, 10000);
     }
     function pararVigia() { if (estado.vigiaPix) clearInterval(estado.vigiaPix); estado.vigiaPix = null; }
 
@@ -1962,7 +1997,7 @@
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
         '<button class="btn btn-fantasma btn-largo" id="btnVoltarPix" style="max-width:420px" hidden>Ver o código Pix de novo</button>' +
-        '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener">💬 Falar com a loja</a>' +
+        '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener"><span class="icone-zap" aria-hidden="true"></span>Falar com a loja</a>' +
         '<button class="btn btn-fantasma btn-largo" id="btnNovoPedido" style="max-width:420px">' + (balcao ? 'Próximo cliente' : 'Fazer outro pedido') + '</button>' +
       '</div>' +
     '</section>' +

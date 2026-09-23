@@ -29,7 +29,7 @@
   /* Loja so nasce dentro de uma conta: sem login, vai pra #/entrar e volta pra ca depois. */
   function abrir(raiz, opcoes) {
     var vivo = true;
-    raiz.appendChild(el('p', { class: 'centro muted', style: { padding: '40px 16px' }, text: 'Só um instante…' }));
+    raiz.appendChild(UI.carregandoMascote('Abrindo o cadastro…'));
     /* vagas de loja: numero de agora, direto do servidor (quem foi chamado da lista entra na hora); se a leitura falhar,
        vale o que este aparelho ja sabia */
     var vagas = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
@@ -38,17 +38,22 @@
     /* e conta agora as lojas no ar (a Central so conta quando abre): com o limite batido, ninguem passa */
     var lojasAgora = null;
     var contagem = store.listarVitrine ? store.listarVitrine({ semCache: true }).then(function (lista) {
-      lojasAgora = (lista || []).filter(function (l) { return l.ativa !== false && !R.lojaBloqueada(l); }).length;
+      lojasAgora = (lista || []).filter(function (l) { return R.ocupaVaga(l); }).length;
     }).catch(function () { /* fica a contagem da Central */ }) : Promise.resolve();
-    function listaDeEspera() {
+    function listaDeEspera() { telaListaDeEspera(raiz); }
+    /* sem conta neste aparelho (quem vem da pagina de vendas): as primeiras perguntas nao precisam do banco, entao o
+       cadastro abre na hora e as vagas se conferem por tras. Sem vaga, troca para a lista de espera (a pessoa ainda
+       esta nas primeiras perguntas quando a resposta chega) */
+    if (store.pareceLogado && !store.pareceLogado()) {
       UI.limpar(raiz);
-      var P = window.LigeiroParceiro || {};
-      raiz.appendChild(telaAviso('Vagas cheias por enquanto', 'Abrimos vagas aos poucos para o Ligeiro continuar rápido para quem já vende com a gente. Entre na lista de espera: assim que abrir vaga, chamamos você no WhatsApp, na ordem da lista.', [
-        el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { if (P.abrirContato) P.abrirContato('lista-espera'); } }),
-        el('a', { class: 'btn btn-fantasma btn-largo', href: '#/lojas', text: 'Voltar' }),
-      ]));
+      montar(raiz, opcoes, null);
+      Promise.all([vagas, contagem]).then(function () {
+        if (vivo && R.capacidadeLojas(lojasAgora).fechado && !raiz.querySelector('.montando-lista')) listaDeEspera();
+      });
+      return function () { vivo = false; document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
     }
-    Promise.all([vagas, contagem]).then(function () { return store.usuarioAtual(); }).then(function (u) {
+    /* com conta: vagas, contagem e login ao mesmo tempo (antes era um depois do outro) */
+    Promise.all([vagas, contagem, store.usuarioAtual()]).then(function (r) { return r[2]; }).then(function (u) {
       if (!vivo) return;
       var fechado = R.capacidadeLojas(lojasAgora).fechado;
       /* sem conta e sem vaga: nem pede login, vai direto para a lista */
@@ -92,6 +97,30 @@
       });
     });
     return function () { vivo = false; document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
+  }
+
+  /* Vagas de loja fechadas (limite do banco gratis): ninguem cria loja nova ate o Ligeiro abrir mais vagas */
+  function telaListaDeEspera(raiz) {
+    UI.limpar(raiz);
+    var P = window.LigeiroParceiro || {};
+    raiz.appendChild(telaAviso('Vagas cheias por enquanto', 'Abrimos vagas aos poucos para o Ligeiro continuar rápido para quem já vende com a gente. Entre na lista de espera: assim que abrir vaga, chamamos você no WhatsApp, na ordem da lista.', [
+      el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { if (P.abrirContato) P.abrirContato('lista-espera'); } }),
+      el('a', { class: 'btn btn-fantasma btn-largo', href: '#/lojas', text: 'Voltar' }),
+    ]));
+  }
+
+  /* Tem vaga AGORA? Limite e contagem direto do servidor, na hora de criar (o cadastro abre na hora e as vagas
+     podem ter acabado enquanto a pessoa respondia). Leitura que falha: vale o que o aparelho ja sabia. O Ligeiro sempre pode. */
+  function temVagaAgora(email) {
+    if (email && R.ehDoLigeiro({ email: email })) return Promise.resolve(true);
+    var n = null;
+    var vagas = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
+      if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
+    }).catch(function () { /* fica o que tinha */ }) : Promise.resolve();
+    var contagem = store.listarVitrine ? store.listarVitrine({ semCache: true }).then(function (lista) {
+      n = (lista || []).filter(function (l) { return R.ocupaVaga(l); }).length;
+    }).catch(function () { /* fica a contagem da Central */ }) : Promise.resolve();
+    return Promise.all([vagas, contagem]).then(function () { return !R.capacidadeLojas(n).fechado; });
   }
 
   /* Tela de aviso no lugar do formulario: titulo, explicacao e os botoes certos. */
@@ -318,7 +347,12 @@
         dados.categorias = [{ id: 'cardapio', nome: R.catalogo({ tipo: tipo }).Nome, emoji: emoji }];
       }
       if (contaLogada) dados.donoEmail = contaLogada.email;
-      var conta = contaLogada ? Promise.resolve(true) : (D.modoDemo ? Promise.resolve(true) : store.criarConta(email, acesso.senha));
+      /* primeiro a vaga (antes ate de criar o login): sem vaga, nada nasce */
+      var semVaga = new Error('sem vaga');
+      var conta = temVagaAgora(contaLogada ? contaLogada.email : email).then(function (tem) {
+        if (!tem) throw semVaga;
+        return contaLogada ? true : (D.modoDemo ? true : store.criarConta(email, acesso.senha));
+      });
       /* a assinatura e da conta: garante a conta com o plano escolhido e copia o plano dela pra loja */
       var emailConta = contaLogada ? contaLogada.email : (D.modoDemo ? '' : email);
       criando = true;
@@ -354,6 +388,7 @@
       }).catch(function (e) {
         fim.cancelar();
         criando = false;
+        if (e === semVaga) { telaListaDeEspera(raiz); return; }
         desenhar();
         falhar(e && e.message ? e.message : 'Não deu para criar agora. Tente de novo em instantes.');
       });

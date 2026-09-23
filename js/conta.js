@@ -210,7 +210,7 @@
     /* Plano cheio: um lugar tracejado "pra proxima loja", com o caminho pro plano maior (no maximo, so o aviso) */
     function cartaoPlanoCheio(conta, limite) {
       var nome = R.planoPorId(R.planoQueVale(conta || {})).nome;
-      var temMaior = R.planos().some(function (p) { return p.lojas > limite; });
+      var temMaior = R.planos().some(function (p) { return !p.oculto && p.lojas > limite; });
       return el('div', { class: 'conta-cheio' }, [
         el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true', text: '🏪' }),
         el('div', { class: 'conta-cheio-texto' }, [

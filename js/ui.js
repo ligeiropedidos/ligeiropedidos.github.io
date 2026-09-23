@@ -605,8 +605,24 @@
     if (window.ResizeObserver) new ResizeObserver(medir).observe(raiz); else window.addEventListener('resize', medir);
   })();
 
+  /* espera com o mascote: ele pula de leve, as tres bolinhas do Ligeiro andam e o texto diz o que esta acontecendo.
+     Surge depois de um instante (quem abre rapido nem ve piscar) */
+  function carregandoMascote(texto) {
+    return el('div', { class: 'espera-mascote', role: 'status', 'aria-live': 'polite' }, [
+      el('div', { class: 'espera-mascote-palco', 'aria-hidden': 'true' }, [
+        el('img', { class: 'espera-mascote-img', src: 'img/mascote-192.webp', alt: '', width: '112', height: '112' }),
+        el('span', { class: 'espera-mascote-sombra' }),
+      ]),
+      el('div', { class: 'carregando-pontos', 'aria-hidden': 'true' }, [el('span'), el('span'), el('span')]),
+      el('p', { class: 'espera-mascote-texto', text: texto || 'Só um instante…' }),
+    ]);
+  }
+
+  /* logo do WhatsApp ou do Instagram para ir dentro de botao (a cor vem do texto do botao) */
+  function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
+
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar,
+    $: $, el: el, limpar: limpar, icone: icone, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,

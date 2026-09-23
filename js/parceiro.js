@@ -229,9 +229,9 @@
         if (!animar) return tirar();
         /* volta para dentro do botao (ou so some, com movimento reduzido) */
         fundo.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-in', fill: 'forwards' });
-        caixa.animate(reduzir ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: saidaDoBotao(), opacity: 0 }],
-          { duration: reduzir ? 180 : 260, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-        setTimeout(tirar, reduzir ? 190 : 270);
+        caixa.animate(reduzir ? [{ transform: 'none', opacity: 1 }, { transform: 'scale(0.94)', opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: saidaDoBotao(), opacity: 0 }],
+          { duration: reduzir ? 200 : 260, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+        setTimeout(tirar, reduzir ? 210 : 270);
       }
       fundo.addEventListener('click', function (e) { if (e.target === fundo) fechar(); });
       video.addEventListener('ended', function () { fim.hidden = false; });
@@ -242,8 +242,12 @@
       /* entrada: o fundo escurece e o video cresce de dentro do botao ate o meio da tela */
       if (animar) {
         fundo.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduzir ? 180 : 260, easing: 'ease-out' });
-        if (reduzir) caixa.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
-        else {
+        /* "Reduzir movimento" ligado (o iPhone vem assim para muita gente): nada de voar do botao, mas o video ainda
+           cresce de leve no meio da tela, para a entrada nao parecer um corte seco */
+        if (reduzir) {
+          caixa.animate([{ transform: 'scale(0.9)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+          botaoX.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, delay: 200, easing: 'ease-out', fill: 'backwards' });
+        } else {
           caixa.animate([{ transform: saidaDoBotao(), opacity: 0.35, borderRadius: '60px' }, { transform: 'none', opacity: 1, borderRadius: '22px' }],
             { duration: 460, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
           botaoX.animate([{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], { duration: 220, delay: 300, easing: 'ease-out', fill: 'backwards' });
@@ -394,10 +398,10 @@
 
     /* ---------- planos ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
-      el('div', { class: 'kicker', text: 'Planos' }),
-      el('h2', { text: 'Planos por quantidade de lojas. Tudo incluso.' }),
-      el('p', { class: 'muted', text: 'Pedidos ilimitados e todos os recursos em qualquer plano. A assinatura é da sua conta: uma cobrança só, no cartão, boleto ou Pix, vale para todas as lojas dela.' }),
-      (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); } d(); return caixa; })(),
+      el('div', { class: 'kicker', text: 'Preço' }),
+      el('h2', { text: 'Um plano só. Tudo incluso.' }),
+      el('p', { class: 'muted', text: 'Pedidos ilimitados, cardápio, painel, cozinha, entregador e Pix automático. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.' }),
+      (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); caixa.appendChild(linhaLojaExtra()); } d(); return caixa; })(),
       tabelaConcorrentes(pr),
     ]));
 
@@ -442,30 +446,28 @@
           el('div', { class: 'ex-rotulo', text: exclusivo ? 'Exclusivo' : 'Padrão' }),
         ]);
       }
-      /* icone: um emoji, ou uma imagem (o selo verde). Nos dois casos ele vai na mesma caixa de 30px,
-         para o texto comecar no mesmo x em todos os cartoes. */
-      function recurso(icone, titulo, texto) {
+      /* icone: um emoji, ou uma imagem (o selo verde), na mesma bolinha de 38px: o texto comeca no mesmo x em todas as linhas */
+      function recurso(icone, titulo) {
         var caixa = typeof icone === 'string' ? el('span', { class: 'ex-icone', text: icone }) : el('span', { class: 'ex-icone' }, icone);
-        return el('div', { class: 'ex-recurso' }, [caixa, el('div', {}, [el('b', { text: titulo }), el('span', { text: texto })])]);
+        return el('li', { class: 'ex-recurso' }, [caixa, el('b', { text: titulo })]);
       }
       corpo.appendChild(el('section', { class: 'vender-bloco' }, [
         el('div', { class: 'exclusiva' }, [
           el('div', { class: 'ex-vitrine', 'aria-hidden': 'true' }, [celular('padrao'), el('span', { class: 'ex-seta', text: '→' }), celular('exclusivo')]),
           el('div', { class: 'ex-texto' }, [
-            el('div', { class: 'ex-kicker', text: 'Serviço extra · sob medida' }),
+            el('div', { class: 'ex-kicker', text: 'Serviço extra' }),
             el('h2', { text: 'Uma loja com a cara da sua marca' }),
-            el('p', { class: 'ex-sub', text: 'Toda loja do Ligeiro já escolhe cor, logo e capa no painel. No design exclusivo, a gente desenha o site inteiro do seu jeito, como fizemos na Dom Conizza.' }),
-            el('div', { class: 'ex-recursos' }, [
-              recurso('🎨', 'Sua identidade', 'Suas cores, letras e botões'),
-              recurso('✨', 'Abertura animada', 'Sua logo entra em cena'),
-              recurso('⏳', 'Espera com sua logo', 'Sem tela branca ao abrir'),
-              recurso('🍳', 'Tudo combinando', 'Até no painel e na cozinha'),
-              recurso('🛠️', 'A gente faz tudo', 'Você não mexe em nada'),
-              recurso(el('img', { class: 'ex-selo', src: 'img/selo-verificado.svg', alt: '' }), 'Loja verificada', 'O selo verde na sua loja'),
-            ]), /* sempre em numero par: nas duas colunas nao sobra cartao sozinho */
+            el('p', { class: 'ex-sub', text: 'No painel, toda loja já escolhe cor, logo e capa. No exclusivo, a gente desenha a loja inteira do seu jeito, como fez na Dom Conizza, e você não mexe em nada.' }),
+            /* quatro linhas curtas (eram seis cartoes com subtitulo): numero par, nas duas colunas nao sobra linha sozinha */
+            el('ul', { class: 'ex-recursos' }, [
+              recurso('🎨', 'Suas cores, letras e botões'),
+              recurso('✨', 'Abertura com a sua logo'),
+              recurso('🍳', 'Combinando até na cozinha'),
+              recurso(el('img', { class: 'ex-selo', src: 'img/selo-verificado.svg', alt: '' }), 'Selo de loja verificada'),
+            ]),
             el('div', { class: 'ex-preco' }, [
               el('span', { class: 'ex-apartir', text: lc.aPartirDe ? 'a partir de' : '' }),
-              el('b', { text: lc.aPartirDe ? dinheiro(lc.aPartirDe) : 'Sob orçamento' }),
+              el('b', { text: lc.aPartirDe ? reais(lc.aPartirDe) : 'Sob orçamento' }),
               el('span', { class: 'ex-obs' }, [el('span', { class: 'sem-quebra', text: 'Pago uma vez só.' }), ' ', el('span', { class: 'sem-quebra', text: 'A mensalidade não muda.' })]), /* se quebrar, quebra entre as frases */
             ]),
             el('div', { class: 'ex-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma ex-ver', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
@@ -499,21 +501,31 @@
     return function () { window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro — pedido ligeiro, sem comissão'; };
   }
 
-  /* Cartoes de plano (por quantidade de lojas). tipo = 'mensal' | 'anual'. Em #/assinar viram escolha. */
+  /* "Tem mais de uma loja?": a loja a mais, numa linha so, embaixo do plano */
+  function linhaLojaExtra() {
+    var extra = Number((cfg() || {}).lojaExtra) || 0;
+    if (!extra) return el('span');
+    return el('p', { class: 'plano-extra' }, ['Tem mais de uma loja? ', el('b', { class: 'sem-quebra', text: '+ ' + reais(extra) + ' por mês' }), ' cada loja a mais, na mesma conta e na mesma cobrança.']);
+  }
+
+  /* Cartoes de plano. tipo = 'mensal' | 'anual'. Na pagina de vendas, so o plano de uma loja; em #/assinar viram escolha
+     (1, 2 ou 3 lojas). Plano escondido (oculto) so vale para conta antiga que ja tinha escolhido. */
   function cartoesPlanos(selecionavel, escolhidoId, aoEscolher, tipo, ehCliente) {
     /* vagas cheias so mudam a tela de quem ainda nao e cliente (quem ja tem conta so troca de plano) */
     var fechado = R.capacidadeLojas().fechado && !ehCliente;
     var pr = precos();
     var t = tipo === 'anual' ? 'anual' : 'mensal';
-    var lista = R.planos();
+    var lista = R.planos().filter(function (p) { return !p.oculto && (selecionavel || p.lojas === 1); });
     var grade = el('div', { class: 'planos planos-' + lista.length }, lista.map(function (p, i) {
       var preco = R.precoDoPlano(p.id, t);
       var normal = t === 'anual' && p.anual > 0 ? p.anual : p.mensal;
       var deFundador = preco < normal;
-      var porLoja = Math.ceil(preco / (t === 'anual' ? 12 : 1) / p.lojas / 100) * 100;
+      var cadaUm = preco / (t === 'anual' ? 12 : 1) / p.lojas;
+      var porLoja = Math.ceil(cadaUm / 100) * 100;
+      var sai = cadaUm % 100 === 0 ? 'Sai por ' : 'Sai por menos de '; /* R$ 74 certinho nao e "menos de R$ 74" */
       /* anual: quanto sai mais barato que pagar 12 meses no mensal (mesmo preco, de fundador ou nao) */
       var economia = t === 'anual' ? R.precoDoPlano(p.id, 'mensal') * 12 - preco : 0;
-      var destaque = i === 1 && lista.length > 2 ? 'Mais escolhido' : '';
+      var destaque = ''; /* nada de "mais escolhido" sem cliente para provar */
       var linhas = [
         p.lojas === 1 ? '1 loja na sua conta' : 'Até ' + p.lojas + ' lojas na mesma conta',
         pr.diasGratis + ' dias grátis, sem cartão',
@@ -522,8 +534,8 @@
         'Suporte 24 horas',
       ];
       /* o valor nunca parte no meio ("R$" numa linha e "70,00" na outra) */
-      var sub = p.lojas > 1 ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por loja no mês']
-        : (t === 'anual' ? ['Sai por menos de ', el('span', { class: 'sem-quebra', text: dinheiro(porLoja) }), ' por mês'] : (p.frase || ''));
+      var sub = p.lojas > 1 ? [sai, el('span', { class: 'sem-quebra', text: reais(porLoja) }), ' por loja no mês']
+        : (t === 'anual' ? [sai, el('span', { class: 'sem-quebra', text: reais(porLoja) }), ' por mês'] : (p.frase || ''));
       var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
         destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
         el('div', { class: 'plano-titulo', text: p.nome }),
@@ -563,8 +575,8 @@
   /* ============================================================ #/assinar */
   function assinar(raiz, planoInicial, tipoInicial) {
     var pr = precos();
-    var lista = R.planos();
-    var escolhido = lista.some(function (p) { return p.id === planoInicial; }) ? planoInicial : lista[0].id;
+    var lista = R.planos().filter(function (p) { return !p.oculto; });
+    var escolhido = R.planos().some(function (p) { return p.id === planoInicial; }) ? planoInicial : lista[0].id;
     var tipo = tipoInicial === 'anual' && pr.anual > 0 ? 'anual' : 'mensal';
     /* compatibilidade com links antigos #/assinar/anual */
     if (planoInicial === 'anual' && pr.anual > 0) { tipo = 'anual'; escolhido = lista[0].id; }

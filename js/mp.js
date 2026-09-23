@@ -118,7 +118,8 @@
       if (!token) return avisar('Pix automático desligado: cadastre o token do Mercado Pago em Ajustes.');
       if (!estado.ativo) return avisar('Token cadastrado, mas o Ligeiro ainda não ligou o proxy do Mercado Pago (config.proxyMercadoPago).');
       avisar(estado.simulado ? 'Pix automático em simulação: aprova sozinho em 20 s.' : 'Pix automático ligado: o pedido vira pago sozinho quando o Pix cair.');
-      estado.relogio = setInterval(conferir, 10000);
+      /* com o mensageiro no ar, o aviso do Mercado Pago e o site do cliente liberam o pedido: o painel so reforca, devagar */
+      estado.relogio = setInterval(conferir, estado.simulado ? 10000 : 30000);
       processar(estado.pedidos);
     });
 
@@ -171,7 +172,11 @@
 
     function conferir() {
       if (!estado.ativo) return;
-      estado.pedidos.filter(function (p) { return p.status === R.STATUS.AGUARDANDO && p.mp && p.mp.id; }).forEach(function (p) {
+      estado.pedidos.filter(function (p) {
+        if (p.status !== R.STATUS.AGUARDANDO || !p.mp || !p.mp.id) return false;
+        /* pedido novo: o cliente ainda esta na tela do Pix perguntando; gravar "pago" dos dois lados era gravacao e leitura em dobro */
+        return estado.simulado || Date.now() - new Date(p.criadoEm).getTime() > 2 * 60 * 1000;
+      }).forEach(function (p) {
         if (p.mp.simulado || String(p.mp.id).indexOf('SIM-') === 0) {
           /* pagamento de mentira so existe na demonstracao; no site de verdade nunca libera pedido */
           if (estado.simulado && Date.now() - new Date(p.mp.criadoEm || p.criadoEm).getTime() > 20000) aprovar(p);

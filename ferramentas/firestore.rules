@@ -47,6 +47,11 @@ service cloud.firestore {
           && request.resource.data.donoEmail == resource.data.donoEmail;
     }
     function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
+    /* vagas de loja fechadas (limite do banco gratis, fechado pela Central ou na mao): ninguem cria loja nova */
+    function vagasFechadas() {
+      return exists(/databases/$(db)/documents/publico/fundadores)
+          && get(/databases/$(db)/documents/publico/fundadores).data.get('capacidade', {}).get('fechado', false) == true;
+    }
     /* o plano da loja e copia fiel do plano da conta do dono (status, pagoAte, planoPago, desde) */
     function planoCopiaDaConta(p) {
       return exists(/databases/$(db)/documents/contas/$(request.auth.token.email))
@@ -138,6 +143,7 @@ service cloud.firestore {
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
         || (conferido() && request.resource.data.donoEmail == request.auth.token.email
+            && !vagasFechadas()
             && request.resource.data.get('verificada', false) == false
             /* campo email na loja daria cortesia do Ligeiro: so o admin grava */
             && !request.resource.data.keys().hasAny(['email'])
@@ -173,6 +179,10 @@ service cloud.firestore {
           && ((resource == null && request.resource.data.usos == 1)
               || (resource != null && request.resource.data.usos == resource.data.get('usos', 0) + 1));
       }
+      /* vendas de cada dia que ja fechou (o relatorio de 30 dias le 30 resumos, nao os pedidos do mes): so o dono e o admin */
+      match /resumos/{dia} {
+        allow read, write: if isDonoDaLoja(loja) || isAdmin();
+      }
       match /fotos/{foto} {
         allow read: if true;
         allow write: if isDonoDaLoja(loja) || isAdmin();
@@ -204,10 +214,13 @@ service cloud.firestore {
               || (request.resource.data.formaPagamento == 'pix' && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')
               || (request.resource.data.formaPagamento != 'pix' && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
         allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
-        allow list: if isDonoDaLoja(loja) || isEquipe(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
-        allow update: if isDonoDaLoja(loja) || isAdmin()
+        /* a equipe vem primeiro: ela se reconhece pela marca do login, sem ler a loja (isDonoDaLoja le a loja inteira,
+           e a leitura conta no plano gratis a cada toque da cozinha e do entregador) */
+        allow list: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
+        allow update: if
           /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
-          || (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm']))
+          (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm']))
+          || isDonoDaLoja(loja) || isAdmin()
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
               && request.resource.data.clientePagou == true)

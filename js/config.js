@@ -50,15 +50,18 @@ window.LIGEIRO_CONFIG = {
   fundador: { vagas: 5, jaOcupadas: 1 }, /* 5 vagas (era 20, depois 10): cabe no limite de lojas de agora, mais urgencia e menos desconto para sempre. jaOcupadas: a Dom Conizza */
   /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
      A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
-  capacidade: { maxLojas: 5 }, /* 5 lojas no gratis (sem custo): com as etapas 2 e 3 cada uma aguenta ~130 pedidos/dia; sobe no Blaze */
-  /* Planos por quantidade de lojas na mesma conta (centavos). A assinatura e da conta:
-     um Pix por mes libera todas as lojas dela. anual: 0 esconde o anual. */
+  capacidade: { maxLojas: 12 }, /* 12 lojas no gratis: com o cardapio na borda o Firebase gratis aguenta ~2.100 pedidos/dia (conta em testes); 12 x 150 = 1.800, com folga para o pico. Sobe no Blaze */
+  /* Um plano so, tudo incluso (centavos). A assinatura e da conta: uma cobranca vale para todas as lojas dela.
+     Loja a mais custa lojaExtra por mes (fundador tambem): 2 e 3 lojas aparecem so em "Assinar".
+     5 e 8 lojas ficam escondidos (oculto): so valem para conta antiga que ja tinha escolhido. anual: 0 esconde o anual. */
   planos: [
-    { id: 'uma', nome: 'Uma loja', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Para quem tem um ponto' },
-    { id: 'duas', nome: 'Até 2 lojas', lojas: 2, mensal: 15900, anual: 159000, fundador: { mensal: 13900, anual: 139000 }, frase: 'Matriz e filial' },
-    { id: 'cinco', nome: 'Até 5 lojas', lojas: 5, mensal: 33900, anual: 339000, fundador: { mensal: 29900, anual: 299000 }, frase: 'Para quem está crescendo' },
-    { id: 'oito', nome: 'Até 8 lojas', lojas: 8, mensal: 47900, anual: 479000, fundador: { mensal: 42900, anual: 429000 }, frase: 'Rede da região' },
+    { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Tudo incluso para a sua loja' },
+    { id: 'duas', nome: 'Ligeiro 2 lojas', lojas: 2, mensal: 15800, anual: 158000, fundador: { mensal: 14800, anual: 148000 }, frase: 'Matriz e filial' },
+    { id: 'tres', nome: 'Ligeiro 3 lojas', lojas: 3, mensal: 22700, anual: 227000, fundador: { mensal: 21700, anual: 217000 }, frase: 'Para quem está crescendo' },
+    { id: 'cinco', nome: 'Ligeiro 5 lojas', lojas: 5, mensal: 36500, anual: 365000, fundador: { mensal: 35500, anual: 355000 }, oculto: true },
+    { id: 'oito', nome: 'Ligeiro 8 lojas', lojas: 8, mensal: 57200, anual: 572000, fundador: { mensal: 56200, anual: 562000 }, oculto: true },
   ],
+  lojaExtra: 6900, /* cada loja a mais na mesma conta, por mes */
 
   /*
    * Cobranca automatica (cartao de credito e boleto) por link de assinatura.
@@ -69,12 +72,11 @@ window.LIGEIRO_CONFIG = {
   cobranca: {
     provedor: 'Asaas',
     /* linksFundador: os mesmos oito links, com o preco de fundador (so quem tem a vaga ve esses) */
-    linksFundador: { uma: { mensal: '', anual: '' }, duas: { mensal: '', anual: '' }, cinco: { mensal: '', anual: '' }, oito: { mensal: '', anual: '' } },
+    linksFundador: { uma: { mensal: '', anual: '' }, duas: { mensal: '', anual: '' }, tres: { mensal: '', anual: '' } },
     links: {
       uma: { mensal: '', anual: '' },
       duas: { mensal: '', anual: '' },
-      cinco: { mensal: '', anual: '' },
-      oito: { mensal: '', anual: '' },
+      tres: { mensal: '', anual: '' },
     },
   },
 
@@ -88,6 +90,11 @@ window.LIGEIRO_CONFIG = {
   /* Visitas: Cloudflare Web Analytics (gratis, sem cookie). No painel do Cloudflare:
      Analytics & Logs > Web Analytics > Add a site > copie o token. Vazio = sem medicao. */
   analytics: { cloudflareToken: '' },
+
+  /* App Check: chave do site do reCAPTCHA v3 (Firebase > App Check > Apps > Web > reCAPTCHA v3).
+     Com ela, so o site do Ligeiro consegue falar com o banco (robo que tenta gastar as leituras gratis fica de fora).
+     Vazia = desligado. Depois de ligar aqui e publicar, espere 1 dia e so entao ative a "aplicacao" (Enforce) no Firebase. */
+  appCheck: '',
 
   /* Loja que a pagina de vendas mostra como exemplo ("Ver uma loja de verdade"). */
   lojaDemo: 'juquia/dom-conizza',

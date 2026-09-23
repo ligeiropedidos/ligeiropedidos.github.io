@@ -85,6 +85,46 @@
     };
   }
 
+  /*
+   * Vendas de um periodo sem ler todos os pedidos: cada dia que ja fechou vira um resumo guardado
+   * (lojas/{slug}/resumos/{AAAA-MM-DD}). O relatorio de 30 dias le 30 documentos pequenos
+   * e so os pedidos do que ainda esta aberto (hoje; e ontem ate as 6 h, que pizzaria fecha tarde).
+   * fontes: { lerDias(dias), listarPedidos(desde), gravarDia(dia, resumo) }
+   */
+  function diaFechado(k, agora) {
+    var p = k.split('-');
+    return agora >= new Date(+p[0], +p[1] - 1, +p[2] + 1, 6, 0, 0, 0).getTime();
+  }
+  function vendasDoPeriodo(fontes, dias, agora) {
+    agora = agora || Date.now();
+    var chaves = [];
+    for (var i = dias - 1; i >= 0; i--) { var d = new Date(agora); d.setDate(d.getDate() - i); chaves.push(R.diaLocal(d)); }
+    var fechados = chaves.filter(function (k) { return diaFechado(k, agora); });
+    var lerDias = fechados.length ? fontes.lerDias(fechados).catch(function () { return {}; }) : Promise.resolve({});
+    return lerDias.then(function (docs) {
+      var guardados = {};
+      fechados.forEach(function (k) { if (docs && docs[k]) guardados[k] = docs[k]; });
+      var faltam = fechados.filter(function (k) { return !guardados[k]; });
+      var abertos = chaves.filter(function (k) { return !diaFechado(k, agora); });
+      var lerDe = faltam.concat(abertos);
+      var juntar = function () { var escolhidos = {}; chaves.forEach(function (k) { if (guardados[k]) escolhidos[k] = guardados[k]; }); return R.juntarResumos(escolhidos); };
+      if (!lerDe.length) return juntar();
+      var p0 = lerDe[0].split('-');
+      var desde = new Date(+p0[0], +p0[1] - 1, +p0[2], 0, 0, 0, 0).toISOString();
+      return fontes.listarPedidos(desde).then(function (pedidos) {
+        var porDia = {};
+        lerDe.forEach(function (k) { porDia[k] = []; });
+        (pedidos || []).forEach(function (x) { var k = R.diaLocal(new Date(x.criadoEm)); if (porDia[k] && new Date(x.criadoEm).getTime() <= agora) porDia[k].push(x); });
+        var novos = {};
+        faltam.forEach(function (k) { novos[k] = guardados[k] = R.resumoDoDia(porDia[k]); });
+        abertos.forEach(function (k) { guardados[k] = R.resumoDoDia(porDia[k]); });
+        /* guarda os dias fechados que faltavam (dia sem venda tambem: zero guardado nao le de novo). Sem permissao ainda: segue sem guardar */
+        Object.keys(novos).forEach(function (k) { try { fontes.gravarDia(k, novos[k]).catch(function () { /* regra antiga: sem guardar */ }); } catch (_) { /* idem */ } });
+        return juntar();
+      });
+    });
+  }
+
   /* Tudo que uma loja tem, com os valores de fabrica. */
   function modeloDeLoja() {
     return {
@@ -238,6 +278,7 @@
   };
 
   DemoStore.prototype.pronto = function () { return Promise.resolve(); };
+  DemoStore.prototype.aquecer = function () {};
 
   /* Chama f() sempre que qualquer coisa mudar. Devolve funcao para parar. */
   DemoStore.prototype.assistir = function (f) {
@@ -268,6 +309,31 @@
       assistir: function (cb) { var p = eu.assistirLoja(slug, cb); paradas.push(p); return p; },
       parar: function () { paradas.forEach(function (p) { try { p(); } catch (_) { /* ignora */ } }); paradas = []; },
     };
+  };
+
+  /* o site do cliente le a loja e as fotos por aqui; na demonstracao e tudo local, igual ao de sempre */
+  DemoStore.prototype.lojaPublica = function (slug) { var v = this.lojaAoVivo(slug); v.conferirAgora = function () { return Promise.resolve(null); }; return v; };
+  DemoStore.prototype.fotosPublicas = function (slug, versao, loja) { return this.listarFotos(slug, versao, loja); };
+  DemoStore.prototype.fotoPublica = function (slug, id) { return this.obterFoto(slug, id); };
+  DemoStore.prototype.publicarLoja = function () { return Promise.resolve(false); };
+  DemoStore.prototype.vendasDoPeriodo = function (slug, dias, agora) {
+    var eu = this;
+    return vendasDoPeriodo({
+      lerDias: function (dias) {
+        var r = ((eu._ler().resumos || {})[slug]) || {};
+        var saida = {};
+        dias.forEach(function (k) { if (r[k]) saida[k] = clonar(r[k]); });
+        return Promise.resolve(saida);
+      },
+      listarPedidos: function (desde) { return eu.listarPedidos(slug, { desde: desde }); },
+      gravarDia: function (dia, resumo) {
+        var db = eu._ler();
+        db.resumos = db.resumos || {};
+        (db.resumos[slug] = db.resumos[slug] || {})[dia] = resumo;
+        eu._gravar(db, true);
+        return Promise.resolve();
+      },
+    }, dias, agora);
   };
 
   DemoStore.prototype.assistirLoja = function (slug, cb) {
@@ -588,22 +654,95 @@
     });
   }
 
+  /*
+   * Cardapio na borda: o site do cliente le a loja, as fotos e a vitrine do mensageiro no Cloudflare (KV gratis),
+   * e nao do Firestore. O banco gratis fica so para os pedidos. Se o mensageiro ainda nao tem essas rotas
+   * (ou esta fora do ar), tudo volta sozinho para o Firestore, como era antes.
+   */
+  var CHAVE_BORDA_FORA = 'ligeiro:borda-fora';
+  function enderecoBorda() {
+    var c = window.LIGEIRO_CONFIG || {};
+    if (!c.firebase || !c.proxyMercadoPago) return '';
+    try { if (sessionStorage.getItem(CHAVE_BORDA_FORA) === '1') return ''; } catch (_) { /* segue */ }
+    return String(c.proxyMercadoPago).replace(/\/$/, '');
+  }
+  function erroBorda() { var e = new Error('borda indisponível'); e.fora = true; return e; }
+  /* GET na borda: resolve { status, dados }. Rota que nao existe (mensageiro antigo) ou sem KV: esta visita inteira vai pro Firestore */
+  function pegarBorda(caminho, fresco) {
+    var base = enderecoBorda();
+    if (!base || typeof fetch !== 'function') return Promise.reject(erroBorda());
+    return fetch(base + caminho, fresco ? { cache: 'no-store' } : {}).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (j && j.borda === 1) return { status: r.status, dados: j };
+        if (r.status === 404 || r.status === 501) { try { sessionStorage.setItem(CHAVE_BORDA_FORA, '1'); } catch (_) { /* segue */ } }
+        throw erroBorda();
+      });
+    }, function () { throw erroBorda(); });
+  }
+  /* as fotos chegam como o banco guarda (o mensageiro nao abre megas de foto): monta o mapa id -> imagem aqui */
+  function mapaDaBorda(j) {
+    var mapa = {};
+    (j.docs || []).forEach(function (bruto) {
+      var docs = bruto && bruto.documents ? bruto.documents : (bruto && bruto.name ? [bruto] : []);
+      docs.forEach(function (d) {
+        var id = String(d.name || '').split('/').pop();
+        var f = d.fields || {};
+        if (ehPacote(id)) {
+          if (!j.pacote) return; /* pacote velho de quando a loja usava miniaturas */
+          var m = (f.fotos && f.fotos.mapValue && f.fotos.mapValue.fields) || {};
+          Object.keys(m).forEach(function (k) { if (m[k] && m[k].stringValue) mapa[k] = m[k].stringValue; });
+        } else if (f.dados && f.dados.stringValue) mapa[id] = f.dados.stringValue;
+      });
+    });
+    return mapa;
+  }
+  /* foto por endereco: so entrega depois de carregar (se falhar, quem chamou fica com o que ja mostrava) */
+  function precarregar(src) {
+    return new Promise(function (ok, erro) {
+      var img = new Image();
+      img.onload = function () { ok(src); };
+      img.onerror = function () { erro(new Error('foto')); };
+      img.src = src;
+    });
+  }
+  function guardarFotosNoAparelho(chave, valor) {
+    var texto = JSON.stringify(valor);
+    try { localStorage.setItem(chave, texto); } catch (_) {
+      try {
+        Object.keys(localStorage).forEach(function (k) { if ((k.indexOf('ligeiro:fotos:') === 0 && k !== chave) || k.indexOf('ligeiro:foto:') === 0) localStorage.removeItem(k); });
+        localStorage.setItem(chave, texto);
+      } catch (_2) { /* segue sem cache */ }
+    }
+  }
+
   function FirebaseStore(config) {
     this.tipo = 'firebase';
     this.config = config;
     this._pacotes = {}; /* loja -> fotos em pacotes de miniaturas? (definido quando a loja carrega as fotos) */
     this._incompleto = {}; /* loja -> pacote sem alguma foto (app antigo gravou so a foto): o painel refaz */
-    this._pronto = this._iniciar();
+    /* o programa do banco (uns 300 KB) so baixa quando alguem precisa dele: o cardapio vem da borda, entao quem so olha
+       a loja nem baixa; comeca a vir quando a pessoa poe o primeiro item no carrinho (aquecer) ou abre o painel */
+    var eu = this, carregando = null;
+    Object.defineProperty(this, '_pronto', { get: function () { return carregando || (carregando = eu._iniciar()); } });
   }
+  FirebaseStore.prototype.aquecer = function () { this._pronto.catch(function () { /* quem precisar de verdade ve o erro */ }); };
 
   FirebaseStore.prototype._iniciar = function () {
     var eu = this;
     var base = 'https://www.gstatic.com/firebasejs/10.14.1/';
     /* banco e login so dependem do app: baixam juntos (um vai e volta a menos na internet do celular) */
+    /* App Check (reCAPTCHA v3): so o site de verdade fala com o banco; robo e script de fora ficam de fora.
+       Liga quando config.appCheck tiver a chave do site; vazio, fica como sempre foi */
+    var appCheck = String((window.LIGEIRO_CONFIG || {}).appCheck || '').trim();
     return carregarScript(base + 'firebase-app-compat.js')
-      .then(function () { return Promise.all([carregarScript(base + 'firebase-firestore-compat.js'), carregarScript(base + 'firebase-auth-compat.js')]); })
+      .then(function () {
+        var partes = [carregarScript(base + 'firebase-firestore-compat.js'), carregarScript(base + 'firebase-auth-compat.js')];
+        if (appCheck) partes.push(carregarScript(base + 'firebase-app-check-compat.js'));
+        return Promise.all(partes);
+      })
       .then(function () {
         window.firebase.initializeApp(eu.config);
+        if (appCheck && window.firebase.appCheck) { try { window.firebase.appCheck().activate(appCheck, true); } catch (_) { /* segue sem: o banco decide */ } }
         eu.db = window.firebase.firestore();
         eu.auth = window.firebase.auth();
         eu.auth.onAuthStateChanged(function (u) { lembrarSessao(!!usuarioDoFirebase(u)); });
@@ -667,6 +806,126 @@
       },
       parar: function () { cancelado = true; ouvintes = []; clearTimeout(prazo); parar(); },
     };
+  };
+
+  /*
+   * A loja para o site do cliente: vem da borda (0 leitura no Firestore) e confere de novo a cada minuto com a tela
+   * aberta (e na volta para a aba). Sem borda, e a loja ao vivo do Firestore, como antes.
+   * conferirAgora: a loja de agora, antes de mandar o pedido (fechou? mudou preco?).
+   */
+  FirebaseStore.prototype.lojaPublica = function (slug) {
+    var eu = this, ouvintes = [], ultimoJson = '', parado = false, relogio = null, viva = null;
+    function buscar(fresco) {
+      return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
+        if (x.status === 404) return null;
+        if (x.status !== 200 || !x.dados.loja) throw erroBorda();
+        return daNuvem(x.dados.loja);
+      });
+    }
+    function avisar(l) {
+      var j = JSON.stringify(l);
+      if (!l || j === ultimoJson) return;
+      ultimoJson = j;
+      ouvintes.slice().forEach(function (f) { try { f(l); } catch (_) { /* um ouvinte com erro nao derruba os outros */ } });
+    }
+    function conferir() {
+      if (parado || viva || document.hidden) return;
+      buscar(true).then(function (l) { if (!parado) avisar(l); }).catch(function () { /* sem internet agora: tenta no proximo minuto */ });
+    }
+    function aoVoltar() { if (!document.hidden) conferir(); }
+    var primeira = buscar(false).then(function (l) {
+      ultimoJson = JSON.stringify(l);
+      if (l && !parado) { relogio = setInterval(conferir, 60000); document.addEventListener('visibilitychange', aoVoltar); }
+      return l;
+    }, function () {
+      if (parado) return null;
+      viva = eu.lojaAoVivo(slug);
+      return viva.primeira;
+    });
+    return {
+      primeira: primeira,
+      assistir: function (cb) {
+        if (viva) return viva.assistir(cb);
+        ouvintes.push(cb);
+        return function () { ouvintes = ouvintes.filter(function (f) { return f !== cb; }); };
+      },
+      conferirAgora: function () {
+        if (viva) return Promise.resolve(null); /* ao vivo pelo Firestore: a escuta ja traz tudo */
+        return buscar(true).then(function (l) { avisar(l); return l; });
+      },
+      parar: function () {
+        parado = true; ouvintes = []; clearInterval(relogio);
+        document.removeEventListener('visibilitychange', aoVoltar);
+        if (viva) viva.parar();
+      },
+    };
+  };
+
+  /* Fotos para o site do cliente: um pacote da borda por versao, guardado no aparelho. Sem borda, do Firestore. */
+  FirebaseStore.prototype.fotosPublicas = function (lojaSlug, versao, loja) {
+    var eu = this;
+    var chaveCache = 'ligeiro:fotos:' + lojaSlug;
+    var cache = null;
+    try { cache = JSON.parse(localStorage.getItem(chaveCache) || 'null'); } catch (_) { cache = null; }
+    if (cache && versao && cache.versao === versao && cache.borda) { eu._pacotes[lojaSlug] = !!cache.pacote; return Promise.resolve(cache.mapa); }
+    return pegarBorda('/fotos/' + encodeURIComponent(lojaSlug) + '?v=' + encodeURIComponent(versao || '')).then(function (x) {
+      if (x.status !== 200) throw erroBorda();
+      var mapa = mapaDaBorda(x.dados);
+      var pacote = x.dados.pacote === true;
+      /* pacote sem a foto de algum item (app antigo gravou so a foto): esta visita le do Firestore, que sabe se virar */
+      var produtos = (loja && loja.produtos) || [];
+      if (pacote && produtos.some(function (p) { return p && p.foto && !ehCapa(p.foto) && !mapa[p.foto]; })) throw erroBorda();
+      eu._pacotes[lojaSlug] = pacote;
+      if (x.dados.versao === versao) guardarFotosNoAparelho(chaveCache, { versao: versao || '', pacote: pacote, borda: true, mapa: mapa });
+      return mapa;
+    }).catch(function () { return eu.listarFotos(lojaSlug, versao, loja); });
+  };
+
+  /* Uma foto grande (capa no hub, item aberto): pela borda, guardada no celular pelo proprio navegador. Falhou: Firestore. */
+  FirebaseStore.prototype.fotoPublica = function (lojaSlug, id) {
+    var eu = this;
+    var base = enderecoBorda();
+    if (!base || !id) return this.obterFoto(lojaSlug, id);
+    return precarregar(base + '/foto/' + encodeURIComponent(lojaSlug) + '/' + encodeURIComponent(id)).catch(function () { return eu.obterFoto(lojaSlug, id); });
+  };
+
+  /* O painel salvou: avisa a borda para a loja do cliente mudar na hora (e nao so quando a copia vencer).
+     Espera 3 s sem salvar nada para avisar uma vez so (subir 10 fotos seguidas e um aviso). */
+  FirebaseStore.prototype.publicarLoja = function (slug) {
+    var eu = this;
+    var base = enderecoBorda();
+    if (!base || !slug) return Promise.resolve(false);
+    eu._aPublicar = eu._aPublicar || {};
+    clearTimeout(eu._aPublicar[slug]);
+    return new Promise(function (ok) {
+      eu._aPublicar[slug] = setTimeout(function () {
+        delete eu._aPublicar[slug];
+        eu.obterIdToken().then(function (t) {
+          return fetch(base + '/publicar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ loja: slug }) });
+        }).then(function (r) { ok(!!r && r.ok); }, function () { ok(false); });
+      }, 3000);
+    });
+  };
+
+  /* Vendas do periodo: resumos guardados por dia (lojas/{slug}/resumos/{AAAA-MM-DD}) + os pedidos do que ainda esta aberto.
+     Os dias vem numa consulta so (do primeiro ao ultimo dia): dia que nao existe nao custa leitura */
+  FirebaseStore.prototype.vendasDoPeriodo = function (slug, dias, agora) {
+    var eu = this;
+    return this._pronto.then(function () {
+      var col = eu.db.collection('lojas').doc(slug).collection('resumos');
+      var id = window.firebase.firestore.FieldPath.documentId();
+      return vendasDoPeriodo({
+        lerDias: function (lista) {
+          return col.where(id, '>=', lista[0]).where(id, '<=', lista[lista.length - 1]).get().then(function (snap) {
+            var saida = {};
+            snap.forEach(function (d) { saida[d.id] = d.data(); });
+            return saida;
+          });
+        },
+        listarPedidos: function (desde) { return eu.listarPedidos(slug, { desde: desde }); },
+        gravarDia: function (dia, resumo) { return col.doc(dia).set(Object.assign({}, resumo, { atualizadoEm: agoraISO() })); },
+      }, dias, agora);
+    });
   };
 
   FirebaseStore.prototype.assistirLoja = function (slug, cb) {
@@ -779,7 +1038,12 @@
           lojas.update(d.ref, { plano: espelhoDoPlano(conta.plano), atualizadoEm: agoraISO() });
           vitrine.set(eu.db.collection('vitrine').doc(d.id), { plano: espelhoDoPlano(conta.plano), atualizadoEm: agoraISO() }, { merge: true });
         });
-        return lojas.commit().then(function () { return vitrine.commit(); }).then(function () { limparCacheVitrine(); return true; });
+        return lojas.commit().then(function () { return vitrine.commit(); }).then(function () {
+          limparCacheVitrine();
+          /* plano mudou (pagou, encerrou): a loja do cliente destrava ou trava na hora */
+          snap.forEach(function (d) { eu.publicarLoja(d.id); });
+          return true;
+        });
       });
     });
   };
@@ -825,14 +1089,23 @@
       var c = JSON.parse(localStorage.getItem(chave) || 'null');
       if (c && c.em && Date.now() - c.em < 5 * 60 * 1000 && Array.isArray(c.lista)) return Promise.resolve(c.lista);
     } catch (_) { /* segue */ }
-    return this._pronto.then(function () {
-      return this.db.collection('vitrine').get().then(function (snap) {
-        var lista = [];
-        snap.forEach(function (d) { lista.push(daNuvem(d.data())); });
-        try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), lista: lista })); } catch (_) { /* sem espaco */ }
-        return lista;
+    var eu = this;
+    function guardar(lista) { try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), lista: lista })); } catch (_) { /* sem espaco */ } return lista; }
+    function doBanco() {
+      return eu._pronto.then(function () {
+        return eu.db.collection('vitrine').get().then(function (snap) {
+          var lista = [];
+          snap.forEach(function (d) { lista.push(daNuvem(d.data())); });
+          return guardar(lista);
+        });
       });
-    }.bind(this));
+    }
+    /* a lista de agora (o cadastro conta as lojas no ar) vem do banco; o resto, da borda (0 leitura por visita) */
+    if (opcoes && opcoes.semCache) return doBanco();
+    return pegarBorda('/vitrine').then(function (x) {
+      if (x.status !== 200 || !Array.isArray(x.dados.lista)) throw erroBorda();
+      return guardar(x.dados.lista.map(daNuvem));
+    }).catch(doBanco);
   };
 
   FirebaseStore.prototype.listarCidades = function () {
@@ -867,6 +1140,7 @@
     return this._pronto.then(function () {
       var ref = eu.db.collection('lojas').doc(loja.slug);
       return ref.update(paraNuvem(nova)).then(function () {
+        eu.publicarLoja(loja.slug);
         /* vitrine acompanha: precisa da loja inteira pra montar o resumo */
         var inteira = completa ? Promise.resolve(Object.assign({}, clonar(completa), nova)) : ref.get().then(function (d) { return d.exists ? daNuvem(d.data()) : null; });
         return inteira.then(function (l) {
@@ -902,7 +1176,7 @@
           /* primeiro a loja, depois a vitrine: a regra da vitrine le a loja pra saber quem e o dono */
           return col.doc(slug).set(paraNuvem(loja)).then(function () {
             return resumoLeve(loja).then(function (r) { return eu.db.collection('vitrine').doc(slug).set(paraNuvem(r)); });
-          }).then(function () { limparCacheVitrine(); return loja; });
+          }).then(function () { limparCacheVitrine(); eu.publicarLoja(slug); return loja; });
         });
       };
       return tentar(base, 2);
@@ -1004,7 +1278,7 @@
   /* foto grande de um produto quando a loja usa miniaturas (null = ja esta inteira no mapa) */
   FirebaseStore.prototype.fotoCheia = function (lojaSlug, id) {
     if (!id || !this._pacotes[lojaSlug]) return Promise.resolve(null);
-    return this.obterFoto(lojaSlug, id);
+    return this.fotoPublica(lojaSlug, id);
   };
   /* painel: loja com 5 fotos ou mais ainda sem pacotes (ou com pacote faltando foto) junta as miniaturas */
   FirebaseStore.prototype.precisaEmpacotar = function (lojaSlug, loja, mapa) {
@@ -1025,7 +1299,7 @@
         var lote = eu.db.batch();
         Object.keys(grupos).forEach(function (k) { lote.set(lojaRef.collection('fotos').doc(k), { fotos: grupos[k], atualizadoEm: agoraISO() }); });
         lote.set(lojaRef, { fotosPacote: 1, fotosAvulsas: false }, { merge: true });
-        return lote.commit().then(function () { eu._pacotes[lojaSlug] = true; eu._incompleto[lojaSlug] = false; return true; });
+        return lote.commit().then(function () { eu._pacotes[lojaSlug] = true; eu._incompleto[lojaSlug] = false; eu.publicarLoja(lojaSlug); return true; });
       });
     });
   };
@@ -1040,14 +1314,14 @@
       lote.set(col.doc(id), { dados: dados, criadoEm: agoraISO() });
       if (mini) { var campo = {}; campo[id] = mini; lote.set(col.doc(pacoteDe(id)), { fotos: campo, atualizadoEm: agoraISO() }, { merge: true }); }
       lote.set(lojaRef, { fotosVersao: agoraISO() }, { merge: true });
-      return lote.commit().then(function () { return id; }, function (e) {
+      return lote.commit().then(function () { eu.publicarLoja(lojaSlug); return id; }, function (e) {
         if (!mini) throw e;
         /* pacote passou do limite (1 MB): grava so a foto e a loja volta a ler foto por foto */
         eu._pacotes[lojaSlug] = false;
         var l2 = eu.db.batch();
         l2.set(col.doc(id), { dados: dados, criadoEm: agoraISO() });
         l2.set(lojaRef, { fotosVersao: agoraISO(), fotosAvulsas: true }, { merge: true });
-        return l2.commit().then(function () { return id; });
+        return l2.commit().then(function () { eu.publicarLoja(lojaSlug); return id; });
       });
     });
   };
@@ -1060,17 +1334,18 @@
       lote.delete(lojaRef.collection('fotos').doc(id));
       if (eu._pacotes[lojaSlug] && !ehCapa(id)) { var campo = {}; campo[id] = window.firebase.firestore.FieldValue.delete(); lote.set(lojaRef.collection('fotos').doc(pacoteDe(id)), { fotos: campo }, { merge: true }); }
       lote.set(lojaRef, { fotosVersao: agoraISO() }, { merge: true });
-      return lote.commit();
+      return lote.commit().then(function () { eu.publicarLoja(lojaSlug); });
     });
   };
 
   FirebaseStore.prototype.excluirLoja = function (slug) {
+    var eu = this;
     return this._pronto.then(function () {
-      var lote = this.db.batch();
-      lote.set(this.db.collection('lojas').doc(slug), { ativa: false }, { merge: true });
-      lote.set(this.db.collection('vitrine').doc(slug), { ativa: false }, { merge: true });
-      return lote.commit();
-    }.bind(this));
+      var lote = eu.db.batch();
+      lote.set(eu.db.collection('lojas').doc(slug), { ativa: false }, { merge: true });
+      lote.set(eu.db.collection('vitrine').doc(slug), { ativa: false }, { merge: true });
+      return lote.commit().then(function () { eu.publicarLoja(slug); });
+    });
   };
 
   FirebaseStore.prototype.criarPedido = function (lojaSlug, pedido) {

@@ -14,7 +14,7 @@
  *        FIREBASE_SA      o JSON inteiro da conta de servico do Firebase
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        PLANOS           JSON com os precos em centavos, igual ao config.js. Exemplo:
- *                         {"uma":{"mensal":7900,"anual":79000},"duas":{"mensal":13900,"anual":139000},"cinco":{"mensal":29900,"anual":299000},"oito":{"mensal":42900,"anual":429000}}
+ *                         {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000},"duas":{"mensal":15800,"anual":158000,"fm":14800,"fa":148000},"tres":{"mensal":22700,"anual":227000,"fm":21700,"fa":217000}}
  *   3. No Asaas: Integracoes > Webhooks > Adicionar: URL do worker, token = ASAAS_WEBHOOK,
  *      eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED. Fila sincrona, versao 3.
  *   4. O e-mail do cliente no Asaas tem que ser o MESMO e-mail com que o dono entra no Ligeiro
@@ -78,9 +78,10 @@ export default {
 function descobrirPlano(env, centavos, pag) {
   let planos = {};
   try { planos = JSON.parse(env.PLANOS || '{}'); } catch (_) { planos = {}; }
+  /* fm e fa: o preco de fundador (mensal e anual) do mesmo plano */
   for (const id of Object.keys(planos)) {
-    for (const tipo of ['mensal', 'anual']) {
-      if (Number(planos[id][tipo]) === centavos) return { id: id, tipo: tipo };
+    for (const [campo, tipo] of [['mensal', 'mensal'], ['anual', 'anual'], ['fm', 'mensal'], ['fa', 'anual']]) {
+      if (Number(planos[id][campo]) === centavos) return { id: id, tipo: tipo };
     }
   }
   const texto = String((pag.description || '') + ' ' + (pag.externalReference || '')).toLowerCase();

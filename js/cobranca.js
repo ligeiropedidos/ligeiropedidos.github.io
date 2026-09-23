@@ -55,7 +55,7 @@
 
     if (!link && !pixL.chave) {
       corpo.appendChild(el('p', { text: 'Combine o pagamento de ' + R.dinheiro(o.valor) + ' (' + o.periodo + ') direto com o Ligeiro.' }));
-      if (cfg.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero pagar a assinatura de ' + o.quem + ' (' + R.dinheiro(o.valor) + ').'), target: '_blank', rel: 'noopener', text: '💬 Chamar o Ligeiro' }));
+      if (cfg.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero pagar a assinatura de ' + o.quem + ' (' + R.dinheiro(o.valor) + ').'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Chamar o Ligeiro']));
       else corpo.appendChild(el('p', { class: 'muted pequeno', text: 'O Ligeiro ainda não cadastrou como receber a mensalidade.' }));
       UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Fechar', onclick: UI.fecharModal })] });
       return;

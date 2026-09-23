@@ -52,9 +52,18 @@
       if (jaEntrou && store.usuarioAtual) checa = store.usuarioAtual().then(function (u) { return !!u; });
       checa.then(function (ok) {
         if (!vivo) return;
-        if (ok) { marcarLogado(true); montarPainel(); } else telaLogin();
+        if (ok) { marcarLogado(true); montarPainel(); publicarSeDono(); } else telaLogin();
       }).catch(function () { if (vivo) telaLogin(); });
     });
+
+    /* o dono abriu o painel: a copia da loja na borda (o que o cliente ve) fica igual ao banco, mesmo que algo
+       tenha mudado por fora (pagamento confirmado, Pix conectado). Uma leitura por abertura, so para o dono */
+    function publicarSeDono() {
+      if (!store.publicarLoja || !store.usuarioAtual || !estado.loja) return;
+      store.usuarioAtual().then(function (u) {
+        if (u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase()) store.publicarLoja(slug);
+      }).catch(function () { /* segue */ });
+    }
 
     /* Fotos (produtos e capa): baixa uma vez e so de novo quando alguma mudar. */
     function carregarFotos(loja) {
@@ -88,7 +97,7 @@
           el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
           el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
           el('p', { class: 'centro muted', text: 'Esta loja ainda não tem login. O Ligeiro liga o painel para você em minutos.' }),
-          cfgL.whatsappLigeiro ? el('a', { class: 'btn btn-whats btn-largo', href: R.linkWhatsapp(cfgL.whatsappLigeiro, 'Oi! Quero ligar o painel da ' + estado.loja.nome + '.'), target: '_blank', rel: 'noopener', text: '💬 Chamar o Ligeiro' }) : null,
+          cfgL.whatsappLigeiro ? el('a', { class: 'btn btn-whats btn-largo', href: R.linkWhatsapp(cfgL.whatsappLigeiro, 'Oi! Quero ligar o painel da ' + estado.loja.nome + '.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Chamar o Ligeiro']) : null,
           el('button', { class: 'btn btn-fantasma btn-largo', text: 'Ver a loja como cliente', onclick: function () { window.LigeiroApp.ir(estado.loja.cidadeSlug + '/' + slug); } }),
         ]));
         return;
@@ -633,7 +642,7 @@
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
       }
       if (p.cliente.telefone) {
-        acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', text: '💬' , title: 'Avisar o cliente no WhatsApp' }));
+        acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno btn-so-icone', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', title: 'Avisar o cliente no WhatsApp', 'aria-label': 'Avisar o cliente no WhatsApp' }, [UI.icone('zap')]));
       }
       acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '🖨️', title: 'Imprimir', onclick: function () { imprimir(p); } }));
       if (p.status !== R.STATUS.FINALIZADO && p.status !== R.STATUS.CANCELADO) {
@@ -1361,18 +1370,16 @@
       var conteudo = el('div', { class: 'pilha' }, el('p', { class: 'muted', text: 'Somando…' }));
       s.appendChild(conteudo);
 
-      var desde = new Date(Date.now() - (dias - 1) * 24 * 60 * 60 * 1000);
-      desde.setHours(0, 0, 0, 0);
-      /* memoria de 5 minutos por periodo: trocar de aba ou de periodo e voltar nao le o banco de novo (leituras gratis rendem mais) */
+      /* dia que ja fechou vem do resumo guardado (1 documento por mes); so hoje le os pedidos.
+         Memoria de 5 minutos por periodo: trocar de aba ou de periodo e voltar nao le o banco de novo */
       estado.vendasMemoria = estado.vendasMemoria || {};
       var guardada = estado.vendasMemoria[dias];
-      var buscar = guardada && Date.now() - guardada.em < 5 * 60 * 1000 ? Promise.resolve(guardada.pedidos)
-        : store.listarPedidos(slug, { desde: desde.toISOString() }).then(function (lista) { estado.vendasMemoria[dias] = { em: Date.now(), pedidos: lista }; return lista; });
+      var buscar = guardada && Date.now() - guardada.em < 5 * 60 * 1000 ? Promise.resolve(guardada.r)
+        : store.vendasDoPeriodo(slug, dias).then(function (r) { estado.vendasMemoria[dias] = { em: Date.now(), r: r }; return r; });
       buscar.catch(function () {
         UI.limpar(conteudo); conteudo.appendChild(el('p', { class: 'muted centro', text: 'Não deu para carregar as vendas. Confira a internet e abra a aba de novo.' })); return null;
-      }).then(function (pedidos) {
-        if (!pedidos) return;
-        var r = R.resumoVendas(pedidos, dias);
+      }).then(function (r) {
+        if (!r) return;
         UI.limpar(conteudo);
         conteudo.appendChild(el('div', { class: 'metricas' }, [
           el('div', { class: 'metrica' }, [el('div', { class: 'v', text: dinheiro(r.total) }), el('div', { class: 'l', text: 'faturamento' })]),
@@ -1425,17 +1432,8 @@
           conteudo.appendChild(el('div', { class: 'lista-simples' }, formas.map(function (f) { return el('div', { class: 'linha' }, [el('span', { text: nomes[f] || f }), el('b', { text: r.porForma[f] + ' pedidos' })]); })));
         }
 
-        /* clientes */
-        var clientes = {};
-        pedidos.forEach(function (p) {
-          if (p.status === R.STATUS.CANCELADO || p.status === R.STATUS.AGUARDANDO || !p.cliente.telefone) return;
-          var c = clientes[p.cliente.telefone] || { nome: p.cliente.nome, telefone: p.cliente.telefone, pedidos: 0, total: 0, bairro: '' };
-          c.pedidos += 1;
-          c.total += p.total;
-          if (p.endereco && p.endereco.bairro) c.bairro = p.endereco.bairro;
-          clientes[p.cliente.telefone] = c;
-        });
-        var listaClientes = Object.keys(clientes).map(function (k) { return clientes[k]; }).sort(function (a, b) { return b.total - a.total; });
+        /* clientes (ja somados por dia no resumo) */
+        var listaClientes = r.clientes || [];
         if (listaClientes.length) {
           conteudo.appendChild(el('h3', { text: 'Seus clientes no período · ' + listaClientes.length }));
           /* a lista cresce sem limite: 15 de cada vez, com filtro, pra pagina nao virar um rolo */
@@ -1655,8 +1653,12 @@
         } });
         function textoUsos(usos) { return (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? usos + ' de ' + c.limite + ' usos' : usos + ' usos'); }
         var usosTexto = el('small', { text: textoUsos(c.usos || 0) });
-        /* na nuvem os usos contam em contadores/cupom-CODIGO (o numero do cupom nao muda): mostra o de verdade */
-        if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
+        /* na nuvem os usos contam em contadores/cupom-CODIGO (o numero do cupom nao muda): mostra o de verdade.
+           Guardado 2 min: os Ajustes redesenham a cada salvar, e cada conferida era uma leitura por cupom */
+        estado.usosCupom = estado.usosCupom || {};
+        var sabido = estado.usosCupom[c.codigo];
+        if (sabido && Date.now() - sabido.em < 2 * 60 * 1000) usosTexto.textContent = textoUsos(sabido.n);
+        else if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { estado.usosCupom[c.codigo] = { n: Number(n) || 0, em: Date.now() }; usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
         listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
           el('div', { class: 'nome' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
           excluir,
@@ -1973,7 +1975,7 @@
           el('div', { class: 'pilha divulgar-acoes' }, [
             el('div', { class: 'caixa-link', text: linkLoja }),
             el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '📋 Copiar link do ' + R.catalogo(estado.loja).nome, onclick: copiar(linkLoja) }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '💬 Copiar a mensagem', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📄 Copiar ' + R.catalogo(estado.loja).nome + ' em texto', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }),
           ]),
         ]),

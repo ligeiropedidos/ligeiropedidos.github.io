@@ -582,3 +582,56 @@ test('vagas de loja: mudar o limite', () => {
   /* sem limite (0) e estava fechada pelo limite: reabre */
   assert.deepEqual(R.novoLimite({ max: 60, fechado: true, automatico: true }, 60, 0), { max: 0, fechado: false, automatico: false });
 });
+
+test('vendas: resumo por dia guardado da o mesmo numero que somar todos os pedidos', () => {
+  const agora = new Date(2026, 8, 23, 23, 59, 0); /* depois do ultimo pedido do dia */
+  const pedidos = [];
+  const formas = ['pix', 'dinheiro', 'cartao'];
+  for (let d = 0; d < 30; d++) {
+    for (let i = 0; i < 7; i++) {
+      const quando = new Date(2026, 8, 23 - d, 18 + (i % 5), 10 * i, 0);
+      const status = i === 3 ? 'cancelado' : (i === 5 && d === 0 ? 'aguardando_pagamento' : 'finalizado');
+      pedidos.push({ criadoEm: quando.toISOString(), status, total: 1000 + 137 * i + d, formaPagamento: formas[i % 3],
+        cliente: { nome: 'Cliente ' + (i % 4), telefone: '1399999000' + (i % 4) }, endereco: { bairro: 'Bairro ' + d },
+        itens: [{ nome: i % 2 ? 'Pizza calabresa' : 'Coca 2.0 L', quantidade: 1 + (i % 3) }, { nome: 'Borda recheada', quantidade: 1 }] });
+    }
+  }
+  const direto = R.resumoVendas(pedidos, 30, agora.getTime());
+  const porDia = {};
+  pedidos.forEach((p) => { const k = R.diaLocal(new Date(p.criadoEm)); (porDia[k] = porDia[k] || []).push(p); });
+  const dias = {};
+  Object.keys(porDia).forEach((k) => { dias[k] = JSON.parse(JSON.stringify(R.resumoDoDia(porDia[k]))); }); /* ida e volta pelo banco */
+  const junto = R.juntarResumos(dias);
+  assert.equal(junto.pedidos, direto.pedidos);
+  assert.equal(junto.total, direto.total);
+  assert.equal(junto.ticketMedio, direto.ticketMedio);
+  assert.deepEqual(junto.porDia, direto.porDia);
+  assert.deepEqual(junto.porForma, direto.porForma);
+  assert.deepEqual(Object.keys(junto.porHora).sort(), Object.keys(direto.porHora).map(String).sort());
+  Object.keys(direto.porHora).forEach((h) => assert.equal(junto.porHora[h], direto.porHora[h]));
+  assert.deepEqual(junto.maisVendidos, direto.maisVendidos);
+  /* clientes do periodo: a mesma conta que o painel fazia pedido por pedido */
+  const cli = {};
+  pedidos.filter((p) => p.status !== 'cancelado' && p.status !== 'aguardando_pagamento').sort((a, b) => (a.criadoEm < b.criadoEm ? -1 : 1)).forEach((p) => {
+    const c = cli[p.cliente.telefone] || (cli[p.cliente.telefone] = { nome: p.cliente.nome, telefone: p.cliente.telefone, pedidos: 0, total: 0, bairro: '' });
+    c.pedidos += 1; c.total += p.total; c.bairro = p.endereco.bairro;
+  });
+  assert.deepEqual(junto.clientes, Object.values(cli).sort((a, b) => b.total - a.total));
+  const hoje = R.diaLocal(agora);
+  assert.equal(junto.porDiaQtd[hoje], 5); /* 7 do dia menos 1 cancelado e 1 esperando o Pix */
+  /* dia sem venda nenhuma guarda zero (e nao fica lendo de novo) */
+  assert.deepEqual(R.resumoDoDia([]), { pedidos: 0, total: 0, porHora: {}, porForma: {}, produtos: [], clientes: [] });
+});
+
+test('vagas: quem ocupa vaga no limite de lojas', () => {
+  const agora = Date.now();
+  const antigo = new Date(agora - 60 * 864e5).toISOString();
+  const futuro = new Date(agora + 20 * 864e5).toISOString();
+  const passado = new Date(agora - 20 * 864e5).toISOString();
+  assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'teste', desde: new Date(agora).toISOString() } }), true); /* teste gratis correndo */
+  assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'ativo', planoPago: 'uma', pagoAte: futuro } }), true); /* pagando */
+  assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'ativo', planoPago: 'uma', pagoAte: passado, desde: antigo } }), true); /* pagou e atrasou: volta quando pagar */
+  assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'teste', desde: antigo } }), false); /* teste acabou sem nunca pagar: libera */
+  assert.equal(R.ocupaVaga({ ativa: false, plano: { status: 'ativo', planoPago: 'uma', pagoAte: futuro } }), false); /* desativada pelo Ligeiro */
+  assert.equal(R.ocupaVaga(null), false);
+});

@@ -462,7 +462,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .foto-modal img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
 /* item aberto em tela larga: a gaveta fica da largura de um celular grande e a foto quadrada ocupa a largura toda,
    alinhada com o titulo e as opcoes (igual no celular). A largura acompanha a altura da tela pra sobrar lugar pras opcoes. */
-@media (min-width: 480px) { .modal-caixa.modal-item { max-width: clamp(380px, 46vh, 520px); } } /* foto em ~42% da altura, como no celular */
+@media (min-width: 480px) {
+  .modal-caixa.modal-item { max-width: clamp(380px, 46vh, 520px); } /* foto em ~42% da altura, como no celular */
+  .modal-caixa.modal-item:not(.com-lado) { max-width: 560px; } /* sem foto nao tem altura a poupar: a largura do PC, sem espremer as opcoes */
+}
 /* PC (900px ou mais): janela larga e baixa no meio da tela. Foto quadrada na esquerda (ate 480), nome, escolhas e
    Adicionar na direita. Altura = foto + 24 em cima e embaixo; a base do Adicionar alinha com a base da foto. */
 .modal-lado { display: none; }
@@ -1062,12 +1065,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .ex-kicker { font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #FDE68A; }
 .exclusiva h2 { color: #fff; font-size: 28px; line-height: 1.12; margin: -8px 0 0; }
 .ex-sub { margin: 0; color: rgba(255, 255, 255, 0.86); font-size: 16px; line-height: 1.5; }
-.ex-recursos { display: grid; grid-template-columns: 1fr; gap: 12px; } /* uma coluna: cada cartao do tamanho do seu texto */
-.ex-recurso { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); }
-.ex-icone { font-size: 22px; line-height: 1.1; flex: none; width: 30px; text-align: center; } /* caixa fixa: o texto comeca no mesmo x em todos os cartoes, seja qual for o emoji */
-.ex-selo { width: 24px; height: 24px; display: block; margin: 0 auto; } /* o selo verde de verdade, do tamanho visual dos emojis ao lado */
-.ex-recurso > div > b { display: block; font-size: 15px; line-height: 1.25; color: #fff; }
-.ex-recurso > div > span { display: block; font-size: 13.5px; line-height: 1.35; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }
+.ex-recursos { display: grid; grid-template-columns: 1fr; gap: 12px 20px; margin: 0; padding: 0; list-style: none; } /* lista leve, sem cartao: a vitrine ja chama bastante */
+.ex-recurso { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ex-icone { width: 38px; height: 38px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 19px; line-height: 1; } /* bolinha fixa: o texto comeca no mesmo x em todas as linhas */
+.ex-selo { width: 21px; height: 21px; display: block; } /* o selo verde de verdade, do tamanho visual dos emojis ao lado */
+.ex-recurso > b { font-size: 15px; line-height: 1.3; color: #fff; }
 .ex-preco { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
 .ex-apartir { font-size: 14px; color: rgba(255, 255, 255, 0.78); }
 .ex-preco b { font-family: var(--display); font-size: 38px; line-height: 1; color: #FDE68A; }
@@ -1075,9 +1077,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .ex-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
 .ex-botoes .btn { flex: 1 1 260px; min-width: max-content; min-height: 58px; white-space: nowrap; } /* base maior que o texto mais largo: lado a lado so com os dois do mesmo tamanho; senao desce */
 .ex-botoes .ex-ver { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.5); }
-@container (min-width: 580px) {
-  .ex-recursos { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; } /* duas colunas so quando cada cartao cabe o titulo numa linha; todos da mesma altura */
-  .ex-recursos > .ex-recurso:last-child:nth-child(odd) { grid-column: 1 / -1; } /* numero impar de cartoes: o ultimo ocupa a linha inteira, sem buraco do lado */
+@container (min-width: 500px) {
+  .ex-recursos { grid-template-columns: 1fr 1fr; } /* duas colunas so quando cada linha cabe inteira */
 }
 @media (max-width: 420px) {
   .exclusiva { padding: 24px 16px; gap: 20px; border-radius: 24px; }
@@ -1405,6 +1406,17 @@ button.plano-card { cursor: pointer; }
 .login-caixa .linha-botoes .btn { flex: none; }
 .conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
 .conta-carregando { display: flex; justify-content: center; padding: 48px 0; }
+/* espera com o mascote (cadastro, Central): pula de leve com a sombra encolhendo no chao */
+.espera-mascote { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 64px 16px; opacity: 0; animation: splash-surgir 0.25s ease 0.15s forwards; }
+.espera-mascote-palco { position: relative; width: 112px; height: 124px; }
+.espera-mascote-img { position: absolute; left: 0; top: 0; width: 112px; height: 112px; object-fit: contain; animation: espera-pular 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.espera-mascote-sombra { position: absolute; left: 50%; bottom: 0; width: 64px; height: 10px; margin-left: -32px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); animation: espera-sombra 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.espera-mascote .carregando-pontos span { background: #84CC16; }
+.espera-mascote .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
+.espera-mascote .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
+.espera-mascote-texto { margin: 0; font-size: 16px; color: var(--muted); }
+@keyframes espera-pular { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-14px) rotate(3deg); } }
+@keyframes espera-sombra { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.72); opacity: 0.6; } }
 .conta-carregando .carregando-pontos span { background: #84CC16; }
 .conta-carregando .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
 .conta-carregando .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
@@ -1483,6 +1495,12 @@ button.plano-card { cursor: pointer; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
 .seletor-tipo { justify-content: center; }
 .planos-3, .planos-4 { grid-template-columns: 1fr; }
+/* tres planos (Assinar): tres colunas iguais a partir de 760, sem o terceiro sozinho embaixo */
+@media (min-width: 760px) { .planos.planos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; margin: 0 auto; width: 100%; } }
+/* um plano so (pagina de vendas): um cartao no meio, da largura de um celular grande */
+@media (min-width: 560px) { .planos.planos-1 { grid-template-columns: minmax(0, 440px); justify-content: center; } }
+.plano-extra { margin: 4px auto 0; max-width: 440px; text-align: center; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.plano-extra b { color: var(--ink); }
 @media (min-width: 560px) { .planos-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } .planos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; } }
 @media (min-width: 1000px) { .planos-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 1100px; } }
@@ -1596,6 +1614,9 @@ button.plano-card { cursor: pointer; }
   .splash-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
   .splash-loja { transition: opacity 0.25s ease !important; }
   .carregando-pontos { animation: splash-surgir 0.2s ease 0.25s forwards !important; }
+  .espera-mascote { animation: splash-surgir 0.25s ease 0.15s forwards !important; }
+  .espera-mascote-img { animation: espera-pular 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite !important; }
+  .espera-mascote-sombra { animation: espera-sombra 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite !important; }
   .carregando-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .carregando-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
   .carregando-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
@@ -1847,7 +1868,12 @@ button.plano-card { cursor: pointer; }
 @media (max-width: 480px) { .adm-conta-linha .btn { flex: 1 1 100%; } }
 
 /* logo do WhatsApp (branca) para os botoes verdes de WhatsApp e o botao flutuante */
-.icone-zap { flex: none; display: inline-block; width: 22px; height: 22px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z'/%3E%3C/svg%3E") center / contain no-repeat; }
+/* logos do WhatsApp e do Instagram: mascara pintada com a cor do texto (branca no botao verde, escura no botao claro) */
+.icone-zap, .icone-insta { flex: none; display: inline-block; width: 22px; height: 22px; background-color: currentColor; -webkit-mask: var(--logo) center / contain no-repeat; mask: var(--logo) center / contain no-repeat; }
+.icone-zap { --logo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z'/%3E%3C/svg%3E"); }
+.icone-insta { --logo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2'%3E%3Crect x='2.6' y='2.6' width='18.8' height='18.8' rx='5.4'/%3E%3Ccircle cx='12' cy='12' r='4.3'/%3E%3Ccircle cx='17.4' cy='6.6' r='1.35' fill='%23000' stroke='none'/%3E%3C/svg%3E"); }
+.btn-pequeno .icone-zap, .btn-pequeno .icone-insta { width: 19px; height: 19px; }
+.btn-so-icone { padding-left: 12px; padding-right: 12px; } /* botao so com a logo (avisar o cliente no painel) */
 .zap-flutuante .zap-icone .icone-zap { width: 22px; height: 22px; }
 @media (max-width: 759px) { .zap-flutuante .zap-icone .icone-zap { width: 32px; height: 32px; } } /* celular: logo grande no circulo verde, como os botoes de WhatsApp que todo mundo conhece */
 

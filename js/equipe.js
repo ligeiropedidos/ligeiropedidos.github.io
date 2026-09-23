@@ -338,7 +338,7 @@
         card.appendChild(el('div', { class: 'itens' }, [el('span', { text: p.itens.map(function (it) { return it.quantidade + 'x ' + it.nome; }).join(', ') })]));
         var acoes = el('div', { class: 'acoes acoes-entrega' });
         acoes.appendChild(el('a', { class: 'btn btn-fantasma', href: linkMapa(estado.loja, p), target: '_blank', rel: 'noopener', text: '🗺️ Mapa' }));
-        if (p.cliente.telefone) acoes.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(p.cliente.telefone, 'Olá! Sou o entregador da ' + estado.loja.nome + ', estou chegando com o seu pedido (senha ' + p.senha + ').'), target: '_blank', rel: 'noopener', text: '💬 Cliente' }));
+        if (p.cliente.telefone) acoes.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(p.cliente.telefone, 'Olá! Sou o entregador da ' + estado.loja.nome + ', estou chegando com o seu pedido (senha ' + p.senha + ').'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Cliente']));
         if (naRua) acoes.appendChild(el('button', { class: 'btn btn-principal', text: '✓ Entregue', onclick: function () {
           store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { UI.avisar(err.message); });
         } }));
