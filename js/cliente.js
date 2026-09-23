@@ -1328,15 +1328,17 @@
       $('opcaoCartao').hidden = !temCartao;
       $('opcaoDinheiro').hidden = !temDinheiro;
       var noBalcao = estado.tipoEntrega !== 'entrega';
-      $('nomeCartao').textContent = noBalcao ? 'Maquininha no balcão' : 'Maquininha na entrega';
-      $('detalheCartao').textContent = noBalcao ? 'Você passa o cartão na hora de pegar' : 'O entregador leva a maquininha até você';
-      $('nomeDinheiro').textContent = noBalcao ? 'Dinheiro no balcão' : 'Dinheiro na entrega';
-      $('detalheDinheiro').textContent = noBalcao ? 'Paga em espécie quando pegar' : 'Você paga em espécie quando chegar';
+      /* o titulo do grupo diz QUANDO paga (agora pelo site, na entrega, no balcao); a opcao diz O QUE e. A maquininha
+         aceita debito tambem: e o que separa ela do "Cartao de credito" pago agora no site */
+      $('nomeCartao').textContent = 'Cartão na maquininha';
+      $('detalheCartao').textContent = 'Crédito ou débito, ' + (balcao ? 'aqui no caixa' : noBalcao ? 'na hora de pegar' : 'o entregador leva até você');
+      $('nomeDinheiro').textContent = 'Dinheiro';
+      $('detalheDinheiro').textContent = balcao ? 'Você paga aqui no caixa' : noBalcao ? 'Você paga na hora de pegar' : 'Você paga quando o pedido chegar';
       /* com as duas turmas (pelo site e na porta), um titulo curto separa uma da outra */
       var agora = temPix || temCartaoSite, depois = temCartao || temDinheiro;
       $('grupoAgora').hidden = !(agora && depois);
       $('grupoNaPorta').hidden = !(agora && depois);
-      $('grupoNaPorta').textContent = noBalcao ? 'Pague no balcão' : 'Pague na entrega';
+      $('grupoNaPorta').textContent = balcao ? 'Pague no caixa' : noBalcao ? 'Pague no balcão' : 'Pague na entrega';
       $('nomePix').textContent = agora && depois ? 'Pix' : 'Pix agora';
       var disponiveis = { pix: temPix, cartao_online: temCartaoSite, cartao_entrega: temCartao, dinheiro_entrega: temDinheiro };
       if (!disponiveis[formaEscolhida()]) {
@@ -2453,10 +2455,10 @@
             '<div class="bloco-titulo"><span class="bloco-numero">3</span> Como você quer pagar?</div>' +
             '<div class="forma-grupo" id="grupoAgora" hidden>Pague agora pelo site</div>' +
             '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome" id="nomePix">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto para a loja</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
-            '<label class="forma-pgto" for="pgtoCartaoOnline" id="opcaoCartaoOnline" hidden><input type="radio" name="formaPagamento" id="pgtoCartaoOnline" value="cartao_online"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome">Cartão de crédito</span><span class="forma-detalhe">À vista, aqui mesmo no site</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoCartaoOnline" id="opcaoCartaoOnline" hidden><input type="radio" name="formaPagamento" id="pgtoCartaoOnline" value="cartao_online"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome">Cartão de crédito</span><span class="forma-detalhe">À vista, pago agora aqui no site</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div class="forma-grupo" id="grupoNaPorta" hidden>Pague na entrega</div>' +
-            '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('maquininha') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Maquininha na entrega</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
-            '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro na entrega</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('maquininha') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Cartão na maquininha</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div id="blocoTroco" hidden>' +
               '<div class="forte" style="margin:6px 0 8px">Precisa de troco?</div>' +
               '<label class="opcao opcao-troco marcada" for="trocoNao"><input type="radio" class="opcao-campo" name="precisaTroco" id="trocoNao" value="nao" checked><span class="marcador redondo">' + UI.iconeHtml('check') + '</span><span class="rotulo">Não, tenho o valor certo</span></label>' +
