@@ -632,11 +632,23 @@
   };
   function iconeTraco(nome) { return el('span', { class: 'topo-ico', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
 
+  /* faixa do painel, cozinha e entregas quando o banco gratis chega no limite do dia (uma so, fica ate recarregar) */
+  function faixaLimite(raiz) {
+    if (!raiz || raiz.querySelector('.faixa-limite')) return;
+    var topo = raiz.querySelector('.painel-topo');
+    var faixa = el('div', { class: 'faixa-limite', role: 'alert' }, [
+      el('b', { text: 'O sistema chegou no limite de hoje.' }),
+      el('span', { text: ' Os clientes estão mandando os pedidos pelo WhatsApp da loja até de madrugada: fique de olho nele.' }),
+    ]);
+    if (topo && topo.nextSibling) raiz.insertBefore(faixa, topo.nextSibling); else raiz.insertBefore(faixa, raiz.firstChild);
+    soar('erro');
+  }
+
   /* logo do WhatsApp ou do Instagram para ir dentro de botao (a cor vem do texto do botao) */
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, icone: icone, iconeTraco: iconeTraco, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,

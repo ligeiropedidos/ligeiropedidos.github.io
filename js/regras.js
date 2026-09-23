@@ -769,6 +769,21 @@
 
   /* texto que sai do site (WhatsApp, copiar e colar): espaco comum no lugar do que nao quebra (esse e so pra tela) */
   function textoSimples(t) { return String(t || '').replace(/\u00A0/g, ' '); }
+  /* Pedido inteiro em texto para o WhatsApp da loja (site em pausa: o pedido nao se perde, vai pronto para a loja) */
+  function pedidoParaWhatsapp(loja, p) {
+    var formas = { pix: 'Pix', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro' };
+    var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
+    (p.itens || []).forEach(function (it) { l.push(descreverItem(it)); });
+    l.push('');
+    if (p.taxaEntrega) l.push('Entrega: ' + dinheiro(p.taxaEntrega));
+    if (p.desconto) l.push('Desconto: -' + dinheiro(p.desconto));
+    l.push('Total: ' + dinheiro(p.total));
+    l.push(p.tipoEntrega === 'entrega' ? 'Entregar em: ' + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
+    l.push('Pagamento: ' + (formas[p.formaPagamento] || p.formaPagamento || '') + (p.trocoPara ? ' (troco para ' + dinheiro(p.trocoPara) + ')' : ''));
+    if (p.cliente && p.cliente.nome) l.push('Nome: ' + p.cliente.nome);
+    if (p.observacao) l.push('Obs: ' + p.observacao);
+    return l.join('\n');
+  }
   function linkWhatsapp(numero, texto) {
     var limpo = String(numero || '').replace(/\D/g, '');
     if (!limpo) return '';
@@ -1214,6 +1229,7 @@
     fichaDoPedido: fichaDoPedido,
     enderecoEmLinha: enderecoEmLinha,
     linkWhatsapp: linkWhatsapp,
+    pedidoParaWhatsapp: pedidoParaWhatsapp,
     cardapioEmTexto: cardapioEmTexto,
     proximaSenha: proximaSenha,
     diaLocal: diaLocal,

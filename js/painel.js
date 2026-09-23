@@ -279,7 +279,9 @@
         if (estado.mp) estado.mp.processar(lista);
         atualizarBadge();
         if (estado.aba === 'pedidos') desenharPedidos();
-      }, { desde: desde, aoErro: function () {
+      }, { desde: desde, aoErro: function (e) {
+        /* banco gratis no limite de hoje: nao e o login. Os clientes vao para o WhatsApp da loja ate zerar */
+        if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; }
         /* o banco recusou a fila: a conta saiu (ou caiu). Volta pro login em vez de ficar mostrando "nenhum pedido".
            Recarrega uma vez so; se recusar de novo, mostra que a conta nao tem acesso */
         pararZerar();

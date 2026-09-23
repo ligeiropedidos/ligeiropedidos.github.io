@@ -68,6 +68,8 @@ globalThis.fetch = async (url, op) => {
     return resposta({ message: 'rota mp' }, 404);
   }
   if (url.indexOf(BASE) === 0) {
+    /* banco gratis no limite do dia: tudo volta 429 */
+    if (globalThis.__limite) return resposta({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }, 429);
     const semBase = url.slice(BASE.length);
     const [caminhoCru, busca] = semBase.split('?');
     const caminho = decodeURIComponent(caminhoCru);
@@ -105,6 +107,7 @@ function kvNovo() {
   const mapa = new Map();
   const kv = {
     gravacoes: 0, leituras: 0, mapa,
+    async get(chave) { kv.leituras += 1; const item = mapa.get(chave); return item ? item.valor : null; },
     async getWithMetadata(chave, op) {
       kv.leituras += 1;
       const item = mapa.get(chave);
@@ -282,6 +285,27 @@ ok(db.get('lojas/dom-conizza/pedidos/' + PED2).status === 'aguardando_pagamento'
 /* site antigo (sem mp/expira) continua funcionando */
 r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PED2);
 ok((await r.json()).status === 'aguardando_pagamento', 'site antigo ainda pergunta do jeito velho');
+
+console.log('Banco no limite do dia');
+w = await workerNovo();
+await chamar(w, '/loja/dom-conizza');
+r = await chamar(w, '/pausa', { metodo: 'POST' });
+ok((await r.json()).pausa === false, 'banco normal: /pausa diz que nao ha pausa');
+globalThis.__limite = true;
+w = await workerNovo();
+r = await chamar(w, '/pausa', { metodo: 'POST' });
+ok((await r.json()).pausa === true, 'banco respondeu 429: /pausa confirma o limite');
+ok(kv.mapa.has('sistema:pausa'), 'o aviso fica guardado no KV (vale para todos os workers)');
+r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
+ok(j.pausa === true && j.loja && j.loja.nome === 'Dom Conizza', 'a loja continua abrindo, com o aviso de pausa');
+const w2 = await workerNovo();
+r = await chamar(w2, '/loja/dom-conizza'); j = await r.json();
+ok(j.pausa === true, 'outro worker tambem ve a pausa (pelo KV)');
+globalThis.__limite = false;
+kv.mapa.delete('sistema:pausa');
+const w3 = await workerNovo();
+r = await chamar(w3, '/loja/dom-conizza'); j = await r.json();
+ok(!j.pausa, 'depois que zera (o aviso vence), a loja volta ao normal');
 
 console.log('Sem KV ligado');
 w = await workerNovo();

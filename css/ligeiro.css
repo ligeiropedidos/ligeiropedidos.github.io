@@ -1406,6 +1406,30 @@ button.plano-card { cursor: pointer; }
 .login-caixa .linha-botoes .btn { flex: none; }
 .conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
 .conta-carregando { display: flex; justify-content: center; padding: 48px 0; }
+/* site em pausa (banco no limite de hoje) e loja parada: o desenho da faixa do teste gratis. Fundo escuro com brilhos,
+   cartao de vidro transparente (desfoca o que esta atras), selo em pilula, titulo branco com destaque e botao de contorno */
+.pausa-fundo { position: fixed; inset: 0; z-index: 95; display: flex; align-items: center; justify-content: center; padding: 24px 16px; overflow-y: auto;
+  background: radial-gradient(circle at 14% 8%, rgba(132, 204, 22, 0.28), transparent 42%), radial-gradient(circle at 92% 96%, rgba(27, 107, 74, 0.55), transparent 50%), linear-gradient(160deg, rgba(10, 36, 27, 0.82), rgba(15, 61, 46, 0.74));
+  -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); animation: splash-surgir 0.25s ease-out; }
+.pausa-fundo.vermelho { background: radial-gradient(circle at 14% 8%, rgba(255, 255, 255, 0.14), transparent 40%), radial-gradient(circle at 90% 96%, rgba(249, 115, 22, 0.5), transparent 50%), linear-gradient(165deg, #3B0A0A, #7F1D1D 50%, #B91C1C); }
+.pausa-pagina { z-index: 60; }
+.pausa-caixa { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 28px 24px 24px; text-align: center; color: #fff;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 28px;
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.pausa-mascote { width: 128px; height: 128px; object-fit: contain; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.3)); }
+.pausa-mascote.logo-loja { width: 104px; height: 104px; border-radius: 24px; object-fit: cover; animation: none; filter: none; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3); }
+.pausa-selo { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); font-family: var(--display); font-weight: 700; font-size: 12.5px; line-height: 1; letter-spacing: 1.1px; text-transform: uppercase; color: rgba(255, 255, 255, 0.92); }
+.pausa-selo i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #F87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.25); }
+.pausa-selo.laranja i { background: #FB923C; box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.25); }
+.pausa-caixa h1, .pausa-caixa h2 { margin: 0; font-size: 27px; line-height: 1.15; color: #fff; text-wrap: balance; }
+.pausa-destaque { color: #4ADE80; }
+.pausa-caixa p { margin: 0; font-size: 16px; line-height: 1.5; color: rgba(255, 255, 255, 0.82); text-wrap: pretty; }
+.pausa-botoes { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.pausa-botoes .btn { width: 100%; white-space: nowrap; }
+.pausa-dono-btn { margin-top: 6px; }
+.pausa-dono { margin-top: 2px; font-size: 14px; color: rgba(255, 255, 255, 0.7); text-decoration: underline; text-underline-offset: 3px; }
+/* painel, cozinha e entregas: o banco chegou no limite do dia */
+.faixa-limite { margin: 12px var(--margem, 16px) 0; padding: 12px 16px; border-radius: var(--raio-p, 14px); background: var(--orange-suave); border: 1px solid #F7D2B8; color: #7C2D12; font-size: 15px; line-height: 1.45; }
 /* espera com o mascote (cadastro, Central): pula de leve com a sombra encolhendo no chao */
 .espera-mascote { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 64px 16px; opacity: 0; animation: splash-surgir 0.25s ease 0.15s forwards; }
 .espera-mascote-palco { position: relative; width: 112px; height: 124px; }
@@ -1605,6 +1629,8 @@ button.plano-card { cursor: pointer; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   /* a flutuacao lenta dos mascotes e pequena (8 px) e fica: e a cara da marca, nao um efeito que enjoa */
   .heroi-mascote { animation: flutuar 4s ease-in-out infinite !important; }
+  .pausa-mascote { animation: flutuar 4s ease-in-out infinite !important; }
+  .pausa-mascote.logo-loja { animation: none !important; }
   .tema-conizza .logo-grande { animation: cz-flutuar 4.5s ease-in-out infinite !important; }
   /* a tela de carregamento da loja oficial tambem fica igual ao PC (iPhone com "Reduzir movimento" via ela parada) */
   .splash-oficial { transition: opacity 0.3s ease !important; }

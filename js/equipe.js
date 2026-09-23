@@ -262,7 +262,7 @@
         estado.pedidos = lista;
         if (novos) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
         desenhar();
-      }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO], aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
+      }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO], aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
       estado.relogio = setInterval(desenhar, 30000);
 
       function pararCozinha() {
@@ -349,7 +349,7 @@
       /* so as entregas em andamento (a loja veio uma vez ao abrir) */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function () { pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
+      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
       estado.relogio = setInterval(desenhar, 60000);
 
       function pararEntrega() {

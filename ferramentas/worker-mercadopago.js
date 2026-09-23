@@ -46,7 +46,7 @@ const LOJA_VALE = 20 * 60 * 1000;
 const VITRINE_VALE = 15 * 60 * 1000;
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
-const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {} };
+const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0 };
 
 export default {
   async fetch(request, env, ctx) {
@@ -137,7 +137,9 @@ export default {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           const item = await lerLoja(env, ctx, m[1]);
           if (!item.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
-          return pronto(item.corpo, 'public, max-age=15');
+          /* banco no limite de hoje: a loja manda o pedido pelo WhatsApp ate zerar */
+          const emPausa = await pausaAtiva(env);
+          return pronto(emPausa ? item.corpo.replace('{"borda":1,', '{"borda":1,"pausa":true,') : item.corpo, 'public, max-age=15');
         }
         m = /^\/fotos\/([a-z0-9-]{1,60})$/.exec(caminho);
         if (m) {
@@ -149,6 +151,20 @@ export default {
         if (caminho === '/vitrine') {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
+        }
+      }
+
+      /* ---- um cliente bateu no limite do banco: confere (uma gravacao e uma leitura, no maximo 1 vez por minuto) ---- */
+      if (caminho === '/pausa' && request.method === 'POST') {
+        if (Date.now() - MEM.pausaConferidaEm < 60 * 1000) return json({ pausa: !!(MEM.pausa && MEM.pausa.valor) });
+        MEM.pausaConferidaEm = Date.now();
+        const fb = await firebase(env);
+        try {
+          await fb.merge('publico/saude', { conferidoEm: new Date().toISOString() });
+          await fb.get('publico/fundadores');
+          return json({ pausa: false });
+        } catch (_) {
+          return json({ pausa: !!(MEM.pausa && MEM.pausa.valor) });
         }
       }
 
@@ -269,6 +285,30 @@ export default {
     }
   },
 };
+
+/* ================= banco no limite do dia ================= */
+
+/* o limite do Firebase gratis zera a meia-noite do Pacifico (4 h ou 5 h em Brasilia): o aviso vale ate la */
+function segundosAteZerar() {
+  const agora = new Date();
+  const pacifico = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  const fim = new Date(pacifico); fim.setHours(24, 5, 0, 0);
+  return Math.max(120, Math.round((fim - pacifico) / 1000));
+}
+/* o banco respondeu 429 (limite): guarda o aviso no KV ate zerar (uma gravacao a cada 5 min no maximo) */
+function marcarPausa(env) {
+  MEM.pausa = { valor: true, lida: Date.now() };
+  if (!env || !env.CARDAPIO || Date.now() - MEM.pausaGravadaEm < 5 * 60 * 1000) return;
+  MEM.pausaGravadaEm = Date.now();
+  env.CARDAPIO.put('sistema:pausa', '1', { expirationTtl: segundosAteZerar() }).catch(() => {});
+}
+async function pausaAtiva(env) {
+  if (MEM.pausa && Date.now() - MEM.pausa.lida < 60 * 1000) return MEM.pausa.valor;
+  let valor = false;
+  if (env.CARDAPIO) { try { valor = (await env.CARDAPIO.get('sistema:pausa')) === '1'; } catch (_) { valor = false; } }
+  MEM.pausa = { valor: valor, lida: Date.now() };
+  return valor;
+}
 
 /* ================= cardapio na borda ================= */
 
@@ -572,7 +612,8 @@ async function firebase(env) {
   }
   const base = 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents/';
   const cab = { Authorization: 'Bearer ' + g.token, 'Content-Type': 'application/json' };
-  const recusou = (r) => { if (r.status === 401) MEM.google = null; }; /* chave recusada: assina outra na proxima */
+  /* chave recusada: assina outra na proxima. 429: o banco gratis chegou no limite de hoje */
+  const recusou = (r) => { if (r.status === 401) MEM.google = null; if (r.status === 429) marcarPausa(env); };
   return {
     cab: cab, projeto: sa.project_id,
     async get(caminho, comHora) {

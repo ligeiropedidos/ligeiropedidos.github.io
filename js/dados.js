@@ -316,6 +316,7 @@
   DemoStore.prototype.fotosPublicas = function (slug, versao, loja) { return this.listarFotos(slug, versao, loja); };
   DemoStore.prototype.fotoPublica = function (slug, id) { return this.obterFoto(slug, id); };
   DemoStore.prototype.publicarLoja = function () { return Promise.resolve(false); };
+  DemoStore.prototype.avisarPausa = function () {};
   DemoStore.prototype.vendasDoPeriodo = function (slug, dias, agora) {
     var eu = this;
     return vendasDoPeriodo({
@@ -820,7 +821,10 @@
       return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
         if (x.status === 404) return null;
         if (x.status !== 200 || !x.dados.loja) throw erroBorda();
-        return daNuvem(x.dados.loja);
+        var l = daNuvem(x.dados.loja);
+        /* o banco gratis chegou no limite de hoje: a loja manda o pedido pelo WhatsApp ate zerar (de madrugada) */
+        if (x.dados.pausa === true) l._pausaSite = true;
+        return l;
       });
     }
     function avisar(l) {
@@ -909,6 +913,14 @@
         }).then(function (r) { ok(!!r && r.ok); }, function () { ok(false); });
       }, 3000);
     });
+  };
+
+  /* O banco recusou por limite do dia: conta para a borda, que confere e avisa as lojas (os proximos clientes ja pedem pelo WhatsApp) */
+  FirebaseStore.prototype.avisarPausa = function () {
+    var base = enderecoBorda();
+    if (!base || this._pausaAvisada) return;
+    this._pausaAvisada = true;
+    fetch(base + '/pausa', { method: 'POST' }).catch(function () { /* segue: o cliente ja foi para o WhatsApp */ });
   };
 
   /* Vendas do periodo: resumos guardados por dia (lojas/{slug}/resumos/{AAAA-MM-DD}) + os pedidos do que ainda esta aberto.
@@ -1685,8 +1697,12 @@
     return loja.logoDados || loja.logoUrl || null;
   }
 
+  /* o banco gratis chegou no limite do dia (leituras ou gravacoes)? */
+  function ehLimite(e) { return !!e && (e.code === 'resource-exhausted' || /quota|resource.exhausted/i.test(String(e.message || ''))); }
+
   window.LigeiroDados = {
     store: store,
+    ehLimite: ehLimite,
     fotoSrc: fotoSrc,
     logoSrc: logoSrc,
     modeloDeLoja: modeloDeLoja,

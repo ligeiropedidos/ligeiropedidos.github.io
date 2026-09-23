@@ -568,13 +568,19 @@
       if (R.lojaBloqueada(dados)) {
         tirarSplash();
         raiz.innerHTML = '';
-        raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [
-          el('div', { class: 'icone', text: (dados.emoji || '🍽️') }),
-          el('p', { class: 'forte', text: dados.nome + ' está com o cadastro pendente no Ligeiro.' }),
-          el('p', { class: 'muted', text: 'Por enquanto, peça direto pelo WhatsApp da loja.' }),
-          dados.whatsapp ? el('a', { class: 'btn btn-whats', style: { marginTop: '16px' }, href: R.linkWhatsapp(dados.whatsapp, 'Oi! Quero fazer um pedido.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Pedir pelo WhatsApp']) : null,
-          el('button', { class: 'btn btn-fantasma', style: { marginTop: '10px' }, text: 'Ver as cidades', onclick: function () { ir('cidades'); } }),
-        ]));
+        /* loja parada (teste acabou ou parou de pagar): a mesma tela de vidro da pausa, em vermelho. O cliente nao fica
+           sem pedir (vai pelo WhatsApp) e o motivo nao aparece para ele; o dono tem o caminho para regularizar */
+        var oficialB = UI.lojaOficial && UI.lojaOficial(dados.slug);
+        var logoB = (oficialB && oficialB.logo) || D.logoSrc(dados);
+        /* loja inativa (nao pagou): o Ligeiro nao entrega cliente para quem parou de pagar, nem por WhatsApp nem para
+           outra loja. O cliente cobra o dono, e o dono tem o caminho para regularizar */
+        raiz.appendChild(el('div', { class: 'pausa-fundo pausa-pagina vermelho' }, el('div', { class: 'pausa-caixa' }, [
+          el('img', { class: 'pausa-mascote' + (logoB && !(oficialB && oficialB.logo) ? ' logo-loja' : ''), src: logoB || 'img/mascote-192.webp', alt: '' }),
+          el('div', { class: 'pausa-selo' }, [el('i', { 'aria-hidden': 'true' }), 'Loja inativa']),
+          el('h1', { text: 'Esta loja está fora do ar' }),
+          el('p', { text: (dados.nome || 'A loja') + ' não está recebendo pedidos pelo Ligeiro no momento.' }),
+          el('a', { class: 'btn btn-contorno btn-largo pausa-dono-btn', href: '#/conta' }, 'Sou o dono desta loja'),
+        ])));
         return;
       }
       if (!balcao && o.cidadeSlug && o.cidadeSlug !== dados.cidadeSlug) {
@@ -1430,6 +1436,13 @@
         atualizarBotaoPagar();
         return;
       }
+      /* banco no limite de hoje (a borda avisou, ou o banco ja recusou antes): o pedido vai pronto pelo WhatsApp */
+      if (estado.loja && (estado.loja._pausaSite || estado.pausaLocal)) {
+        botao.disabled = false;
+        atualizarBotaoPagar();
+        abrirPausa(pedido);
+        return;
+      }
       estado.enviandoPedido = true;
       store.criarPedido(estado.loja.slug, pedido).then(function (gravado) {
         estado.enviandoPedido = false;
@@ -1444,6 +1457,12 @@
         if (gravado.status === R.STATUS.AGUARDANDO) mostrarPagamento(gravado);
         else mostrarSenha(gravado);
       }).catch(function (erro) {
+        if (D.ehLimite && D.ehLimite(erro)) {
+          estado.pausaLocal = true;
+          if (store.avisarPausa) store.avisarPausa();
+          abrirPausa(pedido);
+          return;
+        }
         UI.soar('erro');
         $('erroDados').hidden = false;
         /* o banco recusa pedido com data e hora longe da hora certa (relogio do celular errado) */
@@ -1456,6 +1475,38 @@
         botao.disabled = false;
         atualizarBotaoPagar();
       });
+    }
+
+    /* Site em pausa (banco gratis no limite de hoje): tela por cima de tudo, com degrade e desfoque, e o pedido pronto
+       para mandar no WhatsApp da loja. Nada se perde; o carrinho continua guardado. */
+    function abrirPausa(pedido) {
+      var l = estado.loja || {};
+      var velho = document.querySelector('.pausa-fundo');
+      if (velho) velho.remove();
+      var oficial = UI.lojaOficial && UI.lojaOficial(l.slug);
+      var link = l.whatsapp ? R.linkWhatsapp(l.whatsapp, R.pedidoParaWhatsapp(l, pedido)) : '';
+      var fundo = el('div', { class: 'pausa-fundo', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'pausaTitulo' });
+      function fechar() { fundo.remove(); document.removeEventListener('keydown', tecla); }
+      function tecla(e) { if (e.key === 'Escape') fechar(); }
+      fundo.appendChild(el('div', { class: 'pausa-caixa' }, [
+        el('img', { class: 'pausa-mascote', src: (oficial && oficial.logo) || 'img/mascote-192.webp', alt: '' }),
+        el('div', { class: 'pausa-selo laranja' }, [el('i', { 'aria-hidden': 'true' }), 'Muito movimento agora']),
+        link
+          ? el('h2', { id: 'pausaTitulo' }, ['Seu pedido vai pelo ', el('span', { class: 'pausa-destaque', text: 'WhatsApp' })])
+          : el('h2', { id: 'pausaTitulo', text: 'Chame a loja para pedir' }),
+        el('p', { text: link
+          ? 'O site da ' + (l.nome || 'loja') + ' está com movimento demais agora. Seu pedido já vai escrito, é só enviar.'
+          : 'O site da ' + (l.nome || 'loja') + ' está com movimento demais agora. Chame a loja para fazer o seu pedido.' }),
+        el('div', { class: 'pausa-botoes' }, [
+          link ? el('a', { class: 'btn btn-whats btn-largo', href: link, target: '_blank', rel: 'noopener', onclick: function () { UI.soar('toque'); } }, [UI.icone('zap'), 'Mandar pelo WhatsApp']) : null,
+          el('button', { class: 'btn btn-contorno btn-largo', type: 'button', text: 'Voltar', onclick: fechar }),
+        ]),
+      ]));
+      fundo.addEventListener('click', function (e) { if (e.target === fundo) fechar(); });
+      document.addEventListener('keydown', tecla);
+      document.body.appendChild(fundo);
+      var primeiro = fundo.querySelector('.btn');
+      if (primeiro) primeiro.focus();
     }
 
     /* ---------- Pix ---------- */
