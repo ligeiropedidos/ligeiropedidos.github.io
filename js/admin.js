@@ -264,19 +264,19 @@
       estado.lojas = null;
       estado.hoje = null;
       estado.pedidosLoja = {};
+      /* mesmo topo do painel da loja: icones de traco (no lugar dos emojis de estilos diferentes) e botoes de vidro */
       function botaoTopo(icone, texto, onclick, dica) {
-        return el('button', { class: 'btn btn-pequeno', type: 'button', title: dica || null, onclick: onclick }, [
-          el('span', { class: 'adm-topo-ico', 'aria-hidden': 'true', text: icone }), el('span', { text: texto }),
-        ]);
+        return el('button', { class: 'btn btn-pequeno', type: 'button', title: dica || null, onclick: onclick }, [UI.iconeTraco(icone), el('span', { text: texto })]);
       }
-      estado.btnAtualizar = botaoTopo('🔄', 'Atualizar', atualizar, 'Buscar tudo de novo no banco');
-      raiz.appendChild(el('header', { class: 'painel-topo adm-topo' }, [
-        el('div', { class: 'nome', text: 'Ligeiro · Central' }),
+      estado.btnAtualizar = botaoTopo('atualizar', 'Atualizar', atualizar, 'Buscar tudo de novo no banco');
+      raiz.appendChild(el('header', { class: 'painel-topo topo-app topo-ligeiro adm-topo' }, [
+        el('img', { class: 'logo-mini', src: 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
+        el('div', { class: 'nome', text: 'Central do Ligeiro' }),
         /* mesma fileira do topo do painel: no celular os tres lado a lado, tercos iguais */
         el('div', { class: 'painel-topo-acoes' }, [
           estado.btnAtualizar,
-          botaoTopo('🌐', 'Ver site', function () { window.LigeiroApp.ir('cidades'); }, 'Abre a página das cidades'),
-          botaoTopo('🚪', 'Sair', sair),
+          botaoTopo('site', 'Ver site', function () { window.LigeiroApp.ir('cidades'); }, 'Abre a página das cidades'),
+          botaoTopo('sair', 'Sair', sair),
         ]),
       ]));
 
@@ -413,7 +413,7 @@
         el('div', { class: 'adm-capacidade-texto' }, ['Lojas no sistema: ', el('b', { text: cap.max > 0 ? n + ' de ' + cap.max : String(n) })]),
         el('div', { class: 'adm-capacidade-barra', role: 'progressbar', 'aria-label': 'Lojas no sistema', 'aria-valuemin': '0', 'aria-valuemax': String(cap.max || n), 'aria-valuenow': String(n) }, el('i', { style: { width: (cap.max > 0 ? Math.max(2, pct) : 0) + '%' } })),
         el('div', { class: 'adm-capacidade-situacao', text: situacao + (espera ? ' · ' + plural(espera, 'na lista de espera', 'na lista de espera') : '') }),
-        el('div', { class: 'adm-capacidade-nota', text: 'Contado às ' + horaBR(estado.contadoEm || estado.carregadoEm || new Date()) + ', ao abrir a Central. Loja parada por falta de pagamento não conta.' }),
+        el('div', { class: 'adm-capacidade-nota', text: 'Contado às ' + horaBR(estado.contadoEm || estado.carregadoEm || new Date()) + ', ao abrir a Central. Teste grátis que acabou sem pagar não conta; loja parada que já pagou conta, porque volta quando pagar.' }),
         /* cheio pelo limite: so aumentando o limite abre vaga. Fechado na mao: abrir. Aberto: mudar limite ou fechar. */
         el('div', { class: 'adm-capacidade-acoes' }, peloLimite
           ? [el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Aumentar limite', onclick: mudarLimite })]

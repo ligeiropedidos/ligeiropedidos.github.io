@@ -1651,8 +1651,8 @@ button.plano-card { cursor: pointer; }
    ========================================================== */
 
 /* topo e abas (mesma moldura do painel do dono) */
-.adm-topo .btn-pequeno { gap: 8px; }
-@media (max-width: 480px) { .adm-topo-ico { display: none; } }
+/* topo da Central: o desenho do topo do painel (topo-app topo-ligeiro); aqui so o mascote, que no celular fica ao lado do nome */
+.adm-topo .logo-mini { border-radius: 12px; background: rgba(255, 255, 255, 0.08); padding: 3px; }
 .adm-aba-extra { display: inline-flex; align-items: center; gap: 6px; }
 .adm-aba-extra:empty { display: none; }
 .adm-ponto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--orange); }
