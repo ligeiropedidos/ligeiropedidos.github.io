@@ -209,43 +209,6 @@
       return 'rgb(' + mix(r) + ', ' + mix(g) + ', ' + mix(b) + ')';
     }
 
-    /* Cartao quadrado: a imagem da loja ocupa o topo, o texto fica curto embaixo. */
-    function cartao(l, itens) {
-      var aberta = R.lojaAberta(l);
-      var abreAs = aberta ? null : R.proximaAbertura(l);
-      var gratis = l.aceitaEntrega !== false && R.descreverFrete(l) === 'Entrega grátis';
-      var tempo = l.aceitaEntrega === false ? 'retirada' : '~' + (l.tempoEntrega || 40) + ' min';
-      var status = aberta ? '● Aberto · ' + tempo : (abreAs ? '● Abre às ' + abreAs : '● Fechado');
-      var logo = D.logoSrc(l);
-      var tinta = tintaDaLoja(l.cor);
-      /* capa da loja como fundo do quadrado (com leve desfoque, pra logo mandar); sem capa fica a cor */
-      var fundo = el('span', { class: 'tile-img', style: tinta ? { background: tinta } : null }, [
-        logo ? el('img', { class: 'tile-logo', src: logo, alt: '' }) : el('span', { class: 'emoji', text: l.emoji || '🍽️' }),
-        gratis ? el('span', { class: 'tile-selo' }, [UI.iconeLinha('entrega'), 'Entrega grátis']) : null,
-        lojaOficial(l.slug) ? el('span', { class: 'tile-selo tile-oficial' }, [UI.iconeLinha('estrela'), 'Oficial']) : null,
-      ]);
-      function porCapa(src) {
-        if (!src || fundo.classList.contains('com-capa')) return;
-        fundo.insertBefore(el('img', { class: 'tile-capa', src: src, alt: '' }), fundo.firstChild);
-        fundo.classList.add('com-capa');
-      }
-      if (l.capaUrl) porCapa(l.capaUrl);
-      else if (l.capa && store.obterFoto) store.obterFoto(l.slug, l.capa).then(porCapa).catch(function () { /* fica a cor */ });
-      return el('button', {
-        class: 'loja-tile' + (aberta ? '' : ' fechada'),
-        'aria-label': l.nome + ', ' + status,
-        onclick: function () { ir(l.cidadeSlug + '/' + l.slug); },
-      }, [
-        fundo,
-        el('span', { class: 'tile-info' }, [
-          el('span', { class: 'nome', text: l.nome }),
-          el('span', { class: 'desc', text: l.tipo ? R.tipoVisivel(l) : (l.descricao || '') }),
-          itens.length ? el('span', { class: 'bate', text: 'Tem: ' + itens.slice(0, 2).join(', ') + (itens.length > 2 ? ' +' + (itens.length - 2) : '') }) : null,
-          el('span', { class: 'status ' + (aberta ? 'aberta' : 'fechada'), text: status }),
-        ]),
-      ]);
-    }
-
     function desenharLista() {
       UI.limpar(lista);
       var termo = normal(estadoHub.termo).trim();
@@ -460,7 +423,7 @@
     var estado = {
       loja: null,
       carrinho: [],
-      tipoEntrega: balcao ? 'retirada' : 'retirada',
+      tipoEntrega: 'retirada',
       pularEscolhaTipo: balcao,
       cupom: { codigo: '', percentual: 0, desconto: 0 },
       pedido: null,
@@ -837,6 +800,10 @@
       var modos = [];
       if (l.aceitaEntrega !== false) modos.push('entrega');
       if (l.aceitaRetirada !== false) modos.push('retirada');
+      /* so oferece o jeito de receber que tem como pagar (antes a pessoa montava tudo e so no ultimo passo via que nao dava) */
+      var temPixLoja = pixDisponivel(l), pagaNaPorta = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+      var pagaveis = modos.filter(function (m) { return temPixLoja || (pagaNaPorta && (m === 'entrega' || l.aceitaPagarNoBalcao)); });
+      if (pagaveis.length) modos = pagaveis; /* sem pagamento nenhum: fica o aviso do ultimo passo (fale com a loja) */
       if (balcao) modos = ['retirada'];
       estado.pularEscolhaTipo = modos.length === 1;
       if (estado.pularEscolhaTipo) estado.tipoEntrega = modos[0];
