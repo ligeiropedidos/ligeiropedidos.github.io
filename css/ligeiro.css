@@ -2113,3 +2113,7 @@ button.plano-card { cursor: pointer; }
 .fundador-relogio { display: inline-flex; vertical-align: -2px; }
 .fundador-selo .estrela { display: inline-flex; }
 .adm-selo .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }
+/* painel: o que era cor fixa no codigo (o tema da loja oficial nao pegava) */
+.fila-mostrar { cursor: pointer; color: var(--muted); font-weight: 600; padding: 6px 0; }
+.editar-grupo { border: 1.5px solid var(--line-forte); background: var(--card); border-radius: 10px; min-height: 40px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; }
+.editar-grupo .ico-traco svg { width: 18px; height: 18px; }

@@ -403,7 +403,16 @@
       UI.limpar(caixa); caixa.appendChild(UI.erroCarregar('Não deu para carregar as lojas de agora.'));
     });
     var parar = store.assistir ? store.assistir(function () { store.listarLojas(cidadeSlug).then(desenhar); }) : function () {};
-    var relogio = setInterval(function () { if (estadoHub.lojas.length) desenharLista(); }, 60000); /* "abre as" e "aberto agora" andam sozinhos */
+    /* "abre as" e "aberto agora" andam sozinhos, mas so redesenha quando alguma loja abriu ou fechou: redesenhar
+       a cada minuto fazia a fileira de lojas voltar ao comeco e tirava o foco de quem estava olhando */
+    var situacaoLojas = '';
+    function situacaoAgora() { return estadoHub.lojas.map(function (l) { return l.slug + ':' + (R.lojaAberta(l) ? 1 : 0) + ':' + (R.proximaAbertura(l) || ''); }).join('|'); }
+    var relogio = setInterval(function () {
+      if (!estadoHub.lojas.length) return;
+      var agora = situacaoAgora();
+      if (!situacaoLojas) { situacaoLojas = agora; return; }
+      if (agora !== situacaoLojas) { situacaoLojas = agora; desenharLista(); }
+    }, 60000);
     raiz.appendChild(rodapeLigeiro(true));
     return function () { clearInterval(relogio); parar(); };
   }
@@ -1500,6 +1509,8 @@
         salvarDadosDoCliente();
         if (!balcao) guardarMeuPedido(estado.loja.slug, gravado);
         estado.ultimoCarrinho = estado.carrinho; /* se desistir do Pix, os itens voltam */
+        /* e voltam mesmo se a pagina recarregar no meio (iPhone depois do app do banco): guardado ate o Pix cair ou vencer */
+        if (!balcao && gravado.status === R.STATUS.AGUARDANDO) { try { sessionStorage.setItem('ligeiro:carrinho-do-pix:' + gravado.id, JSON.stringify(estado.carrinho)); } catch (_) { /* segue */ } }
         estado.carrinho = [];
         estado.cupom = { codigo: '', percentual: 0, desconto: 0 };
         limparRascunho();
@@ -1711,6 +1722,12 @@
         pararVigia();
         atualizarMeuPedido({ id: idCancelado, status: R.STATUS.CANCELADO });
         estado.pedido = null;
+        /* a pagina recarregou desde o pedido: os itens vem do guardado da aba */
+        var chaveCarrinho = 'ligeiro:carrinho-do-pix:' + idCancelado;
+        if (!(estado.ultimoCarrinho && estado.ultimoCarrinho.length)) {
+          try { var guardado = JSON.parse(sessionStorage.getItem(chaveCarrinho) || 'null'); if (Array.isArray(guardado) && guardado.length) estado.ultimoCarrinho = guardado; } catch (_) { /* segue */ }
+        }
+        try { sessionStorage.removeItem(chaveCarrinho); } catch (_) { /* segue */ }
         if (balcao && !(manterCarrinho && estado.ultimoCarrinho && estado.ultimoCarrinho.length)) {
           /* balcao, cancelado sozinho (Pix esquecido): o proximo cliente nao herda o carrinho nem o nome de quem desistiu */
           estado.ultimoCarrinho = null;

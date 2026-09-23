@@ -60,6 +60,8 @@
       if (!u && fechado) { listaDeEspera(); return; }
       /* sem conta: o cadastro abre na hora e o login (Google) fica para o ultimo passo */
       if (!u) { UI.limpar(raiz); montar(raiz, opcoes, null); return; }
+      /* conta da senha da equipe: nao cria loja (so o dono, com a conta dele) */
+      if (/@equipe\.ligeiro\.app\.br$/i.test(String(u.email || ''))) { window.LigeiroApp.ir('conta'); return; }
       /* vagas fechadas ou limite batido: ninguem abre loja nova (nem quem ja e cliente); o Ligeiro sempre pode.
          Vem antes de tudo: sem vaga, nao adianta mandar trocar de plano. As lojas que ja existem continuam normais. */
       if (fechado && !R.ehDoLigeiro({ email: u.email })) { listaDeEspera(); return; }

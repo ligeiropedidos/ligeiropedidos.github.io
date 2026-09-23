@@ -689,7 +689,7 @@
           estado.gruposAbertos = estado.gruposAbertos || {};
           det.open = !!estado.gruposAbertos[g.titulo];
           det.addEventListener('toggle', function () { estado.gruposAbertos[g.titulo] = det.open; });
-          det.appendChild(el('summary', { text: 'Mostrar ' + lista.length, style: { cursor: 'pointer', color: '#6F7D72', fontWeight: '600', padding: '6px 0' } }));
+          det.appendChild(el('summary', { class: 'fila-mostrar', text: 'Mostrar ' + lista.length }));
           lista.forEach(function (p) { det.appendChild(cartaoPedido(p)); });
           caixa.appendChild(det);
         } else {
@@ -1383,7 +1383,7 @@
           el('h3', { text: g.titulo }),
           el('span', { class: 'selo cinza', style: { whiteSpace: 'nowrap' }, text: g.tipo === 'unico' ? 'escolhe 1' : 'vários' + (g.max ? ', até ' + g.max : '') }),
         ]),
-        el('button', { class: 'editar', style: { border: '1.5px solid #B9CBAB', background: '#fff', borderRadius: '10px', minHeight: '40px', padding: '0 10px' }, 'aria-label': 'Editar', title: 'Editar', onclick: function () { editarGrupo(chave, categoriaId); } }, [UI.iconeLinha('lapis')]),
+        el('button', { class: 'editar editar-grupo', 'aria-label': 'Editar', title: 'Editar', onclick: function () { editarGrupo(chave, categoriaId); } }, [UI.iconeLinha('lapis')]),
       ]));
       var lista = el('div', { class: 'pilha' });
       (g.opcoes || []).forEach(function (op, indice) {

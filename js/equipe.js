@@ -97,8 +97,9 @@
         pedirSenha();
       });
       function pedirSenha() {
-      var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••', 'aria-label': 'Senha' });
-      var erro = el('p', { class: 'cupom-recado', hidden: true, text: 'Senha errada.' });
+      /* a mesma entrada do painel: campo com o desenho dos campos e o erro no vermelho de erro */
+      var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••••', autocomplete: 'current-password', 'aria-label': 'Senha da equipe' });
+      var erro = el('div', { class: 'msg-erro', hidden: true, text: 'Senha errada.' });
       var btnEntrar = el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar });
       var entrando = false; /* Enter + toque no botao: uma entrada so, senao a tela monta duas vezes */
       function entrar() {
@@ -123,8 +124,8 @@
       raiz.appendChild(el('div', { class: 'login' }, [
         el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: titulo + ' · ' + loja.nome }),
-        el('p', { class: 'muted centro', text: 'Senha da equipe (o dono define em Minha loja ou Minha conta).' }),
-        campo, erro,
+        el('p', { class: 'muted centro', text: 'Digite a senha da equipe. O dono define em Minha loja.' }),
+        el('div', { class: 'campo' }, campo), erro,
         btnEntrar,
       ]));
       setTimeout(function () { campo.focus(); }, 50);
