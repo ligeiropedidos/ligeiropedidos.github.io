@@ -41,6 +41,8 @@ const resposta = (obj, status) => new Response(typeof obj === 'string' ? obj : J
 
 /* ---------- Mercado Pago e usuarios de mentira ---------- */
 const ordens = new Map();
+const cartoes = [];
+const devolucoes = [];
 const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiro.app.br' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
@@ -63,10 +65,21 @@ globalThis.fetch = async (url, op) => {
   }
   if (url.indexOf('https://api.mercadopago.com') === 0) {
     conta.mp += 1;
+    const dv = /\/v1\/orders\/([^/?]+)\/refund$/.exec(url);
+    if (dv && metodo === 'POST') { devolucoes.push({ id: decodeURIComponent(dv[1]), chave: (o.headers || {})['X-Idempotency-Key'] }); return resposta({ id: decodeURIComponent(dv[1]), status: 'refunded' }, 201); }
     const m = /\/v1\/orders\/([^/?]+)$/.exec(url);
     if (m && metodo === 'GET') { const ord = ordens.get(decodeURIComponent(m[1])); return ord ? resposta(ord) : resposta({ message: 'not found' }, 404); }
     if (/\/v1\/orders$/.test(url) && metodo === 'POST') {
       const corpo = JSON.parse(o.body);
+      const pm = corpo.transactions.payments[0].payment_method;
+      if (pm.type === 'credit_card') {
+        cartoes.push({ corpo, chave: (o.headers || {})['X-Idempotency-Key'] });
+        if (/^RECUSA/.test(pm.token)) return resposta({ errors: [{ code: 'failed' }], transactions: { payments: [{ status: 'failed', status_detail: 'insufficient_amount' }] } }, 402);
+        const idc = 'ORD' + String(ordens.size + 1).padStart(6, '0');
+        const ordc = { id: idc, status: 'processed', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + idc, status: 'processed', status_detail: 'accredited' }] } };
+        ordens.set(idc, ordc);
+        return resposta(ordc);
+      }
       const id = 'ORD' + String(ordens.size + 1).padStart(6, '0');
       const ord = { id, status: 'action_required', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + id, payment_method: { qr_code: 'PIXCOPIAECOLA' + id } }] } };
       ordens.set(id, ord);
@@ -313,6 +326,71 @@ ok(db.get('lojas/dom-conizza/pedidos/' + PED2).status === 'aguardando_pagamento'
 /* site antigo (sem mp/expira) continua funcionando */
 r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PED2);
 ok((await r.json()).status === 'aguardando_pagamento', 'site antigo ainda pergunta do jeito velho');
+
+console.log('Cartao de credito');
+{
+  const PC = 'cartao00000000000001';
+  const fim = () => new Promise((ok2) => setTimeout(ok2, 20));
+  db.set('lojas/dom-conizza/pedidos/' + PC, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', total: 3200, senha: 9, cliente: { nome: 'Bia Souza' }, criadoEm: new Date().toISOString() });
+  /* a loja nao ligou o cartao: a copia da borda diz */
+  const copia = kv.mapa.get('loja:dom-conizza');
+  const lojaCopia = JSON.parse(copia.valor);
+  lojaCopia.loja.aceitaCartaoOnline = false;
+  copia.valor = JSON.stringify(lojaCopia);
+  w = await workerNovo();
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'APROVA1234567890', metodo: 'master' } });
+  ok(r.status === 409 && cartoes.length === 0, 'loja que nao ligou o cartao: nao cobra');
+  lojaCopia.loja.aceitaCartaoOnline = true;
+  copia.valor = JSON.stringify(lojaCopia);
+  /* sem token do cartao: nem chama o Mercado Pago */
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, metodo: 'master' } });
+  ok(r.status === 400 && cartoes.length === 0, 'sem o token do cartao: 400, nada cobrado');
+  /* recusado: motivo em palavras de cliente, pedido continua esperando */
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'RECUSA1234567890', metodo: 'master', documento: '123.456.789-09' } });
+  j = await r.json();
+  ok(j.status === 'recusado' && /limite/.test(j.motivo), 'cartao sem limite: recusado com o motivo certo');
+  ok(cartoes[0].corpo.payer.identification.number === '12345678909' && cartoes[0].corpo.transactions.payments[0].payment_method.installments === 1, 'manda o CPF limpo e cobra a vista');
+  ok(db.get('lojas/dom-conizza/pedidos/' + PC).status === 'aguardando_pagamento', 'recusado: o pedido continua esperando o pagamento');
+  /* aprovado: marca pago na hora (o mesmo conferir do Pix: valor e referencia) */
+  zerar();
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'APROVA1234567890', metodo: 'master' } });
+  j = await r.json(); await fim();
+  const pc = db.get('lojas/dom-conizza/pedidos/' + PC);
+  ok(j.status === 'aprovado' && pc.status === 'pago' && pc.pagamentoStatus === 'pago' && pc.confirmadoPor === 'mercadopago', 'cartao aprovado: pedido pago na hora');
+  ok(cartoes[1].corpo.total_amount === '32.00' && cartoes[1].corpo.payer.email === 'cliente9@dom-conizza.ligeiro.app.br', 'cobra o valor do pedido (nao o que o site mandou)');
+  /* toque duplo depois de pago: nao cobra de novo */
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'APROVA0000000000', metodo: 'master' } });
+  ok((await r.json()).status === 'aprovado' && cartoes.length === 2, 'pedido ja pago: responde aprovado sem cobrar de novo');
+  /* pedido de Pix nao vira cobranca de cartao */
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PED, token: 'APROVA1111111111', metodo: 'master' } });
+  ok(r.status === 400 && cartoes.length === 2, 'pedido de Pix: /cartao recusa');
+  /* tentativas demais no mesmo pedido: para antes de chamar o Mercado Pago */
+  const PC2 = 'cartao00000000000002';
+  db.set('lojas/dom-conizza/pedidos/' + PC2, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', total: 1000, senha: 10, cliente: { nome: 'Caio' }, criadoEm: new Date().toISOString() });
+  for (let i = 0; i < 4; i++) await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC2, token: 'RECUSA000000000' + i, metodo: 'visa' } });
+  const antes = cartoes.length;
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC2, token: 'RECUSA0000000009', metodo: 'visa' } });
+  ok(/Tentativas demais/.test((await r.json()).motivo) && cartoes.length === antes, '5a tentativa no mesmo pedido: barrada sem chamar o Mercado Pago');
+
+  /* a loja cancelou o pedido pago no cartao: o dinheiro volta sozinho, so pelo dono */
+  const devolver = (tok) => chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC }, headers: tok ? { Authorization: 'Bearer ' + tok } : {} });
+  r = await devolver('tok-dono');
+  ok(r.status === 409 && devolucoes.length === 0, 'devolver pedido que nao foi cancelado: recusa');
+  db.get('lojas/dom-conizza/pedidos/' + PC).status = 'cancelado';
+  r = await devolver('tok-outro');
+  ok(r.status === 403 && devolucoes.length === 0, 'devolver: quem nao e o dono nao devolve');
+  r = await devolver('');
+  ok(r.status === 400 && devolucoes.length === 0, 'devolver sem login: 400');
+  r = await devolver('tok-dono');
+  j = await r.json();
+  ok(j.ok === true && devolucoes.length === 1 && devolucoes[0].id === db.get('lojas/dom-conizza/pedidos/' + PC).mp.id, 'dono cancela: devolve a order inteira no Mercado Pago');
+  ok(!!db.get('lojas/dom-conizza/pedidos/' + PC).devolvidoEm && devolucoes[0].chave === 'devolver-' + PC, 'marca devolvido no pedido, com chave que nao repete');
+  r = await devolver('tok-dono');
+  ok((await r.json()).ja === true && devolucoes.length === 1, 'devolver de novo: nao chama o Mercado Pago outra vez');
+  db.set('lojas/dom-conizza/pedidos/cartao00000000000003', { status: 'cancelado', formaPagamento: 'dinheiro_entrega', pagamentoStatus: 'na_entrega', total: 1000, senha: 11 });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'cartao00000000000003' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(r.status === 409 && devolucoes.length === 1, 'pedido pago na porta: nao ha o que devolver pelo site');
+}
 
 console.log('Avisos no celular');
 /* um celular de mentira: chaves de verdade, do mesmo jeito que o navegador cria */

@@ -221,10 +221,11 @@ service cloud.firestore {
           && request.resource.data.criadoEm[0:13] <= horaISO(request.time + duration.value(3, 'h'))
           /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */
           && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoAposCancelar'])
-          /* so tres jeitos de nascer: de graca (cupom de 100%), Pix esperando pagamento, ou pra cobrar na porta */
+          /* so tres jeitos de nascer: de graca (cupom de 100%), Pix ou cartao pelo site esperando pagamento (quem marca pago
+             e o mensageiro, depois que o Mercado Pago confirma), ou para cobrar na porta (so maquininha e dinheiro) */
           && ((request.resource.data.total == 0 && request.resource.data.status == 'pago')
-              || (request.resource.data.formaPagamento == 'pix' && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')
-              || (request.resource.data.formaPagamento != 'pix' && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
+              || (request.resource.data.formaPagamento in ['pix', 'cartao_online'] && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')
+              || (request.resource.data.formaPagamento in ['cartao_entrega', 'dinheiro_entrega'] && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
         allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
         /* a equipe vem primeiro: ela se reconhece pela marca do login, sem ler a loja (isDonoDaLoja le a loja inteira,
            e a leitura conta no plano gratis a cada toque da cozinha e do entregador) */

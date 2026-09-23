@@ -776,7 +776,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .dia-linha:not(.fechado) .dia-cabeca .chave { margin-left: 0; }
   .dia-acao { order: 3; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--deep2); font: inherit; font-size: 13.5px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer; }
   .dia-acao.tirar { color: #A3341F; border-color: #F3C9C2; background: #FFF6F4; }
-  .dia-mais, .turno .btn-mini { display: none; }
+  .dia-linha .dia-mais, .dia-linha .turnos .turno .btn-mini { display: none; } /* o X do 2o turno mora no cabecalho; ganha do ".btn-mini:has(icone)" la de baixo, que mostrava um X a mais */
   .turnos { flex-direction: column; gap: 8px; }
   .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
   .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
@@ -2116,6 +2116,24 @@ button.plano-card { cursor: pointer; }
 .aviso-app-texto b { font-weight: 700; }
 .aviso-app-texto .btn { margin-top: 6px; }
 .cadastro-aviso-app { padding-bottom: 0; }
-/* faixa "Toque aqui para ligar o apito": o navegador so libera o som depois de um toque na pagina */
-.faixa-som { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin: 0; padding: 10px 16px; border: 0; background: var(--lemon, #FDE047); color: var(--ink); font-weight: 700; font-size: 15px; cursor: pointer; }
-.faixa-som .ico-traco svg { width: 18px; height: 18px; }
+/* botao Apito antes do primeiro toque: o navegador ainda nao liberou o som. Pontinho vermelho no canto, pulsando
+   (parado com "Reduzir movimento"); some sozinho no primeiro toque em qualquer lugar da tela */
+.btn-pequeno.pedindo { position: relative; }
+.btn-pequeno.pedindo::before { content: ""; position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--erro); box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.55); animation: pulso-apito 1.4s ease-out infinite; }
+@keyframes pulso-apito { 0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.55); } 70% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); } }
+@media (prefers-reduced-motion: reduce) { .btn-pequeno.pedindo::before { animation: none; } }
+/* ---------- cartao de credito pelo site ---------- */
+/* grupos do fechamento: "Pague agora pelo site" e "Pague na entrega" (so com as duas turmas na tela) */
+.forma-grupo { margin: 4px 0 -4px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.forma-pgto + .forma-grupo { margin-top: 12px; }
+/* tela do cartao: a mesma coluna da tela do Pix, com o formulario do Mercado Pago no meio */
+.pix-cartao .cartao-form { width: 100%; max-width: 440px; text-align: left; }
+.pix-cartao .cartao-form:empty { display: none; }
+.cartao-recusado { display: flex; align-items: flex-start; gap: 10px; width: 100%; max-width: 440px; padding: 12px 16px; border: 1px solid var(--erro); border-radius: var(--raio-p); background: var(--erro-suave); color: var(--ink); font-weight: 700; font-size: 14.5px; text-align: left; }
+.cartao-recusado .ico-traco { color: var(--erro); margin-top: 1px; flex: none; }
+.cartao-recusado .ico-traco svg { width: 20px; height: 20px; }
+/* demonstracao: cartao de mentira para mostrar o fluxo sem cobrar nada */
+.cartao-teste { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; aspect-ratio: 1.586; max-width: 320px; margin: 0 auto 12px; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, var(--deep), var(--deep2, #1c5a44)); color: #fff; box-shadow: var(--sombra); }
+.cartao-teste-numero { font-family: var(--display); font-size: 20px; letter-spacing: 0.08em; }
+.cartao-teste-linha { display: flex; justify-content: space-between; font-size: 13px; opacity: 0.85; }
+.pix-cartao .cartao-form .nota { margin: 0 0 12px; text-align: center; }

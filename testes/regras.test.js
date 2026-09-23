@@ -697,3 +697,25 @@ test('conferência: item que não existe no cardápio não passa como "ok" (pedi
   assert.equal(c.ok, false);
   assert.equal(c.esperado, null);
 });
+
+test('cartão pelo site: espera o pagamento como o Pix e só vale com a loja ligada e a chave do Mercado Pago', () => {
+  const loja = Object.assign(lojaDeTeste(), { aceitaCartaoOnline: true, mpChavePublica: 'APP_USR-chave' });
+  const dados = { nome: 'Ana Souza', telefone: '13999990000', tipoEntrega: 'retirada', itens: [{ produtoId: 'x', quantidade: 1 }], formaPagamento: 'cartao_online' };
+  const p = R.montarPedido(loja, dados);
+  assert.equal(p.formaPagamento, 'cartao_online');
+  assert.equal(p.status, R.STATUS.AGUARDANDO);
+  assert.equal(p.pagamentoStatus, 'pendente');
+  assert.equal(p.pagoEm, null);
+  /* retirada com cartao pelo site passa mesmo sem "pagar no balcao" (paga antes, como o Pix) */
+  assert.equal(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: false }), dados).formaPagamento, 'cartao_online');
+  /* sem a chave publica (conectou antes do cartao existir) ou com o cartao desligado: nao vira cartao */
+  assert.notEqual(R.montarPedido(Object.assign({}, loja, { mpChavePublica: '' }), dados).formaPagamento, 'cartao_online');
+  assert.notEqual(R.montarPedido(Object.assign({}, loja, { aceitaCartaoOnline: false }), dados).formaPagamento, 'cartao_online');
+  /* vence como o Pix: 35 min sem pagar */
+  const velho = Object.assign({}, p, { criadoEm: new Date(Date.now() - 40 * 60 * 1000).toISOString() });
+  assert.equal(R.pixVencido(velho), true);
+  assert.equal(R.rotuloStatus(p), 'Aguardando cartão');
+  assert.equal(R.rotuloProximoPasso(p), '');
+  assert.match(R.fichaDoPedido(loja, Object.assign({}, p, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', senha: 3 })), /cartão pelo site/);
+  assert.equal(R.frasePagamento(loja), 'paga no Pix, no cartão ou ao receber');
+});

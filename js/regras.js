@@ -488,6 +488,7 @@
 
     var formas = {
       pix: loja.aceitaPix !== false && !!loja.mpAtivo,
+      cartao_online: cartaoPeloSite(loja),
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
     };
@@ -497,7 +498,8 @@
       if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
       formaPagamento = primeira;
     }
-    var naPorta = formaPagamento !== 'pix';
+    /* pagar na porta: maquininha ou dinheiro. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
+    var naPorta = formaPagamento === 'cartao_entrega' || formaPagamento === 'dinheiro_entrega';
     if (naPorta && tipoEntrega !== 'entrega' && !loja.aceitaPagarNoBalcao && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
       throw ErroDoCliente('Para retirar no balcão, pague no Pix.');
@@ -588,7 +590,7 @@
   function rotuloStatus(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.clientePagou ? 'Cliente diz que pagou' : 'Aguardando Pix';
+      case STATUS.AGUARDANDO: return pedido.clientePagou ? 'Cliente diz que pagou' : 'Aguardando ' + nomeDoPagamento(pedido);
       case STATUS.PAGO: return 'Novo, preparar';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -602,7 +604,7 @@
   function rotuloStatusCliente(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return 'Esperando o Pix';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : 'Esperando o Pix';
       case STATUS.PAGO: return 'Na fila da loja';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -619,7 +621,7 @@
       case STATUS.AGUARDANDO:
         return pedido.clientePagou
           ? 'Avisamos a loja. Assim que ela conferir o Pix, o pedido entra na fila.'
-          : 'Falta só pagar o Pix para o pedido entrar na fila.';
+          : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.' : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
         return entrega
           ? 'Pedido na fila! Chega em cerca de ' + tempo + ' minutos.'
@@ -641,7 +643,7 @@
   function rotuloProximoPasso(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return 'Pix caiu? Marcar como pago';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? '' : 'Pix caiu? Marcar como pago'; /* cartao: so o Mercado Pago confirma */
       case STATUS.PAGO: return 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
@@ -693,7 +695,7 @@
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o Pix de ' + dinheiro(pedido.total) + ' cair, ele entra na fila.';
+        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
         return oi + 'Recebemos seu pedido (senha ' + pedido.senha + ') e ele já está na fila. ' +
           (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : 'Fica pronto em cerca de ' + tempo + ' minutos.');
@@ -715,7 +717,7 @@
   function rotuloAvisoWhats(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return 'Lembrar do Pix';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -729,7 +731,7 @@
   function mensagemDoCliente(loja, pedido) {
     var pagamento = pedido.pagamentoStatus === 'na_entrega'
       ? (pedido.formaPagamento === 'dinheiro_entrega' ? 'Vou pagar em dinheiro na entrega.' : 'Vou pagar na maquininha na entrega.')
-      : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando no Pix.' : 'Já pago no Pix.');
+      : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (pedido.formaPagamento === 'cartao_online' ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (pedido.formaPagamento === 'cartao_online' ? 'com o cartão pelo site.' : 'no Pix.'));
     return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *senha ' + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
   }
@@ -772,9 +774,9 @@
         l.push('COBRAR NA MAQUININHA. Leve a maquininha.');
       }
     } else if (pedido.status === STATUS.AGUARDANDO) {
-      l.push('*TOTAL: ' + dinheiro(pedido.total) + '* (Pix ainda não conferido)');
+      l.push('*TOTAL: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão ainda não aprovado' : 'Pix ainda não conferido') + ')');
     } else {
-      l.push('*TOTAL PAGO: ' + dinheiro(pedido.total) + '* (Pix)');
+      l.push('*TOTAL PAGO: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão pelo site' : 'Pix') + ')');
     }
     return textoSimples(l.join('\n'));
   }
@@ -807,7 +809,7 @@
   function textoSimples(t) { return String(t || '').replace(/\u00A0/g, ' '); }
   /* Pedido inteiro em texto para o WhatsApp da loja (site em pausa: o pedido nao se perde, vai pronto para a loja) */
   function pedidoParaWhatsapp(loja, p) {
-    var formas = { pix: 'Pix', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro' };
+    var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro' };
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
     (p.itens || []).forEach(function (it) { l.push(descreverItem(it)); });
     l.push('');
@@ -970,7 +972,7 @@
 
   /* Pedido esperando Pix que ja passou do prazo (30 min do codigo; 35 min se o codigo nem chegou a ser gerado). */
   function pixVencido(pedido, agora) {
-    if (!pedido || pedido.status !== STATUS.AGUARDANDO || pedido.formaPagamento !== 'pix') return false;
+    if (!pedido || pedido.status !== STATUS.AGUARDANDO || !pagaPeloSite(pedido)) return false;
     var t = agora ? new Date(agora).getTime() : Date.now();
     if (pedido.pixExpiraEm) return t > new Date(pedido.pixExpiraEm).getTime();
     return pedido.criadoEm ? t > new Date(pedido.criadoEm).getTime() + 35 * 60 * 1000 : false;
@@ -1216,13 +1218,27 @@
     };
   }
 
+  /* cartao de credito pelo site: a loja ligou, o Mercado Pago esta conectado e a chave publica chegou (e ela que deixa o
+     formulario do cartao abrir no celular do cliente) */
+  function cartaoPeloSite(loja) {
+    var l = loja || {};
+    return l.aceitaCartaoOnline === true && !!l.mpAtivo && !!l.mpChavePublica;
+  }
+  /* pedido que espera pagamento pelo site: Pix ou cartao */
+  function pagaPeloSite(pedido) { return !!pedido && (pedido.formaPagamento === 'pix' || pedido.formaPagamento === 'cartao_online'); }
+  function nomeDoPagamento(pedido) { return pedido && pedido.formaPagamento === 'cartao_online' ? 'cartão' : 'Pix'; }
+
   /* como o cliente paga, em uma frase (divulgacao e cardapio em texto): a mesma conta do site, sem prometer Pix a quem
      nao tem Mercado Pago */
   function frasePagamento(loja) {
     var l = loja || {};
     var pix = l.aceitaPix !== false && !!l.mpAtivo;
+    var cartao = cartaoPeloSite(l);
     var aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
-    return pix && aoReceber ? 'paga no Pix ou ao receber' : pix ? 'paga no Pix' : aoReceber ? 'paga ao receber' : 'paga na loja';
+    var agora = pix && cartao ? 'no Pix, no cartão' : pix ? 'no Pix' : cartao ? 'no cartão' : '';
+    if (agora && aoReceber) return 'paga ' + agora + ' ou ao receber';
+    if (agora) return 'paga ' + (pix && cartao ? 'no Pix ou no cartão' : agora);
+    return aoReceber ? 'paga ao receber' : 'paga na loja';
   }
 
   /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central */
@@ -1231,6 +1247,9 @@
   return {
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
     frasePagamento: frasePagamento,
+    cartaoPeloSite: cartaoPeloSite,
+    pagaPeloSite: pagaPeloSite,
+    nomeDoPagamento: nomeDoPagamento,
     STATUS: STATUS,
     TRANSICOES: TRANSICOES,
     EM_ANDAMENTO: EM_ANDAMENTO,

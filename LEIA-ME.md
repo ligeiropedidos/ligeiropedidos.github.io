@@ -88,11 +88,40 @@ no Firestore, e o endereço dele vai em `config.proxyMercadoPago`. O Mercado
 Pago cobra cerca de 1% por Pix recebido; o dinheiro fica na conta Mercado
 Pago da loja.
 
+## Cartão de crédito pelo site (Mercado Pago, 27/09/2026)
+
+1. **Ligar:** Ajustes › Pagamento › "Cartão de crédito pelo site". Vem da mesma
+   conexão do Pix: o `/mp/volta` guarda a **chave pública** (`public_key` do
+   OAuth) em `lojas/{slug}.mpChavePublica`. Conexão antiga, sem a chave: o botão
+   "Liberar o cartão" reconecta e volta com o cartão ligado
+   (`ligeiro:ligar-cartao:{slug}` no aparelho). Taxa do Mercado Pago: cerca de
+   5% com o dinheiro na hora.
+2. **Cliente:** escolhe "Cartão de crédito" em "Pague agora pelo site"
+   (`formaPagamento: 'cartao_online'`, nasce `aguardando_pagamento` como o Pix).
+   A tela `tela-cartao` abre o **Card Payment Brick** do Mercado Pago (SDK
+   `sdk.mercadopago.com/js/v2`, baixado só quando a pessoa escolhe o cartão),
+   à vista, só crédito, nas cores da loja. Os números do cartão vão direto
+   para o Mercado Pago; o site recebe um código de uso único.
+3. **Cobrança:** `POST /cartao` no mensageiro confere tudo pelo servidor
+   (loja com o cartão ligado, pedido de cartão, aguardando, valor do banco,
+   até 40 min), cobra pela Orders API e marca pago na hora. Recusa volta com
+   o motivo em português e o formulário abre limpo para outra tentativa.
+   Limite: 4 tentativas por pedido e 8 por aparelho a cada 10 min.
+4. **Cancelou um pedido pago pelo site** (Pix ou cartão): o painel pergunta
+   "Cancelar e devolver" e o `POST /devolver` (só o dono) devolve o valor
+   inteiro pelo Mercado Pago e grava `devolvidoEm`. Se falhar, o painel
+   explica como devolver pelo app.
+5. Fora do tablet do balcão (lá tem a maquininha). Sem 3DS por enquanto: o
+   banco que pede confirmação extra recusa com o recado de usar outro cartão
+   ou o Pix.
+
 ## Como funciona o dinheiro
 
 - **Pix**: sempre automático, pela conta Mercado Pago da própria loja (seção
   acima). O dinheiro do cliente cai direto na conta da loja; o Ligeiro nunca
   encosta nele. O Mercado Pago cobra cerca de 1% por Pix, pago pela loja.
+- **Cartão de crédito pelo site**: pela mesma conta Mercado Pago (seção
+  acima), à vista, cerca de 5% por venda.
 - **Maquininha e dinheiro** na entrega ou no balcão entram na fila na hora, com
   o troco já calculado. A tela do entregador mostra o que cobrar.
 - Loja sem Mercado Pago conectado recebe só maquininha e dinheiro; o bloco

@@ -64,12 +64,26 @@
   var som = { contexto: null, ligado: lerLocal('ligeiro:som') !== false };
 
   function prepararSom() {
-    if (som.contexto) { if (som.contexto.state === 'suspended') som.contexto.resume(); return; }
+    if (som.contexto) { if (som.contexto.state === 'suspended') { var r = som.contexto.resume(); if (r && r.then) r.then(avisarLiberou, function () {}); } else avisarLiberou(); return; }
     try {
       var C = window.AudioContext || window.webkitAudioContext;
       if (C) som.contexto = new C();
     } catch (_) { /* sem audio */ }
+    if (som.contexto && som.contexto.state === 'running') avisarLiberou();
+    else if (som.contexto && som.contexto.resume) { var p = som.contexto.resume(); if (p && p.then) p.then(avisarLiberou, function () {}); }
   }
+  /* o navegador so toca som depois do primeiro toque na pagina: o botao Apito mostra "Ligar" ate isso acontecer */
+  var aoLiberar = [];
+  function avisarLiberou() {
+    if (!som.contexto || som.contexto.state !== 'running') return;
+    if (!som.liberouEm) som.liberouEm = Date.now();
+    var lista = aoLiberar; aoLiberar = [];
+    lista.forEach(function (fn) { try { fn(); } catch (_) { /* segue */ } });
+  }
+  function somTravado() { return som.ligado && !(som.contexto && som.contexto.state === 'running'); }
+  /* o toque que liberou o som foi agora mesmo (o mesmo toque no botao Apito nao deve desligar o apito) */
+  function somAcabouDeLiberar() { return !!som.liberouEm && Date.now() - som.liberouEm < 1000; }
+  function quandoLiberarSom(fn) { if (!somTravado()) { fn(); return; } aoLiberar.push(fn); }
 
   function tocar(notas) {
     if (!som.ligado || !som.contexto) return;
@@ -113,19 +127,6 @@
     return som.ligado;
   }
   document.addEventListener('pointerdown', prepararSom, { once: true });
-  /* O navegador so libera o som depois do primeiro toque na pagina. Painel, cozinha e entregador recem-abertos (ou o PC
-     do caixa depois de reiniciar) ficariam mudos sem ninguem saber: uma faixa pede o toque e some com ele */
-  function pedirToqueParaSom(raiz) {
-    if (!som.ligado || (som.contexto && som.contexto.state === 'running') || !raiz || raiz.querySelector('.faixa-som')) return;
-    var faixa = el('button', { class: 'faixa-som', type: 'button' }, [iconeLinha('sino'), 'Toque aqui para ligar o apito dos pedidos']);
-    var tirar = function () { prepararSom(); if (faixa.parentNode) faixa.parentNode.removeChild(faixa); document.removeEventListener('pointerdown', tirar, true); };
-    faixa.addEventListener('click', tirar);
-    document.addEventListener('pointerdown', tirar, true);
-    /* logo abaixo do topo (sendo o topo o ultimo da tela, vai no fim dele mesmo) */
-    var topo = raiz.querySelector('.painel-topo, .topo-equipe');
-    if (topo && topo.parentNode) topo.parentNode.insertBefore(faixa, topo.nextSibling); else raiz.insertBefore(faixa, raiz.firstChild);
-  }
-
   function vibrar(padrao) { if (navigator.vibrate) { try { navigator.vibrate(padrao || [120, 60, 120]); } catch (_) { /* ignora */ } } }
 
   /* ---------- Modal generico ---------- */
@@ -678,6 +679,7 @@
     chave: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8.5-8.5"/><path d="M16.5 6.5l2.5 2.5"/><path d="M14 9l2 2"/>',
     chef: '<path d="M8 17.5h8"/><path d="M8 20.5h8"/><path d="M8 17.5v-3.2A4 4 0 0 1 7.3 6.6a5 5 0 0 1 9.4 0 4 4 0 0 1-.7 7.7v3.2"/>',
     cartao: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/>',
+    maquininha: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><rect x="8.5" y="5" width="7" height="4.5" rx="1"/><path d="M9.5 13h.01"/><path d="M12 13h.01"/><path d="M14.5 13h.01"/><path d="M9.5 16.5h.01"/><path d="M12 16.5h.01"/><path d="M14.5 16.5h.01"/>',
     boleto: '<path d="M4 6v12"/><path d="M7 6v12"/><path d="M10.5 6v12"/><path d="M13 6v12"/><path d="M16.5 6v12"/><path d="M20 6v12"/>',
     presente: '<rect x="4" y="9" width="16" height="4" rx="1"/><path d="M5.5 13v7.5h13V13"/><path d="M12 9v11.5"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.8S9.5 3.8 12 9c2.5-5.2 4.5-4.6 4.5-2.8S14.5 9 12 9z"/>',
     olho: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -750,7 +752,7 @@
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
-    avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, pedirToqueParaSom: pedirToqueParaSom,
+    avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,

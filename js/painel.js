@@ -187,7 +187,14 @@
       if (mpVolta) {
         history.replaceState(null, '', '#/painel/' + slug);
         estado.aba = 'ajustes';
+        var querCartao = !!UI.lerLocal('ligeiro:ligar-cartao:' + slug);
+        UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null);
         setTimeout(function () {
+          if (mpVolta === 'ok' && querCartao && estado.loja && estado.loja.mpChavePublica) {
+            salvarLoja({ aceitaCartaoOnline: true, mpAtivo: true }, 'Cartão de crédito ligado! O cliente já vê a opção no seu site.').then(function () { if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function () { UI.avisar('Mercado Pago conectado. Ligue o cartão em Ajustes, Pagamento.'); });
+            UI.soar('sucesso');
+            return;
+          }
           if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix automático ligado.'); }
           else UI.avisar('O Mercado Pago não autorizou. Tente de novo em Ajustes, Pagamento.');
         }, 400);
@@ -212,8 +219,17 @@
         botao.appendChild(el('span', { class: 'rot-curto', text: curto }));
         return botao;
       }
-      function pintarSom() { rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito'); btnSom.setAttribute('aria-label', estado.somLigado ? 'Apito ligado' : 'Apito desligado'); }
+      /* um botao so para o apito: "Ligar" (com o pontinho) ate o navegador liberar o som no primeiro toque; depois liga e desliga */
+      function pintarSom() {
+        var travado = UI.somTravado();
+        var longo = travado ? 'Toque para ligar o apito' : estado.somLigado ? 'Apito ligado' : 'Apito desligado';
+        rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar' : 'Apito');
+        btnSom.setAttribute('aria-label', longo);
+        btnSom.classList.toggle('pedindo', travado);
+        if (travado) UI.quandoLiberarSom(pintarSom);
+      }
       var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), onclick: function () {
+        if (UI.somAcabouDeLiberar()) { pintarSom(); UI.soar('apito'); return; } /* esse toque so liberou o som */
         estado.somLigado = UI.somLigado(!estado.somLigado);
         pintarSom();
         btnSom.classList.toggle('on', estado.somLigado);
@@ -266,7 +282,6 @@
         abas.appendChild(b);
       });
       raiz.appendChild(abas);
-      UI.pedirToqueParaSom(raiz);
       raiz.appendChild(el('section', { class: 'secao', id: 'secaoPainel' }));
 
       pararTudo();
@@ -308,9 +323,10 @@
           lista.forEach(function (p) {
             var antes = estado.statusAntes[p.id];
             if (!antes || antes === p.status) return;
-            if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO) && p.formaPagamento === 'pix') {
+            if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO) && R.pagaPeloSite(p)) {
               UI.soar('pago'); UI.vibrar([80, 40, 160]);
-              UI.avisar(p.pagoAposCancelar ? 'Pix da senha ' + p.senha + ' caiu depois do cancelamento. Confira com o cliente.' : 'Pix da senha ' + p.senha + ' caiu! Pode começar.');
+              var comoPagou = p.formaPagamento === 'cartao_online' ? 'Cartão da senha ' + p.senha + ' aprovado' : 'Pix da senha ' + p.senha + ' caiu';
+              UI.avisar(p.pagoAposCancelar ? comoPagou + ' depois do cancelamento. Confira com o cliente.' : comoPagou + '! Pode começar.');
             } else if (p.status === R.STATUS.CANCELADO && p.canceladoPor === 'cliente') {
               UI.soar('cancelado');
               UI.avisar('O cliente cancelou o pedido da senha ' + p.senha + '.');
@@ -721,7 +737,7 @@
       ini.setHours(5, 0, 0, 0);
       var inicioDoDia = ini.toISOString();
       var grupos = [
-        { titulo: 'Aguardando Pix', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
+        { titulo: 'Aguardando pagamento', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
         { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
@@ -766,8 +782,10 @@
 
       /* ordem fixa em todo cartao: pagamento e entrega numa linha, extras (troco, cancelado) na linha de baixo */
       var selos = [], extras = [];
-      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Diz que pagou' : 'Aguardando Pix' })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
+      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Diz que pagou' : (p.formaPagamento === 'cartao_online' ? 'Aguardando cartão' : 'Aguardando Pix') })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
+      else if (p.devolvidoEm) selos.push(el('span', { class: 'selo cinza', text: 'Devolvido' }));
       else if (p.formaPagamento === 'pix') selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix confirmado' }));
+      else if (p.formaPagamento === 'cartao_online') selos.push(el('span', { class: 'selo', text: 'Cartão pago' }));
       else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: 'Maquininha' })); /* onde paga ja esta no selo do lado (Entrega, Retirada, Balcao) */
       else if (p.formaPagamento === 'dinheiro_entrega') {
         selos.push(el('span', { class: 'selo laranja', text: 'Dinheiro' }));
@@ -831,7 +849,7 @@
 
       var acoes = el('div', { class: 'acoes acoes-pedido' });
       var proximo = R.proximoStatus(p);
-      if (proximo) {
+      if (proximo && R.rotuloProximoPasso(p)) {
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
       }
       /* conversa com quem ja recebe os avisos sozinho (duvida, troco, endereco) */
@@ -861,11 +879,46 @@
       store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); }).catch(function (e) { UI.avisar(D.erroAmigavel(e)); });
     }
 
+    /* pago pelo site (Pix ou cartao, pelo Mercado Pago): cancelar devolve o dinheiro sozinho, sem a loja abrir o app */
+    function pagoPeloSite(p) { return R.pagaPeloSite(p) && p.pagamentoStatus === 'pago' && p.total > 0 && !!(p.mp && p.mp.id) && !p.devolvidoEm; }
     function cancelar(p) {
-      UI.perguntar('Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.', { sim: 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
+      var devolver = pagoPeloSite(p);
+      var texto = devolver
+        ? 'Cancelar o pedido de senha ' + p.senha + '? Os ' + dinheiro(p.total) + ' voltam para o cliente pelo Mercado Pago, ' + (p.formaPagamento === 'cartao_online' ? 'no mesmo cartão.' : 'na mesma conta do Pix.')
+        : 'Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.';
+      UI.perguntar(texto, { sim: devolver ? 'Cancelar e devolver' : 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
         if (!sim) return;
-        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () { UI.avisar('Pedido cancelado.'); avisarQueAndou(p, R.STATUS.CANCELADO); }).catch(function () { UI.avisar('Não deu para cancelar agora. Confira a internet e tente de novo.'); });
+        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () {
+          avisarQueAndou(p, R.STATUS.CANCELADO);
+          if (!devolver) { UI.avisar('Pedido cancelado.'); return; }
+          UI.avisar('Pedido cancelado. Devolvendo o dinheiro…');
+          return devolverPagamento(p);
+        }).catch(function () { UI.avisar('Não deu para cancelar agora. Confira a internet e tente de novo.'); });
       });
+    }
+    function devolverPagamento(p) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo || (p.mp && p.mp.simulado)) {
+        return store.atualizarPedido(slug, p.id, { devolvidoEm: new Date().toISOString() }).then(function () { UI.avisar('Dinheiro devolvido ao cliente (simulado).'); }, function () {});
+      }
+      var semDevolver = function (motivo) {
+        UI.abrirModal({
+          titulo: 'Falta devolver',
+          corpo: el('p', { text: (motivo ? motivo + ' ' : '') + 'Devolva pelo app do Mercado Pago: abra a venda de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' e toque em Devolver.', style: { fontSize: '17px', padding: '6px 0 12px' } }),
+          rodape: [el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, text: 'Entendi', onclick: UI.fecharModal })],
+        });
+      };
+      if (!cfg.proxyMercadoPago || !store.obterIdToken) { semDevolver(''); return Promise.resolve(); }
+      return store.obterIdToken().then(function (idToken) {
+        return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/devolver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+          body: JSON.stringify({ loja: slug, pedido: p.id }),
+        });
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok && j && j.ok, erro: (j && j.erro) || '' }; }); })
+        .then(function (res) {
+          if (res.ok) { UI.soar('sucesso'); UI.avisar('Pronto: ' + dinheiro(p.total) + ' devolvidos ao cliente.'); return; }
+          semDevolver(/dono/.test(res.erro) ? 'Só o dono da loja devolve pagamentos.' : 'O Mercado Pago não devolveu agora.');
+        }, function () { semDevolver('Sem internet agora.'); });
     }
 
     /* Liga ou desliga o motor do Mercado Pago conforme o interruptor da loja. */
@@ -1688,7 +1741,7 @@
 
         var formas = Object.keys(r.porForma);
         if (formas.length) {
-          var nomes = { pix: 'Pix', cartao_entrega: 'Maquininha', dinheiro_entrega: 'Dinheiro' };
+          var nomes = { pix: 'Pix', cartao_online: 'Cartão pelo site', cartao_entrega: 'Maquininha', dinheiro_entrega: 'Dinheiro' };
           conteudo.appendChild(el('h3', { text: 'Como pagaram' }));
           conteudo.appendChild(el('div', { class: 'lista-simples' }, formas.map(function (f) { return el('div', { class: 'linha' }, [el('span', { text: nomes[f] || f }), el('b', { text: r.porForma[f] + ' pedidos' })]); })));
         }
@@ -1870,15 +1923,16 @@
         /* sem conexao o Pix nao funciona: o interruptor some e salvar grava desligado (o cliente para de ver um Pix quebrado) */
         situacaoPix(conectado ? '' : 'Falta conectar');
         if (!conectado) desligarChavePix();
+        pintarCartao();
         pintarResumo();
         if (conectado) {
           conexao.appendChild(el('div', { class: 'mp-conectado' }, [
             el('span', { class: 'mp-selo' }, [UI.iconeLinha('feito'), 'Mercado Pago conectado']),
             el('span', { class: 'muted pequeno', text: (c.conectadoEm ? 'desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR') : '') + (c.mpUserId ? ' · conta ' + c.mpUserId : '') }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
-              UI.perguntar('Desconectar o Mercado Pago? O Pix para de funcionar até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
+              UI.perguntar('Desconectar o Mercado Pago? O Pix e o cartão pelo site param até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
                 if (!sim) return;
-                window.LigeiroMP.desconectar(slug).then(function () { return salvarLoja({ mpAtivo: false, aceitaPix: false }, 'Mercado Pago desconectado.'); }).then(function () { desenharAjustes(); });
+                window.LigeiroMP.desconectar(slug).then(function () { return salvarLoja({ mpAtivo: false, aceitaPix: false, aceitaCartaoOnline: false }, 'Mercado Pago desconectado.'); }).then(function () { desenharAjustes(); });
               });
             } }),
           ]));
@@ -1888,7 +1942,7 @@
         conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
           if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes de conectar: a conexão sai desta tela.'); return; }
           window.LigeiroMP.conectar(slug).then(function (r) {
-            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
+            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true, mpChavePublica: 'TEST-demo' }, 'Pix automático ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
           }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para conectar agora.')); });
         } }, [UI.iconeLinha('link'), 'Conectar Mercado Pago']));
         conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta para cá com o Pix ligado. Sem copiar nada.' }));
@@ -1897,6 +1951,8 @@
       function erroConexao() {
         UI.limpar(conexao);
         situacaoPix('');
+        f.mpToken.lido = true;
+        pintarCartao();
         f.mpAtivo.chave.hidden = true;
         conexao.appendChild(el('p', { class: 'aviso aviso-falta' }, [UI.iconeLinha('alerta'), el('span', { text: 'Não deu para conferir a conexão com o Mercado Pago agora.' })]));
         conexao.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: lerConexaoAgora }));
@@ -1929,25 +1985,61 @@
         if (window.LigeiroMP) window.LigeiroMP.lerConexao(l.slug).then(function (c) { f.mpToken.temSalvo = !!(c && c.token); pintarResumo(); }, function () { /* fica o que esta na tela */ });
       }
       pagamento.appendChild(formaPix);
+
+      /* Cartao de credito pelo site: o formulario seguro do Mercado Pago abre no celular do cliente e o pedido cai pago.
+         Vem da mesma conexao do Pix (e dela que sai a chave publica do formulario). Conexao antiga, sem a chave: um toque
+         em "Liberar o cartao" abre o Mercado Pago, a pessoa toca em Autorizar e volta com o cartao ligado */
+      f.aceitaCartaoOnline = interruptorCampo('Cartão de crédito pelo site', 'O cliente paga à vista no site e o pedido cai pago na cozinha. O Mercado Pago cobra cerca de 5% por venda no cartão e o dinheiro cai na hora.', l.aceitaCartaoOnline === true);
+      var cartaoSituacao = el('span', { class: 'forma-situacao lendo', text: 'Conferindo…' });
+      f.aceitaCartaoOnline.insertBefore(cartaoSituacao, f.aceitaCartaoOnline.chave);
+      var liberarCartao = el('div', { class: 'mp-conexao', hidden: true }, [
+        el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
+          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes: a liberação sai desta tela.'); return; }
+          if (D.modoDemo) { salvarLoja({ mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, mpAtivo: true }, 'Cartão de crédito ligado (simulado).').then(function () { desenharAjustes(); }); return; }
+          UI.guardarLocal('ligeiro:ligar-cartao:' + slug, true);
+          window.LigeiroMP.conectar(slug).catch(function (e) { UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null); UI.avisar(D.erroAmigavel(e, 'Não deu para abrir o Mercado Pago agora.')); });
+        } }, [UI.iconeLinha('cartao'), 'Liberar o cartão']),
+        el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago: toque em Autorizar e volte. O cartão já volta ligado, sem copiar nada.' }),
+      ]);
+      var formaCartao = el('div', { class: 'forma-pix' }, [f.aceitaCartaoOnline, liberarCartao]);
+      /* pode ligar: Mercado Pago conectado pelo botao e com a chave publica */
+      function cartaoPodeLigar() { return pixPossivel && temConexao && f.mpToken.temSalvo && !!estado.loja.mpChavePublica; }
+      function pintarCartao() {
+        var texto = '', lendo = false, liberar = false;
+        if (!pixPossivel || !temConexao) texto = 'Em breve';
+        else if (!f.mpToken.lido) { texto = 'Conferindo…'; lendo = true; }
+        else if (!f.mpToken.temSalvo) texto = 'Falta conectar';
+        else if (!estado.loja.mpChavePublica) { texto = 'Falta liberar'; liberar = true; }
+        cartaoSituacao.hidden = !texto;
+        cartaoSituacao.textContent = texto;
+        cartaoSituacao.classList.toggle('lendo', lendo);
+        f.aceitaCartaoOnline.chave.hidden = !!texto;
+        liberarCartao.hidden = !liberar;
+        if (texto && !lendo) { f.aceitaCartaoOnline.chave.ligado = false; f.aceitaCartaoOnline.chave.classList.remove('on'); }
+      }
+      if (!pixPossivel || !temConexao) pintarCartao();
+      pagamento.appendChild(formaCartao);
       f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', 'O cliente passa o cartão quando recebe ou quando busca.', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
-      f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, retirada só com Pix.', l.aceitaPagarNoBalcao !== false);
+      f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, quem retira paga pelo site.', l.aceitaPagarNoBalcao !== false);
       [f.aceitaCartaoEntrega, f.aceitaDinheiroEntrega, f.aceitaPagarNoBalcao].forEach(function (c) { pagamento.appendChild(c); });
       /* o que vale hoje, com as mesmas contas do site do cliente: sem Pix e sem "pagar no balcao", quem busca nao tem como pagar */
       var resumoPag = el('p', { class: 'aviso', hidden: true });
       function pintarResumo() {
         if (!f.mpToken.lido) { resumoPag.hidden = true; return; }
         var pix = pixPossivel && f.mpAtivo.chave.ligado && (f.mpToken.temSalvo || !!f.mpToken.input.value.trim());
+        var cartaoSite = cartaoPodeLigar() && f.aceitaCartaoOnline.chave.ligado;
         var cartao = f.aceitaCartaoEntrega.chave.ligado, dinheiroNaPorta = f.aceitaDinheiroEntrega.chave.ligado;
         var formas = [];
         if (pix) formas.push('Pix');
+        if (cartaoSite) formas.push('cartão pelo site');
         if (cartao) formas.push('maquininha');
         if (dinheiroNaPorta) formas.push('dinheiro');
         /* "pagar no balcao" so faz sentido com maquininha ou dinheiro ligados */
         f.aceitaPagarNoBalcao.hidden = !cartao && !dinheiroNaPorta;
-        var retiradaSemComo = !pix && formas.length && f.aceitaRetirada.chave.ligado && !f.aceitaPagarNoBalcao.chave.ligado;
+        var retiradaSemComo = !pix && !cartaoSite && formas.length && f.aceitaRetirada.chave.ligado && !f.aceitaPagarNoBalcao.chave.ligado;
         var texto = !formas.length ? 'Nenhuma forma de pagamento ligada: o cliente não consegue fechar o pedido.'
-          : retiradaSemComo ? 'Sem Pix, quem vai buscar não tem como pagar. Ligue "Quem retira pode pagar no balcão".'
+          : retiradaSemComo ? 'Sem pagar pelo site, quem vai buscar não tem como pagar. Ligue "Quem retira pode pagar no balcão".'
           : 'Hoje o cliente paga com ' + (formas.length > 1 ? formas.slice(0, -1).join(', ') + ' e ' + formas[formas.length - 1] : formas[0]) + '.';
         var falta = !formas.length || retiradaSemComo;
         UI.limpar(resumoPag);
@@ -2004,7 +2096,7 @@
       s.appendChild(cupons);
 
       /* sons do painel: o dono ouve cada um e sabe o que significa */
-      var listaSons = [['apito', 'Pedido novo', 'Alto, para ouvir da cozinha', 'sino'], ['pago', 'Pix caiu', 'O pedido já pode começar', 'dinheiro'], ['cancelado', 'Cliente cancelou', 'O pedido saiu da fila', 'fechar'], ['lembrete', 'Pedido parado', 'Pago há mais de 5 minutos sem começar', 'relogio']];
+      var listaSons = [['apito', 'Pedido novo', 'Alto, para ouvir da cozinha', 'sino'], ['pago', 'Pagamento caiu', 'Pix ou cartão: o pedido já pode começar', 'dinheiro'], ['cancelado', 'Cliente cancelou', 'O pedido saiu da fila', 'fechar'], ['lembrete', 'Pedido parado', 'Pago há mais de 5 minutos sem começar', 'relogio']];
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Sons do painel' }),
         el('p', { class: 'muted pequeno', text: 'Toque para ouvir cada aviso. Para silenciar tudo, use o botão Apito lá em cima.' }),
@@ -2072,6 +2164,8 @@
         i.addEventListener('change', function () { aoMudar(i.value); });
         return i;
       }
+      /* o 2o turno nasce sem bater no primeiro: quem abre a noite ganha o almoco; quem abre de dia ganha a janta */
+      function segundoTurno(e) { var t = e.turnos[0] || ['', '']; return t[0] >= '15:00' ? ['11:00', '14:00'] : ['18:00', '23:00']; }
       function desenharDia(dia) {
         var e = estadoH[dia];
         var linha = el('div', { class: 'dia-linha' + (e.aberto ? '' : ' fechado') });
@@ -2079,7 +2173,7 @@
         chave.addEventListener('click', function () { e.aberto = !e.aberto; redesenhar(dia); });
         /* no celular a acao do 2o turno mora no cabecalho, do lado da chave: as linhas de hora ficam so com hora */
         var acao = !e.aberto ? null : el('button', { type: 'button', class: 'dia-acao' + (e.turnos.length > 1 ? ' tirar' : ''), 'aria-label': (e.turnos.length > 1 ? 'Tirar o 2º turno de ' : 'Adicionar 2º turno em ') + nomes[dia], onclick: function () {
-          if (e.turnos.length > 1) e.turnos.splice(1, 1); else e.turnos.push(['18:00', '23:00']);
+          if (e.turnos.length > 1) e.turnos.splice(1, 1); else e.turnos.push(segundoTurno(e));
           redesenhar(dia);
         } }, e.turnos.length > 1 ? [UI.iconeLinha('fechar'), '2º turno'] : ['+ 2º turno']);
         linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' }), acao]));
@@ -2096,7 +2190,7 @@
             turnos.appendChild(turno);
           });
           linha.appendChild(turnos);
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(['18:00', '23:00']); redesenhar(dia); } }));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }));
         }
         return linha;
       }
@@ -2154,6 +2248,7 @@
       if (!horarios) return;
       var tokenDigitado = f.mpToken.input.value.trim();
       var aceitaPix = f.mpAtivo.chave.ligado;
+      var cartaoLigado = !f.aceitaCartaoOnline.chave.hidden && f.aceitaCartaoOnline.chave.ligado;
       /* Pix que ja estava ligado so passa sem token enquanto a leitura da conexao nao respondeu (ela pode atrasar).
          Depois que respondeu sem token, trava: loja com Pix ligado e sem token nao recebe Pix nenhum. */
       var aindaLendo = estado.loja.mpAtivo === true && !f.mpToken.lido;
@@ -2186,7 +2281,9 @@
         tempoPreparo: minutos(f.tempoPreparo.input.value, 20),
         tempoEntrega: minutos(f.tempoEntrega.input.value, 40),
         aceitaPix: aceitaPix,
-        mpAtivo: aceitaPix,
+        aceitaCartaoOnline: cartaoLigado,
+        /* Mercado Pago em uso: Pix ou cartao (o cartao sozinho, com o Pix desligado, tambem precisa dele) */
+        mpAtivo: aceitaPix || cartaoLigado,
         aceitaCartaoEntrega: f.aceitaCartaoEntrega.chave.ligado,
         aceitaDinheiroEntrega: f.aceitaDinheiroEntrega.chave.ligado,
         aceitaPagarNoBalcao: f.aceitaPagarNoBalcao.chave.ligado,
@@ -2201,7 +2298,7 @@
       if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
       /* o mesmo que o resumo do bloco Pagamento: sem nenhuma forma ligada, o cliente monta o pedido e nao consegue fechar */
       var pixValendo = aceitaPix && (!!tokenDigitado || f.mpToken.temSalvo || aindaLendo);
-      if (!pixValendo && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
+      if (!pixValendo && !cartaoLigado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.taxaEntrega <= 0) return UI.avisar('Taxa de entrega em branco. Coloque o valor ou marque "Entrega grátis".');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.entregaGratisAcima > 0 && mudancas.entregaGratisAcima <= mudancas.taxaEntrega) return UI.avisar('"Grátis a partir de" precisa ser maior que a taxa de entrega.');
       var novaSenha = f.senhaPainel ? f.senhaPainel.input.value.trim() : '';

@@ -28,6 +28,8 @@
   background: var(--cz-creme-fundo);
 }
 body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
+/* a janela leva o tema (letras e botoes), mas nao o fundo creme: por tras dela a tela continua aparecendo, escurecida */
+.modal.tema-conizza { background: rgba(36, 23, 8, 0.55); }
 .tema-conizza h1, .tema-conizza h2, .tema-conizza h3 { font-family: var(--cz-display); font-weight: 800; }
 .tema-conizza .muted { color: var(--cz-tinta-suave); }
 
@@ -179,6 +181,10 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .painel-senha { background: var(--cz-vermelho); border: 4px solid var(--cz-tinta); box-shadow: 0 6px 0 var(--cz-tinta); color: var(--cz-creme); }
 .tema-conizza .senha-gigante { font-family: var(--cz-display); color: var(--cz-ouro-claro); }
 .tema-conizza .painel-senha .instrucao, .tema-conizza .painel-senha .rotulo { color: var(--cz-creme); }
+.tema-conizza .cartao-recusado { border: 3px solid var(--cz-vermelho); border-radius: 14px; background: #fdebd3; color: var(--cz-tinta); }
+.tema-conizza .cartao-recusado .ico-traco { color: var(--cz-vermelho); }
+.tema-conizza .cartao-teste { background: linear-gradient(135deg, var(--cz-vermelho), var(--cz-vermelho-escuro)); border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); }
+.tema-conizza .forma-grupo { color: var(--cz-tinta-suave); font-family: var(--cz-display); letter-spacing: 0.04em; }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }

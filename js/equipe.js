@@ -252,18 +252,24 @@
       document.body.classList.add('cozinha-modo');
 
       var btnSom = el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () {
+        if (UI.somAcabouDeLiberar()) { pintarSom(); UI.soar('toque'); return; } /* esse toque so liberou o som */
         estado.somLigado = UI.somLigado(!estado.somLigado);
         pintarSom();
         if (estado.somLigado) UI.soar('toque');
       } });
+      /* um botao so para o apito: "Ligar" (com o pontinho) ate o navegador liberar o som no primeiro toque */
       function pintarSom() {
-        rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito');
+        var travado = UI.somTravado();
+        var longo = travado ? 'Toque para ligar o apito' : estado.somLigado ? 'Apito ligado' : 'Apito desligado';
+        rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar' : 'Apito');
+        btnSom.setAttribute('aria-label', longo);
         btnSom.classList.toggle('on', estado.somLigado);
+        btnSom.classList.toggle('pedindo', travado);
+        if (travado) UI.quandoLiberarSom(pintarSom);
       }
       pintarSom();
       /* sem contador no topo (cada coluna ja diz quantos) e sem ir ao painel: a cozinha so cuida da fila */
       raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [], [btnSom, botaoAvisos(slug, 'cozinha')]));
-      UI.pedirToqueParaSom(raiz);
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
 
@@ -372,6 +378,7 @@
     function selo(texto, classe) { return el('span', { class: 'selo ' + (classe || ''), text: texto }); }
     if (p.status === R.STATUS.AGUARDANDO) return [selo('Pix ainda não confirmado', 'fechado')];
     if (p.formaPagamento === 'pix') return [selo('Já pago no Pix, não cobrar')];
+    if (p.formaPagamento === 'cartao_online') return [selo('Já pago no cartão, não cobrar')];
     if (p.formaPagamento === 'cartao_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
     if (p.formaPagamento === 'dinheiro_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0
       ? [selo('Paga com ' + dinheiro(p.trocoPara), 'laranja'), selo('Levar troco de ' + dinheiro(p.trocoPara - p.total), 'laranja')]

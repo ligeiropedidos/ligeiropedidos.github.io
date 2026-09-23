@@ -16,6 +16,10 @@
  *
  * 2) PIX AUTOMATICO pela conta Mercado Pago de cada loja
  *   POST /criar    { loja, pedido }  -> cria o Pix no Mercado Pago com o token da loja e grava o "copia e cola" no pedido.
+ *   POST /cartao   { loja, pedido, token, metodo, email, documento } -> cobra o cartao de credito (codigo de uso
+ *                                       unico do formulario do Mercado Pago) e marca o pedido pago.
+ *   POST /devolver { loja, pedido } + Authorization: Bearer <idToken do dono> -> a loja cancelou um pedido pago pelo
+ *                                       site (Pix ou cartao): devolve o valor inteiro ao cliente pelo Mercado Pago.
  *   POST /webhook                    -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
  *                                       O aviso ja traz a loja e o pedido (external_reference): nao precisa de indice.
  *   GET  /status?loja&pedido&mp&expira -> reforco: o site do cliente pergunta enquanto espera. Com mp e expira,
@@ -57,7 +61,7 @@ const LOJA_VALE = 20 * 60 * 1000;
 const VITRINE_VALE = 15 * 60 * 1000;
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
-const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {} };
+const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {}, cartao: {} };
 const PEDIDO_ID = /^[A-Za-z0-9]{20}$/;
 /* avisos so vao para os servicos de aviso dos navegadores (Google, Apple, Mozilla, Microsoft), nunca para endereco qualquer */
 const SERVICO_AVISO = /^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//i;
@@ -104,12 +108,13 @@ export default {
         if (!r.ok || !t.access_token) return voltar(false);
         const agora = new Date().toISOString();
         await fb.merge('lojas/' + slug + '/privado/mercadopago', {
-          token: t.access_token, refresh: t.refresh_token || '', mpUserId: String(t.user_id || ''),
+          token: t.access_token, refresh: t.refresh_token || '', mpUserId: String(t.user_id || ''), publica: String(t.public_key || ''),
           tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
           conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '',
         });
         delete MEM.mp[slug];
-        await fb.merge('lojas/' + slug, { mpAtivo: true, aceitaPix: true, atualizadoEm: agora });
+        /* a chave publica e publica mesmo (o formulario do cartao no site precisa dela): vai no documento da loja */
+        await fb.merge('lojas/' + slug, Object.assign({ mpAtivo: true, aceitaPix: true, atualizadoEm: agora }, t.public_key ? { mpChavePublica: String(t.public_key) } : {}));
         await fb.merge('vitrine/' + slug, { aceitaPix: true, atualizadoEm: agora }).catch(() => {});
         /* o Pix aparece na loja na hora, sem esperar a copia da borda vencer */
         await atualizarLoja(env, slug).catch(() => {});
@@ -366,6 +371,98 @@ export default {
         /* indice pro webhook so quando a referencia foi cortada (loja de nome muito comprido): o aviso normal ja traz loja e pedido */
         if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
         return json({ codigo: qr, expiraEm: expira, mp: String(ord.id) });
+      }
+
+      /* ---- cobra o cartao do pedido: o numero do cartao nunca passa aqui (vem o token do formulario do Mercado Pago),
+         a cobranca vai para a conta da propria loja e o "pago" sai pelo mesmo conferirPagamento do Pix ---- */
+      if (caminho === '/cartao' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        const loja = String(c.loja || ''), pedido = String(c.pedido || ''), cartao = String(c.token || ''), metodo = String(c.metodo || '');
+        if (!SLUG.test(loja) || !PEDIDO_ID.test(pedido) || !/^[A-Za-z0-9-]{8,80}$/.test(cartao) || !/^[a-z0-9_]{2,30}$/.test(metodo)) return json({ erro: 'faltou o cartão' }, 400);
+        /* poucas tentativas por pedido e por aparelho: quem testa cartao roubado nao faz da loja o laboratorio dele */
+        const ip = request.headers.get('CF-Connecting-IP') || 'sem-ip';
+        const agoraC = Date.now();
+        const tent = MEM.cartao;
+        Object.keys(tent).forEach((k) => { tent[k] = tent[k].filter((t) => agoraC - t < 10 * 60 * 1000); if (!tent[k].length) delete tent[k]; });
+        if ((tent['p:' + pedido] || []).length >= 4 || (tent['ip:' + ip] || []).length >= 8) return json({ status: 'recusado', motivo: 'Tentativas demais com cartão. Espere alguns minutos ou pague no Pix.' });
+        (tent['p:' + pedido] = tent['p:' + pedido] || []).push(agoraC);
+        (tent['ip:' + ip] = tent['ip:' + ip] || []).push(agoraC);
+        /* a loja liga o cartao nos Ajustes: confere pela copia da borda (sem ler o banco) */
+        const copia = await lerKv(env, 'loja:' + loja, 'text');
+        if (copia && copia.value) { try { if (JSON.parse(copia.value).loja.aceitaCartaoOnline !== true) return json({ erro: 'a loja não aceita cartão pelo site' }, 409); } catch (_) { /* copia torta: segue */ } }
+        const fb = await firebase(env);
+        const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
+        if (!p) return json({ erro: 'pedido não existe' }, 404);
+        if (p.formaPagamento !== 'cartao_online') return json({ erro: 'esse pedido não é de cartão' }, 400);
+        if (p.status === 'pago' || p.pagamentoStatus === 'pago') return json({ status: 'aprovado' }); /* toque duplo: ja foi */
+        if (p.status !== 'aguardando_pagamento' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando o cartão' }, 400);
+        if (p.criadoEm && Date.now() - Date.parse(p.criadoEm) > 40 * 60 * 1000) return json({ erro: 'esse pedido passou do prazo' }, 409);
+        const token = await tokenDaLoja(fb, loja, env);
+        if (!token) return json({ erro: 'a loja não ligou o cartão' }, 409);
+        const nome = separarNome(p.cliente && p.cliente.nome, await nomeDaLoja(env, loja));
+        const valor = (p.total / 100).toFixed(2);
+        const inteira = loja + '__' + pedido;
+        const referencia = inteira.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+        const email = /^[^\s@]{1,64}@[^\s@]{1,120}\.[a-z]{2,}$/i.test(String(c.email || '')) ? String(c.email) : 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br';
+        const pagador = { email: email, first_name: nome.primeiro, last_name: nome.sobrenome };
+        const documento = String(c.documento || '').replace(/\D/g, '');
+        if (documento.length === 11 || documento.length === 14) pagador.identification = { type: documento.length === 11 ? 'CPF' : 'CNPJ', number: documento };
+        const corpo = {
+          type: 'online', total_amount: valor, external_reference: referencia, processing_mode: 'automatic',
+          transactions: { payments: [{ amount: valor, payment_method: { id: metodo, type: 'credit_card', token: cartao, installments: 1 } }] },
+          payer: pagador,
+        };
+        let ord;
+        try {
+          ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido + '-c' + cartao.slice(-16) } });
+        } catch (e) {
+          if (e && e.status === 401) delete MEM.mp[loja];
+          if (e && e.status >= 400 && e.status < 500) return json({ status: 'recusado', motivo: motivoDoCartao(detalheDoCartao(e.dados)) });
+          throw e;
+        }
+        const detalhe = detalheDoCartao(ord);
+        const agoraMp = new Date().toISOString();
+        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { mp: { id: String(ord.id), criadoEm: agoraMp, cartao: true }, atualizadoEm: agoraMp }).catch(() => {});
+        if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agoraMp }).catch(() => {});
+        if (ord.status === 'processed') {
+          const r2 = await conferirPagamento(fb, loja, ord.id, pedido, env);
+          if (r2 === 'pago') return json({ status: 'aprovado' });
+        }
+        if (ord.status === 'action_required') return json({ status: 'recusado', motivo: 'O banco pediu uma confirmação que ainda não fazemos por aqui. Tente outro cartão ou pague no Pix.' });
+        return json({ status: 'recusado', motivo: motivoDoCartao(detalhe) });
+      }
+
+      /* ---- a loja cancelou um pedido pago pelo site: o dinheiro volta ao cliente (so o dono da loja ou o admin) ---- */
+      if (caminho === '/devolver' && request.method === 'POST') {
+        const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        const { loja, pedido } = await request.json().catch(() => ({}));
+        if (!idToken || !SLUG.test(loja || '') || !PEDIDO_ID.test(pedido || '')) return json({ ok: false, erro: 'faltou a loja, o pedido ou o login' }, 400);
+        const fb = await firebase(env);
+        const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
+        if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        /* o dono vem da copia da borda (sem ler o banco); loja sem copia: le uma vez */
+        const copia = await lerKv(env, 'loja:' + loja, 'text');
+        let dono = copia && copia.metadata ? String(copia.metadata.dono || '') : '';
+        if (!dono) { const item = await atualizarLoja(env, loja).catch(() => null); dono = item && item.meta ? String(item.meta.dono || '') : ''; }
+        if (!dono || (dono !== quem && quem !== ADMIN)) return json({ ok: false, erro: 'só o dono da loja devolve pagamentos' }, 403);
+        const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
+        if (!p) return json({ ok: false, erro: 'pedido não existe' }, 404);
+        if (p.devolvidoEm) return json({ ok: true, ja: true });
+        if (p.status !== 'cancelado') return json({ ok: false, erro: 'cancele o pedido antes de devolver' }, 409);
+        if ((p.formaPagamento !== 'pix' && p.formaPagamento !== 'cartao_online') || p.pagamentoStatus !== 'pago' || !p.mp || !p.mp.id || p.mp.simulado) return json({ ok: false, erro: 'esse pedido não foi pago pelo site' }, 409);
+        const token = await tokenDaLoja(fb, loja, env);
+        if (!token) return json({ ok: false, erro: 'a loja está sem Mercado Pago conectado' }, 409);
+        const mpId = String(p.mp.id);
+        /* pedido novo e uma "order" (ORD...); os Pix antigos eram pagamento avulso. Os dois devolvem o valor inteiro */
+        const ehOrder = mpId.indexOf('ORD') === 0;
+        try {
+          await mp(token, ehOrder ? '/v1/orders/' + encodeURIComponent(mpId) + '/refund' : '/v1/payments/' + encodeURIComponent(mpId) + '/refunds', { method: 'POST', body: ehOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'devolver-' + pedido } });
+        } catch (e) {
+          return json({ ok: false, erro: 'o Mercado Pago não devolveu', detalhe: String(e.message || '').slice(0, 160) }, 502);
+        }
+        const agoraD = new Date().toISOString();
+        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { devolvidoEm: agoraD, devolvidoPor: quem.slice(0, 120), atualizadoEm: agoraD }).catch(() => {});
+        return json({ ok: true });
       }
 
       /* ---- o site pergunta se caiu ---- */
@@ -807,7 +904,7 @@ function resumoLimpo(r, id) {
 /* pedido novo (ou Pix que caiu) para o painel e a cozinha: senha, valor e o tipo (o resto a equipe ve no painel) */
 function avisoDaLoja(p, slug, papel, pix) {
   const onde = p.tipoEntrega === 'entrega' ? 'Entrega' : (p.origem === 'balcao' ? 'Balcão' : 'Retirada');
-  return { titulo: (pix ? 'Pix pago! Senha ' : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! Senha ' : 'Pix pago! Senha ') : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
 }
 /* saiu da cozinha para entrega: para o entregador */
 function avisoDeEntrega(r, slug) {
@@ -907,7 +1004,8 @@ async function tokenDaLoja(fb, slug, env) {
       });
       const t = await r.json().catch(() => ({}));
       if (r.ok && t.access_token) {
-        await fb.merge('lojas/' + slug + '/privado/mercadopago', { token: t.access_token, refresh: t.refresh_token || seg.refresh, tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() });
+        await fb.merge('lojas/' + slug + '/privado/mercadopago', { token: t.access_token, refresh: t.refresh_token || seg.refresh, publica: String(t.public_key || seg.publica || ''), tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() });
+        if (t.public_key && t.public_key !== seg.publica) await fb.merge('lojas/' + slug, { mpChavePublica: String(t.public_key), atualizadoEm: new Date().toISOString() }).catch(() => {});
         token = t.access_token;
       }
     } catch (_) { /* segue com o token atual */ }
@@ -921,17 +1019,37 @@ async function mp(token, caminho, opcoes) {
   const texto = await r.text();
   let dados = {};
   try { dados = JSON.parse(texto); } catch (_) { dados = { message: texto }; }
-  if (!r.ok) { const e = new Error('Mercado Pago ' + r.status + ': ' + (dados.message || texto.slice(0, 120))); e.status = r.status; throw e; }
+  if (!r.ok) { const e = new Error('Mercado Pago ' + r.status + ': ' + (dados.message || texto.slice(0, 120))); e.status = r.status; e.dados = dados; throw e; }
   return dados;
 }
 
 /* Pix vencido pelo relogio do SERVIDOR (o do aparelho pode estar errado): prazo do codigo no passado ou,
    sem codigo, pedido que nasceu no banco ha mais de 35 min (hora do proprio Firestore, nao o criadoEm do celular) */
 function pixVencidoNoServidor(p, agora) {
-  if (!p || p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix') return false;
+  if (!p || p.status !== 'aguardando_pagamento' || (p.formaPagamento !== 'pix' && p.formaPagamento !== 'cartao_online')) return false;
   if (p.pixExpiraEm) { const fim = Date.parse(p.pixExpiraEm); return !isNaN(fim) && agora > fim; }
   const nasceu = Date.parse(p._criadoNoBanco || '');
   return !isNaN(nasceu) && agora > nasceu + 35 * 60 * 1000;
+}
+
+/* o motivo da recusa que o Mercado Pago devolveu (no pedido ou no erro) */
+function detalheDoCartao(d) {
+  const pg = d && d.transactions && d.transactions.payments && d.transactions.payments[0];
+  const erros = d && Array.isArray(d.errors) ? d.errors.map((x) => (x && (x.code || x.message)) || '').join(' ') : '';
+  return String((pg && (pg.status_detail || pg.status)) || (d && d.status_detail) || erros || (d && d.message) || '');
+}
+function motivoDoCartao(detalhe) {
+  const t = String(detalhe || '').toLowerCase();
+  if (/insufficient/.test(t)) return 'O cartão está sem limite para esse valor. Tente outro cartão ou pague no Pix.';
+  if (/security_code|cvv/.test(t)) return 'O código de segurança (atrás do cartão) não confere. Confira e tente de novo.';
+  if (/date|expir/.test(t)) return 'A validade do cartão não confere. Confira e tente de novo.';
+  if (/call_for_authorize|authoriz/.test(t)) return 'O banco pediu para você autorizar a compra no aplicativo dele. Autorize e tente de novo.';
+  if (/disabled|blocked/.test(t)) return 'Esse cartão está bloqueado. Fale com o banco ou use outro cartão.';
+  if (/max_attempts/.test(t)) return 'Tentativas demais com esse cartão. Use outro cartão ou pague no Pix.';
+  if (/duplicated/.test(t)) return 'Esse pagamento parece repetido. Confira no aplicativo do banco antes de tentar de novo.';
+  if (/high_risk|fraud|blacklist/.test(t)) return 'O pagamento não passou na análise de segurança. Use outro cartão ou pague no Pix.';
+  if (/bad_filled|card_number|invalid/.test(t)) return 'Algum dado do cartão não confere. Confira e tente de novo.';
+  return 'O banco recusou o pagamento. Tente outro cartão ou pague no Pix.';
 }
 
 function separarNome(nomeCompleto, lojaNome) {
