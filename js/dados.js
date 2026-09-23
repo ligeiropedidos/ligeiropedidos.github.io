@@ -815,7 +815,7 @@
    * conferirAgora: a loja de agora, antes de mandar o pedido (fechou? mudou preco?).
    */
   FirebaseStore.prototype.lojaPublica = function (slug) {
-    var eu = this, ouvintes = [], ultimoJson = '', parado = false, relogio = null, viva = null;
+    var eu = this, ouvintes = [], ultimoJson = '', parado = false, relogio = null, viva = null, conferidaEm = 0;
     function buscar(fresco) {
       return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
         if (x.status === 404) return null;
@@ -831,6 +831,9 @@
     }
     function conferir() {
       if (parado || viva || document.hidden) return;
+      /* celular que troca de app toda hora dispara a volta varias vezes: no maximo uma conferida a cada 15 s */
+      if (Date.now() - conferidaEm < 15000) return;
+      conferidaEm = Date.now();
       buscar(true).then(function (l) { if (!parado) avisar(l); }).catch(function () { /* sem internet agora: tenta no proximo minuto */ });
     }
     function aoVoltar() { if (!document.hidden) conferir(); }
