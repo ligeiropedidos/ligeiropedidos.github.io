@@ -164,6 +164,62 @@
 
   function minutosDesde(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
 
+  /* botao do topo, como no painel: icone de traco, nome inteiro no PC e o curto no celular (tercos iguais) */
+  function rotuloTopo(botao, icone, longo, curto) {
+    UI.limpar(botao);
+    botao.appendChild(UI.iconeTraco(icone));
+    botao.appendChild(el('span', { class: 'rot-longo', text: longo }));
+    botao.appendChild(el('span', { class: 'rot-curto', text: curto }));
+    botao.setAttribute('aria-label', longo);
+    return botao;
+  }
+  /* topo da cozinha e do entregador: o mesmo do painel (mascote ou logo da loja com tema, botoes de vidro) */
+  function topoEquipe(slug, titulo, extras, botoes) {
+    var oficial = UI.lojaOficial(slug);
+    return el('header', { class: 'painel-topo topo-app' + (oficial && oficial.tema ? '' : ' topo-ligeiro') + ' topo-equipe' }, [
+      el('img', { class: 'logo-mini', src: (oficial && oficial.logo) || 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
+      el('div', { class: 'nome', text: titulo }),
+    ].concat(extras, [el('div', { class: 'painel-topo-acoes' }, botoes.filter(Boolean))]));
+  }
+  function botaoPainel(slug) { return rotuloTopo(el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () { window.LigeiroApp.ir('painel/' + slug); } }), 'painel', 'Voltar ao painel', 'Painel'); }
+
+  /* Botao "Ligar avisos" do topo da cozinha e do entregador: pedido novo (ou entrega pronta) apita com a tela apagada.
+     Ligado, um toque manda um aviso de teste. Sem suporte no navegador, o botao nem aparece. */
+  function botaoAvisos(slug, papel) {
+    var A = window.LigeiroAvisos;
+    if (!A) return null;
+    var b = el('button', { class: 'btn btn-pequeno', type: 'button' });
+    function pintar() {
+      var ligado = A.aparelhoLigado(slug, papel);
+      b.classList.toggle('on', ligado);
+      rotuloTopo(b, 'celular', ligado ? 'Tela apagada: ligado' : 'Avisar com a tela apagada', 'Tela apagada');
+      b.title = ligado ? 'Ligado: este aparelho apita mesmo com a tela apagada. Toque para mandar um teste.' : 'Este aparelho apita mesmo com a tela apagada';
+    }
+    b.addEventListener('click', function () {
+      var ligado = A.aparelhoLigado(slug, papel);
+      if (!ligado && A.situacao() === 'instalar') { A.explicarIphone(); return; }
+      b.disabled = true;
+      (ligado ? A.testarAparelho(slug, papel) : A.ligarAparelho(slug, papel)).then(function (j) {
+        if (!ligado) UI.soar('sucesso');
+        var oque = papel === 'entregas' ? 'Entrega pronta' : 'Pedido novo';
+        UI.avisar(ligado ? (j && j.simulado ? 'Na demonstração, o teste é simulado.' : 'Aviso de teste enviado. Chegou?') : 'Pronto! ' + oque + ' apita neste aparelho mesmo com a tela apagada.' + (j && j.simulado ? ' (Na demonstração, simulado.)' : ''));
+      }, function (err) {
+        if (err && err.motivo === 'instalar') { A.explicarIphone(); return; }
+        UI.avisar((err && err.message) || 'Não deu para ligar os avisos agora.');
+      }).then(function () { b.disabled = false; pintar(); });
+    });
+    pintar();
+    /* so aparece quando o mensageiro ja tem os avisos e o aparelho consegue receber */
+    b.hidden = A.situacao() === 'sem';
+    A.preparar().then(function (sit) { b.hidden = sit === 'sem'; if (!b.hidden) A.conferirAparelho(slug, papel); });
+    return b;
+  }
+
+  /* o pedido andou: o cliente (se ligou o aviso) e o entregador ficam sabendo. Nada no banco */
+  function avisarQueAndou(slug, p, status) {
+    if (window.LigeiroAvisos) window.LigeiroAvisos.pedidoAndou(slug, p, status);
+  }
+
   /* Itens do pedido em letra grande, do jeito que a cozinha le. */
   function itensGrandes(p) {
     var caixa = el('div', { class: 'itens' });
@@ -186,18 +242,33 @@
       var estado = { loja: lojaInicial, pedidos: [], conhecidos: null, parar: [], relogio: null, somLigado: UI.somLigado() };
       document.body.classList.add('cozinha-modo');
 
-      var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), text: estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado', onclick: function () {
+      var btnSom = el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () {
         estado.somLigado = UI.somLigado(!estado.somLigado);
-        btnSom.textContent = estado.somLigado ? '🔔 Apito ligado' : '🔕 Apito desligado';
-        btnSom.classList.toggle('on', estado.somLigado);
+        pintarSom();
         if (estado.somLigado) UI.soar('toque');
       } });
+      function pintarSom() {
+        rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito');
+        btnSom.classList.toggle('on', estado.somLigado);
+      }
+      pintarSom();
       var contador = el('span', { class: 'selo', text: '' });
-      raiz.appendChild(el('header', { class: 'painel-topo' }, [
-        el('div', { class: 'nome', text: '👨‍🍳 Cozinha · ' + estado.loja.nome }),
-        contador, btnSom,
-        el('button', { class: 'btn btn-pequeno', text: 'Painel', onclick: function () { window.LigeiroApp.ir('painel/' + slug); } }),
-      ]));
+      raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [contador], [btnSom, botaoAvisos(slug, 'cozinha'), botaoPainel(slug)]));
+      /* depois do PRONTO: cliente sem aviso no celular recebe pelo WhatsApp da loja (um toque) */
+      var barraZap = el('div', { class: 'barra-zap', hidden: true, role: 'status' });
+      raiz.appendChild(barraZap);
+      var tempoBarra = null;
+      function oferecerZap(p) {
+        if (!p.cliente || !p.cliente.telefone || (p.aviso && (p.aviso.e || p.aviso.demo))) return;
+        var pronto = Object.assign({}, p, { status: R.STATUS.PRONTO });
+        UI.limpar(barraZap);
+        barraZap.appendChild(el('span', { class: 'barra-zap-texto' }, ['Senha ', el('b', { text: String(p.senha) }), p.tipoEntrega === 'entrega' ? ' saiu da cozinha' : ' está pronta']));
+        barraZap.appendChild(el('a', { class: 'btn btn-whats btn-pequeno', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(estado.loja, pronto)), target: '_blank', rel: 'noopener', onclick: function () { barraZap.hidden = true; } }, [UI.icone('zap'), 'Avisar o cliente']));
+        barraZap.appendChild(el('button', { class: 'barra-zap-fechar', type: 'button', 'aria-label': 'Fechar', text: '✕', onclick: function () { barraZap.hidden = true; } }));
+        barraZap.hidden = false;
+        clearTimeout(tempoBarra);
+        tempoBarra = setTimeout(function () { barraZap.hidden = true; }, 15000);
+      }
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
 
@@ -209,7 +280,8 @@
         fazendo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         contador.textContent = (fazer.length + fazendo.length) + ' na fila';
         [['Para fazer', fazer, 'Ainda não tem nada esperando. Bom sinal.'], ['Fazendo agora', fazendo, 'Nada no fogo ainda.']].forEach(function (col) {
-          var caixa = el('section', { class: 'coluna' }, [el('h2', {}, [col[0], el('span', { class: 'n', text: col[1].length ? ' ' + col[1].length : '' })])]);
+          /* o mesmo titulo de fila do painel: nome a esquerda, quantos a direita */
+          var caixa = el('section', { class: 'coluna' }, [el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: col[0] }), el('span', { text: col[1].length ? String(col[1].length) : '' })])]);
           if (!col[1].length) caixa.appendChild(el('p', { class: 'muted', text: col[2] }));
           col[1].forEach(function (p) { caixa.appendChild(ficha(p)); });
           colunas.appendChild(caixa);
@@ -221,9 +293,10 @@
         var limite = Number(estado.loja.tempoPreparo) || 20;
         var f = el('div', { class: 'ficha-cozinha' + (min >= limite ? ' atrasado' : '') });
         f.appendChild(el('div', { class: 'cabeca' }, [
-          el('span', { class: 'senha', text: p.senha }),
-          el('span', { class: 'tipo', text: p.tipoEntrega === 'entrega' ? '🛵 Entrega' : (p.origem === 'balcao' ? '🧾 Balcão' : '🛍️ Retirada') }),
-          el('span', { class: 'tempo', text: min + ' min' }),
+          /* o desenho do cartao do painel: senha e tempo em cima, o tipo embaixo */
+          el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
+          el('span', { class: 'selo tempo ' + (min >= limite ? 'laranja' : 'cinza'), title: 'Desde que entrou na fila' }, [UI.iconeLinha('relogio'), min + ' min']),
+          UI.seloTipo(p),
         ]));
         f.appendChild(itensGrandes(p));
         var proximo = R.proximoStatus(p);
@@ -231,7 +304,11 @@
         if (proximo) {
           f.appendChild(el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', text: rotulo, onclick: function () {
             if (proximo !== R.STATUS.PRODUCAO) estado.movidosAqui[p.id] = true; /* saiu da fila por esta tela: nao e cancelamento */
-            store.atualizarPedido(slug, p.id, { status: proximo }).then(function () { UI.soar('toque'); }).catch(function (e) { UI.avisar(e.message); });
+            store.atualizarPedido(slug, p.id, { status: proximo }).then(function () {
+              UI.soar('toque');
+              avisarQueAndou(slug, p, proximo);
+              if (proximo === R.STATUS.PRONTO) oferecerZap(p);
+            }).catch(function (e) { UI.avisar(e.message); });
           } }));
         }
         return f;
@@ -269,6 +346,7 @@
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
         estado.parar = [];
         clearInterval(estado.relogio);
+        clearTimeout(tempoBarra);
         document.body.classList.remove('cozinha-modo');
       }
       return pararCozinha;
@@ -300,10 +378,7 @@
     return abrirComSenha(raiz, slug, 'Entregas', function (lojaInicial) {
       var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null };
 
-      raiz.appendChild(el('header', { class: 'painel-topo' }, [
-        el('div', { class: 'nome', text: '🛵 Entregas · ' + estado.loja.nome }),
-        el('button', { class: 'btn btn-pequeno', text: 'Painel', onclick: function () { window.LigeiroApp.ir('painel/' + slug); } }),
-      ]));
+      raiz.appendChild(topoEquipe(slug, 'Entregas · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas'), botaoPainel(slug)]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
 
@@ -314,10 +389,10 @@
         var vindo = entregas.filter(function (p) { return p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO; });
         naRua.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         vindo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
-        lista.appendChild(el('h2', {}, ['Para entregar agora', el('span', { class: 'muted', text: naRua.length ? '  ' + naRua.length : '' })]));
+        lista.appendChild(el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: 'Para entregar agora' }), el('span', { text: naRua.length ? String(naRua.length) : '' })]));
         if (!naRua.length) lista.appendChild(el('p', { class: 'muted', text: 'Nenhuma entrega na rua. Quando a cozinha marcar "pronto", aparece aqui.' }));
         naRua.forEach(function (p) { lista.appendChild(cartao(p, true)); });
-        lista.appendChild(el('h2', { style: { marginTop: '14px' }, text: 'Sendo preparadas' }));
+        lista.appendChild(el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: 'Sendo preparadas' }), el('span', { text: vindo.length ? String(vindo.length) : '' })]));
         if (!vindo.length) lista.appendChild(el('p', { class: 'muted', text: 'Nada em preparo agora.' }));
         vindo.forEach(function (p) { lista.appendChild(cartao(p, false)); });
       }
@@ -337,11 +412,12 @@
         card.appendChild(end);
         card.appendChild(el('div', { class: 'itens' }, [el('span', { text: p.itens.map(function (it) { return it.quantidade + 'x ' + it.nome; }).join(', ') })]));
         var acoes = el('div', { class: 'acoes acoes-entrega' });
-        acoes.appendChild(el('a', { class: 'btn btn-fantasma', href: linkMapa(estado.loja, p), target: '_blank', rel: 'noopener', text: '🗺️ Mapa' }));
+        acoes.appendChild(el('a', { class: 'btn btn-fantasma', href: linkMapa(estado.loja, p), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Mapa']));
         if (p.cliente.telefone) acoes.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(p.cliente.telefone, 'Olá! Sou o entregador da ' + estado.loja.nome + ', estou chegando com o seu pedido (senha ' + p.senha + ').'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Cliente']));
-        if (naRua) acoes.appendChild(el('button', { class: 'btn btn-principal', text: '✓ Entregue', onclick: function () {
+        if (naRua) acoes.appendChild(el('button', { class: 'btn btn-principal' }, [UI.iconeLinha('check'), 'Entregue']));
+        if (naRua) acoes.lastChild.addEventListener('click', function () {
           store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { UI.avisar(err.message); });
-        } }));
+        });
         card.appendChild(acoes);
         return card;
       }

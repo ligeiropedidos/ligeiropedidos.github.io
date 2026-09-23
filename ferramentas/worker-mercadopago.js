@@ -24,6 +24,17 @@
  *   GET  /mp/volta                   -> volta do "Conectar com Mercado Pago" (OAuth).
  *   POST /                           -> repasse antigo (o painel manda o POST com o proprio token).
  *
+ * 3) AVISOS NO CELULAR (Web Push, gratis: o Google e a Apple entregam de graca, mesmo com a tela apagada)
+ *   GET  /vapid                      -> a chave publica dos avisos. O par de chaves nasce sozinho no KV na primeira vez.
+ *   POST /aparelho { loja, papel, inscricao, testar, remover } + Bearer (dono ou equipe)
+ *                                    -> guarda este aparelho da loja (painel, cozinha ou entregas) no KV.
+ *   POST /novo     { loja, pedido }  -> o site do cliente avisa que fez um pedido (pago ou para cobrar na entrega):
+ *                                       o painel e a cozinha apitam. So le o banco se a loja tiver aparelho ligado.
+ *   POST /inscrever { loja, pedido, cidade, inscricao, remover } -> o cliente quer saber do pedido no celular.
+ *   POST /avisar   { loja, pedido, status, resumo, aviso } + Bearer (dono ou equipe)
+ *                                    -> o pedido andou: avisa o cliente (se ele quis) e o entregador (saiu para entrega).
+ *   Pix que cai pelo Mercado Pago avisa a loja e o cliente sozinho, sem ninguem chamar nada.
+ *
  * Como publicar (Cloudflare, sem cartao):
  *   1. Storage & Databases > KV > Create a namespace > nome "ligeiro-cardapio".
  *   2. Workers & Pages > ligeiro-mp > Edit code > apague tudo, cole este arquivo > Deploy.
@@ -46,7 +57,11 @@ const LOJA_VALE = 20 * 60 * 1000;
 const VITRINE_VALE = 15 * 60 * 1000;
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
-const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0 };
+const MEM = { google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {} };
+const PEDIDO_ID = /^[A-Za-z0-9]{20}$/;
+/* avisos so vao para os servicos de aviso dos navegadores (Google, Apple, Mozilla, Microsoft), nunca para endereco qualquer */
+const SERVICO_AVISO = /^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//i;
+const PAPEIS = ['painel', 'cozinha', 'entregas'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -152,6 +167,105 @@ export default {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
         }
+        if (caminho === '/vapid') {
+          if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
+          return json({ borda: 1, chave: (await chavesVapid(env)).publica }, 200, { 'Cache-Control': 'public, max-age=600' });
+        }
+      }
+
+      /* ---- avisos no celular ---- */
+      if (caminho === '/aparelho' && request.method === 'POST') {
+        if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
+        const c = await request.json().catch(() => ({}));
+        if (!SLUG.test(c.loja || '')) return json({ ok: false, erro: 'faltou a loja' }, 400);
+        const quem = await quemChamou(env, request);
+        if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        const lista = await aparelhosDaLoja(env, c.loja);
+        if (c.remover) {
+          const sobra = lista.filter((a) => a.e !== String(c.remover));
+          if (sobra.length !== lista.length) await gravarAparelhos(env, c.loja, sobra);
+          return json({ ok: true });
+        }
+        const insc = limparInscricao(c.inscricao);
+        if (!insc) return json({ ok: false, erro: 'este navegador mandou um aviso que não dá para usar' }, 400);
+        const papel = PAPEIS.indexOf(c.papel) >= 0 ? c.papel : 'painel';
+        const vapid = await chavesVapid(env);
+        const atual = lista.filter((a) => a.e === insc.endpoint)[0];
+        /* mesmo aparelho, mesmas chaves: nao grava de novo (o KV gratis tem 1 mil gravacoes por dia) */
+        if (!atual || atual.k !== insc.p256dh || atual.a !== insc.auth || atual.p !== papel || atual.v !== vapid.publica.slice(0, 12)) {
+          const nova = lista.filter((a) => a.e !== insc.endpoint).concat([{ e: insc.endpoint, k: insc.p256dh, a: insc.auth, p: papel, v: vapid.publica.slice(0, 12), em: Date.now() }]);
+          if (!(await gravarAparelhos(env, c.loja, nova))) return json({ ok: false, erro: 'não deu para guardar agora. Tente de novo daqui a pouco.' }, 503);
+        }
+        let teste = 0;
+        if (c.testar) teste = await mandarAviso(env, insc, { titulo: 'Avisos ligados', texto: 'Pedido novo vai chegar assim, mesmo com a tela apagada.', url: urlDoPapel(c.loja, papel), tag: 'teste-' + papel });
+        return json({ ok: true, teste: teste });
+      }
+
+      if (caminho === '/novo' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
+        if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
+        /* zero leitura no banco: o aviso so leva numeros (senha, valor) e o tipo, nunca texto de quem pediu.
+           Quem inventar um pedido so faz o painel apitar a toa (e no maximo 20 vezes por minuto) */
+        const r = c.resumo && typeof c.resumo === 'object' ? c.resumo : {};
+        const senha = String(r.senha == null ? '' : r.senha);
+        const total = Number(r.total);
+        if (!/^\d{1,6}$/.test(senha) || !Number.isInteger(total) || total < 0 || total > 10000000) return json({ ok: false, erro: 'faltou o resumo do pedido' }, 400);
+        const marca = c.loja + '/' + c.pedido;
+        if (MEM.avisados[marca]) return json({ ok: true, repetido: true });
+        lembrar(MEM.avisados, marca);
+        const minuto = Math.floor(Date.now() / 60000);
+        const ritmo = MEM.avisados['ritmo/' + c.loja] = MEM.avisados['ritmo/' + c.loja] && MEM.avisados['ritmo/' + c.loja].m === minuto ? MEM.avisados['ritmo/' + c.loja] : { m: minuto, n: 0 };
+        if (++ritmo.n > 20) return json({ ok: true, enviados: 0, devagar: true });
+        const aparelhos = (await aparelhosDaLoja(env, c.loja)).filter((a) => a.p !== 'entregas');
+        if (!aparelhos.length) return json({ ok: true, enviados: 0 });
+        const p = { id: c.pedido, senha: senha, total: total, tipoEntrega: r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: r.origem === 'balcao' ? 'balcao' : '' };
+        const enviados = await avisarAparelhos(env, c.loja, aparelhos, (papel) => avisoDaLoja(p, c.loja, papel, false));
+        return json({ ok: true, enviados: enviados });
+      }
+
+      if (caminho === '/inscrever' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
+        const marca = c.loja + '/' + c.pedido + (c.remover ? '/sai' : '');
+        if (MEM.inscritos[marca] && Date.now() - MEM.inscritos[marca] < 10 * 1000) return json({ ok: true, repetido: true });
+        let aviso = null;
+        if (!c.remover) {
+          const insc = limparInscricao(c.inscricao);
+          if (!insc || !SLUG.test(c.cidade || '')) return json({ ok: false, erro: 'este navegador mandou um aviso que não dá para usar' }, 400);
+          aviso = { e: insc.endpoint, k: insc.p256dh, a: insc.auth, u: '#/' + c.cidade + '/' + c.loja + '/pedido/' };
+        }
+        lembrar(MEM.inscritos, marca);
+        const fb = await firebase(env);
+        /* grava no proprio pedido (1 gravacao, sem ler): o painel ja recebe junto e sabe que o cliente e avisado sozinho */
+        const existe = await fb.mergeSeExiste('lojas/' + c.loja + '/pedidos/' + c.pedido, { aviso: aviso });
+        if (!existe) return json({ ok: false, erro: 'pedido não existe' }, 404);
+        return json({ ok: true });
+      }
+
+      if (caminho === '/avisar' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
+        const quem = await quemChamou(env, request);
+        if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        const r = resumoLimpo(c.resumo, c.pedido);
+        const tarefas = [];
+        let cliente = 0, equipe = 0;
+        const insc = limparInscricao(c.aviso);
+        const texto = insc ? avisoDoCliente(c.status, r, await nomeDaLoja(env, c.loja)) : null;
+        if (texto) tarefas.push(mandarAviso(env, insc, Object.assign(texto, { url: urlDoCliente(c.aviso, c.pedido), tag: 'p' + c.pedido, topico: 'p' + c.pedido })).then((s) => { cliente = s; }));
+        /* saiu para entrega: o entregador fica sabendo. Pix conferido a mao no painel: a cozinha fica sabendo */
+        const papel = c.status === 'pronto' && r.tipoEntrega === 'entrega' ? 'entregas' : (c.status === 'pago' ? 'cozinha' : '');
+        if (papel && env.CARDAPIO) {
+          tarefas.push(aparelhosDaLoja(env, c.loja).then((lista) => {
+            const deles = lista.filter((a) => a.p === papel);
+            return deles.length ? avisarAparelhos(env, c.loja, deles, (p) => (papel === 'entregas' ? avisoDeEntrega(r, c.loja) : avisoDaLoja(r, c.loja, p, true))) : 0;
+          }).then((n) => { equipe = n; }));
+        }
+        await Promise.all(tarefas);
+        return json({ ok: true, cliente: cliente, equipe: equipe });
       }
 
       /* ---- um cliente bateu no limite do banco: confere (uma gravacao e uma leitura, no maximo 1 vez por minuto) ---- */
@@ -477,6 +591,219 @@ async function atualizarVitrine(env) {
   return corpo;
 }
 
+/* ================= avisos no celular (Web Push) ================= */
+/* Nada aqui le o banco: os aparelhos da loja ficam no KV e o aviso do cliente vai dentro do proprio pedido.
+   O aviso sai criptografado (RFC 8291): so o celular de destino consegue ler; o Google e a Apple so entregam. */
+
+/* guarda a marca por uma hora (a memoria nao cresce sem fim) */
+function lembrar(mapa, chave) {
+  const agora = Date.now();
+  const chaves = Object.keys(mapa);
+  if (chaves.length > 500) chaves.forEach((k) => { if (agora - mapa[k] > 60 * 60 * 1000) delete mapa[k]; });
+  mapa[chave] = agora;
+}
+
+/* O par de chaves dos avisos (VAPID) nasce na primeira vez e fica no KV: ninguem precisa criar segredo no Cloudflare. */
+async function chavesVapid(env) {
+  if (MEM.vapid) return MEM.vapid;
+  let guardada = null;
+  try { const t = await env.CARDAPIO.get('sistema:vapid'); guardada = t ? JSON.parse(t) : null; } catch (_) { guardada = null; }
+  if (!guardada || !guardada.privada || !guardada.publica) {
+    const par = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const jwk = await crypto.subtle.exportKey('jwk', par.privateKey);
+    guardada = { privada: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, d: jwk.d }, publica: b64url(new Uint8Array(await crypto.subtle.exportKey('raw', par.publicKey))) };
+    await env.CARDAPIO.put('sistema:vapid', JSON.stringify(guardada));
+  }
+  const chave = await crypto.subtle.importKey('jwk', guardada.privada, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  MEM.vapid = { publica: guardada.publica, chave: chave };
+  return MEM.vapid;
+}
+
+/* assinatura do Ligeiro para o servico de avisos (uma por servico, guardada 1 hora) */
+async function jwtVapid(vapid, aud) {
+  const m = MEM.jwt[aud];
+  if (m && Date.now() < m.vale) return m.jwt;
+  const agora = Math.floor(Date.now() / 1000);
+  const cab = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  const corpo = b64url(JSON.stringify({ aud: aud, exp: agora + 12 * 3600, sub: 'mailto:' + ADMIN }));
+  const ass = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, vapid.chave, new TextEncoder().encode(cab + '.' + corpo)));
+  const jwt = cab + '.' + corpo + '.' + b64url(ass);
+  MEM.jwt[aud] = { jwt: jwt, vale: Date.now() + 60 * 60 * 1000 };
+  return jwt;
+}
+
+function deB64url(s) {
+  const t = String(s || '').replace(/=+$/, '').replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(t + '==='.slice((t.length + 3) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function juntar() {
+  const partes = Array.prototype.slice.call(arguments);
+  const out = new Uint8Array(partes.reduce((s, p) => s + p.length, 0));
+  let i = 0;
+  partes.forEach((p) => { out.set(p, i); i += p.length; });
+  return out;
+}
+async function hkdf(salt, ikm, info, bytes) {
+  const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: salt, info: info }, k, bytes * 8));
+}
+/* chave de uso unico desta chamada (vale para todos os aparelhos avisados nela: o sal de cada aviso e novo) */
+async function efemeraNova() {
+  const par = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  return { privada: par.privateKey, publica: new Uint8Array(await crypto.subtle.exportKey('raw', par.publicKey)) };
+}
+async function cifrarAviso(insc, texto, efemera) {
+  const enc = new TextEncoder();
+  const doAparelho = deB64url(insc.p256dh);
+  const auth = deB64url(insc.auth);
+  const chaveAparelho = await crypto.subtle.importKey('raw', doAparelho, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const segredo = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: chaveAparelho }, efemera.privada, 256));
+  const ikm = await hkdf(auth, segredo, juntar(enc.encode('WebPush: info\0'), doAparelho, efemera.publica), 32);
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(sal, ikm, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(sal, ikm, enc.encode('Content-Encoding: nonce\0'), 12);
+  const aes = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const cifrado = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aes, juntar(enc.encode(texto), new Uint8Array([2]))));
+  return juntar(sal, new Uint8Array([0, 0, 16, 0]), new Uint8Array([efemera.publica.length]), efemera.publica, cifrado);
+}
+
+/* inscricao que o navegador mandou, conferida: so servico de aviso conhecido e chaves do tamanho certo */
+function limparInscricao(x) {
+  if (!x || typeof x !== 'object') return null;
+  const e = String(x.endpoint || x.e || '');
+  const k = String((x.keys && x.keys.p256dh) || x.k || '').replace(/=+$/, '');
+  const a = String((x.keys && x.keys.auth) || x.a || '').replace(/=+$/, '');
+  if (e.length > 1000 || !SERVICO_AVISO.test(e) || !/^[A-Za-z0-9_-]{86,88}$/.test(k) || !/^[A-Za-z0-9_-]{20,24}$/.test(a)) return null;
+  return { endpoint: e, p256dh: k, auth: a };
+}
+
+/* Manda um aviso. Devolve o codigo do servico: 201 entregue; 404/410 o aparelho saiu; 403 chave antiga. */
+async function mandarAviso(env, insc, aviso, efemera) {
+  if (!insc || !env.CARDAPIO) return 0;
+  const vapid = await chavesVapid(env);
+  const jwt = await jwtVapid(vapid, new URL(insc.endpoint).origin);
+  const carga = JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, url: aviso.url || '#/', tag: aviso.tag || '', fixo: !!aviso.fixo });
+  const cab = { Authorization: 'vapid t=' + jwt + ', k=' + vapid.publica, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: String(aviso.validade || 3600), Urgency: 'high' };
+  /* aviso do mesmo pedido com o celular desligado: chega so o ultimo (saiu para entrega, e nao preparando + saiu) */
+  if (aviso.topico) cab.Topic = aviso.topico;
+  try {
+    const r = await fetch(insc.endpoint, { method: 'POST', headers: cab, body: await cifrarAviso(insc, carga, efemera || await efemeraNova()) });
+    return r.status;
+  } catch (_) { return 0; }
+}
+
+/* Avisa varios aparelhos da loja de uma vez; aparelho que saiu (desinstalou, trocou de chave) sai da lista. */
+async function avisarAparelhos(env, slug, lista, montar) {
+  const efemera = await efemeraNova();
+  const mortos = [];
+  let enviados = 0;
+  await Promise.all(lista.map(async (a) => {
+    const s = await mandarAviso(env, { endpoint: a.e, p256dh: a.k, auth: a.a }, montar(a.p), efemera);
+    if (s >= 200 && s < 300) enviados += 1;
+    else if (s === 403 || s === 404 || s === 410) mortos.push(a.e);
+  }));
+  if (mortos.length) {
+    const atual = await aparelhosDaLoja(env, slug);
+    await gravarAparelhos(env, slug, atual.filter((a) => mortos.indexOf(a.e) < 0));
+  }
+  return enviados;
+}
+
+async function aparelhosDaLoja(env, slug) {
+  const g = await lerKv(env, 'aparelhos:' + slug, 'text');
+  try { const l = g && g.value ? JSON.parse(g.value) : []; return Array.isArray(l) ? l : []; } catch (_) { return []; }
+}
+/* no maximo 15 aparelhos por loja (os mais novos ficam) */
+function gravarAparelhos(env, slug, lista) { return gravarKv(env, 'aparelhos:' + slug, JSON.stringify(lista.slice(-15)), { em: Date.now() }); }
+
+/* quem chamou (login do Firebase), guardado 20 min: o painel nao confere o login a cada pedido que anda */
+async function quemChamou(env, request) {
+  const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!idToken || idToken.length > 4000) return '';
+  const m = MEM.quem[idToken];
+  if (m && Date.now() - m.em < 20 * 60 * 1000) return m.email;
+  const email = (await usuarioDoToken(await firebase(env), idToken)).toLowerCase();
+  if (email) {
+    const chaves = Object.keys(MEM.quem);
+    if (chaves.length > 200) chaves.forEach((k) => { if (Date.now() - MEM.quem[k].em > 20 * 60 * 1000) delete MEM.quem[k]; });
+    MEM.quem[idToken] = { email: email, em: Date.now() };
+  }
+  return email;
+}
+/* dono (pela copia da borda, sem ler o banco), equipe da loja ou o admin */
+async function ehDaLoja(env, slug, email) {
+  if (!email) return false;
+  if (email === ADMIN || email === 'equipe-' + slug + '@equipe.ligeiro.app.br') return true;
+  const g = await lerKv(env, 'loja:' + slug, 'text');
+  let dono = g && g.metadata ? String(g.metadata.dono || '') : '';
+  if (!dono) { const item = await atualizarLoja(env, slug); dono = item.existe ? item.meta.dono : ''; }
+  return !!dono && dono === email;
+}
+
+function reais(centavos) {
+  const v = Math.round(Number(centavos) || 0);
+  const inteiro = String(Math.floor(v / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return 'R$ ' + inteiro + ',' + String(v % 100).padStart(2, '0');
+}
+function urlDoPapel(slug, papel) { return '#/' + (papel === 'cozinha' ? 'cozinha' : papel === 'entregas' ? 'entrega' : 'painel') + '/' + slug; }
+/* a tela do pedido do cliente: o aviso guarda "#/cidade/loja/pedido/" (nasce junto com o pedido, antes do numero) */
+function urlDoCliente(aviso, id) {
+  const u = String((aviso && aviso.u) || '');
+  if (/^#\/[a-z0-9-]{1,60}\/[a-z0-9-]{1,60}\/pedido\/$/.test(u) && PEDIDO_ID.test(id || '')) return u + id;
+  return /^#\/[a-z0-9-]{1,60}\/[a-z0-9-]{1,60}\/pedido\/[A-Za-z0-9]{20}$/.test(u) ? u : '#/';
+}
+/* o que o painel manda sobre o pedido, conferido e cortado (vira texto de aviso, nunca mais que isso) */
+function resumoLimpo(r, id) {
+  const x = r && typeof r === 'object' ? r : {};
+  const curto = (t, n) => String(t == null ? '' : t).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+  return {
+    id: id, senha: curto(x.senha, 8), total: Math.max(0, Math.round(Number(x.total) || 0)),
+    tipoEntrega: x.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: x.origem === 'balcao' ? 'balcao' : '',
+    cliente: { nome: curto(x.nome, 40) }, bairro: curto(x.bairro, 40),
+  };
+}
+
+/* pedido novo (ou Pix que caiu) para o painel e a cozinha: senha, valor e o tipo (o resto a equipe ve no painel) */
+function avisoDaLoja(p, slug, papel, pix) {
+  const onde = p.tipoEntrega === 'entrega' ? 'Entrega' : (p.origem === 'balcao' ? 'Balcão' : 'Retirada');
+  return { titulo: (pix ? 'Pix pago! Senha ' : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+}
+/* saiu da cozinha para entrega: para o entregador */
+function avisoDeEntrega(r, slug) {
+  return { titulo: 'Entrega pronta! Senha ' + r.senha, texto: (r.bairro ? r.bairro + ' · ' : '') + 'Toque para ver o endereço.', url: urlDoPapel(slug, 'entregas'), tag: 'entrega-' + r.id, fixo: true, validade: 1800 };
+}
+/* o pedido andou: o que o cliente le no celular (titulo com o nome da loja, que ele reconhece) */
+function avisoDoCliente(status, r, nomeLoja) {
+  const loja = nomeLoja || 'Seu pedido';
+  const senha = ' Senha ' + r.senha + '.';
+  const entrega = r.tipoEntrega === 'entrega';
+  if (status === 'pago') return { titulo: loja, texto: 'Pagamento confirmado! Seu pedido entrou na fila.' + senha };
+  if (status === 'producao') return { titulo: loja, texto: 'Estão preparando o seu pedido. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.') + senha };
+  if (status === 'pronto') return { titulo: loja, texto: entrega ? 'Seu pedido saiu para entrega! Já está a caminho.' + senha : 'Seu pedido está pronto! Pode vir buscar.' + senha };
+  if (status === 'cancelado') return { titulo: loja, texto: 'Seu pedido foi cancelado pela loja. Toque para ver.' + senha };
+  return null;
+}
+
+/* Pix que caiu pelo Mercado Pago: avisa o painel e a cozinha e, se o cliente quis, o celular dele. Uma vez por pedido. */
+async function avisarPixPago(env, slug, p) {
+  if (!env || !env.CARDAPIO) return;
+  const marca = 'pix/' + slug + '/' + p.id;
+  if (MEM.avisados[marca]) return;
+  lembrar(MEM.avisados, marca);
+  const tarefas = [];
+  const lista = (await aparelhosDaLoja(env, slug)).filter((a) => a.p !== 'entregas');
+  if (lista.length) tarefas.push(avisarAparelhos(env, slug, lista, (papel) => avisoDaLoja(p, slug, papel, true)));
+  const insc = limparInscricao(p.aviso);
+  if (insc) {
+    const texto = avisoDoCliente('pago', { senha: p.senha, tipoEntrega: p.tipoEntrega }, await nomeDaLoja(env, slug));
+    tarefas.push(mandarAviso(env, insc, Object.assign(texto, { url: urlDoCliente(p.aviso, p.id), tag: 'p' + p.id, topico: 'p' + p.id })));
+  }
+  await Promise.all(tarefas);
+}
+
 /* ================= Pix ================= */
 
 /* Consulta o pagamento no Mercado Pago com o token da loja e, se aprovado, libera o pedido. Devolve o status novo. */
@@ -506,6 +833,7 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
     if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
     const agora3 = new Date().toISOString();
+    let entrou = true;
     if (p.status === 'aguardando_pagamento') {
       await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 });
     } else if (p.status === 'cancelado' && (p.canceladoPor === 'cliente' || p.canceladoPor === 'pix-vencido') && !p.pagoEm) {
@@ -516,7 +844,9 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
       /* o painel cancelou por vencimento em cima do "pago" que o mensageiro tinha acabado de gravar:
          o dinheiro entrou, entao volta pra fila do mesmo jeito (mantem o pagoEm de quando caiu) */
       await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
-    }
+    } else entrou = false;
+    /* o pedido acabou de entrar na fila: avisa a loja e o cliente (aviso que falha nunca derruba o pagamento) */
+    if (entrou) await avisarPixPago(env, slug, Object.assign({}, p, { id: id })).catch(() => {});
     return 'pago';
   }
   if (pg.status === 'cancelled' || pg.status === 'expired') return 'aguardando_pagamento';
@@ -656,6 +986,14 @@ async function firebase(env) {
       const mask = Object.keys(dados).map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
       const r = await fetch(base + caminho + '?' + mask, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: camposFirestore(dados) }) });
       if (!r.ok) { recusou(r); throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200)); }
+    },
+    /* grava so se o documento ja existe (nunca cria pedido fantasma); devolve false se nao existe */
+    async mergeSeExiste(caminho, dados) {
+      const mask = Object.keys(dados).map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
+      const r = await fetch(base + caminho + '?' + mask + '&currentDocument.exists=true', { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: camposFirestore(dados) }) });
+      if (r.status === 404) return false;
+      if (!r.ok) { recusou(r); throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200)); }
+      return true;
     },
   };
 }

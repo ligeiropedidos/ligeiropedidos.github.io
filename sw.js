@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260925m';
+var VERSAO = 'ligeiro-20260925n';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
 var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/mascote-192.webp', './img/favicon.png'];
 
@@ -15,6 +15,32 @@ self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (chaves) {
     return Promise.all(chaves.filter(function (k) { return k !== VERSAO; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
+});
+
+/* Avisos no celular (o mensageiro manda pelo Google ou pela Apple): aparecem com a tela apagada e o site fechado.
+   Pedido novo fica na tela ate alguem tocar (fixo); aviso do mesmo pedido substitui o anterior (tag). */
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { texto: e.data ? e.data.text() : '' }; }
+  var opcoes = {
+    body: d.texto || '', icon: './icone-192.png', badge: './img/aviso-badge.png', lang: 'pt-BR',
+    requireInteraction: !!d.fixo, vibrate: d.fixo ? [300, 120, 300, 120, 300] : [160, 80, 160],
+    data: { url: typeof d.url === 'string' && d.url.charAt(0) === '#' ? d.url : '#/' },
+  };
+  if (d.tag) { opcoes.tag = d.tag; opcoes.renotify = true; }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'Ligeiro', opcoes));
+});
+
+/* tocar no aviso: volta para a aba do Ligeiro que ja estava aberta (na tela certa) ou abre uma */
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var hash = (e.notification.data && e.notification.data.url) || '#/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (lista) {
+    var nossas = lista.filter(function (c) { return c.url.indexOf(self.registration.scope) === 0; });
+    var certa = nossas.filter(function (c) { return c.url.split('#')[1] === hash.slice(1); })[0] || nossas[0];
+    if (certa) { certa.postMessage({ ligeiroIr: hash }); return certa.focus(); }
+    return self.clients.openWindow(self.registration.scope + hash);
+  }));
 });
 
 /* Rede primeiro (pra pegar versao nova); se cair, usa o que esta guardado. */

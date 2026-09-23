@@ -1579,15 +1579,15 @@ button.plano-card { cursor: pointer; }
 .cozinha { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 14px var(--margem) 30px; }
 @media (min-width: 760px) { .cozinha { grid-template-columns: 1fr 1fr; } }
 .cozinha .coluna { display: flex; flex-direction: column; gap: 12px; }
-.cozinha h2 { font-size: 20px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.cozinha h2 .n { color: var(--ink); }
 .ficha-cozinha { background: var(--card); border: 2px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .ficha-cozinha.atrasado { border-color: var(--orange); background: var(--orange-suave); }
-.ficha-cozinha .cabeca { display: flex; align-items: center; gap: 12px; }
-.ficha-cozinha .senha { font-family: var(--display); font-size: 46px; font-weight: 700; line-height: 1; color: var(--deep); }
-.ficha-cozinha .tipo { font-weight: 700; color: var(--body); }
-.ficha-cozinha .tempo { margin-left: auto; font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--muted); }
-.ficha-cozinha.atrasado .tempo { color: #B4501A; }
+.ficha-cozinha .cabeca { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px 12px; }
+.ficha-cozinha .cabeca .selo-tipo { grid-column: 1 / -1; justify-self: start; }
+/* a mesma ficha escura da senha do painel, com o numero maior (a cozinha le de longe) */
+.ficha-cozinha .senha { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
+.ficha-cozinha .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); }
+.ficha-cozinha .senha b { font-size: 34px; }
+.ficha-cozinha .tempo { justify-self: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ficha-cozinha .itens { display: flex; flex-direction: column; gap: 8px; font-size: 19px; line-height: 1.3; }
 .ficha-cozinha .itens b { font-size: 21px; }
 .ficha-cozinha .com { color: var(--deep2); font-weight: 600; }
@@ -1950,3 +1950,67 @@ button.plano-card { cursor: pointer; }
 .id-loja-texto { display: flex; flex-direction: column; gap: 4px; }
 .id-loja-linha { display: flex; align-items: stretch; gap: 10px; } /* codigo com a altura do botao ao lado */
 .id-loja-valor { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--lime-suave); color: var(--deep); font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 15px; font-weight: 700; }
+
+/* icone de traco dentro de botao e de selo (Entrega, Retirada, Mapa, Entregue, relogio) */
+.ico-traco { display: inline-flex; flex: none; line-height: 1; }
+.ico-traco svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.selo .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.1; }
+.selo-tipo { gap: 6px; }
+.selo.tempo { gap: 6px; }
+
+/* ---------- avisos com a tela apagada (Web Push) ---------- */
+/* o sino de traco do topo do painel, em todo lugar que fala de aviso */
+.avisos-ico, .aviso-cel-ico, .cliente-avisado-ico, .passo-iphone-ico { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1; }
+.avisos-ico svg, .aviso-cel-ico svg, .cliente-avisado-ico svg, .passo-iphone-ico svg { width: 100%; height: 100%; }
+/* aba Pedidos: cartao ate ligar */
+.cartao-avisos { display: flex; flex-direction: column; gap: 16px; }
+.avisos-linha { display: flex; align-items: center; gap: 16px; }
+.avisos-ico { width: 48px; height: 48px; padding: 12px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
+.avisos-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.avisos-texto b { font-family: var(--display); font-size: 17px; line-height: 1.25; color: var(--ink); text-wrap: balance; }
+.avisos-texto span { font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
+.avisos-botoes .btn { min-height: 48px; }
+@media (min-width: 641px) { .avisos-botoes .btn { flex: 0 0 auto; min-width: 168px; } }
+/* Minha loja: ligar, testar e desligar (mesmo desenho da senha da equipe) */
+.bloco-avisos-botoes { display: flex; gap: 12px; flex: none; }
+.bloco-avisos-botoes .btn { min-height: 48px; padding: 0 20px; white-space: nowrap; }
+@media (max-width: 600px) { .bloco-avisos-botoes { flex: 1 1 100%; } .bloco-avisos-botoes .btn { flex: 1 1 0; } }
+/* cartao do pedido: o cliente recebe sozinho */
+.cliente-avisado { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--lime-suave); color: var(--deep2); font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.cliente-avisado-ico { width: 18px; height: 18px; }
+/* cartao do pedido: o WhatsApp certo do status (um toque abre a conversa com a mensagem pronta) */
+.zap-status { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 14px; border-radius: 12px; background: #EAF9F0; border: 1.5px solid #BDE9CE; color: #0B5E34; font-size: 15px; font-weight: 600; line-height: 1.3; text-decoration: none; transition: background 0.15s, border-color 0.15s; }
+.zap-status .icone-zap { width: 22px; height: 22px; color: #1FAF55; }
+.zap-status-texto { flex: 1; min-width: 0; }
+.zap-status-texto b { font-weight: 800; }
+.zap-status-fim { flex: none; font-size: 20px; font-weight: 700; line-height: 1; }
+.zap-status:hover { background: #DDF5E7; }
+.zap-status.feito { background: transparent; border-style: dashed; border-color: var(--line-forte); color: var(--muted); }
+.zap-status.feito .icone-zap { color: var(--muted); }
+.zap-status.feito .zap-status-texto b { font-weight: 700; }
+/* cozinha: depois do PRONTO, avisar quem nao recebe sozinho */
+.barra-zap { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 16px; background: var(--deep); color: #fff; box-shadow: 0 12px 32px rgba(14, 31, 20, 0.35); animation: splash-surgir 0.25s ease-out; }
+.barra-zap[hidden] { display: none; }
+.barra-zap-texto { flex: 1; min-width: 0; font-size: 16px; line-height: 1.3; }
+.barra-zap-texto b { font-family: var(--display); font-size: 18px; }
+.barra-zap .btn { flex: none; min-height: 44px; }
+.barra-zap-fechar { flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 16px; cursor: pointer; }
+/* cliente, no fechamento: "Me avise no celular" */
+.aviso-cel { cursor: pointer; border-radius: var(--raio); padding: 12px 16px; } /* mesmos cantos e margem dos blocos do formulario */
+.aviso-cel-ico { width: 40px; height: 40px; padding: 9px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
+/* cliente, na tela da senha */
+.aviso-cel-pedido { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); text-align: left; }
+.aviso-cel-pedido[hidden] { display: none; }
+.aviso-cel-pedido .aviso-cel-ico { width: 40px; height: 40px; }
+.aviso-cel-pedido-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14.5px; line-height: 1.35; color: var(--body); }
+.aviso-cel-pedido-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
+.aviso-cel-pedido .btn { flex: none; min-height: 44px; padding: 0 18px; }
+.aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: #C9E7A1; }
+.aviso-cel-pedido.ligado .aviso-cel-ico { background: #fff; }
+.aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--deep); font-weight: 600; }
+/* iPhone: os 3 passos */
+.passos-iphone { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.passo-iphone { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); font-size: 15.5px; line-height: 1.4; }
+.passo-iphone-n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+.passo-iphone-ico { width: 24px; height: 24px; color: var(--deep2); }
+.passo-iphone-texto { flex: 1; min-width: 0; }

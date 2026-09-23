@@ -185,6 +185,11 @@
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () { /* sem cache offline, segue normal */ });
     });
+    /* tocou no aviso com o site ja aberto: vai para a tela do aviso (pedido do cliente, painel, cozinha) */
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      var ir = e.data && e.data.ligeiroIr;
+      if (typeof ir === 'string' && ir.charAt(0) === '#' && location.hash !== ir) location.hash = ir;
+    });
   }
 
   /* Versao nova no ar? Ao abrir o site, confere o index.html direto na rede; se o numero mudou, recarrega uma vez.

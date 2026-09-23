@@ -167,7 +167,11 @@
 
     function aprovar(p) {
       return store.atualizarPedido(slug, p.id, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', pagoEm: new Date().toISOString(), confirmadoPor: 'mercadopago' })
-        .then(function () { if (window.LigeiroUI) { window.LigeiroUI.soar('sucesso'); window.LigeiroUI.avisar('Pix da senha ' + p.senha + ' caiu. Pedido liberado.'); } });
+        .then(function () {
+          if (window.LigeiroUI) { window.LigeiroUI.soar('sucesso'); window.LigeiroUI.avisar('Pix da senha ' + p.senha + ' caiu. Pedido liberado.'); }
+          /* a cozinha e o cliente (se quis) ficam sabendo, mesmo com a tela apagada */
+          if (window.LigeiroAvisos) window.LigeiroAvisos.pedidoAndou(slug, p, R.STATUS.PAGO);
+        });
     }
 
     function conferir() {

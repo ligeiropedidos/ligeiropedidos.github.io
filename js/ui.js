@@ -629,8 +629,24 @@
     telefone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     ferramenta: '<path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10"/>',
     check: '<path d="M5 12.5 10 17.5 19 7"/>',
+    sino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+    semsino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
+    celular: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/><path d="M3.5 9v6"/><path d="M20.5 9v6"/>',
+    entrega: '<circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M8.6 17h6.8"/><path d="M15.5 17 13.5 8.5h-3"/><path d="M13.9 10.5H18l2 6.5"/><path d="M3.4 13.5H10l1.5 3.5"/>',
+    retirada: '<path d="M5.5 8.5h13l-1 12h-11z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>',
+    balcao: '<path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"/><path d="M9 8.5h6"/><path d="M9 12.5h6"/>',
+    mapa: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+    relogio: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    painel: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>',
   };
   function iconeTraco(nome) { return el('span', { class: 'topo-ico', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
+  /* o mesmo icone de traco dentro de botao ou selo (o tamanho vem do lugar) */
+  function iconeLinha(nome) { return el('span', { class: 'ico-traco', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
+  /* selo do tipo do pedido (painel, cozinha): Entrega, Retirada ou Balcao, com icone de traco */
+  function seloTipo(p) {
+    var tipo = p.tipoEntrega === 'entrega' ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada');
+    return el('span', { class: 'selo cinza selo-tipo' }, [iconeLinha(tipo), { entrega: 'Entrega', balcao: 'Balcão', retirada: 'Retirada' }[tipo]]);
+  }
 
   /* faixa do painel, cozinha e entregas quando o banco gratis chega no limite do dia (uma so, fica ate recarregar) */
   function faixaLimite(raiz) {
@@ -648,7 +664,7 @@
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,

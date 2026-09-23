@@ -293,6 +293,14 @@
         token.catch(function () { /* sem conta: a recarga pede a senha */ }).then(function () { setTimeout(function () { location.reload(); }, 1200); });
       } }));
 
+      /* avisos com a tela apagada: o mensageiro ja tem? (o cartao aparece so depois) e o aparelho continua inscrito? */
+      if (window.LigeiroAvisos) {
+        var semAvisos = window.LigeiroAvisos.situacao() === 'sem';
+        window.LigeiroAvisos.preparar().then(function (sit) {
+          if (semAvisos && sit !== 'sem' && vivo && estado.aba === 'pedidos') desenharCabecaPedidos();
+          window.LigeiroAvisos.conferirAparelho(slug, 'painel');
+        });
+      }
       /* Pix automatico (Mercado Pago), se a loja ligou */
       ligarMP();
       /* assinatura da conta do dono (o cartao redesenha quando chegar) */
@@ -429,8 +437,61 @@
       if (!s) return;
       var antigo = $('cabecaPedidos');
       var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' }, text: '⚡ ' + estado.mpStatus }) : null;
-      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), avisoMP]);
+      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]);
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
+    }
+
+    /* ---------------------------------------------------------- avisos com a tela apagada */
+    /* Cartao na aba Pedidos ate ligar (ou "Agora nao", que esconde por 7 dias). Depois some: Testar e Desligar ficam em Minha loja. */
+    function cartaoAvisos() {
+      var A = window.LigeiroAvisos;
+      if (!A || A.aparelhoLigado(slug, 'painel')) return null;
+      var sit = A.situacao();
+      if (sit === 'sem' || (Number(UI.lerLocal('ligeiro:avisos-depois:' + slug)) || 0) > Date.now()) return null;
+      var texto = sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá. Leva 20 segundos.'
+        : sit === 'bloqueado' ? A.motivo('bloqueado')
+        : 'Este celular apita quando entra pedido, mesmo com a tela apagada e o painel fechado.';
+      var botoes = [];
+      if (sit === 'pronto') botoes.push(el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ligar avisos', onclick: function (e) { ligarAvisos(e.currentTarget); } }));
+      if (sit === 'instalar') botoes.push(el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ver como', onclick: function () { A.explicarIphone(); } }));
+      botoes.push(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Agora não', onclick: function () { UI.guardarLocal('ligeiro:avisos-depois:' + slug, Date.now() + 7 * 864e5); desenharCabecaPedidos(); } }));
+      return el('div', { class: 'cartao cartao-avisos' }, [
+        el('div', { class: 'avisos-linha' }, [
+          el('span', { class: 'avisos-ico', 'aria-hidden': 'true', html: A.icone() }),
+          el('div', { class: 'avisos-texto' }, [el('b', { text: 'Receba os pedidos com a tela apagada' }), el('span', { text: texto })]),
+        ]),
+        el('div', { class: 'linha-botoes avisos-botoes' }, botoes),
+      ]);
+    }
+    function ligarAvisos(botao) {
+      var A = window.LigeiroAvisos;
+      var texto = botao.textContent;
+      botao.disabled = true; botao.textContent = 'Ligando…';
+      A.ligarAparelho(slug, 'painel').then(function (j) {
+        UI.soar('sucesso');
+        UI.avisar(j && j.simulado ? 'Avisos ligados (na demonstração é simulado).' : 'Avisos ligados! Chegou um aviso de teste neste celular.');
+      }, function (e) {
+        botao.disabled = false; botao.textContent = texto;
+        if (e && e.motivo === 'instalar') { A.explicarIphone(); return; }
+        UI.avisar((e && e.message) || 'Não deu para ligar os avisos agora.');
+      }).then(function () {
+        if (estado.aba === 'pedidos') desenharCabecaPedidos();
+        if (estado.aba === 'links') desenharLinks();
+      });
+    }
+    /* o pedido andou: o celular do cliente (se ele quis), o entregador e a cozinha ficam sabendo. Nada no banco */
+    function avisarQueAndou(p, status) {
+      if (!window.LigeiroAvisos) return;
+      window.LigeiroAvisos.pedidoAndou(slug, p, status).then(function (recebeu) { if (recebeu) UI.avisar('Cliente avisado no celular.'); });
+    }
+    /* o WhatsApp do pedido ja mandado neste aparelho (por status), para o botao mostrar "Avisado" */
+    function zapMandados() { return UI.lerLocal('ligeiro:zap-mandados') || {}; }
+    function marcarZap(id, status) {
+      var m = zapMandados();
+      m[id] = status;
+      var ids = Object.keys(m);
+      if (ids.length > 300) ids.slice(0, ids.length - 300).forEach(function (k) { delete m[k]; });
+      UI.guardarLocal('ligeiro:zap-mandados', m);
     }
 
     /* ---------------------------------------------------------- assinatura */
@@ -601,7 +662,7 @@
         selos.push(el('span', { class: 'selo laranja', text: 'Dinheiro' }));
         if (p.trocoPara > 0) extras.push(el('span', { class: 'selo laranja', text: 'Troco de ' + dinheiro(p.trocoPara - p.total) }));
       }
-      selos.push(el('span', { class: 'selo cinza', text: entrega ? '🛵 Entrega' : (p.origem === 'balcao' ? '🧾 Balcão' : '🛍️ Retirada') }));
+      selos.push(UI.seloTipo(p));
       if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
       if (p.pagoAposCancelar) extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
 
@@ -638,13 +699,31 @@
         el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
       ]));
 
+      /* cliente que ligou o aviso no celular: recebe sozinho. Os outros: um toque manda a mensagem certa do status no WhatsApp */
+      var avisoSozinho = !!(p.aviso && (p.aviso.e || p.aviso.demo));
+      if (avisoSozinho && p.status !== R.STATUS.FINALIZADO) {
+        card.appendChild(el('div', { class: 'cliente-avisado' }, [
+          el('span', { class: 'cliente-avisado-ico', 'aria-hidden': 'true', html: window.LigeiroAvisos ? window.LigeiroAvisos.icone() : '' }),
+          el('span', { text: 'Cliente recebe os avisos no celular' }),
+        ]));
+      } else if (!avisoSozinho && p.cliente.telefone) {
+        var mandado = zapMandados()[p.id] === p.status;
+        var rotuloZap = function (feito) { return [el('span', { class: 'zap-status-texto' }, [feito ? 'Avisado: ' : 'Avisar: ', el('b', { text: R.rotuloAvisoWhats(p) })]), el('span', { class: 'zap-status-fim', 'aria-hidden': 'true', text: feito ? '✓' : '›' })]; };
+        var zap = el('a', { class: 'zap-status' + (mandado ? ' feito' : ''), href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', onclick: function () {
+          marcarZap(p.id, p.status);
+          setTimeout(function () { zap.classList.add('feito'); UI.limpar(zap); zap.appendChild(UI.icone('zap')); rotuloZap(true).forEach(function (n) { zap.appendChild(n); }); }, 400);
+        } }, [UI.icone('zap')].concat(rotuloZap(mandado)));
+        card.appendChild(zap);
+      }
+
       var acoes = el('div', { class: 'acoes acoes-pedido' });
       var proximo = R.proximoStatus(p);
       if (proximo) {
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
       }
-      if (p.cliente.telefone) {
-        acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno btn-so-icone', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', title: 'Avisar o cliente no WhatsApp', 'aria-label': 'Avisar o cliente no WhatsApp' }, [UI.icone('zap')]));
+      /* conversa com quem ja recebe os avisos sozinho (duvida, troco, endereco) */
+      if (avisoSozinho && p.cliente.telefone) {
+        acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno btn-so-icone', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', title: 'Falar com o cliente no WhatsApp', 'aria-label': 'Falar com o cliente no WhatsApp' }, [UI.icone('zap')]));
       }
       acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '🖨️', title: 'Imprimir', onclick: function () { imprimir(p); } }));
       if (p.status !== R.STATUS.FINALIZADO && p.status !== R.STATUS.CANCELADO) {
@@ -659,13 +738,13 @@
       if (!proximo) return;
       var mudancas = { status: proximo };
       if (proximo === R.STATUS.PAGO) { mudancas.pagamentoStatus = 'pago'; mudancas.pagoEm = new Date().toISOString(); }
-      store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); }).catch(function (e) { UI.avisar(e.message); });
+      store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); }).catch(function (e) { UI.avisar(e.message); });
     }
 
     function cancelar(p) {
       UI.perguntar('Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.', { sim: 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
         if (!sim) return;
-        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () { UI.avisar('Pedido cancelado.'); });
+        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () { UI.avisar('Pedido cancelado.'); avisarQueAndou(p, R.STATUS.CANCELADO); });
       });
     }
 
@@ -1924,6 +2003,39 @@
     }
 
     /* ---------------------------------------------------------- links */
+    /* Avisos com a tela apagada neste aparelho: ligar, testar e desligar (cozinha e entregador ligam na tela deles) */
+    function blocoDosAvisos() {
+      var A = window.LigeiroAvisos;
+      if (!A) return null;
+      var sit = A.situacao();
+      var ligado = A.aparelhoLigado(slug, 'painel');
+      var texto = ligado ? 'Ligados neste aparelho: pedido novo e Pix pago apitam aqui mesmo com a tela apagada.'
+        : sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá.'
+        : sit === 'pronto' ? 'Desligados neste aparelho. Ligue para receber pedido novo com a tela apagada.'
+        : A.motivo(sit);
+      var botoes = [];
+      if (ligado) {
+        botoes.push(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Testar', onclick: function (e) {
+          var b = e.currentTarget; b.disabled = true;
+          A.testarAparelho(slug, 'painel').then(function (j) { UI.avisar(j && j.simulado ? 'Na demonstração, o teste é simulado.' : 'Aviso de teste enviado. Chegou?'); }, function (err) { UI.avisar((err && err.message) || 'Não deu para testar agora.'); }).then(function () { b.disabled = false; });
+        } }));
+        botoes.push(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desligar', onclick: function () {
+          A.desligarAparelho(slug, 'painel').then(function () { UI.avisar('Avisos desligados neste aparelho.'); desenharLinks(); });
+        } }));
+      } else if (sit === 'pronto') {
+        botoes.push(el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ligar avisos', onclick: function (e) { ligarAvisos(e.currentTarget); } }));
+      } else if (sit === 'instalar') {
+        botoes.push(el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ver como', onclick: function () { A.explicarIphone(); } }));
+      }
+      return el('div', { class: 'bloco-form senha-equipe bloco-avisos' }, [
+        el('div', { class: 'senha-equipe-texto' }, [
+          el('div', { class: 'bloco-titulo', text: '📲 Avisos com a tela apagada' }),
+          el('p', { class: 'muted pequeno', text: texto + ' Cozinha e entregador ligam na tela deles, no botão Tela apagada.' }),
+        ]),
+        botoes.length ? el('div', { class: 'bloco-avisos-botoes' }, botoes) : null,
+      ]);
+    }
+
     /* Aba "Minha loja": as telas da equipe (cozinha e entregador) e o material pra divulgar. */
     function desenharLinks() {
       var s = $('secaoPainel');
@@ -1964,6 +2076,8 @@
         ]),
         el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));
+      var blocoAvisos = blocoDosAvisos();
+      if (blocoAvisos) s.appendChild(blocoAvisos);
 
       /* 2. divulgar */
       var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + ' — é rápido, você paga no Pix e acompanha pela senha.';

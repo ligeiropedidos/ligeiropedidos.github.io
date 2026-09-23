@@ -3,7 +3,7 @@
  * do Cloudflare sao de mentira, e cada leitura e gravacao no banco e contada.
  * Rodar: node testes/worker.test.mjs
  */
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, createECDH, hkdfSync, createDecipheriv, randomBytes, webcrypto } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
@@ -41,7 +41,10 @@ const resposta = (obj, status) => new Response(typeof obj === 'string' ? obj : J
 
 /* ---------- Mercado Pago e usuarios de mentira ---------- */
 const ordens = new Map();
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com' };
+const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiro.app.br' };
+/* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
+const avisos = [];
+const codigoAviso = {};
 
 globalThis.fetch = async (url, op) => {
   const o = op || {};
@@ -53,6 +56,10 @@ globalThis.fetch = async (url, op) => {
     const corpo = JSON.parse(o.body || '{}');
     const email = usuarios[corpo.idToken];
     return resposta(email ? { users: [{ email, emailVerified: true }] } : {}, email ? 200 : 400);
+  }
+  if (url.indexOf('https://fcm.googleapis.com/') === 0 || url.indexOf('https://web.push.apple.com/') === 0) {
+    avisos.push({ url, headers: o.headers || {}, corpo: new Uint8Array(o.body) });
+    return new Response('', { status: codigoAviso[url] || 201 });
   }
   if (url.indexOf('https://api.mercadopago.com') === 0) {
     conta.mp += 1;
@@ -76,6 +83,8 @@ globalThis.fetch = async (url, op) => {
     const partes = caminho.split('/');
     if (metodo === 'PATCH') {
       conta.gravacoes += 1;
+      /* "so se existe": o Firestore responde 404 e nao cria nada */
+      if ((busca || '').indexOf('currentDocument.exists=true') >= 0 && !db.has(caminho)) return resposta({ error: { code: 404, status: 'NOT_FOUND' } }, 404);
       const campos = JSON.parse(o.body).fields;
       const atual = db.get(caminho) || {};
       Object.keys(campos).forEach((k) => { atual[k] = deFs(campos[k]); });
@@ -285,6 +294,151 @@ ok(db.get('lojas/dom-conizza/pedidos/' + PED2).status === 'aguardando_pagamento'
 /* site antigo (sem mp/expira) continua funcionando */
 r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PED2);
 ok((await r.json()).status === 'aguardando_pagamento', 'site antigo ainda pergunta do jeito velho');
+
+console.log('Avisos no celular');
+/* um celular de mentira: chaves de verdade, do mesmo jeito que o navegador cria */
+function aparelho(endpoint) {
+  const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
+  const auth = randomBytes(16);
+  const b64 = (b) => Buffer.from(b).toString('base64url');
+  return { ecdh, auth, inscricao: { endpoint, keys: { p256dh: b64(ecdh.getPublicKey()), auth: b64(auth) } } };
+}
+/* abre o aviso como o celular abre (RFC 8291 feito aqui de novo, sem o codigo do worker) */
+function abrirAviso(av, cel) {
+  const buf = Buffer.from(av.corpo);
+  const sal = buf.subarray(0, 16), idlen = buf[20], chaveServidor = buf.subarray(21, 21 + idlen), cifrado = buf.subarray(21 + idlen);
+  const hk = (salt, ikm, info, n) => Buffer.from(hkdfSync('sha256', ikm, salt, info, n));
+  const ikm = hk(cel.auth, cel.ecdh.computeSecret(chaveServidor), Buffer.concat([Buffer.from('WebPush: info\0'), cel.ecdh.getPublicKey(), chaveServidor]), 32);
+  const d = createDecipheriv('aes-128-gcm', hk(sal, ikm, Buffer.from('Content-Encoding: aes128gcm\0'), 16), hk(sal, ikm, Buffer.from('Content-Encoding: nonce\0'), 12));
+  d.setAuthTag(cifrado.subarray(cifrado.length - 16));
+  const claro = Buffer.concat([d.update(cifrado.subarray(0, cifrado.length - 16)), d.final()]);
+  if (claro[claro.length - 1] !== 2) throw new Error('sem o delimitador do ultimo pedaco');
+  return JSON.parse(claro.subarray(0, claro.length - 1).toString('utf8'));
+}
+/* confere a assinatura do Ligeiro (VAPID) como o Google confere */
+async function assinaturaOk(av, chavePublica) {
+  const m = /^vapid t=([^,]+), k=(.+)$/.exec(av.headers.Authorization || '');
+  if (!m || m[2] !== chavePublica) return false;
+  const [cab, corpo, ass] = m[1].split('.');
+  const claims = JSON.parse(Buffer.from(corpo, 'base64url').toString());
+  if (claims.aud !== new URL(av.url).origin || !(claims.exp > Date.now() / 1000) || claims.sub.indexOf('mailto:') !== 0) return false;
+  const chave = await webcrypto.subtle.importKey('raw', Buffer.from(m[2], 'base64url'), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  return webcrypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, chave, Buffer.from(ass, 'base64url'), Buffer.from(cab + '.' + corpo));
+}
+const doPainel = aparelho('https://fcm.googleapis.com/fcm/send/painel-1');
+const daCozinha = aparelho('https://web.push.apple.com/cozinha-1');
+const doEntregador = aparelho('https://fcm.googleapis.com/fcm/send/entregas-1');
+const doCliente = aparelho('https://fcm.googleapis.com/fcm/send/cliente-1');
+const bearer = (t) => ({ Authorization: 'Bearer ' + t });
+
+w = await workerNovo();
+zerar();
+r = await chamar(w, '/vapid'); j = await r.json();
+const VAPID = j.chave;
+ok(r.status === 200 && /^[A-Za-z0-9_-]{87}$/.test(VAPID) && kv.gravacoes === 1, 'chave dos avisos nasce sozinha no KV (1 gravacao, nenhum segredo para criar)');
+w = await workerNovo();
+zerar();
+r = await chamar(w, '/vapid'); j = await r.json();
+ok(j.chave === VAPID && kv.gravacoes === 0, 'outro worker usa a mesma chave, sem gravar de novo');
+
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao } });
+ok(r.status === 401, 'ligar avisos sem login: recusado');
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('tok-outro') });
+ok(r.status === 403, 'ligar avisos de loja que nao e sua: recusado');
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: { endpoint: 'https://site-do-mal.com/x', keys: doPainel.inscricao.keys } }, headers: bearer('tok-dono') });
+ok(r.status === 400, 'endereco que nao e servico de aviso: recusado (o worker nunca manda nada para site qualquer)');
+zerar(); avisos.length = 0;
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('tok-dono') }); j = await r.json();
+ok(r.status === 200 && j.ok && j.teste === 201, 'dono liga os avisos do painel e o teste chega');
+ok(conta.leituras === 0 && conta.gravacoes === 0 && kv.gravacoes === 1, 'ligar aparelho: 0 leituras e 0 gravacoes no banco (1 gravacao no KV)');
+ok(avisos.length === 1 && abrirAviso(avisos[0], doPainel).titulo === 'Avisos ligados', 'o celular consegue abrir o aviso de teste');
+ok(await assinaturaOk(avisos[0], VAPID), 'aviso assinado com a chave do Ligeiro (o Google aceita)');
+zerar();
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('tok-dono') });
+ok(r.status === 200 && kv.gravacoes === 0, 'abrir o painel de novo no mesmo aparelho: nao grava nada');
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'cozinha', inscricao: daCozinha.inscricao }, headers: bearer('tok-equipe') });
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doEntregador.inscricao }, headers: bearer('tok-equipe') });
+ok(r.status === 200 && JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).length === 3, 'a equipe (senha da loja) liga a cozinha e o entregador');
+
+const NOVO = 'novonovonovo01234567';
+db.set('lojas/dom-conizza/pedidos/' + NOVO, { status: 'pago', formaPagamento: 'dinheiro_entrega', pagamentoStatus: 'na_entrega', total: 3500, senha: 21, tipoEntrega: 'entrega', cliente: { nome: 'Bia Souza' }, endereco: { bairro: 'Centro' } });
+w = await workerNovo();
+zerar(); avisos.length = 0;
+const RESUMO_NOVO = { senha: 21, total: 3500, tipoEntrega: 'entrega' };
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, resumo: RESUMO_NOVO } }); j = await r.json();
+ok(j.enviados === 2 && avisos.length === 2, 'pedido novo: o painel e a cozinha recebem (o entregador nao)');
+const vPainel = abrirAviso(avisos.filter((a) => a.url === doPainel.inscricao.endpoint)[0], doPainel);
+const vCozinha = abrirAviso(avisos.filter((a) => a.url === daCozinha.inscricao.endpoint)[0], daCozinha);
+ok(vPainel.titulo === 'Pedido novo! Senha 21' && vPainel.texto === 'R$ 35,00 · Entrega · Toque para abrir' && vPainel.fixo === true, 'o aviso diz a senha, o valor e se e entrega');
+ok(vPainel.url === '#/painel/dom-conizza' && vCozinha.url === '#/cozinha/dom-conizza', 'tocar no aviso abre a tela certa de cada aparelho');
+ok(conta.leituras === 0 && conta.gravacoes === 0, 'pedido novo avisado: 0 leituras e 0 gravacoes no banco');
+zerar(); avisos.length = 0;
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, resumo: RESUMO_NOVO } });
+ok(avisos.length === 0, 'o mesmo pedido avisado de novo: a loja apita uma vez so');
+zerar();
+db.set('lojas/poucas/pedidos/' + NOVO, { status: 'pago', total: 100, senha: 1, cliente: { nome: 'Caio' } });
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'poucas', pedido: NOVO, resumo: RESUMO_NOVO } }); j = await r.json();
+ok(j.enviados === 0 && conta.leituras === 0, 'loja sem aviso ligado: nada a fazer, nenhuma leitura');
+zerar(); avisos.length = 0;
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'pixpixpixpix01234567', resumo: { senha: 'xingamento', total: 2000 } } });
+ok(r.status === 400 && avisos.length === 0, 'resumo com texto no lugar da senha: recusado (o aviso so leva numeros)');
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'inventado', resumo: RESUMO_NOVO } });
+ok(r.status === 400, 'pedido com id inventado: recusado');
+let devagar = false;
+for (let i = 0; i < 22; i++) { r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'poucas', pedido: 'rajada' + String(i).padStart(14, '0'), resumo: RESUMO_NOVO } }); if ((await r.json()).devagar) devagar = true; }
+ok(devagar, 'rajada de pedidos inventados: no maximo 20 apitos por minuto por loja');
+
+zerar();
+r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, cidade: 'juquia', inscricao: doCliente.inscricao } });
+const comAviso = db.get('lojas/dom-conizza/pedidos/' + NOVO);
+ok(r.status === 200 && comAviso.aviso && comAviso.aviso.u === '#/juquia/dom-conizza/pedido/', 'cliente liga o aviso: fica guardado no proprio pedido');
+ok(conta.leituras === 0 && conta.gravacoes === 1, 'cliente ligar o aviso: 0 leituras e 1 gravacao no banco');
+zerar();
+r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'naoexistenaoexiste12', cidade: 'juquia', inscricao: doCliente.inscricao } });
+ok(r.status === 404 && !db.has('lojas/dom-conizza/pedidos/naoexistenaoexiste12'), 'pedido que nao existe: recusado, sem criar pedido fantasma');
+
+zerar(); avisos.length = 0;
+const resumo = { senha: 21, total: 3500, tipoEntrega: 'entrega', nome: 'Bia', bairro: 'Centro' };
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('tok-equipe') }); j = await r.json();
+ok(j.cliente === 201 && j.equipe === 1, 'saiu para entrega: avisa o cliente e o entregador');
+const vCliente = abrirAviso(avisos.filter((a) => a.url === doCliente.inscricao.endpoint)[0], doCliente);
+ok(vCliente.titulo === 'Dom Conizza' && vCliente.texto === 'Seu pedido saiu para entrega! Já está a caminho. Senha 21.' && vCliente.url === '#/juquia/dom-conizza/pedido/' + NOVO, 'o cliente le o nome da loja, o que aconteceu e abre o pedido dele');
+ok(avisos.filter((a) => a.url === doCliente.inscricao.endpoint)[0].headers.Topic === 'p' + NOVO, 'celular desligado recebe so o ultimo aviso do pedido');
+const vEntrega = abrirAviso(avisos.filter((a) => a.url === doEntregador.inscricao.endpoint)[0], doEntregador);
+ok(vEntrega.titulo === 'Entrega pronta! Senha 21' && vEntrega.texto.indexOf('Centro') === 0 && vEntrega.url === '#/entrega/dom-conizza', 'o entregador sabe a senha e o bairro');
+ok(conta.leituras === 0 && conta.gravacoes === 0, 'pedido andou e avisou: 0 leituras e 0 gravacoes no banco');
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso } });
+ok(r.status === 401, 'avisar o cliente sem login: recusado');
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('tok-outro') });
+ok(r.status === 403, 'outra loja nao manda aviso para o cliente desta');
+avisos.length = 0;
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'finalizado', resumo, aviso: comAviso.aviso }, headers: bearer('tok-dono') });
+ok(avisos.length === 0, 'entregue: nao incomoda o cliente com mais um aviso');
+avisos.length = 0;
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pago', resumo: { senha: 23, total: 1000, tipoEntrega: 'retirada', nome: 'Edu' } }, headers: bearer('tok-dono') });
+ok(avisos.length === 1 && abrirAviso(avisos[0], daCozinha).titulo === 'Pix pago! Senha 23', 'Pix conferido a mao no painel: a cozinha fica sabendo');
+
+/* Pix que cai pelo Mercado Pago: loja e cliente avisados sozinhos */
+const PIXA = 'pixavisopixaviso0123';
+db.set('lojas/dom-conizza/pedidos/' + PIXA, { status: 'aguardando_pagamento', formaPagamento: 'pix', total: 4000, senha: 24, tipoEntrega: 'retirada', cliente: { nome: 'Fabi Lima' }, aviso: { e: doCliente.inscricao.endpoint, k: doCliente.inscricao.keys.p256dh, a: doCliente.inscricao.keys.auth, u: '#/juquia/dom-conizza/pedido/' } });
+ordens.set('ORD777', { id: 'ORD777', status: 'processed', external_reference: 'dom-conizza__' + PIXA, total_amount: '40.00' });
+zerar(); avisos.length = 0;
+r = await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD777', external_reference: 'dom-conizza__' + PIXA } }, headers: { Origin: '' } });
+const abertos = avisos.map((a) => a.url === doPainel.inscricao.endpoint ? abrirAviso(a, doPainel) : a.url === daCozinha.inscricao.endpoint ? abrirAviso(a, daCozinha) : a.url === doCliente.inscricao.endpoint ? abrirAviso(a, doCliente) : { titulo: 'entregador?' });
+ok(db.get('lojas/dom-conizza/pedidos/' + PIXA).status === 'pago' && avisos.length === 3, 'Pix caiu: painel, cozinha e cliente avisados (o entregador nao)');
+ok(abertos.filter((t) => t.titulo === 'Pix pago! Senha 24').length === 2 && abertos.some((t) => t.texto === 'Pagamento confirmado! Seu pedido entrou na fila. Senha 24.' && t.url === '#/juquia/dom-conizza/pedido/' + PIXA), 'a loja le "Pix pago" e o cliente "Pagamento confirmado" (e abre o pedido dele)');
+console.log('    (webhook com aviso: ' + conta.leituras + ' leituras, ' + conta.gravacoes + ' gravacoes)');
+ok(conta.leituras === 2 && conta.gravacoes === 1, 'o aviso do Pix nao gasta nada a mais no banco (worker recem-ligado: token da loja + pedido, 1 gravacao, igual sem aviso)');
+avisos.length = 0;
+await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD777', external_reference: 'dom-conizza__' + PIXA } }, headers: { Origin: '' } });
+ok(avisos.length === 0, 'o Mercado Pago avisando duas vezes: a loja apita uma vez so');
+
+/* aparelho que desinstalou: sai da lista sozinho */
+codigoAviso[daCozinha.inscricao.endpoint] = 410;
+db.set('lojas/dom-conizza/pedidos/outronovooutronovo01', { status: 'pago', total: 1500, senha: 25, cliente: { nome: 'Gil' } });
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'outronovooutronovo01', resumo: { senha: 25, total: 1500 } } });
+ok(JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).every((a) => a.e !== daCozinha.inscricao.endpoint), 'aparelho que saiu (410) e tirado da lista');
+delete codigoAviso[daCozinha.inscricao.endpoint];
 
 console.log('Banco no limite do dia');
 w = await workerNovo();

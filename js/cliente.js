@@ -1239,7 +1239,45 @@
       if (estado.carrinho.length === 0) return UI.avisar('Escolha pelo menos um item.');
       preencherDadosSalvos();
       atualizarFormasDePagamento();
+      prepararAvisoCel();
       irPara('tela-dados');
+    });
+
+    /* "Me avise no celular": o aviso vai dentro do proprio pedido (a mesma gravacao, nada a mais no banco).
+       So aparece onde funciona (Android; iPhone so com o site na tela de inicio). Quem ligou uma vez, vem ligado. */
+    function pintarAvisoCel(ligado) {
+      var chave = $('chaveAvisoCel');
+      chave.classList.toggle('on', ligado);
+      chave.setAttribute('aria-pressed', ligado ? 'true' : 'false');
+    }
+    function prepararAvisoCel() {
+      var A = window.LigeiroAvisos;
+      var bloco = $('blocoAvisoCel');
+      if (!A || balcao) { bloco.hidden = true; estado.avisoCel = null; return; }
+      /* o mensageiro ainda nao confirmou os avisos: confere uma vez e volta aqui */
+      if (A.situacao() === 'sem' && !estado.avisosConferidos) { estado.avisosConferidos = true; A.preparar().then(function (sit) { if (sit !== 'sem' && vivo) prepararAvisoCel(); }); }
+      if (!A.podeCliente()) { bloco.hidden = true; estado.avisoCel = null; return; }
+      if (!$('icoAvisoCel').firstChild) $('icoAvisoCel').innerHTML = A.icone();
+      bloco.hidden = false;
+      if (estado.avisoCel) { pintarAvisoCel(true); return; }
+      pintarAvisoCel(false);
+      if (!A.clienteQuer()) return;
+      pintarAvisoCel(true);
+      A.avisoDoPedido(estado.loja.cidadeSlug, estado.loja.slug, false).then(function (aviso) { estado.avisoCel = aviso; }, function () { estado.avisoCel = null; pintarAvisoCel(false); });
+    }
+    $('blocoAvisoCel').addEventListener('click', function () {
+      var A = window.LigeiroAvisos;
+      if (!A || estado.ligandoAvisoCel) return;
+      if (estado.avisoCel) { estado.avisoCel = null; A.clienteNaoQuer(); pintarAvisoCel(false); return; }
+      estado.ligandoAvisoCel = true;
+      pintarAvisoCel(true);
+      A.avisoDoPedido(estado.loja.cidadeSlug, estado.loja.slug, true).then(function (aviso) {
+        estado.avisoCel = aviso;
+        UI.soar('toque');
+      }, function (e) {
+        pintarAvisoCel(false);
+        UI.avisar((e && e.message) || 'Não deu para ligar os avisos neste celular.');
+      }).then(function () { estado.ligandoAvisoCel = false; });
     });
 
     /* ---------- dados e pagamento ---------- */
@@ -1443,10 +1481,13 @@
         abrirPausa(pedido);
         return;
       }
+      if (estado.avisoCel && !balcao) pedido.aviso = estado.avisoCel;
       estado.enviandoPedido = true;
       store.criarPedido(estado.loja.slug, pedido).then(function (gravado) {
         estado.enviandoPedido = false;
         estado.pedido = gravado;
+        /* pedido ja na fila (pago ou para cobrar na entrega): o painel e a cozinha apitam, mesmo com a tela apagada */
+        if (window.LigeiroAvisos) window.LigeiroAvisos.pedidoNovo(estado.loja.slug, gravado);
         salvarDadosDoCliente();
         if (!balcao) guardarMeuPedido(estado.loja.slug, gravado);
         estado.ultimoCarrinho = estado.carrinho; /* se desistir do Pix, os itens voltam */
@@ -1732,6 +1773,7 @@
 
       var voltarPix = $('btnVoltarPix');
       voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora);
+      desenharAvisoCelPedido(pedido, balcao || deFora);
 
       irPara('tela-senha');
       if (pedido.status !== R.STATUS.CANCELADO) { UI.vibrar(); UI.soar('sucesso'); }
@@ -1745,6 +1787,41 @@
     }
 
     $('btnVoltarPix').addEventListener('click', function () { if (estado.pedido) mostrarPagamento(estado.pedido); });
+
+    /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
+    function desenharAvisoCelPedido(pedido, esconder) {
+      var A = window.LigeiroAvisos;
+      var caixa = $('avisoCelPedido');
+      UI.limpar(caixa);
+      var acabou = pedido.status === R.STATUS.FINALIZADO || pedido.status === R.STATUS.CANCELADO;
+      var ligado = !!(pedido.aviso && (pedido.aviso.e || pedido.aviso.demo));
+      if (A && !ligado && !esconder && !acabou && A.situacao() === 'sem' && !estado.avisosConferidos) {
+        estado.avisosConferidos = true;
+        A.preparar().then(function (sit) { if (sit !== 'sem' && vivo && estado.pedido && estado.pedido.id === pedido.id) desenharAvisoCelPedido(pedido, esconder); });
+      }
+      if (!A || esconder || acabou || (!ligado && !A.podeCliente())) { caixa.hidden = true; return; }
+      caixa.hidden = false;
+      caixa.classList.toggle('ligado', ligado);
+      caixa.appendChild(el('span', { class: 'aviso-cel-ico', 'aria-hidden': 'true', html: A.icone() }));
+      if (ligado) {
+        caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto', text: 'Vamos te avisar neste celular quando o pedido andar.' }));
+        return;
+      }
+      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer saber quando sair?' }), el('span', { text: 'Avisamos no celular, mesmo com a tela apagada.' })]));
+      var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Avisar', onclick: function () {
+        btn.disabled = true;
+        A.ligarNoPedido(estado.loja.cidadeSlug, estado.loja.slug, pedido.id).then(function (aviso) {
+          UI.soar('toque');
+          pedido.aviso = aviso;
+          if (estado.pedido && estado.pedido.id === pedido.id) estado.pedido.aviso = aviso;
+          desenharAvisoCelPedido(pedido, false);
+        }, function (e) {
+          btn.disabled = false;
+          UI.avisar((e && e.message) || 'Não deu para ligar os avisos neste celular.');
+        });
+      } });
+      caixa.appendChild(btn);
+    }
 
     function montarLinhaDoTempo(pedido) {
       var entrega = pedido.tipoEntrega === 'entrega';
@@ -2014,6 +2091,7 @@
           '<div class="bloco-form"><div class="bloco-titulo"><span class="bloco-numero">4</span> Algum recado? <span class="bloco-opcional">opcional</span></div>' +
             '<div class="campo"><textarea id="campoObs" placeholder="Ex: sem cebola em tudo, tocar a campainha…" maxlength="300"></textarea></div>' +
           '</div>' +
+          '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small>Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
           (balcao ? '' : '<p class="nota">🔒 Guardamos seus dados neste aparelho para o próximo pedido ser mais rápido.</p>') +
           '<div class="msg-erro" id="erroDados" hidden></div>' +
         '</form>' +
@@ -2047,6 +2125,7 @@
         '<div class="painel-senha"><div class="rotulo">Sua senha</div><div class="senha-gigante" id="senhaNumero">—</div><div class="instrucao" id="senhaInstrucao"></div></div>' +
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
+        '<div class="aviso-cel-pedido" id="avisoCelPedido" hidden></div>' +
         '<button class="btn btn-fantasma btn-largo" id="btnVoltarPix" style="max-width:420px" hidden>Ver o código Pix de novo</button>' +
         '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener"><span class="icone-zap" aria-hidden="true"></span>Falar com a loja</a>' +
         '<button class="btn btn-fantasma btn-largo" id="btnNovoPedido" style="max-width:420px">' + (balcao ? 'Próximo cliente' : 'Fazer outro pedido') + '</button>' +

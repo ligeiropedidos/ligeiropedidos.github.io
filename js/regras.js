@@ -669,23 +669,41 @@
     return partes.join(' · ');
   }
 
-  /* Mensagem que a LOJA manda para o cliente (botao "Avisar cliente"). */
+  /* Mensagem que a LOJA manda para o cliente (botao do WhatsApp do pedido): muda com o status. */
   function mensagemParaCliente(loja, pedido) {
-    var primeiro = String(pedido.cliente.nome || '').split(' ')[0];
+    var primeiro = String((pedido.cliente && pedido.cliente.nome) || '').split(' ')[0];
     var entrega = pedido.tipoEntrega === 'entrega';
+    var oi = 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. ';
+    var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. Recebemos seu pedido (senha ' + pedido.senha +
-          '). Assim que o Pix de ' + dinheiro(pedido.total) + ' cair, ele entra na fila.';
+        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o Pix de ' + dinheiro(pedido.total) + ' cair, ele entra na fila.';
       case STATUS.PAGO:
+        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + ') e ele já está na fila. ' +
+          (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : 'Fica pronto em cerca de ' + tempo + ' minutos.');
       case STATUS.PRODUCAO:
-        return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. Seu pedido (senha ' + pedido.senha +
-          ') já está sendo preparado. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
+        return oi + 'Seu pedido (senha ' + pedido.senha + ') já está sendo preparado. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
       case STATUS.PRONTO:
-        return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. Seu pedido (senha ' + pedido.senha + ') ' +
-          (entrega ? 'saiu para entrega!' : 'está pronto para retirar!');
+        return oi + 'Seu pedido (senha ' + pedido.senha + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
+      case STATUS.FINALIZADO:
+        return oi + 'Obrigado pelo pedido! Bom apetite. Qualquer coisa, é só chamar aqui.';
+      case STATUS.CANCELADO:
+        return oi + 'Seu pedido (senha ' + pedido.senha + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
       default:
-        return 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + ', sobre o seu pedido de senha ' + pedido.senha + '.';
+        return oi + 'É sobre o seu pedido de senha ' + pedido.senha + '.';
+    }
+  }
+  /* O que o botao do WhatsApp do pedido manda agora (curto: cabe no botao do celular). */
+  function rotuloAvisoWhats(pedido) {
+    var entrega = pedido.tipoEntrega === 'entrega';
+    switch (pedido.status) {
+      case STATUS.AGUARDANDO: return 'Lembrar do Pix';
+      case STATUS.PAGO: return 'Pedido recebido';
+      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
+      case STATUS.FINALIZADO: return 'Agradecer';
+      case STATUS.CANCELADO: return 'Pedido cancelado';
+      default: return 'Falar com o cliente';
     }
   }
 
@@ -1225,6 +1243,7 @@
     rotuloProximoPasso: rotuloProximoPasso,
     proximoStatus: proximoStatus,
     mensagemParaCliente: mensagemParaCliente,
+    rotuloAvisoWhats: rotuloAvisoWhats,
     mensagemDoCliente: mensagemDoCliente,
     fichaDoPedido: fichaDoPedido,
     enderecoEmLinha: enderecoEmLinha,
