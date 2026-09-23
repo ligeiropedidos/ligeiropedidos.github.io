@@ -674,7 +674,8 @@
     return fetch(base + caminho, fresco ? { cache: 'no-store' } : {}).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (j && j.borda === 1) return { status: r.status, dados: j };
-        if (r.status === 404 || r.status === 501) { try { sessionStorage.setItem(CHAVE_BORDA_FORA, '1'); } catch (_) { /* segue */ } }
+        /* respondeu, mas nao e a borda (mensageiro antigo responde "ok" a tudo, ou sem o KV): esta visita vai pro Firestore */
+        try { sessionStorage.setItem(CHAVE_BORDA_FORA, '1'); } catch (_) { /* segue */ }
         throw erroBorda();
       });
     }, function () { throw erroBorda(); });
