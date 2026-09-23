@@ -254,21 +254,6 @@
       pintarSom();
       var contador = el('span', { class: 'selo', text: '' });
       raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [contador], [btnSom, botaoAvisos(slug, 'cozinha'), botaoPainel(slug)]));
-      /* depois do PRONTO: cliente sem aviso no celular recebe pelo WhatsApp da loja (um toque) */
-      var barraZap = el('div', { class: 'barra-zap', hidden: true, role: 'status' });
-      raiz.appendChild(barraZap);
-      var tempoBarra = null;
-      function oferecerZap(p) {
-        if (!p.cliente || !p.cliente.telefone || (p.aviso && (p.aviso.e || p.aviso.demo))) return;
-        var pronto = Object.assign({}, p, { status: R.STATUS.PRONTO });
-        UI.limpar(barraZap);
-        barraZap.appendChild(el('span', { class: 'barra-zap-texto' }, ['Senha ', el('b', { text: String(p.senha) }), p.tipoEntrega === 'entrega' ? ' saiu da cozinha' : ' está pronta']));
-        barraZap.appendChild(el('a', { class: 'btn btn-whats btn-pequeno', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(estado.loja, pronto)), target: '_blank', rel: 'noopener', onclick: function () { barraZap.hidden = true; } }, [UI.icone('zap'), 'Avisar o cliente']));
-        barraZap.appendChild(el('button', { class: 'barra-zap-fechar', type: 'button', 'aria-label': 'Fechar', text: '✕', onclick: function () { barraZap.hidden = true; } }));
-        barraZap.hidden = false;
-        clearTimeout(tempoBarra);
-        tempoBarra = setTimeout(function () { barraZap.hidden = true; }, 15000);
-      }
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
 
@@ -307,7 +292,6 @@
             store.atualizarPedido(slug, p.id, { status: proximo }).then(function () {
               UI.soar('toque');
               avisarQueAndou(slug, p, proximo);
-              if (proximo === R.STATUS.PRONTO) oferecerZap(p);
             }).catch(function (e) { UI.avisar(e.message); });
           } }));
         }
@@ -346,7 +330,6 @@
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
         estado.parar = [];
         clearInterval(estado.relogio);
-        clearTimeout(tempoBarra);
         document.body.classList.remove('cozinha-modo');
       }
       return pararCozinha;

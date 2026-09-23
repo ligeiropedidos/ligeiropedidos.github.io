@@ -268,6 +268,29 @@ test('mensagens de WhatsApp e link', () => {
   assert.equal(R.linkWhatsapp('', 'oi'), '');
 });
 
+test('WhatsApp do pedido: a mensagem e o botao mudam com o status', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria Silva', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'dinheiro_entrega', endereco: { rua: 'Rua A', numero: '10', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }] });
+  p.senha = 12;
+  const com = (status, tipo) => Object.assign({}, p, { status, tipoEntrega: tipo || 'entrega' });
+  assert.match(R.mensagemParaCliente(loja, com('pago')), /Recebemos seu pedido \(senha 12\) e ele já está na fila\. Chega em cerca de \d+ minutos\./);
+  assert.match(R.mensagemParaCliente(loja, com('producao')), /já está sendo preparado\. Logo sai para entrega\./);
+  assert.match(R.mensagemParaCliente(loja, com('pronto')), /saiu para entrega! Já está a caminho\./);
+  assert.match(R.mensagemParaCliente(loja, com('pronto', 'retirada')), /está pronto! Pode vir buscar\./);
+  assert.match(R.mensagemParaCliente(loja, com('finalizado')), /Obrigado pelo pedido!/);
+  assert.match(R.mensagemParaCliente(loja, com('cancelado')), /foi cancelado/);
+  assert.equal(R.rotuloAvisoWhats(com('pago')), 'Pedido recebido');
+  assert.equal(R.rotuloAvisoWhats(com('pronto')), 'Saiu para entrega');
+  assert.equal(R.rotuloAvisoWhats(com('pronto', 'retirada')), 'Pronto para retirar');
+  assert.equal(R.rotuloAvisoWhats(com('aguardando_pagamento')), 'Lembrar do Pix');
+  /* nenhuma mensagem da loja sai com "pra" nem com travessao */
+  ['aguardando_pagamento', 'pago', 'producao', 'pronto', 'finalizado', 'cancelado'].forEach((s) => {
+    const m = R.mensagemParaCliente(loja, com(s));
+    assert.doesNotMatch(m, /\bpra\b|—/);
+    assert.match(m, /^Oi, Maria! Aqui é da /);
+  });
+});
+
 test('resumo de vendas ignora cancelados e aguardando', () => {
   const agora = new Date(2026, 8, 13, 21, 0);
   const iso = (d) => new Date(2026, 8, d, 19, 0).toISOString();

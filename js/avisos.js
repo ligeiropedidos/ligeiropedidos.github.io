@@ -32,6 +32,7 @@
   var MOTIVOS = {
     instalar: 'No iPhone, os avisos só funcionam com o Ligeiro na tela de início.',
     bloqueado: 'Os avisos estão bloqueados neste navegador. Libere em Configurações do site, Notificações.',
+    fechou: 'Sem a sua permissão não dá para avisar. Toque de novo e escolha Permitir.',
     sem: 'Este navegador não recebe avisos. Use o Chrome no Android ou o Ligeiro na tela de início do iPhone.',
   };
   function erro(motivo) { var e = new Error(MOTIVOS[motivo] || MOTIVOS.sem); e.motivo = motivo; return e; }
@@ -97,14 +98,17 @@
     return demo() || (temPush() && Notification.permission === 'granted');
   }
   function enviarAparelho(slug, papel, testar, nova) {
-    return inscricao(nova).then(function (sub) {
-      return token().then(function (t) { return postar('/aparelho', { loja: slug, papel: papel, inscricao: simples(sub), testar: !!testar }, t); });
+    var sub = null;
+    return inscricao(nova).then(function (s) {
+      sub = s;
+      return token().then(function (t) { return postar('/aparelho', { loja: slug, papel: papel, inscricao: simples(s), testar: !!testar }, t); });
     }).then(function (j) {
       /* a chave do Ligeiro mudou (o servico recusou o teste): inscreve de novo, uma vez */
       if (j.ok && testar && j.teste === 403 && !nova) return enviarAparelho(slug, papel, testar, true);
       if (!j.ok) throw new Error(j.erro || 'Não deu para ligar os avisos agora. Tente de novo.');
       guardar(chaveAparelho(slug, papel), '1');
       guardar(chaveAparelho(slug, papel) + ':em', String(Date.now()));
+      guardar(chaveAparelho(slug, papel) + ':fim', sub.endpoint);
       return j;
     });
   }
@@ -114,7 +118,7 @@
     var s = situacao();
     if (s !== 'pronto') return Promise.reject(erro(s));
     return pedirPermissao().then(function (sim) {
-      if (!sim) throw erro('bloqueado');
+      if (!sim) throw erro(Notification.permission === 'denied' ? 'bloqueado' : 'fechou');
       return enviarAparelho(slug, papel, true, false);
     });
   }
@@ -130,12 +134,16 @@
       return token().then(function (t) { return postar('/aparelho', { loja: slug, remover: sub.endpoint }, t); });
     }).catch(function () { /* sem internet: o aparelho sai da lista sozinho no primeiro aviso que falhar */ });
   }
-  /* ao abrir a tela: confere se continua inscrito (no maximo a cada 12 h; sem teste e sem gravar se nada mudou) */
+  /* ao abrir a tela: confere se continua inscrito. Na hora se o navegador trocou o endereco do aviso;
+     senao, no maximo a cada 12 h (sem teste e sem gravar nada no Cloudflare se nada mudou) */
   function conferirAparelho(slug, papel) {
     if (demo() || !aparelhoLigado(slug, papel) || situacao() !== 'pronto') return;
     var em = Number(ler(chaveAparelho(slug, papel) + ':em')) || 0;
-    if (Date.now() - em < 12 * 3600 * 1000) return;
-    enviarAparelho(slug, papel, false, false).catch(function () { /* tenta de novo na proxima vez */ });
+    var fim = ler(chaveAparelho(slug, papel) + ':fim') || '';
+    navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (atual) {
+      if (atual && atual.endpoint === fim && Date.now() - em < 12 * 3600 * 1000) return null;
+      return enviarAparelho(slug, papel, false, false);
+    }).catch(function () { /* tenta de novo na proxima vez */ });
   }
 
   /* ================= cliente ================= */
@@ -150,7 +158,7 @@
     if (demo()) { guardar(CHAVE_CLIENTE, '1'); return Promise.resolve({ demo: true }); }
     if (!podeCliente()) return Promise.reject(erro(situacao()));
     return (pedir ? pedirPermissao() : Promise.resolve(Notification.permission === 'granted')).then(function (sim) {
-      if (!sim) throw erro('bloqueado');
+      if (!sim) throw erro(Notification.permission === 'denied' ? 'bloqueado' : 'fechou');
       return inscricao(false);
     }).then(function (s) {
       guardar(CHAVE_CLIENTE, '1');

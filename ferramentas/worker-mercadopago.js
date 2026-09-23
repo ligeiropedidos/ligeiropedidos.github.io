@@ -716,8 +716,8 @@ async function aparelhosDaLoja(env, slug) {
   const g = await lerKv(env, 'aparelhos:' + slug, 'text');
   try { const l = g && g.value ? JSON.parse(g.value) : []; return Array.isArray(l) ? l : []; } catch (_) { return []; }
 }
-/* no maximo 15 aparelhos por loja (os mais novos ficam) */
-function gravarAparelhos(env, slug, lista) { return gravarKv(env, 'aparelhos:' + slug, JSON.stringify(lista.slice(-15)), { em: Date.now() }); }
+/* no maximo 8 aparelhos por loja (os mais novos ficam): cada aviso cifrado gasta um pouco dos 10 ms do plano gratis */
+function gravarAparelhos(env, slug, lista) { return gravarKv(env, 'aparelhos:' + slug, JSON.stringify(lista.slice(-8)), { em: Date.now() }); }
 
 /* quem chamou (login do Firebase), guardado 20 min: o painel nao confere o login a cada pedido que anda */
 async function quemChamou(env, request) {

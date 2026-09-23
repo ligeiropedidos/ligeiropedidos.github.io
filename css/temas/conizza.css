@@ -256,3 +256,21 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 
 /* ID da loja no tema: fundo creme da casa (o verde-claro e do Ligeiro) */
 .tema-conizza .id-loja-valor { background: var(--cz-creme); color: var(--cz-tinta); border-radius: 14px; }
+
+/* ---------- avisos com a tela apagada e WhatsApp do pedido, nas cores da casa ---------- */
+.tema-conizza .avisos-ico, .tema-conizza .aviso-cel-ico { background: var(--cz-ouro-claro); color: var(--cz-tinta); }
+.tema-conizza .avisos-texto b, .tema-conizza .aviso-cel-pedido-texto b { font-family: var(--cz-display); color: var(--cz-tinta); }
+.tema-conizza .cliente-avisado { background: var(--cz-verde-claro); color: var(--cz-verde); border: 3px solid var(--cz-verde); border-radius: 14px; font-weight: 800; }
+/* o botao do WhatsApp do pedido: branco com borda grossa, como os outros botoes do cartao */
+.tema-conizza .zap-status { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 14px; color: var(--cz-tinta); font-weight: 700; box-shadow: 0 3px 0 var(--cz-tinta); }
+.tema-conizza .zap-status:hover { background: var(--cz-creme); }
+.tema-conizza .zap-status .icone-zap { color: #1FAF55; }
+.tema-conizza .zap-status.feito { border-style: dashed; box-shadow: none; background: transparent; color: var(--cz-tinta-suave); }
+.tema-conizza .zap-status.feito .icone-zap { color: var(--cz-tinta-suave); }
+/* cliente: tela da senha e fechamento */
+.tema-conizza .aviso-cel-pedido { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; }
+.tema-conizza .aviso-cel-pedido.ligado { background: var(--cz-verde-claro); border-color: var(--cz-verde); }
+.tema-conizza .aviso-cel-pedido.ligado .aviso-cel-ico { background: var(--cz-branco); color: var(--cz-verde); }
+.tema-conizza .aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--cz-verde); font-weight: 800; }
+.tema-conizza .passo-iphone { background: var(--cz-creme); border: 3px solid var(--cz-creme-borda); }
+.tema-conizza .passo-iphone-n { background: var(--cz-vermelho); color: var(--cz-creme); }
