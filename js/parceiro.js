@@ -270,7 +270,8 @@
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
-        el('div', { class: 'kicker', text: 'Sistema de pedidos para delivery de cidade pequena' }),
+        /* nome de marca nunca parte no meio ("Anota" numa linha e "AI" na outra) */
+        el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
         el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,5%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
@@ -411,6 +412,7 @@
         duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
         duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI é um robô que atende no WhatsApp e custa de R$ 99,99 a R$ 399,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô: o cliente pede sozinho pelo link e o Pix é confirmado pelo Mercado Pago. Cardápio, painel, cozinha e entregador em qualquer plano.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
         duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
@@ -761,23 +763,24 @@
   /* Comparativo com os concorrentes. Valores publicos conferidos em setembro de 2026 (sites e blogs do setor). */
   function tabelaConcorrentes(pr) {
     var linhas = [
-      ['Ligeiro', dinheiro(pr.mensal) + ' fixo', 'Nenhuma', true],
+      /* os dois concorrentes de verdade logo abaixo do Ligeiro; a comissao do iFood e a mesma da calculadora e do titulo */
+      ['Ligeiro', reais(pr.mensal) + ' fixo', 'Nenhuma', true],
+      ['iFood', 'R$ 110 a R$ 150', '15,2% a 26,5% de cada venda'],
       ['Anota AI', 'R$ 99,99 a R$ 399,99', 'Nenhuma'],
       ['Goomer', 'R$ 99,90 a R$ 299,90', 'Nenhuma'],
       ['Cardápio Web', 'R$ 169,99 a R$ 269,99', 'Nenhuma'],
       ['Delivery Direto', 'R$ 129 a R$ 289', 'Nenhuma'],
-      ['iFood', 'R$ 110 a R$ 150', '15% a 27% de cada venda'],
       ['aiqfome', 'Sem mensalidade', '12% a 18% de cada venda + taxa do pagamento'],
     ];
     return el('div', { class: 'comparativo' }, [
-      el('div', { class: 'kicker', text: 'Quanto os outros cobram' }),
+      el('div', { class: 'kicker', text: 'Quanto cobram o iFood, o Anota AI e os outros' }),
       el('div', { class: 'rolagem' }, el('table', { class: 'tabela tabela-concorrentes' }, [
         el('thead', {}, el('tr', {}, [el('th', { text: 'Sistema' }), el('th', { text: 'Por mês' }), el('th', { text: 'Comissão' })])),
         el('tbody', {}, linhas.map(function (l) {
           return el('tr', { class: l[3] ? 'destaque' : '' }, [el('td', {}, el('b', { text: l[0] })), el('td', { text: l[1] }), el('td', { text: l[2] })]);
         })),
       ])),
-      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + dinheiro(pr.mensal) + ' e não sobe com os pedidos.' }),
+      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos.' }),
     ]);
   }
 
