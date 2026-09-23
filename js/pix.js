@@ -168,11 +168,24 @@
     };
   }
 
-  /* Desenha o QR num elemento, se a biblioteca de QR estiver carregada. */
-  function desenharQr(elemento, codigo, tamanho) {
-    if (!elemento) return false;
-    var lib = (typeof window !== 'undefined') ? window.qrcode : null;
-    if (!lib) return false;
+  /* A biblioteca de QR (57 KB) so baixa quando algum QR vai aparecer: quem so olha o cardapio nao baixa.
+     O fechamento do pedido ja chama carregarQr(), para a tela do Pix abrir com o QR pronto. */
+  var carregandoQr = null;
+  function carregarQr() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.reject(new Error('sem navegador'));
+    if (window.qrcode) return Promise.resolve(window.qrcode);
+    if (carregandoQr) return carregandoQr;
+    var tag = ((((document.querySelector('script[src*="js/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+    carregandoQr = new Promise(function (ok, nao) {
+      var s = document.createElement('script');
+      s.src = 'vendor/qrcode.js?v=' + tag;
+      s.onload = function () { if (window.qrcode) ok(window.qrcode); else { carregandoQr = null; nao(new Error('QR')); } };
+      s.onerror = function () { carregandoQr = null; nao(new Error('QR')); };
+      document.head.appendChild(s);
+    });
+    return carregandoQr;
+  }
+  function desenharAgora(elemento, codigo, tamanho, lib) {
     try {
       var qr = lib(0, 'M');
       qr.addData(codigo);
@@ -187,6 +200,15 @@
       return false;
     }
   }
+  /* Desenha o QR num elemento. Sem a biblioteca ainda: busca e desenha quando chegar (some se nao der). */
+  function desenharQr(elemento, codigo, tamanho) {
+    if (!elemento) return false;
+    var lib = (typeof window !== 'undefined') ? window.qrcode : null;
+    if (lib) return desenharAgora(elemento, codigo, tamanho, lib);
+    if (typeof document === 'undefined') return false;
+    carregarQr().then(function (l) { if (!desenharAgora(elemento, codigo, tamanho, l)) elemento.hidden = true; }, function () { elemento.hidden = true; });
+    return true;
+  }
 
   return {
     crc16: crc16,
@@ -197,5 +219,6 @@
     gerar: gerar,
     ler: ler,
     desenharQr: desenharQr,
+    carregarQr: carregarQr,
   };
 });

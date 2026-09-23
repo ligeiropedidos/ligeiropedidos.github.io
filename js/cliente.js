@@ -1251,6 +1251,8 @@
       preencherDadosSalvos();
       atualizarFormasDePagamento();
       prepararAvisoCel();
+      /* o QR do Pix (57 KB) baixa agora, enquanto a pessoa preenche os dados: a tela do Pix abre com ele pronto */
+      if (Pix.carregarQr && !balcao) Pix.carregarQr().catch(function () { /* o Copiar codigo continua valendo */ });
       irPara('tela-dados');
     });
 
