@@ -686,7 +686,9 @@
       case STATUS.PRONTO:
         return oi + 'Seu pedido (senha ' + pedido.senha + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
       case STATUS.FINALIZADO:
-        return oi + 'Obrigado pelo pedido! Bom apetite. Qualquer coisa, é só chamar aqui.';
+        /* com o link do Google: o agradecimento ja pede a avaliacao (e o que faz a loja subir no Maps) */
+        var avaliar = linkGoogleAvaliar(loja.googleUrl);
+        return oi + 'Obrigado pelo pedido! Bom apetite.' + (avaliar ? ' Se gostou, deixe sua avaliação no Google, ajuda muito a gente: ' + avaliar : ' Qualquer coisa, é só chamar aqui.');
       case STATUS.CANCELADO:
         return oi + 'Seu pedido (senha ' + pedido.senha + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
       default:
@@ -974,6 +976,13 @@
     return 'https://' + host + (m[2] || '/');
   }
 
+  /* O link "Pedir avaliacoes" do Perfil da Empresa (g.page/r/<id>/review) abre direto a tela de avaliar.
+     O selo da loja ("Avaliacoes no Google") mostra o perfil (sem o /review); o convite depois da entrega leva ao /review.
+     Link do Maps (Compartilhar) vale para os dois: abre a loja no Google, onde tem o botao Avaliar. */
+  var G_PAGE = /^(https:\/\/g\.page\/r\/[^\/?#]+)(?:\/review)?\/?(?=[?#]|$)/i;
+  function linkGooglePerfil(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] : l; }
+  function linkGoogleAvaliar(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] + '/review' : l; }
+
   /* CNPJ: devolve os 14 numeros se for valido (confere os dois digitos verificadores), senao ''. */
   function cnpjValido(texto) {
     var n = String(texto || '').replace(/\D/g, '');
@@ -1214,6 +1223,8 @@
     planoQueVale: planoQueVale,
     cnpjValido: cnpjValido,
     linkGoogle: linkGoogle,
+    linkGooglePerfil: linkGooglePerfil,
+    linkGoogleAvaliar: linkGoogleAvaliar,
     formatarCnpj: formatarCnpj,
     pixVencido: pixVencido,
     catalogo: catalogo,

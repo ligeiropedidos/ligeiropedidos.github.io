@@ -2000,6 +2000,14 @@ button.plano-card { cursor: pointer; }
 /* cliente, no fechamento: "Me avise no celular" */
 .aviso-cel { cursor: pointer; border-radius: var(--raio); padding: 12px 16px; } /* mesmos cantos e margem dos blocos do formulario */
 .aviso-cel-ico { width: 40px; height: 40px; padding: 9px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
+/* cliente, depois da entrega: convite para avaliar no Google */
+.avaliar-google { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 16px 16px; border-radius: var(--raio); background: var(--card); border: 1px solid var(--line); text-align: center; }
+.avaliar-google[hidden] { display: none; }
+.avaliar-estrelas { display: flex; gap: 4px; color: #F5B301; }
+.avaliar-estrelas svg { width: 26px; height: 26px; fill: currentColor; }
+.avaliar-titulo { font-family: var(--display); font-size: 20px; line-height: 1.2; color: var(--ink); }
+.avaliar-texto { margin: 0 0 8px; font-size: 15px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
+.avaliar-depois { border: 0; background: none; padding: 8px 12px; font: inherit; font-size: 14.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
 /* cliente, na tela da senha */
 .aviso-cel-pedido { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); text-align: left; }
 .aviso-cel-pedido[hidden] { display: none; }

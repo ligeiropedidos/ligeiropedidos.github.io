@@ -722,7 +722,7 @@
       $('textoAberto').textContent = aberta ? 'Aberto agora' : 'Fechado no momento';
       /* avaliacoes no Google: so link do Google (conferido de novo aqui, o banco aceita qualquer texto); no balcao nao,
          la o cliente ja esta dentro da loja e nao pode sair da tela de pedir */
-      var google = R.linkGoogle(l.googleUrl);
+      var google = R.linkGooglePerfil(l.googleUrl);
       var seloG = $('seloGoogle');
       seloG.hidden = balcao || !google;
       if (google) seloG.href = google; else seloG.removeAttribute('href');
@@ -1774,6 +1774,7 @@
       var voltarPix = $('btnVoltarPix');
       voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora);
       desenharAvisoCelPedido(pedido, balcao || deFora);
+      desenharAvaliarGoogle(pedido, balcao || deFora);
 
       irPara('tela-senha');
       if (pedido.status !== R.STATUS.CANCELADO) { UI.vibrar(); UI.soar('sucesso'); }
@@ -1787,6 +1788,32 @@
     }
 
     $('btnVoltarPix').addEventListener('click', function () { if (estado.pedido) mostrarPagamento(estado.pedido); });
+
+    /* Depois da entrega: convite para avaliar a loja no Google (e o que faz a loja subir no Google Maps).
+       Uma vez por loja: quem ja tocou em Avaliar nao e convidado de novo; "Agora nao" some por 30 dias. */
+    var ESTRELAS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.2l-5.9 3.2 1.3-6.5-4.9-4.5 6.6-.8z"/></svg>';
+    function desenharAvaliarGoogle(pedido, esconder) {
+      var caixa = $('avaliarGoogle');
+      UI.limpar(caixa);
+      var link = R.linkGoogleAvaliar(estado.loja && estado.loja.googleUrl);
+      var chave = 'ligeiro:avaliar:' + estado.loja.slug;
+      var marca = UI.lerLocal(chave);
+      var jaAvaliou = marca === 'avaliou';
+      var adiado = typeof marca === 'number' && marca > Date.now();
+      if (esconder || !link || pedido.status !== R.STATUS.FINALIZADO || jaAvaliou || adiado) { caixa.hidden = true; return; }
+      caixa.hidden = false;
+      caixa.appendChild(el('div', { class: 'avaliar-estrelas', 'aria-hidden': 'true', html: ESTRELAS + ESTRELAS + ESTRELAS + ESTRELAS + ESTRELAS }));
+      caixa.appendChild(el('b', { class: 'avaliar-titulo', text: 'Gostou do pedido?' }));
+      caixa.appendChild(el('p', { class: 'avaliar-texto', text: 'Uma avaliação no Google ajuda muito a ' + estado.loja.nome + ' e leva só um minuto.' }));
+      caixa.appendChild(el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener noreferrer', onclick: function () {
+        UI.guardarLocal(chave, 'avaliou');
+        setTimeout(function () { UI.limpar(caixa); caixa.appendChild(el('b', { class: 'avaliar-titulo', text: 'Obrigado!' })); caixa.appendChild(el('p', { class: 'avaliar-texto', text: 'A ' + estado.loja.nome + ' agradece a sua avaliação.' })); }, 400);
+      } }, 'Avaliar no Google'));
+      caixa.appendChild(el('button', { class: 'avaliar-depois', type: 'button', text: 'Agora não', onclick: function () {
+        UI.guardarLocal(chave, Date.now() + 30 * 864e5);
+        caixa.hidden = true;
+      } }));
+    }
 
     /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
     function desenharAvisoCelPedido(pedido, esconder) {
@@ -1859,6 +1886,9 @@
         if ($('tela-senha').classList.contains('ativa')) {
           $('senhaInstrucao').textContent = R.textoDoEstagio(novo, estado.loja);
           montarLinhaDoTempo(novo);
+          var deFora = estado.pedidoDeFora === novo.id;
+          desenharAvisoCelPedido(novo, balcao || deFora);
+          desenharAvaliarGoogle(novo, balcao || deFora);
           if (novo.status === R.STATUS.PAGO) $('confirmado').textContent = '✅ Pagamento confirmado';
           if (novo.status === R.STATUS.CANCELADO) $('confirmado').textContent = '✕ Pedido cancelado';
           $('btnVoltarPix').hidden = true;
@@ -2125,6 +2155,7 @@
         '<div class="painel-senha"><div class="rotulo">Sua senha</div><div class="senha-gigante" id="senhaNumero">—</div><div class="instrucao" id="senhaInstrucao"></div></div>' +
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
+        '<div class="avaliar-google" id="avaliarGoogle" hidden></div>' +
         '<div class="aviso-cel-pedido" id="avisoCelPedido" hidden></div>' +
         '<button class="btn btn-fantasma btn-largo" id="btnVoltarPix" style="max-width:420px" hidden>Ver o código Pix de novo</button>' +
         '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener"><span class="icone-zap" aria-hidden="true"></span>Falar com a loja</a>' +

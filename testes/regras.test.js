@@ -291,6 +291,19 @@ test('WhatsApp do pedido: a mensagem e o botao mudam com o status', () => {
   });
 });
 
+test('Google: o selo mostra o perfil e o convite abre a tela de avaliar', () => {
+  assert.equal(R.linkGooglePerfil('https://g.page/r/CabcDEF123/review'), 'https://g.page/r/CabcDEF123');
+  assert.equal(R.linkGoogleAvaliar('g.page/r/CabcDEF123'), 'https://g.page/r/CabcDEF123/review');
+  assert.equal(R.linkGoogleAvaliar('https://maps.app.goo.gl/xyz'), 'https://maps.app.goo.gl/xyz');
+  assert.equal(R.linkGooglePerfil('https://maps.app.goo.gl/xyz'), 'https://maps.app.goo.gl/xyz');
+  assert.equal(R.linkGoogleAvaliar('https://outro.site/g.page/r/x/review'), '');
+  const loja = Object.assign(lojaDeTeste(), { googleUrl: 'https://g.page/r/Cab123/review' });
+  const p = R.montarPedido(loja, { nome: 'Ana', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'dinheiro_entrega', endereco: { rua: 'Rua A', numero: '1', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }] });
+  p.senha = 3; p.status = 'finalizado';
+  assert.match(R.mensagemParaCliente(loja, p), /deixe sua avaliação no Google, ajuda muito a gente: https:\/\/g\.page\/r\/Cab123\/review$/);
+  assert.match(R.mensagemParaCliente(lojaDeTeste(), p), /Qualquer coisa, é só chamar aqui\.$/);
+});
+
 test('resumo de vendas ignora cancelados e aguardando', () => {
   const agora = new Date(2026, 8, 13, 21, 0);
   const iso = (d) => new Date(2026, 8, d, 19, 0).toISOString();

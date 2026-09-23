@@ -221,6 +221,27 @@ Chrome com o parâmetro `--kiosk-printing` (atalho: botão direito › Proprieda
 › Destino, acrescente no fim) e deixe a impressora térmica como padrão do
 Windows. A ficha usa 72 mm de largura.
 
+## Avisos com a tela apagada (Web Push, grátis)
+
+O celular apita como mensagem de aplicativo, mesmo com a tela apagada e o site fechado.
+Quem manda é o mensageiro (`ferramentas/worker-mercadopago.js`), pelo serviço de avisos do
+Google e da Apple (grátis). **O banco não gasta nada**: os aparelhos da loja ficam no KV
+(`aparelhos:{slug}`, no máximo 8) e o aviso do cliente vai no campo `aviso` do próprio pedido.
+
+- **Loja:** cartão "Receba os pedidos com a tela apagada" no painel (e Testar/Desligar em
+  Minha loja); botão "Tela apagada" na cozinha e no entregador. Pedido novo e Pix pago apitam
+  no painel e na cozinha; "saiu para entrega" apita no entregador.
+- **Cliente:** chave "Me avise no celular" no fechamento do pedido (vai junto com o pedido)
+  ou botão "Avisar" na tela da senha. Recebe "preparando", "saiu" ou "pronto" e "cancelado".
+- **WhatsApp:** o botão do pedido no painel muda com o status ("Avisar: Saiu para entrega")
+  e abre o WhatsApp da loja com a mensagem pronta; alguém aperta enviar. WhatsApp automático
+  ficou de fora: a Meta cobra cada mensagem desde 01/10/2026.
+- **iPhone:** só com o site na tela de início (regra da Apple); o site mostra os 3 passos.
+- A chave dos avisos (VAPID) nasce sozinha no KV (`sistema:vapid`). Enquanto o mensageiro no
+  ar não tiver a rota `/vapid`, nenhum botão de aviso aparece.
+- Rotas: `GET /vapid`, `POST /aparelho`, `/novo`, `/inscrever`, `/avisar`. Testes em
+  `testes/worker.test.mjs` (o aviso é aberto com uma implementação independente da RFC 8291).
+
 ## Pastas
 
 ```
@@ -536,7 +557,7 @@ leituras e dá pra colocar alerta de gasto.
 
 ## O que ainda não tem (de propósito)
 
-- Confirmação automática do Pix (Mercado Pago) — etapa seguinte, opcional.
-- Robô de WhatsApp, nota fiscal, integração com iFood, PDV completo.
+- Robô de WhatsApp (a Meta cobra cada mensagem; os robôs não oficiais fazem o número ser banido),
+  nota fiscal, integração com iFood, PDV completo.
 - Aplicativo nas lojas: o site já se instala na tela do celular pelo navegador;
   a Google Play vem depois da entrega do projeto.
