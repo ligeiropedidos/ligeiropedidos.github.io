@@ -269,6 +269,7 @@
         return el('button', { class: 'btn btn-pequeno', type: 'button', title: dica || null, onclick: onclick }, [UI.iconeTraco(icone), el('span', { text: texto })]);
       }
       estado.btnAtualizar = botaoTopo('atualizar', 'Atualizar', atualizar, 'Buscar tudo de novo no banco');
+      conferirBorda();
       raiz.appendChild(el('header', { class: 'painel-topo topo-app topo-ligeiro adm-topo' }, [
         el('img', { class: 'logo-mini', src: 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
         el('div', { class: 'nome', text: 'Central do Ligeiro' }),
@@ -400,6 +401,35 @@
       ]), rodape: [el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Cancelar', onclick: UI.fecharModal }), ok] });
       setTimeout(function () { campo.focus(); campo.select(); }, 80);
     }
+    /* Saude do sistema: quanto do banco gratis o dia ja usou (todos os pedidos de hoje contra os que cabem)
+       e se o cardapio esta vindo pelo Cloudflare. Passou de 70%: sobe o plano do banco (combinado) */
+    function quadroSistema() {
+      var cabe = Number(((window.LIGEIRO_CONFIG || {}).capacidade || {}).pedidosDia) || 2100;
+      var h = estado.hoje && estado.hoje.qtd != null && !estado.hoje.erro ? estado.hoje : null;
+      var n = h ? (h.todos != null ? h.todos : h.qtd) : null;
+      var pct = n == null ? 0 : Math.min(100, Math.round(n / cabe * 100));
+      var classe = pct >= 90 ? ' cheio' : (pct >= 70 ? ' perto' : '');
+      var situacao = n == null ? 'Somando os pedidos de hoje…' : (pct >= 70 ? 'Hora de subir o plano do banco' : pct + '% do que cabe no plano grátis');
+      var b = estado.borda;
+      var textoLuz = b === 'ok' ? 'funcionando' : (b === 'fora' ? 'fora do ar, o site está usando o Firebase' : (b === 'demo' ? 'não se aplica na demonstração' : 'conferindo…'));
+      return el('div', { class: 'adm-capacidade adm-sistema' + classe }, [
+        el('div', { class: 'adm-capacidade-texto' }, ['Pedidos hoje no banco: ', el('b', { text: n == null ? '…' : n.toLocaleString('pt-BR') + ' de ~' + cabe.toLocaleString('pt-BR') })]),
+        el('div', { class: 'adm-capacidade-barra', role: 'progressbar', 'aria-label': 'Uso do banco hoje', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct) }, el('i', { style: { width: pct + '%' } })),
+        el('div', { class: 'adm-capacidade-situacao', text: situacao }),
+        el('div', { class: 'adm-capacidade-nota', text: 'Todos os pedidos de hoje, de todas as lojas. Passando de 70% em algum dia, é hora de subir o plano do banco.' }),
+        el('div', { class: 'adm-capacidade-acoes' }, el('div', { class: 'adm-luz' + (b === 'ok' ? ' ok' : (b === 'fora' ? ' fora' : '')), role: 'status' }, [el('i', { 'aria-hidden': 'true' }), el('span', {}, ['Cardápio pelo Cloudflare: ', el('b', { text: textoLuz })])])),
+      ]);
+    }
+    /* uma conferida por abertura (e no Atualizar): a vitrine responde pela borda? */
+    function conferirBorda() {
+      var base = String(((window.LIGEIRO_CONFIG || {}).proxyMercadoPago) || '').replace(/\/$/, '');
+      if (D.modoDemo || !base || !window.fetch) { estado.borda = 'demo'; return; }
+      estado.borda = null;
+      fetch(base + '/vitrine', { cache: 'no-store' }).then(function (r) { return r.json(); })
+        .then(function (j) { estado.borda = j && j.borda === 1 ? 'ok' : 'fora'; }, function () { estado.borda = 'fora'; })
+        .then(function () { if (vivo && estado.aba === 'geral') pintar(); });
+    }
+
     function quadroCapacidade() {
       var cap = R.capacidadeLojas();
       var n = lojasNoSistema();
@@ -432,6 +462,7 @@
       if (b) b.disabled = true;
       estado.hoje = null;
       estado.pedidosLoja = {};
+      conferirBorda();
       desenhar().then(function (ok) {
         if (b) b.disabled = false;
         if (ok) { soltarTravasParadas(); UI.avisar('Dados atualizados às ' + horaBR(new Date()) + '.'); }
@@ -451,6 +482,7 @@
         var todos = [];
         listas.forEach(function (x) { todos = todos.concat(x || []); });
         estado.hoje = somarPedidos(todos, desde);
+        estado.hoje.todos = todos.length;
         if (estado.aba === 'geral') pintar();
       }).catch(function () {
         if (!vivo || vez !== estado.vezHoje) return;
@@ -567,11 +599,12 @@
       }
 
       s.appendChild(quadroCapacidade());
+      s.appendChild(quadroSistema());
 
       var itens = itensAtencao();
       s.appendChild(tituloComNumero('Precisa de atenção', itens.length));
       var caixa = el('div', { class: 'adm-lista adm-atencao' });
-      if (!itens.length) caixa.appendChild(el('div', { class: 'adm-tudo-ok' }, [el('span', { class: 'adm-ico', 'aria-hidden': 'true', text: '✓' }), el('span', { text: 'Tudo em dia.' })]));
+      if (!itens.length) caixa.appendChild(el('div', { class: 'adm-tudo-ok' }, [el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, UI.iconeTraco('check')), el('span', { text: 'Tudo em dia.' })]));
       var limite = estado.atencaoToda ? itens.length : 6;
       itens.slice(0, limite).forEach(function (it) { caixa.appendChild(linhaAtencao(it)); });
       if (itens.length > 6) {
@@ -584,27 +617,34 @@
     function itensAtencao() {
       var itens = [];
       var alvos = estado.contas.map(function (c) {
-        return { nome: c.email, plano: c.plano || {}, a: R.assinatura(c), temLoja: lojasDaConta(c.email).some(function (l) { return l.ativa !== false; }), abrir: function () { abrirConta(c.email); } };
+        var noAr = lojasDaConta(c.email).filter(function (l) { return l.ativa !== false; });
+        return { nome: c.email, loja: noAr[0] || null, plano: c.plano || {}, a: R.assinatura(c), temLoja: noAr.length > 0, abrir: function () { abrirConta(c.email); } };
       }).concat(estado.lojas.filter(function (l) { return l.ativa !== false && !l.donoEmail; }).map(function (l) {
-        return { nome: l.nome, plano: l.plano || {}, a: R.assinatura(l), temLoja: true, abrir: function () { abrirLoja(l.slug); } };
+        return { nome: l.nome, loja: l, plano: l.plano || {}, a: R.assinatura(l), temLoja: true, abrir: function () { abrirLoja(l.slug); } };
       }));
       alvos.forEach(function (x) {
         var p = x.plano, a = x.a;
         if (p.avisoPagamentoEm) {
-          itens.push({ ordem: 1, peso: new Date(p.avisoPagamentoEm).getTime() || 0, ico: '💸', tom: 'laranja', titulo: 'Avisou ' + din(p.avisoValor || 0), detalhe: x.nome + ' · ' + dataBR(p.avisoPagamentoEm), botao: 'Conferir', principal: true, acao: x.abrir });
+          itens.push({ ordem: 1, peso: new Date(p.avisoPagamentoEm).getTime() || 0, ico: 'dinheiro', tom: 'laranja', titulo: 'Avisou ' + din(p.avisoValor || 0), detalhe: x.nome + ' · ' + dataBR(p.avisoPagamentoEm), botao: 'Conferir', principal: true, acao: x.abrir });
           return;
         }
         if (!x.temLoja) return;
         if ((a.estado === 'vencida' || a.estado === 'bloqueada') && !a.gratis) {
-          itens.push({ ordem: 2, peso: a.dias, ico: '⚠️', tom: 'erro', titulo: a.estado === 'bloqueada' ? 'Bloqueada, sem receber pedidos' : 'Vencida, ainda no ar', detalhe: x.nome + ' · venceu ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
+          itens.push({ ordem: 2, peso: a.dias, ico: 'alerta', tom: 'erro', titulo: a.estado === 'bloqueada' ? 'Bloqueada, sem receber pedidos' : 'Vencida, ainda no ar', detalhe: x.nome + ' · venceu ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
         } else if (a.estado === 'vencendo') {
-          itens.push({ ordem: 3, peso: a.dias, ico: '⏳', tom: 'laranja', titulo: a.dias <= 0 ? 'Vence hoje' : (a.dias === 1 ? 'Vence amanhã' : 'Vence em ' + a.dias + ' dias'), detalhe: x.nome + ' · ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
+          itens.push({ ordem: 3, peso: a.dias, ico: 'ampulheta', tom: 'laranja', titulo: a.dias <= 0 ? 'Vence hoje' : (a.dias === 1 ? 'Vence amanhã' : 'Vence em ' + a.dias + ' dias'), detalhe: x.nome + ' · ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
+        } else if (a.estado === 'gratis' && a.dias <= 2) {
+          /* teste gratis acabando: 1 ou 2 dias antes e a hora de chamar (depois que acaba, a loja ja parou) */
+          var quando = a.dias <= 0 ? 'hoje' : (a.dias === 1 ? 'amanhã' : 'em ' + a.dias + ' dias');
+          var nomeLoja = x.loja ? x.loja.nome : x.nome;
+          var zap = x.loja && x.loja.whatsapp ? R.linkWhatsapp(x.loja.whatsapp, 'Oi! Aqui é do Ligeiro. O teste grátis da ' + nomeLoja + ' acaba ' + quando + '. Quer que eu te ajude a continuar? Assim a loja não para de receber pedidos.') : '';
+          itens.push({ ordem: 3, peso: a.dias, ico: 'ampulheta', tom: 'laranja', titulo: 'Teste grátis acaba ' + quando, detalhe: nomeLoja + ' · ' + dataBR(a.limite), botao: 'Chamar', link: zap });
         } else if (a.estado === 'bloqueada' && a.gratis && a.dias >= -DIAS_ALERTA) {
-          itens.push({ ordem: 3, peso: 100 - a.dias, ico: '⌛', tom: 'laranja', titulo: 'Período grátis acabou', detalhe: x.nome + ' · ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
+          itens.push({ ordem: 3, peso: 100 - a.dias, ico: 'ampulheta', tom: 'laranja', titulo: 'Período grátis acabou', detalhe: x.nome + ' · ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
         }
       });
       estado.leads.filter(function (c) { return !c.atendidoEm; }).forEach(function (c) {
-        itens.push({ ordem: 4, peso: -(new Date(c.criadoEm).getTime() || 0), ico: '📞', tom: '', titulo: (c.nome || 'Sem nome') + (c.loja ? ', ' + c.loja : ''), detalhe: 'Deixou o contato em ' + dataBR(c.criadoEm) + (c.whatsapp ? ' · ' + R.formatarTelefone(c.whatsapp).replace(/ /g, '\u00A0').replace(/-/g, '\u2011') : ''), /* telefone nunca parte no meio */ botao: 'Chamar', link: R.linkWhatsapp(c.whatsapp, mensagemLead(c)) });
+        itens.push({ ordem: 4, peso: -(new Date(c.criadoEm).getTime() || 0), ico: 'telefone', tom: '', titulo: (c.nome || 'Sem nome') + (c.loja ? ', ' + c.loja : ''), detalhe: 'Deixou o contato em ' + dataBR(c.criadoEm) + (c.whatsapp ? ' · ' + R.formatarTelefone(c.whatsapp).replace(/ /g, '\u00A0').replace(/-/g, '\u2011') : ''), /* telefone nunca parte no meio */ botao: 'Chamar', link: R.linkWhatsapp(c.whatsapp, mensagemLead(c)) });
       });
       estado.lojas.forEach(function (l) {
         if (l.ativa === false || R.lojaBloqueada(l)) return;
@@ -612,7 +652,7 @@
         var semItem = R.produtosAtivos(l).length === 0;
         if (!semPix && !semItem) return;
         var cat = R.catalogo(l).nome;
-        itens.push({ ordem: 5, peso: 0, ico: '🔧', tom: '', titulo: semPix && semItem ? 'Sem Pix e ' + cat + ' vazio' : (semPix ? 'Sem Pix automático' : R.catalogo(l).Nome + ' sem itens'), detalhe: l.nome + ' · ' + cidadeUF(l), botao: 'Ver loja', acao: function () { abrirLoja(l.slug); } });
+        itens.push({ ordem: 5, peso: 0, ico: 'ferramenta', tom: '', titulo: semPix && semItem ? 'Sem Pix e ' + cat + ' vazio' : (semPix ? 'Sem Pix automático' : R.catalogo(l).Nome + ' sem itens'), detalhe: l.nome + ' · ' + cidadeUF(l), botao: 'Ver loja', acao: function () { abrirLoja(l.slug); } });
       });
       itens.sort(function (x, y) { return x.ordem - y.ordem || x.peso - y.peso; });
       return itens;
@@ -622,13 +662,13 @@
       var botao;
       if (it.link !== undefined) {
         botao = it.link
-          ? el('a', { class: 'btn btn-whats btn-pequeno', href: it.link, target: '_blank', rel: 'noopener', text: it.botao })
-          : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp', text: it.botao });
+          ? el('a', { class: 'btn btn-whats btn-pequeno', href: it.link, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), it.botao])
+          : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp' }, [UI.icone('zap'), it.botao]);
       } else {
         botao = el('button', { class: 'btn btn-pequeno ' + (it.principal ? 'btn-principal' : 'btn-fantasma'), type: 'button', text: it.botao, onclick: it.acao });
       }
       return el('div', { class: 'adm-atencao-linha' }, [
-        el('span', { class: 'adm-ico' + (it.tom ? ' ' + it.tom : ''), 'aria-hidden': 'true', text: it.ico }),
+        el('span', { class: 'adm-ico' + (it.tom ? ' ' + it.tom : ''), 'aria-hidden': 'true' }, UI.iconeTraco(it.ico)),
         el('div', { class: 'adm-atencao-texto' }, [el('b', { text: it.titulo }), el('span', { text: it.detalhe })]),
         botao,
       ]);
