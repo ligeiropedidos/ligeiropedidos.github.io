@@ -163,7 +163,7 @@
       var nome = estadoHub.nomeCidade || '';
       var varias = (estadoHub.cidades || []).length > 1;
       tituloCidade.appendChild(el('span', { text: estadoHub.lojas.length || varias ? 'Peça no delivery de' : 'Delivery de' }));
-      tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Escolher a cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta', text: '▾' })]));
+      tituloCidade.appendChild(el('button', { class: 'hub-cidade-seletor', type: 'button', 'aria-haspopup': 'dialog', 'aria-label': 'Escolher a cidade. Agora: ' + nome, onclick: abrirCidades }, [nome, el('span', { class: 'seta' }, [UI.iconeLinha('abrir')])]));
     }
     function abrirCidades() {
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, (estadoHub.cidades || []).map(function (c) {
@@ -275,13 +275,13 @@
           el('div', { class: 'ps-nome' }, [el('span', { text: l.nome }), UI.seloVerificada(l)]),
           el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' · ') }),
           el('div', { class: 'ps-status' }, [
-            el('span', { class: aberta ? 'aberta' : 'fechada', text: aberta ? '● Aberta agora' : (abreAs ? '● Abre às ' + abreAs : '● Fechada') }),
+            el('span', { class: aberta ? 'aberta' : 'fechada' }, [el('span', { class: 'bolinha', 'aria-hidden': 'true' }), aberta ? 'Aberta agora' : (abreAs ? 'Abre às ' + abreAs : 'Fechada')]),
             el('span', {}, [UI.iconeLinha('relogio'), tempo]),
             frete ? el('span', {}, [UI.iconeLinha('entrega'), frete.split(', ')[0]]) : null,
             frete && frete.split(', ')[1] ? el('span', { text: frete.split(', ')[1].replace(/^./, function (c) { return c.toUpperCase(); }) }) : null,
           ]),
         ]));
-        detalhe.appendChild(el('button', { class: 'btn btn-principal ps-abrir', type: 'button', text: aberta ? 'Abrir loja →' : 'Ver cardápio →', onclick: function () { ir(l.cidadeSlug + '/' + l.slug); } }));
+        detalhe.appendChild(el('button', { class: 'btn btn-principal ps-abrir', type: 'button', text: aberta ? 'Abrir loja →' : 'Ver a loja →', onclick: function () { ir(l.cidadeSlug + '/' + l.slug); } }));
       }
       function escolher(slugLoja, rolar) {
         estadoHub.sel = slugLoja;
@@ -389,11 +389,8 @@
     return Array.isArray(lista) ? lista : [];
   }
 
-  /* Loja oficial do Ligeiro (config.lojasOficiais): selo no hub e tema exclusivo no site */
-  function lojaOficial(slugLoja) {
-    var cfg = window.LIGEIRO_CONFIG || {};
-    return (cfg.lojasOficiais || {})[slugLoja] || null;
-  }
+  /* Loja oficial do Ligeiro (config.lojasOficiais): selo no hub e tema exclusivo no site (a mesma conta do UI) */
+  var lojaOficial = UI.lojaOficial;
 
   function guardarMeuPedido(lojaSlug, pedido) {
     var lista = lerMeusPedidos().filter(function (p) { return p.id !== pedido.id; });
@@ -562,14 +559,24 @@
       if (!balcao) UI.guardarLocal(CHAVE_CIDADE, dados.cidadeSlug);
       /* a cor da loja ja chegou: as bolinhas da tela de carregamento passam pra ela enquanto as fotos baixam */
       if (tirarSplash.pintar) tirarSplash.pintar(dados.cor || '#84CC16');
-      carregarFotos(dados).then(function () {
-        if (!vivo) return;
+      /* internet boa: a loja abre ja com as fotos. Fraca: espera no maximo 1,5 s e abre com os emojis; as fotos entram
+         quando chegarem (antes esperava todas, e no 3G o cliente desistia antes de ver o cardapio) */
+      var abriu = false;
+      var abrirLoja = function () {
+        if (abriu || !vivo) return;
+        abriu = true;
         aplicarLoja(dados);
         lojaViva.assistir(function (nova) {
           if (nova && vivo) carregarFotos(nova).then(function () { if (vivo) aplicarLoja(nova, true); });
         });
         if (o.pedidoId) abrirPedidoSalvo(o.pedidoId);
+      };
+      carregarFotos(dados).then(function (mudou) {
+        if (!vivo) return;
+        if (!abriu) abrirLoja();
+        else if (mudou && estado.loja) aplicarLoja(estado.loja, true);
       });
+      setTimeout(abrirLoja, 1500);
     });
 
     /* O pedido em andamento fica guardado neste aparelho: "voltar" do celular ou recarregar nao apaga o carrinho. */
@@ -596,11 +603,15 @@
     function carregarFotos(dados) {
       var versao = dados.fotosVersao || '';
       if (estado.fotosVersao === versao) return Promise.resolve(false);
-      return (store.fotosPublicas ? store.fotosPublicas(slug, versao, dados) : store.listarFotos(slug, versao, dados)).then(function (mapa) {
+      /* a mesma versao ja esta baixando (a loja chegou de novo pela escuta): espera a mesma, sem pedir outra vez */
+      if (estado.fotosBaixando && estado.fotosBaixando.versao === versao) return estado.fotosBaixando.promessa.then(function () { return false; });
+      var promessa = (store.fotosPublicas ? store.fotosPublicas(slug, versao, dados) : store.listarFotos(slug, versao, dados)).then(function (mapa) {
         estado.fotos = mapa || {};
         estado.fotosVersao = versao;
         return true;
       }).catch(function () { estado.fotosVersao = versao; return false; });
+      estado.fotosBaixando = { versao: versao, promessa: promessa };
+      return promessa;
     }
 
     function aplicarTemaOficial(oficial) {
@@ -647,6 +658,7 @@
     function montarInicio() {
       var l = estado.loja;
       document.title = l.nome + ' · Ligeiro';
+      if (!balcao && window.LigeiroApp && window.LigeiroApp.manifestDaLoja) window.LigeiroApp.manifestDaLoja((l.cidadeSlug || 'loja') + '/' + l.slug, l.nome);
       var logo = $('logoLoja');
       UI.limpar(logo);
       var srcLogo = (estado.oficial && estado.oficial.logo) || D.logoSrc(l);
@@ -663,19 +675,14 @@
             el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno para sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
           ]));
         }
-        /* so o que nao foi dito mais acima: a entrega (gratis, taxa, tempo) ja esta no botao de pedir, e a cidade
-           so entra se a linha embaixo do nome ainda nao falou dela */
+        /* so o que nao foi dito em outro lugar: a entrega (gratis, taxa, tempo) ja esta no botao de pedir, e a cidade
+           so entra se a linha embaixo do nome nao falou dela e se o endereco (logo abaixo, com a cidade) nao vai aparecer */
         var partes = [];
         if (pixDisponivel(l)) partes.push(['cadeado', 'Pix seguro pelo Mercado Pago']);
-        if (l.cidade && !R.mencionaCidade(textoTopo, l.cidade)) partes.push(['mapa', 'Somos de ' + l.cidade]);
+        if (l.cidade && !l.endereco && !R.mencionaCidade(textoTopo, l.cidade)) partes.push(['mapa', 'Somos de ' + l.cidade]);
         /* cada item inteiro numa linha: quebra entre itens, nunca no meio de um */
         if (partes.length) fim.appendChild(el('div', { class: 'confianca' }, partes.map(function (t) { return el('span', {}, [UI.iconeLinha(t[0]), t[1]]); })));
       }
-      /* selo de loja oficial do Ligeiro */
-      var selos = raiz.querySelector('.selos');
-      var seloOficial = selos && selos.querySelector('.selo-oficial');
-      /* na pagina da loja o selo aparece UMA vez so, colado no nome (decisao do Mateus: sem etiqueta escrita) */
-      if (seloOficial) seloOficial.remove();
       var capa = $('capaLoja');
       var srcCapa = l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null);
       UI.limpar(capa);
@@ -699,9 +706,11 @@
       seloG.hidden = balcao || !google;
       if (google) seloG.href = google; else seloG.removeAttribute('href');
 
+      /* recado da loja ("Hoje: feijoada"): a mesma peca dos avisos, icone e texto */
       var aviso = $('avisoTopo');
       aviso.hidden = !l.avisoTopo;
-      aviso.textContent = l.avisoTopo || '';
+      UI.limpar(aviso);
+      if (l.avisoTopo) { aviso.appendChild(UI.iconeLinha('sino')); aviso.appendChild(el('span', { text: l.avisoTopo })); }
 
       var botao = $('btnComecar');
       botao.disabled = !aberta;
@@ -712,15 +721,14 @@
         ? (balcao ? 'e pague aqui mesmo' : fraseEntrega(l))
         : (abreAs ? 'abre às ' + abreAs : 'volte mais tarde');
 
-      var formas = [];
-      if (pixDisponivel(l)) formas.push('Pix');
-      if (l.aceitaCartaoEntrega) formas.push('maquininha');
-      if (l.aceitaDinheiroEntrega) formas.push('dinheiro');
+      /* as tres etapas com duas linhas cada (antes "Pix, maquininha ou dinheiro" virava quatro linhas no meio):
+         maquininha ou dinheiro a pessoa escolhe no fechamento, onde as duas aparecem */
+      var temPix = pixDisponivel(l), aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
       var como = $('comoPagamento');
       UI.limpar(como);
-      como.appendChild(document.createTextNode(formas.length ? 'Pague com' : 'Pague'));
+      como.appendChild(document.createTextNode(temPix && aoReceber ? 'Pague no Pix' : 'Pague'));
       como.appendChild(el('br'));
-      como.appendChild(document.createTextNode(formas.length ? formas.slice(0, -1).join(', ') + (formas.length > 1 ? ' ou ' : '') + formas[formas.length - 1] : 'na loja'));
+      como.appendChild(document.createTextNode(temPix && aoReceber ? 'ou ao receber' : temPix ? 'no Pix' : aoReceber ? 'ao receber' : 'na loja'));
 
       /* destaques: os dois primeiros produtos ativos que nao sao bebida */
       var trilho = $('destaquesTrilho');
@@ -796,6 +804,8 @@
     /* ---------- fluxo: quantas telas ---------- */
 
     function configurarFluxo() {
+      /* sem recado (chave da loja): o "Algum recado?" do fechamento some junto com o do item */
+      if ($('blocoRecado')) $('blocoRecado').hidden = !!estado.loja && estado.loja.permitePersonalizar === false;
       var l = estado.loja;
       var modos = [];
       if (l.aceitaEntrega !== false) modos.push('entrega');
@@ -879,7 +889,7 @@
         if (primeira && primeira.dataset.categoria !== categoriaId) return montarGrade(primeira.dataset.categoria);
       }
       if (lista.length === 0) {
-        grade.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone', text: R.catalogo(estado.loja).vazio }), el('p', { text: R.catalogo(estado.loja).Nome + ' em atualização. Volte daqui a pouco.' })]));
+        grade.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('cardapio')]), el('p', { text: R.catalogo(estado.loja).Nome + ' em atualização. Volte daqui a pouco.' })]));
         return;
       }
       lista.forEach(function (p) {
@@ -915,8 +925,10 @@
       }
       if (srcFoto) corpo.appendChild(montarFoto());
 
+      /* tamanho e adicionais sao do produto: aparecem sempre. A chave da loja so tira o "Tirar alguma coisa?" e o recado
+         (antes sumia tudo junto, e a pizzaria que so nao queria recado nao vendia a pizza grande) */
+      grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
       if (podePersonalizar) {
-        grupos.forEach(function (g) { corpo.appendChild(montarGrupo(g)); });
         if (produto.ingredientes && produto.ingredientes.length) corpo.appendChild(montarGrupoRemover(produto.ingredientes));
         var obs = el('div', { class: 'campo', style: { marginTop: '16px' } }, [
           el('label', { for: 'obsItem', html: 'Algum recado sobre este item? <span class="opcional">opcional</span>' }),
@@ -968,7 +980,7 @@
         campo.checked = marcada;
         var linha = el('label', { class: 'opcao' + (marcada ? ' marcada' : '') }, [
           campo,
-          el('span', { class: 'marcador ' + (grupo.tipo === 'unico' ? 'redondo' : 'quadrado'), text: '✓' }),
+          el('span', { class: 'marcador ' + (grupo.tipo === 'unico' ? 'redondo' : 'quadrado') }, [UI.iconeLinha('check')]),
           el('span', { class: 'rotulo' }, [opcao.nome, opcao.descricao ? el('small', { text: opcao.descricao }) : null]),
           el('span', { class: 'valor' + (opcao.preco > 0 ? '' : ' gratis'), text: opcao.preco > 0 ? '+ ' + dinheiro(opcao.preco) : 'grátis' }),
         ]);
@@ -1006,7 +1018,7 @@
       ]);
       ingredientes.forEach(function (ing) {
         var campo = el('input', { type: 'checkbox', class: 'opcao-campo', 'aria-label': 'Tirar ' + ing });
-        var linha = el('label', { class: 'opcao remover' }, [campo, el('span', { class: 'marcador quadrado', text: '✕' }), el('span', { class: 'rotulo', text: ing })]);
+        var linha = el('label', { class: 'opcao remover' }, [campo, el('span', { class: 'marcador quadrado' }, [UI.iconeLinha('fechar')]), el('span', { class: 'rotulo', text: ing })]);
         campo.addEventListener('change', function () {
           if (campo.checked) { m.removidos.push(ing); linha.classList.add('marcada'); }
           else { m.removidos = m.removidos.filter(function (x) { return x !== ing; }); linha.classList.remove('marcada'); }
@@ -1201,12 +1213,19 @@
       try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado }); }
       catch (e) { msg.hidden = false; msg.textContent = e && e.message ? e.message : 'Algo mudou no cardápio. Confira o pedido.'; return; }
       if (orc.cupomErro) { UI.soar('erro'); msg.hidden = false; msg.textContent = orc.cupomErro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
-      msg.hidden = true;
-      estado.cupom = { codigo: orc.cupom, percentual: orc.cupomPercentual, desconto: orc.desconto };
-      UI.soar('sucesso');
-      UI.avisar('Código aplicado! −' + dinheiro(orc.desconto));
-      montarCarrinho();
-      atualizarBarraCarrinho();
+      /* cupom com limite: os usos de verdade ficam num contador (o numero dentro da loja nao sobe). Uma leitura so, na
+         hora de aplicar, para o cliente saber ja aqui, e nao so ao pagar, que o codigo acabou */
+      var regra = (estado.loja.cupons || []).filter(function (x) { return x.codigo === orc.cupom; })[0];
+      var conferir = regra && regra.limite > 0 && !D.modoDemo && store.usosDoCupom ? store.usosDoCupom(estado.loja.slug, orc.cupom) : Promise.resolve(0);
+      conferir.then(function (usos) {
+        if (regra && regra.limite > 0 && usos >= regra.limite) { UI.soar('erro'); msg.hidden = false; msg.textContent = 'Esse código já foi todo usado.'; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
+        msg.hidden = true;
+        estado.cupom = { codigo: orc.cupom, percentual: orc.cupomPercentual, desconto: orc.desconto };
+        UI.soar('sucesso');
+        UI.avisar('Código aplicado! −' + dinheiro(orc.desconto));
+        montarCarrinho();
+        atualizarBarraCarrinho();
+      });
     }
     $('btnAplicarCupom').addEventListener('click', aplicarCupom);
     $('campoCupom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); aplicarCupom(); } });
@@ -1278,6 +1297,7 @@
     }
 
     function atualizarBotaoPagar() {
+      if (estado.enviandoPedido) return; /* fica "Enviando…" ate a resposta */
       var orc = orcamento();
       $('btnPagar').textContent = orc.total === 0 ? 'Confirmar pedido grátis' : (formaEscolhida() === 'pix' ? 'Pagar no Pix' : 'Confirmar pedido');
     }
@@ -1291,7 +1311,9 @@
       var temDinheiro = naPorta && !!l.aceitaDinheiroEntrega;
       /* retirada numa loja que so aceita pagar na porta da entrega: diz isso, em vez de "nao configurou pagamento" */
       var soNaEntrega = !naPorta && !temPix && !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
-      $('semFormaPagamento').textContent = soNaEntrega ? 'Para retirar no balcão, esta loja só aceita Pix. Escolha "Entrega" para pagar na porta.' : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
+      $('semFormaPagamento').textContent = soNaEntrega
+        ? 'Esta loja só recebe o pagamento na entrega.' + (l.aceitaEntrega !== false ? ' Volte e escolha "Quero entrega" para pagar na porta.' : ' Para retirar, fale com ela pelo WhatsApp.')
+        : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
       $('opcaoPix').hidden = !temPix;
       $('opcaoCartao').hidden = !temCartao;
       $('opcaoDinheiro').hidden = !temDinheiro;
@@ -1313,7 +1335,7 @@
       $('blocoPagamento').hidden = orc.total === 0 || !(temPix || temCartao || temDinheiro);
       $('semFormaPagamento').hidden = temPix || temCartao || temDinheiro;
       atualizarBotaoPagar();
-      $('btnPagar').disabled = !(temPix || temCartao || temDinheiro);
+      $('btnPagar').disabled = !!estado.enviandoPedido || !(temPix || temCartao || temDinheiro);
       if (!$('blocoTroco').hidden) atualizarTroco();
       renumerarPassos();
     }
@@ -1422,12 +1444,17 @@
     }
 
     $('btnPagar').addEventListener('click', function () {
+      /* um pedido por vez: da conferencia da loja ate a resposta do banco, nada religa o botao (voltar e tocar em
+         Continuar, ou a loja chegando de novo, reativavam e saia pedido em dobro com internet fraca) */
+      if (estado.enviandoPedido) return;
       var dados = validarFormulario();
       if (!dados) return;
       if (fechouNoMeio()) return; /* fechou nos ultimos segundos: nada de erro no fim, volta com o carrinho guardado */
       var botao = $('btnPagar');
+      estado.enviandoPedido = true;
       botao.disabled = true;
       botao.textContent = 'Enviando…';
+      var soltar = function () { estado.enviandoPedido = false; botao.disabled = false; atualizarBotaoPagar(); };
       var totalVisto = orcamento().total;
       /* a loja de agora (a copia da borda so confere a cada minuto): fechou ou mudou o preco nesse meio tempo? */
       var conferir = lojaViva.conferirAgora && !balcao ? lojaViva.conferirAgora().catch(function () { return null; }) : Promise.resolve(null);
@@ -1435,13 +1462,12 @@
         if (!vivo) return;
         if (fresca) {
           estado.loja = fresca;
-          if (fechouNoMeio()) { botao.disabled = false; atualizarBotaoPagar(); return; }
+          if (fechouNoMeio()) { soltar(); return; }
           if (orcamento().total !== totalVisto) {
             UI.soar('erro');
             $('erroDados').hidden = false;
             $('erroDados').textContent = 'A loja acabou de atualizar o cardápio e o total mudou para ' + dinheiro(orcamento().total) + '. Confira e toque de novo.';
-            botao.disabled = false;
-            atualizarBotaoPagar();
+            soltar();
             return;
           }
         }
@@ -1457,12 +1483,14 @@
         UI.soar('erro');
         $('erroDados').hidden = false;
         $('erroDados').textContent = erro.message;
+        estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
         return;
       }
       /* banco no limite de hoje (a borda avisou, ou o banco ja recusou antes): o pedido vai pronto pelo WhatsApp */
       if (estado.loja && (estado.loja._pausaSite || estado.pausaLocal)) {
+        estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
         abrirPausa(pedido);
@@ -1505,7 +1533,7 @@
         var semPermissao = !!erro && (erro.code === 'permission-denied' || /permission/i.test(String(erro.message || '')));
         $('erroDados').textContent = semPermissao
           ? 'Não deu para enviar o pedido. Confira se a data e a hora do celular estão certas e tente de novo.'
-          : ((erro && erro.message) || 'Não conseguimos enviar o pedido. Tente de novo.');
+          : D.erroAmigavel(erro, 'Não conseguimos enviar o pedido. Tente de novo.');
       }).then(function () {
         estado.enviandoPedido = false;
         botao.disabled = false;
@@ -1610,7 +1638,7 @@
           var vencido = typeof resp.vencido === 'boolean' ? resp.vencido : vencidoAqui;
           if (!vencido) return;
           pararVigia();
-          return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.');
+          return cancelarPedidoDoPix('O Pix venceu (30 minutos) e o pedido foi cancelado.', false, 'pix-vencido');
         }).catch(function () { /* o painel da loja cancela do lado de la */ });
       }, 10000);
     }
@@ -1619,6 +1647,13 @@
     function mostrarPagamento(pedido) {
       estado.pedido = pedido;
       var codigo = pedido.pixCodigo || '';
+      /* pedido de Pix antigo que nunca ganhou codigo (a internet caiu na hora): nao gera Pix novo horas depois (a loja
+         nem veria o pedido pago, a fila dela e do dia). Cancela como vencido e devolve os itens */
+      if (!codigo && R.pixVencido(pedido)) {
+        estado.pedido = pedido;
+        cancelarPedidoDoPix('Esse Pix passou do prazo e o pedido foi cancelado.', true, 'pix-vencido').catch(function () { irPara('tela-inicio'); });
+        return;
+      }
       $('pixValor').textContent = dinheiro(pedido.total);
       $('pixNomeLoja').textContent = 'Para: ' + estado.loja.nome;
       var gerando = $('pixGerando');
@@ -1652,8 +1687,11 @@
           falhou.hidden = false;
           /* o cliente ve uma frase simples; o detalhe tecnico vai pro console (e nunca JSON cru na tela) */
           if (window.console && e) console.warn('Pix nao gerou:', e.message || e);
-          var motivo = e && e.message && e.message.length < 70 && e.message.indexOf('{') < 0 ? ' (' + e.message + ')' : '';
-          $('pixFalhouTexto').textContent = 'Não deu para gerar o Pix agora' + motivo + '. Tente de novo ou volte e escolha outra forma de pagamento.';
+          /* motivo em palavras de cliente: o texto tecnico (em ingles, ou o recado para o lojista) fica so no console */
+          var m = String((e && e.message) || '');
+          var motivo = (e instanceof TypeError || /failed to fetch|load failed|network/i.test(m)) ? ' Confira a sua internet.'
+            : (/chave Pix|ligou o Pix|Mercado Pago/i.test(m) ? ' O Pix desta loja está fora do ar agora.' : '');
+          $('pixFalhouTexto').textContent = 'Não deu para gerar o Pix agora.' + motivo + ' Tente de novo ou volte e escolha outra forma de pagamento.';
         });
       }
       irPara('tela-pagamento');
@@ -1674,7 +1712,7 @@
       consultarStatusPix(idPedido).then(function (resp) {
         if (!aindaEsperandoPix(idPedido) || resp.status === 'pago') return; /* caiu agora: o acompanhamento mostra a senha */
         pararVigia();
-        return cancelarPedidoDoPix('O tempo para pagar acabou e o pedido foi cancelado.').catch(function () {
+        return cancelarPedidoDoPix('O tempo para pagar acabou e o pedido foi cancelado.', false, 'pix-vencido').catch(function () {
           /* a regra recusa quando o Pix caiu bem nessa hora: confere antes de limpar a tela */
           return store.obterPedido(estado.loja.slug, idPedido).then(function (p) {
             if (!vivo) return;
@@ -1689,10 +1727,15 @@
 
     /* Tira o pedido da fila da loja e devolve os itens pro carrinho. Usado no "desistir" e quando o Pix vence.
        manterCarrinho: so o X "desistir" (quem esta no tablet troca a forma de pagamento sem montar tudo de novo). */
-    function cancelarPedidoDoPix(aviso, manterCarrinho) {
+    function cancelarPedidoDoPix(aviso, manterCarrinho, motivo) {
       if (!estado.pedido) return Promise.resolve();
-      var idCancelado = estado.pedido.id;
-      return store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: 'cliente' }).then(function () {
+      var cancelado = estado.pedido;
+      var idCancelado = cancelado.id;
+      var gravar = function (quem) { return store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: quem }); };
+      /* Pix que venceu nao e desistencia: grava 'pix-vencido' e o painel nao apita "o cliente cancelou". Se o banco ainda
+         estiver com as regras antigas (sem esse valor), grava como antes */
+      var passo = motivo === 'pix-vencido' ? gravar('pix-vencido').catch(function () { return gravar('cliente'); }) : gravar('cliente');
+      return passo.then(function () {
         pararAcompanhar();
         pararVigia();
         atualizarMeuPedido({ id: idCancelado, status: R.STATUS.CANCELADO });
@@ -1714,6 +1757,14 @@
         else history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
         if (estado.ultimoCarrinho && estado.ultimoCarrinho.length) {
           estado.carrinho = estado.ultimoCarrinho; estado.ultimoCarrinho = null;
+          /* o pedido volta como era: entrega continua entrega (depois de recarregar a pagina, a tela comecava em
+             retirada e o endereco sumia) e o cupom volta junto (se deixou de valer, o carrinho tira e avisa) */
+          if (!estado.pularEscolhaTipo && cancelado.tipoEntrega) {
+            estado.tipoEntrega = cancelado.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
+            $('blocoEndereco').hidden = estado.tipoEntrega !== 'entrega';
+          }
+          if (cancelado.cupom && cancelado.desconto > 0 && !(estado.cupom && estado.cupom.codigo)) estado.cupom = { codigo: cancelado.cupom, percentual: cancelado.cupomPercentual || 0, desconto: cancelado.desconto };
+          montarCarrinho();
           irPara('tela-carrinho');
           atualizarBarraCarrinho();
           UI.avisar(aviso + ' Seus itens continuam aqui.');
@@ -1773,7 +1824,6 @@
     function mostrarSenha(pedido) {
       estado.pedido = pedido;
       $('senhaNumero').textContent = pedido.senha;
-      var confirmado = $('confirmado');
       if (pedido.status === R.STATUS.AGUARDANDO) rotuloConfirmado('ampulheta', 'Pedido enviado, esperando a loja conferir o Pix');
       else if (pedido.status === R.STATUS.CANCELADO) rotuloConfirmado('fechar', 'Pedido cancelado');
       else rotuloConfirmado('feito', (pedido.pagamentoStatus === 'na_entrega' || pedido.total === 0) ? 'Pedido confirmado' : 'Pagamento confirmado');
@@ -1967,11 +2017,17 @@
       var meus = lerMeusPedidos().filter(function (p) { return p.lojaSlug === slug; });
       if (meus.length === 0) lista.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('recibo')]), el('p', { text: 'Nenhum pedido por aqui' })]));
       meus.forEach(function (p) {
+        /* o status guardado so anda enquanto a pessoa acompanha: "andando" de mais de 12 h ja acabou, e a lista nao
+           afirma o que nao sabe (tocar abre o pedido e traz o status de verdade) */
+        var andando = R.EM_ANDAMENTO.indexOf(p.status) >= 0;
+        var sabido = !andando || andandoAgora(p);
+        var cancelado = p.status === R.STATUS.CANCELADO;
         lista.appendChild(el('button', { class: 'escolha-grande', onclick: function () { abrirPedidoSalvo(p.id); } }, [
-          el('span', { class: 'icone' }, [UI.iconeLinha(R.EM_ANDAMENTO.indexOf(p.status) >= 0 ? 'relogio' : 'feito')]),
+          el('span', { class: 'icone' }, [UI.iconeLinha(!sabido ? 'recibo' : cancelado ? 'fechar' : andando ? 'relogio' : 'feito')]),
           el('span', {}, [
             el('span', { class: 'rotulo', text: 'Senha ' + p.senha }),
-            el('span', { class: 'detalhe', text: UI.dataCurta(p.criadoEm) + ' ' + UI.horaCurta(p.criadoEm) + ' · ' + dinheiro(p.total) + ' · ' + R.rotuloStatusCliente(p) }),
+            el('span', { class: 'detalhe', text: UI.dataCurta(p.criadoEm) + ' ' + UI.horaCurta(p.criadoEm) + ' · ' + dinheiro(p.total) }),
+            el('span', { class: 'meu-status' + (!sabido ? '' : cancelado ? ' cancelado' : andando ? ' andando' : ''), text: sabido ? R.rotuloStatusCliente(p) : 'Toque para ver como ficou' }),
           ]),
           el('span', { class: 'seta', text: '→' }),
         ]));
@@ -2009,7 +2065,7 @@
     return function () {
       vivo = false;
       tirarSplash();
-      raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').trim();
+      UI.limparTemaOficial(raiz); /* a mesma limpeza das outras telas (tira o tema das janelas tambem) */
       UI.limparTema();
       pararAcompanhar();
       pararVigia(); /* a vigia do Pix nao pode continuar rodando (e cancelando pedido) depois que a pessoa saiu da loja */
@@ -2042,12 +2098,12 @@
         '<h1 class="promessa" id="nomeLoja"></h1>' +
         '<p class="muted" id="descLoja" style="margin-top:-6px"></p>' +
         '<div class="selos"><div class="selo" id="seloAberto"><span class="bolinha"></span><span id="textoAberto">Carregando…</span></div>' +
-        /* estrela em desenho (nao em letra): um simbolo de outra fonte mudaria a altura do selo */
+        /* estrela de traco, como os outros icones (em desenho, nao em letra: um simbolo de outra fonte mudaria a altura do selo) */
         '<a class="selo selo-google" id="seloGoogle" hidden target="_blank" rel="noopener noreferrer">' +
-          '<svg class="selo-google-estrela" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2.6l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.2l-5.9 3.2 1.3-6.5-4.9-4.5 6.6-.8z"/></svg>' +
+          UI.iconeHtml('estrela').replace('class="ico-traco"', 'class="ico-traco selo-google-estrela"') +
           'Avaliações no Google</a></div>' +
         '<div class="aviso-topo" id="avisoTopo" hidden></div>' +
-        '<button class="btn btn-principal btn-gigante btn-largo" id="btnComecar" style="max-width:440px">' +
+        '<button class="btn btn-principal btn-gigante btn-largo" id="btnComecar" style="max-width:440px" disabled>' +
           '<span><span id="btnComecarForte">PEDIR AGORA</span><span class="sub" id="btnComecarFraca"></span></span>' +
         '</button>' +
         '<div class="como-funciona">' +
@@ -2126,22 +2182,22 @@
           '</div>' +
           '<div class="bloco-form" id="blocoPagamento">' +
             '<div class="bloco-titulo"><span class="bloco-numero">3</span> Como você quer pagar?</div>' +
-            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto para a loja</span></span><span class="forma-marca">✓</span></label>' +
-            '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Maquininha na entrega</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">✓</span></label>' +
-            '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro na entrega</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">✓</span></label>' +
+            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto para a loja</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Maquininha na entrega</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro na entrega</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div id="blocoTroco" hidden>' +
               '<div class="forte" style="margin:6px 0 8px">Precisa de troco?</div>' +
-              '<label class="opcao opcao-troco marcada" for="trocoNao"><input type="radio" class="opcao-campo" name="precisaTroco" id="trocoNao" value="nao" checked><span class="marcador redondo">✓</span><span class="rotulo">Não, tenho o valor certo</span></label>' +
-              '<label class="opcao opcao-troco" for="trocoSim"><input type="radio" class="opcao-campo" name="precisaTroco" id="trocoSim" value="sim"><span class="marcador redondo">✓</span><span class="rotulo">Sim, vou pagar com uma nota maior</span></label>' +
+              '<label class="opcao opcao-troco marcada" for="trocoNao"><input type="radio" class="opcao-campo" name="precisaTroco" id="trocoNao" value="nao" checked><span class="marcador redondo">' + UI.iconeHtml('check') + '</span><span class="rotulo">Não, tenho o valor certo</span></label>' +
+              '<label class="opcao opcao-troco" for="trocoSim"><input type="radio" class="opcao-campo" name="precisaTroco" id="trocoSim" value="sim"><span class="marcador redondo">' + UI.iconeHtml('check') + '</span><span class="rotulo">Sim, vou pagar com uma nota maior</span></label>' +
               '<div class="campo" id="campoTrocoValor" hidden style="margin-top:12px"><label for="campoTroco">Vou pagar com quanto?</label><p class="ajuda" id="dicaTroco"></p><input type="text" id="campoTroco" inputmode="numeric" placeholder="R$ 50,00" maxlength="12"><div class="troco-calculado" id="trocoCalculado" hidden></div></div>' +
             '</div>' +
           '</div>' +
           '<div class="msg-erro" id="semFormaPagamento" hidden>A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.</div>' +
-          '<div class="bloco-form"><div class="bloco-titulo"><span class="bloco-numero">4</span> Algum recado? <span class="bloco-opcional">opcional</span></div>' +
+          '<div class="bloco-form" id="blocoRecado"><div class="bloco-titulo"><span class="bloco-numero">4</span> Algum recado? <span class="bloco-opcional">opcional</span></div>' +
             '<div class="campo"><textarea id="campoObs" aria-label="Recado para a loja" placeholder="Ex: sem cebola em tudo, tocar a campainha…" maxlength="300"></textarea></div>' +
           '</div>' +
           '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small>Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
-          (balcao ? '' : '<p class="nota">' + UI.iconeHtml('cadeado') + 'Guardamos seus dados neste aparelho para o próximo pedido ser mais rápido.</p>') +
+          (balcao ? '' : '<p class="nota">' + UI.iconeHtml('cadeado') + 'Seus dados ficam guardados só neste aparelho.</p>') +
           '<div class="msg-erro" id="erroDados" hidden></div>' +
         '</form>' +
       '</div>' +

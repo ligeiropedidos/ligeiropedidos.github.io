@@ -134,6 +134,13 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    /* cardapio com tamanho de gente: ate 20 categorias e 300 itens (os mesmos numeros de config.limites no site).
+       Na edicao so confere quando o campo muda: loja que ja tivesse mais continua salvando o resto */
+    function cardapioNoLimite() {
+      return (!('categorias' in request.resource.data) || request.resource.data.categorias.size() <= 20)
+        && (!('produtos' in request.resource.data) || request.resource.data.produtos.size() <= 300);
+    }
+
     match /lojas/{loja} {
       /* cada loja e publica pelo endereco (o site do cliente le); a lista inteira nao:
          so o admin, e o dono listando as proprias (listarMinhasLojas filtra por donoEmail) */
@@ -150,9 +157,11 @@ service cloud.firestore {
             && request.resource.data.get('verificada', false) == false
             /* campo email na loja daria cortesia do Ligeiro: so o admin grava */
             && !request.resource.data.keys().hasAny(['email'])
+            && cardapioNoLimite()
             && planoCopiaDaConta(planoDe(request.resource.data)));
       allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto()
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']));
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos']) || cardapioNoLimite()));
       allow delete: if isAdmin();
 
       /* senha do dia (dia, ultima) e usos de cupom: o cliente escreve sem login, dentro da transacao do pedido.
@@ -229,7 +238,7 @@ service cloud.firestore {
               && request.resource.data.clientePagou == true)
           /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
-              && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor == 'cliente'
+              && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor in ['cliente', 'pix-vencido']
               && resource.data.status == 'aguardando_pagamento');
         allow delete: if isAdmin();
       }

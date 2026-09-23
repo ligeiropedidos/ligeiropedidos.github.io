@@ -19,6 +19,15 @@
   var $ = UI.$;
   var dinheiro = R.dinheiro;
 
+  /* cozinha e entregador: so o que entrou desde as 5 h de ontem (a noite de ontem ainda aparece). Pedido mais velho que
+     ninguem concluiu nao volta para a fila: o painel mostra e conclui esses de uma vez */
+  function desdeOntem(lista) {
+    var ini = new Date(); if (ini.getHours() < 5) ini.setDate(ini.getDate() - 1);
+    ini.setHours(5, 0, 0, 0); ini.setDate(ini.getDate() - 1);
+    var desde = ini.toISOString();
+    return lista.filter(function (p) { return String(p.criadoEm || '') >= desde; });
+  }
+
   function chaveSessao(slug) { return 'ligeiro:painel:' + slug; }
   function logado(slug) { try { return sessionStorage.getItem(chaveSessao(slug)) === '1'; } catch (_) { return false; } }
   function marcarLogado(slug) { try { sessionStorage.setItem(chaveSessao(slug), '1'); } catch (_) { /* ignora */ } }
@@ -116,7 +125,7 @@
         }, function (e) {
           /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
           if (!vivo) return;
-          erro.textContent = e && e.message ? e.message : 'Não deu para entrar agora. Tente de novo.';
+          erro.textContent = D.erroAmigavel(e, 'Não deu para entrar agora. Tente de novo.');
           erro.hidden = false; UI.soar('erro');
         }).then(function () { entrando = false; btnEntrar.disabled = false; });
       }
@@ -153,7 +162,7 @@
           return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/equipe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify({ loja: loja.slug, pin: pin }) })
             .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu para salvar.'); return j; }); });
         });
-      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu para salvar agora.'); });
+      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para salvar agora.')); });
     }
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
     UI.abrirModal({ titulo: 'Senha da equipe', corpo: corpo, rodape: [
@@ -254,6 +263,7 @@
       pintarSom();
       /* sem contador no topo (cada coluna ja diz quantos) e sem ir ao painel: a cozinha so cuida da fila */
       raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [], [btnSom, botaoAvisos(slug, 'cozinha')]));
+      UI.pedirToqueParaSom(raiz);
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
 
@@ -283,6 +293,8 @@
           UI.seloTipo(p),
         ]));
         f.appendChild(itensGrandes(p));
+        var avisoValor = avisoDeValor(estado.loja, p);
+        if (avisoValor) f.appendChild(avisoValor);
         var proximo = R.proximoStatus(p);
         var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
         if (proximo) {
@@ -291,7 +303,7 @@
             store.atualizarPedido(slug, p.id, { status: proximo }).then(function () {
               UI.soar('toque');
               avisarQueAndou(slug, p, proximo);
-            }).catch(function (e) { UI.avisar(e.message); });
+            }).catch(function (e) { UI.avisar(D.erroAmigavel(e)); });
           } }));
         }
         return f;
@@ -301,11 +313,13 @@
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
       estado.movidosAqui = {};
-      estado.parar.push(store.assistirPedidos(slug, function (lista) {
+      estado.parar.push(store.assistirPedidos(slug, function (lista, doCache) {
+        lista = desdeOntem(lista);
         var novos = 0;
         if (estado.conhecidos) lista.forEach(function (p) { if (p.status === R.STATUS.PAGO && !estado.conhecidos[p.id + p.status]) novos += 1; });
-        /* saiu da fila sem ter sido esta tela (cancelado, ou o painel mexeu): confere 1 vez; cancelado ganha som e aviso */
-        if (estado.statusAntes) {
+        /* saiu da fila sem ter sido esta tela (cancelado, ou o painel mexeu): confere 1 vez; cancelado ganha som e aviso.
+           So entre duas listas do servidor: a do cache pode ter pedido de ontem que ja saiu (apito falso e leitura a toa) */
+        if (estado.statusAntes && !estado.antesDoCache && !doCache) {
           var agora = {};
           lista.forEach(function (p) { agora[p.id] = true; });
           Object.keys(estado.statusAntes).forEach(function (id) {
@@ -316,6 +330,7 @@
           });
         }
         estado.statusAntes = {};
+        estado.antesDoCache = !!doCache;
         lista.forEach(function (p) { estado.statusAntes[p.id] = p.status; });
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id + p.status] = true; });
@@ -345,6 +360,14 @@
   }
 
   /* o que o entregador cobra, em selos curtos (um selo comprido virava bolha de duas linhas) */
+  /* o valor do pedido bate com o cardapio? Pedido adulterado (ou preco mudado depois) acende o mesmo aviso do painel
+     na ficha da cozinha e no cartao do entregador: ninguem prepara nem cobra sem ver */
+  function avisoDeValor(loja, p) {
+    var c = R.conferirTotal(loja, p);
+    if (c.ok) return null;
+    return el('div', { class: 'divergente', text: c.esperado == null ? 'Atenção: item fora do cardápio. Confirme com a loja antes.' : 'Atenção: o valor não confere com o cardápio (' + dinheiro(p.total) + ' em vez de ' + dinheiro(c.esperado) + '). Confirme com a loja antes.' });
+  }
+
   function oQueCobrar(p) {
     function selo(texto, classe) { return el('span', { class: 'selo ' + (classe || ''), text: texto }); }
     if (p.status === R.STATUS.AGUARDANDO) return [selo('Pix ainda não confirmado', 'fechado')];
@@ -357,10 +380,10 @@
   }
 
   function abrirEntrega(raiz, slug) {
-    return abrirComSenha(raiz, slug, 'Entregas', function (lojaInicial) {
+    return abrirComSenha(raiz, slug, 'Entregador', function (lojaInicial) {
       var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null };
 
-      raiz.appendChild(topoEquipe(slug, 'Entregas · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas')]));
+      raiz.appendChild(topoEquipe(slug, 'Entregador · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas')]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
 
@@ -393,12 +416,14 @@
         if (e.referencia) end.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
         card.appendChild(end);
         card.appendChild(el('div', { class: 'itens' }, [el('span', { text: p.itens.map(function (it) { return it.quantidade + 'x ' + it.nome; }).join(', ') })]));
+        var avisoValorE = avisoDeValor(estado.loja, p);
+        if (avisoValorE) card.appendChild(avisoValorE);
         var acoes = el('div', { class: 'acoes acoes-entrega' });
         acoes.appendChild(el('a', { class: 'btn btn-fantasma', href: linkMapa(estado.loja, p), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Mapa']));
         if (p.cliente.telefone) acoes.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(p.cliente.telefone, 'Olá! Sou o entregador da ' + estado.loja.nome + ', estou chegando com o seu pedido (senha ' + p.senha + ').'), target: '_blank', rel: 'noopener', title: 'Manda para o cliente, no WhatsApp: estou chegando com o seu pedido' }, [UI.icone('zap'), 'Chegando']));
         if (naRua) acoes.appendChild(el('button', { class: 'btn btn-principal' }, [UI.iconeLinha('check'), 'Entregue']));
         if (naRua) acoes.lastChild.addEventListener('click', function () {
-          store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { UI.avisar(err.message); });
+          store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { UI.avisar(D.erroAmigavel(err)); });
         });
         card.appendChild(acoes);
         return card;
@@ -407,7 +432,7 @@
       /* so as entregas em andamento (a loja veio uma vez ao abrir) */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = lista; desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Entregas', estado.loja.nome, pararEntrega); } }));
+      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = desdeOntem(lista); desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Entregador', estado.loja.nome, pararEntrega); } }));
       estado.relogio = setInterval(desenhar, 60000);
 
       function pararEntrega() {

@@ -143,7 +143,6 @@
    * O login fica por ultimo (quem ja respondeu tudo nao desiste na porta). A loja nasce igual a antes.
    */
   function montar(raiz, opcoes, usuario) {
-    var A = window.LigeiroAdmin || {};
     var precos = Object.assign({ mensal: 7900, anual: 79000, diasGratis: 7 }, (window.LIGEIRO_CONFIG || {}).precos || {});
     var o = opcoes || {};
     /* #/comecar/<plano>/<tipo>; links antigos #/comecar/anual continuam valendo */
@@ -151,7 +150,7 @@
     var planoTipo = (o.tipo === 'anual' || o.plano === 'anual') && R.planoPorId(planoId).anual > 0 ? 'anual' : 'mensal';
     var precoPlano = R.precoDoPlano(planoId, planoTipo); /* visitante: fundador enquanto houver vaga */
     var planoNome = R.planoPorId(planoId).nome;
-    var TIPOS = A.TIPOS || [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Outro', '🛵']];
+    var TIPOS = R.TIPOS_DE_LOJA;
     document.title = 'Crie sua loja no Ligeiro';
 
     /* respostas guardadas: voltar um passo nunca apaga o que ja foi digitado */
@@ -169,6 +168,9 @@
     ]));
     var barra = el('div', { class: 'cadastro-progresso', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(PASSOS.length) }, el('i'));
     raiz.appendChild(barra);
+    /* dentro do Instagram o Google nao deixa entrar no ultimo passo: avisa ja no primeiro, antes de digitar tudo */
+    var avisoApp = contaLogada ? null : UI.avisoNavegadorDeApp('comecar');
+    if (avisoApp) raiz.appendChild(el('div', { class: 'conteudo cadastro-aviso-app' }, [avisoApp]));
     var corpo = el('div', { class: 'conteudo cadastro' });
     raiz.appendChild(corpo);
     var erro = el('div', { class: 'msg-erro', hidden: true, role: 'alert' });
@@ -227,7 +229,9 @@
           return el('button', { class: 'escolha-grande escolha-tile' + (st.tipo === t[0] ? ' marcada' : ''), type: 'button', onclick: function (e) {
             st.tipo = t[0]; st.emoji = t[1];
             [].forEach.call(grade.children, function (b) { b.classList.toggle('marcada', b === e.currentTarget); });
-            setTimeout(avancar, 180); /* um toque so: marca e ja segue */
+            /* um toque so: marca e ja segue. Toque duplo (ou em dois tipos) nao anda dois passos: pulava a cidade */
+            var passoDoToque = atual;
+            setTimeout(function () { if (atual === passoDoToque) avancar(); }, 180);
           } }, [el('span', { class: 'icone', 'aria-hidden': 'true', text: t[1] }), el('span', { class: 'rotulo', text: t[0] })]);
         }));
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('O que você vende?', 'Sua loja já nasce com um cardápio de exemplo desse tipo. Depois você só ajusta nomes e preços.').concat([grade, erro])));
@@ -291,36 +295,23 @@
       }
 
       if (passo === 'acesso') {
-        var iEmail = entrada({ rotulo: 'Seu e-mail', tipo: 'email', placeholder: 'seu@email.com', max: 80, autocomplete: 'email' });
-        var iSenhaNova = entrada({ rotulo: 'Crie uma senha', tipo: 'password', placeholder: 'Pelo menos 6 letras ou números', max: 40, autocomplete: 'new-password' });
-        var comEmail = el('div', { class: 'cadastro-email', hidden: true }, [
-          el('label', { class: 'cadastro-rotulo', text: 'Seu e-mail' }), iEmail,
-          el('label', { class: 'cadastro-rotulo', text: 'Crie uma senha' }), iSenhaNova,
-          el('button', { class: 'btn btn-principal btn-gigante btn-largo', type: 'button', text: 'Criar minha loja', onclick: function (e) {
-            botao = e.currentTarget;
-            var email = iEmail.value.trim().toLowerCase(), senha = iSenhaNova.value.trim();
-            if (!/^\S+@\S+\.\S+$/.test(email)) { falhar('Digite um e-mail válido.'); return; }
-            if (senha.length < 6) { falhar('Senha com pelo menos 6 letras ou números.'); return; }
-            criar({ email: email, senha: senha });
-          } }),
-        ]);
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Última coisa: onde guardar sua loja?', 'Entre com o Google e pronto. É com ele que você abre o painel depois, em qualquer celular.').concat([
           el('button', { class: 'btn btn-google btn-gigante btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function (e) {
             botao = e.currentTarget;
             store.entrarComGoogle().then(function (u) { if (u) { contaLogada = u; criar(); } }).catch(function (x) { falhar(x.message); });
           } }),
-          el('button', { class: 'cadastro-link', type: 'button', text: 'Prefiro usar e-mail e senha', onclick: function (e) { e.currentTarget.hidden = true; comEmail.hidden = false; focar(iEmail); } }),
-          comEmail, erro, legal(),
+          erro, legal(),
         ])));
       }
       window.scrollTo(0, 0);
     }
 
     /* cria a loja com as respostas (mesma regra de antes: plano da conta, limite de lojas, cardapio-modelo do tipo) */
-    function criar(acesso) {
+    function criar() {
       erro.hidden = true;
+      var falta = !st.nome ? 'nome' : !st.cidade ? 'cidade' : !st.whatsapp ? 'whatsapp' : '';
+      if (falta && PASSOS.indexOf(falta) >= 0) { atual = PASSOS.indexOf(falta); desenhar(); falhar('Falta responder este passo.'); return; }
       if (botao) { botao.disabled = true; botao.textContent = 'Criando…'; }
-      var email = acesso ? acesso.email : '';
       var tipo = st.tipo || 'Outro';
       var emoji = st.emoji || '🍽️';
       var taxaEntrega = st.frete === 'gratis' ? 0 : UI.centavosDoCampo(st.taxa);
@@ -335,7 +326,7 @@
         configurada: false,
         plano: { status: 'teste', tipo: planoTipo, planoId: planoId, desde: new Date().toISOString() },
       };
-      if (D.modoDemo) dados.senhaPainel = st.senhaDemo; else dados.donoEmail = email;
+      if (D.modoDemo) dados.senhaPainel = st.senhaDemo;
       var modelo = modeloDoTipo(tipo);
       if (modelo !== 'vazio' && window.LigeiroSeed) {
         var base = window.LigeiroSeed().lojas[modelo];
@@ -351,12 +342,12 @@
       if (contaLogada) dados.donoEmail = contaLogada.email;
       /* primeiro a vaga (antes ate de criar o login): sem vaga, nada nasce */
       var semVaga = new Error('sem vaga');
-      var conta = temVagaAgora(contaLogada ? contaLogada.email : email).then(function (tem) {
+      var conta = temVagaAgora(contaLogada ? contaLogada.email : '').then(function (tem) {
         if (!tem) throw semVaga;
-        return contaLogada ? true : (D.modoDemo ? true : store.criarConta(email, acesso.senha));
+        return true;
       });
       /* a assinatura e da conta: garante a conta com o plano escolhido e copia o plano dela pra loja */
-      var emailConta = contaLogada ? contaLogada.email : (D.modoDemo ? '' : email);
+      var emailConta = contaLogada ? contaLogada.email : '';
       criando = true;
       var fim = montando();
       conta.then(function () {
@@ -392,7 +383,7 @@
         criando = false;
         if (e === semVaga) { telaListaDeEspera(raiz); return; }
         desenhar();
-        falhar(e && e.message ? e.message : 'Não deu para criar agora. Tente de novo em instantes.');
+        falhar(D.erroAmigavel(e, 'Não deu para criar agora. Tente de novo em instantes.'));
       });
     }
 

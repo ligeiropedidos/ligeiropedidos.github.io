@@ -302,6 +302,13 @@ export default {
         const item = await atualizarLoja(env, loja);
         if (!item.existe) return json({ ok: false, erro: 'loja não existe' }, 404);
         if (item.meta.dono !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        /* mudou algo que a pagina da cidade mostra (aberta, nome, logo, frete, tempo): a vitrine da borda sai e e refeita
+           na proxima visita. Antes ficava ate ~20 min dizendo "Aberta agora" de loja que ja tinha fechado. Preco e foto
+           de item nao mexem nela (nao gasta gravacao do KV a cada edicao) */
+        if (!antes || !antes.value || camposDaVitrine(antes.value) !== camposDaVitrine(item.corpo)) {
+          MEM.vitrine = null;
+          if (ctx && ctx.waitUntil) ctx.waitUntil(env.CARDAPIO.delete('vitrine').catch(() => {}));
+        }
         return json({ ok: true, versao: item.meta.em });
       }
 
@@ -330,6 +337,8 @@ export default {
         if (!p) return json({ erro: 'pedido não existe' }, 404);
         if (p.pixCodigo) return json({ codigo: p.pixCodigo, expiraEm: p.pixExpiraEm || '' });
         if (p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando Pix' }, 400);
+        /* pedido antigo que nunca ganhou codigo: nada de Pix novo horas depois (a loja so ve a fila do dia e nao veria o pago) */
+        if (p.criadoEm && Date.now() - Date.parse(p.criadoEm) > 40 * 60 * 1000) return json({ erro: 'esse pedido passou do prazo do Pix' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
         /* nome da loja (sobrenome de quem pediu com um nome so): da copia da borda, sem ler o banco */
@@ -579,6 +588,15 @@ async function servirFoto(env, ctx, slug, id) {
   const gravar = gravarKv(env, chave, bytes.buffer, { tipo: m[1] });
   if (ctx && ctx.waitUntil) ctx.waitUntil(gravar);
   return imagem(bytes, m[1]);
+}
+
+/* o que a vitrine (pagina da cidade) mostra de cada loja: se nada disso mudou, a vitrine da borda continua valendo */
+function camposDaVitrine(texto) {
+  try {
+    const x = JSON.parse(texto).loja || {};
+    return JSON.stringify([x.aberta, x.usarHorarios, x.horarios, x.nome, x.tipo, x.emoji, x.descricao, x.logoDados, x.logoUrl, x.capa, x.capaUrl, x.cor,
+      x.tempoEntrega, x.tempoPreparo, x.aceitaEntrega, x.aceitaRetirada, x.freteGratis, x.taxaEntrega, x.entregaGratisAcima, x.ativa, x.cidadeSlug, x.plano]);
+  } catch (_) { return ''; }
 }
 
 /* Vitrine: o resumo de todas as lojas (N leituras) no maximo a cada 15 min, e so quando alguem pede. */

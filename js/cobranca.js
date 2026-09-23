@@ -23,6 +23,12 @@
     var pixL = cfg.pixLigeiro || {};
     var Pix = window.LigeiroPix;
     var link = R.linkDeCobranca(o.planoId, o.tipo, !!o.fundador);
+    /* ainda sem link de cartao/boleto e sem Pix do Ligeiro: vai direto para o WhatsApp com a mensagem pronta (antes abria
+       uma janela so para mostrar esse mesmo botao) */
+    if (!link && !pixL.chave && cfg.whatsappLigeiro) {
+      window.open(R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero pagar a assinatura de ' + o.quem + ' (' + R.dinheiro(o.valor) + ', ' + o.periodo + ').'), '_blank', 'noopener');
+      return;
+    }
     var provedor = (cfg.cobranca && cfg.cobranca.provedor) || 'Asaas';
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
     corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));

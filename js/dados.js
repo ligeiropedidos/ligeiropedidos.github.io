@@ -561,6 +561,10 @@
     return Promise.resolve(lista.map(clonar));
   };
 
+  DemoStore.prototype.pedidosParados = function (lojaSlug, antesDe) {
+    return this.listarPedidos(lojaSlug, { status: ['pago', 'producao', 'pronto'] }).then(function (l) { return l.filter(function (p) { return String(p.criadoEm || '') < antesDe; }); });
+  };
+
   DemoStore.prototype.atualizarPedido = function (lojaSlug, id, mudancas) {
     var db = this._ler();
     var p = db.pedidos[lojaSlug] && db.pedidos[lojaSlug][id];
@@ -585,7 +589,6 @@
     return Promise.resolve(!!loja && String(loja.senhaPainel || '') === String(senha || ''));
   };
 
-  DemoStore.prototype.criarConta = function () { return Promise.resolve(true); };
   DemoStore.prototype.obterIdToken = function () { return Promise.resolve('demo'); };
 
   /* Segredos da loja (token do Mercado Pago): na demonstracao ficam so neste aparelho. */
@@ -607,14 +610,6 @@
     try { localStorage.setItem(CHAVE_CONTA, JSON.stringify(u)); } catch (_) { /* ignora */ }
     return Promise.resolve(u);
   };
-  DemoStore.prototype.entrarComEmail = function (email) {
-    var e = String(email || '').trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(e)) return Promise.reject(new Error('Digite um e-mail válido.'));
-    var u = { email: e, nome: e.split('@')[0], foto: '', via: 'email' };
-    try { localStorage.setItem(CHAVE_CONTA, JSON.stringify(u)); } catch (_) { /* ignora */ }
-    return Promise.resolve(u);
-  };
-  DemoStore.prototype.recuperarSenha = function () { return Promise.resolve(true); };
   DemoStore.prototype.pareceLogado = function () { return !!contaDemo(); };
   DemoStore.prototype.sair = function () { try { localStorage.removeItem(CHAVE_CONTA); } catch (_) { /* ignora */ } return Promise.resolve(true); };
   /* Na demonstracao, as lojas de exemplo (sem dono) sao suas tambem. */
@@ -645,12 +640,20 @@
    * FirebaseStore (Firestore + Auth, SDK "compat" carregado na hora)
    * ========================================================== */
 
+  /* o que ja baixou nao baixa de novo; o que falhou sai da pagina para a proxima tentativa baixar outra vez */
+  var scriptsCarregados = {};
   function carregarScript(src) {
+    if (scriptsCarregados[src]) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = src;
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error('Não carregou ' + src)); };
+      s.onload = function () { scriptsCarregados[src] = true; resolve(); };
+      s.onerror = function () {
+        if (s.parentNode) s.parentNode.removeChild(s);
+        var e = new Error('Sem internet agora. Confira a conexão e toque de novo.');
+        e.publico = true;
+        reject(e);
+      };
       document.head.appendChild(s);
     });
   }
@@ -725,7 +728,12 @@
     /* o programa do banco (uns 300 KB) so baixa quando alguem precisa dele: o cardapio vem da borda, entao quem so olha
        a loja nem baixa; comeca a vir quando a pessoa poe o primeiro item no carrinho (aquecer) ou abre o painel */
     var eu = this, carregando = null;
-    Object.defineProperty(this, '_pronto', { get: function () { return carregando || (carregando = eu._iniciar()); } });
+    /* falhou (a internet piscou na hora): a proxima chamada tenta de novo. Antes a falha ficava guardada e nenhum
+       pedido saia ate a pessoa recarregar a pagina, coisa que o cliente nao sabe fazer */
+    Object.defineProperty(this, '_pronto', { get: function () {
+      if (!carregando) { carregando = eu._iniciar(); carregando.catch(function () { carregando = null; }); }
+      return carregando;
+    } });
   }
   FirebaseStore.prototype.aquecer = function () { this._pronto.catch(function () { /* quem precisar de verdade ve o erro */ }); };
 
@@ -743,7 +751,7 @@
         return Promise.all(partes);
       })
       .then(function () {
-        window.firebase.initializeApp(eu.config);
+        if (!window.firebase.apps || !window.firebase.apps.length) window.firebase.initializeApp(eu.config);
         if (appCheck && window.firebase.appCheck) { try { window.firebase.appCheck().activate(appCheck, true); } catch (_) { /* segue sem: o banco decide */ } }
         eu.db = window.firebase.firestore();
         eu.auth = window.firebase.auth();
@@ -977,7 +985,7 @@
           if (o.tipoEntrega) lista = lista.filter(function (p) { return p.tipoEntrega === o.tipoEntrega; });
           lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
         }
-        cb(lista);
+        cb(lista, !!(snap.metadata && snap.metadata.fromCache));
       }, function (e) {
         /* banco recusou (saiu da conta, senha da equipe trocada): a tela precisa saber, senao fica muda pra sempre */
         if (typeof o.aoErro === 'function') o.aoErro(e);
@@ -1161,7 +1169,14 @@
         var inteira = completa ? Promise.resolve(Object.assign({}, clonar(completa), nova)) : ref.get().then(function (d) { return d.exists ? daNuvem(d.data()) : null; });
         return inteira.then(function (l) {
           if (!l) return nova;
-          return resumoLeve(l).then(function (r) { return eu.db.collection('vitrine').doc(loja.slug).set(paraNuvem(r)); }).then(function () { limparCacheVitrine(); return nova; });
+          /* so grava a vitrine quando o resumo mudou (preco de item, foto e recado nao aparecem nela): cada gravacao
+             custava uma escrita e uma leitura na regra, a cada salvar do painel. A primeira da sessao sempre vai */
+          return resumoLeve(l).then(function (r) {
+            var chave = JSON.stringify(Object.assign({}, r, { atualizadoEm: '' }));
+            eu._vitrineFeita = eu._vitrineFeita || {};
+            if (eu._vitrineFeita[loja.slug] === chave) return nova;
+            return eu.db.collection('vitrine').doc(loja.slug).set(paraNuvem(r)).then(function () { eu._vitrineFeita[loja.slug] = chave; limparCacheVitrine(); return nova; });
+          });
         }).catch(function () { return nova; });
       });
     });
@@ -1382,7 +1397,7 @@
           return lerCupom.then(function (c) {
             if (c) {
               var regra = ((c.loja && c.loja.cupons) || []).filter(function (x) { return x.codigo === codigo; })[0];
-              if (regra && regra.limite > 0 && c.usos >= regra.limite) throw R.ErroDoCliente('Esse código já foi usado o máximo de vezes.');
+              if (regra && regra.limite > 0 && c.usos >= regra.limite) throw R.ErroDoCliente('Esse código já foi todo usado.');
               tx.set(cupomRef, { usos: c.usos + 1, atualizadoEm: agoraISO() });
             }
             tx.set(contadorRef, contador);
@@ -1490,6 +1505,18 @@
     }.bind(this));
   };
 
+  /* Pedidos que ficaram andando de outros dias (ninguem concluiu): uma leitura avulsa ao abrir o painel, sem escuta.
+     So o filtro de situacao vai ao banco (dispensa indice composto); a data e separada no aparelho */
+  FirebaseStore.prototype.pedidosParados = function (lojaSlug, antesDe) {
+    return this._pronto.then(function () {
+      return this.db.collection('lojas').doc(lojaSlug).collection('pedidos').where('status', 'in', ['pago', 'producao', 'pronto']).get();
+    }.bind(this)).then(function (snap) {
+      var lista = [];
+      snap.forEach(function (doc) { var x = doc.data(); if (String(x.criadoEm || '') < antesDe) lista.push(x); });
+      return lista;
+    });
+  };
+
   FirebaseStore.prototype.atualizarPedido = function (lojaSlug, id, mudancas) {
     return this._pronto.then(function () {
       var ref = this.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id);
@@ -1525,7 +1552,10 @@
     return this.obterLoja(lojaSlug).then(function (loja) {
       if (!loja) return false;
       /* 1) senha da equipe; 2) dono com e-mail e senha (quem criou a conta sem Google) */
-      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; }).catch(function () {
+      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; }).catch(function (e1) {
+        /* sem internet ou tentativas demais: dizer "Senha errada." fazia a equipe achar que o dono trocou a senha */
+        var c1 = (e1 && e1.code) || '';
+        if (c1 === 'auth/network-request-failed' || c1 === 'auth/too-many-requests') throw erroDeLogin(e1);
         if (!loja.donoEmail) return false;
         return eu.auth.signInWithEmailAndPassword(loja.donoEmail, pin).then(function (r) {
           if (r && r.user && r.user.emailVerified === true) return true;
@@ -1534,7 +1564,11 @@
           return enviar.then(function () { return eu.auth.signOut(); }).catch(function () { /* segue */ }).then(function () {
             throw new Error('Falta confirmar o seu e-mail. Mandamos um link para ' + loja.donoEmail + ' (olhe também no spam). Toque no link e entre de novo.');
           });
-        }, function () { return false; });
+        }, function (e2) {
+          var c2 = (e2 && e2.code) || '';
+          if (c2 === 'auth/network-request-failed' || c2 === 'auth/too-many-requests') throw erroDeLogin(e2);
+          return false;
+        });
       });
     });
   };
@@ -1558,22 +1592,6 @@
   FirebaseStore.prototype.guardarSegredo = function (slug, nome, dados) {
     return this._pronto.then(function () {
       return this.db.collection('lojas').doc(slug).collection('privado').doc(nome).set(clonar(dados)).then(function () { return true; });
-    }.bind(this));
-  };
-
-  /* Dono cria o proprio login em #/comecar. Se o e-mail ja existe, tenta entrar com a senha dada. */
-  FirebaseStore.prototype.criarConta = function (email, senha) {
-    return this._pronto.then(function () {
-      var auth = this.auth;
-      return auth.createUserWithEmailAndPassword(email, senha).then(function () { return true; }).catch(function (e) {
-        if (e && e.code === 'auth/email-already-in-use') {
-          return auth.signInWithEmailAndPassword(email, senha).then(function () { return true; })
-            .catch(function () { throw new Error('Esse e-mail já tem cadastro com outra senha. Entre com a senha certa ou use outro e-mail.'); });
-        }
-        if (e && e.code === 'auth/weak-password') throw new Error('Senha muito curta: use pelo menos 6 letras ou números.');
-        if (e && e.code === 'auth/invalid-email') throw new Error('Esse e-mail não parece válido.');
-        throw new Error('Não deu para criar o acesso agora. Tente de novo em instantes.');
-      });
     }.bind(this));
   };
 
@@ -1629,17 +1647,6 @@
     if (eu.auth && window.firebase && window.firebase.auth) return abrirJanela();
     /* ainda carregando: espera e pede outro toque (abrir janela fora do toque seria bloqueado) */
     return eu._pronto.then(function () { throw new Error('Quase lá. Toque em "Entrar com o Google" de novo.'); });
-  };
-  FirebaseStore.prototype.entrarComEmail = function (email, senha) {
-    return this._pronto.then(function () {
-      return this.auth.signInWithEmailAndPassword(String(email || '').trim().toLowerCase(), String(senha || ''))
-        .then(function (r) { return usuarioDoFirebase(r.user); }).catch(function (e) { throw erroDeLogin(e); });
-    }.bind(this));
-  };
-  FirebaseStore.prototype.recuperarSenha = function (email) {
-    return this._pronto.then(function () {
-      return this.auth.sendPasswordResetEmail(String(email || '').trim().toLowerCase()).then(function () { return true; }).catch(function (e) { throw erroDeLogin(e); });
-    }.bind(this));
   };
   FirebaseStore.prototype.listarMinhasLojas = function (email) {
     return this._pronto.then(function () {
@@ -1699,15 +1706,29 @@
 
   /* o banco gratis chegou no limite do dia (leituras ou gravacoes)? */
   function ehLimite(e) { return !!e && (e.code === 'resource-exhausted' || /quota|resource.exhausted/i.test(String(e.message || ''))); }
+  /* erro do banco em portugues de gente. Mensagem nossa (e.publico, ou ja em portugues e sem codigo) passa como esta */
+  function erroAmigavel(e, padrao) {
+    var c = (e && e.code) || '', m = String((e && e.message) || '');
+    if (e && e.publico) return m;
+    if (ehLimite(e)) return 'Muito movimento agora. Tente de novo em alguns minutos.';
+    if (c === 'unavailable' || c === 'deadline-exceeded' || c === 'aborted' || e instanceof TypeError || /network|failed to fetch|load failed|offline/i.test(m)) return 'Sem internet agora. Confira a conexão e toque de novo.';
+    if (c === 'permission-denied' || c === 'unauthenticated' || /permission/i.test(m)) return 'Sua sessão caiu. Entre de novo.';
+    if (c === 'not-found') return 'Isso não existe mais. Atualize a tela.';
+    /* mensagem nossa (em portugues, sem codigo do banco): passa como esta. Ingles ou tecnica: troca pela padrao */
+    if (m && !c && m.length < 200 && !/(the|of|is|not|failed|error|missing|permissions?|unexpected|invalid|fetch|token|json|firestore|get|http|undefined|null)/i.test(m)) return m;
+    return padrao || 'Não deu agora. Tente de novo.';
+  }
 
   window.LigeiroDados = {
     store: store,
     ehLimite: ehLimite,
+    erroAmigavel: erroAmigavel,
     fotoSrc: fotoSrc,
     logoSrc: logoSrc,
     modeloDeLoja: modeloDeLoja,
     idAleatorio: idAleatorio,
     clonar: clonar,
     modoDemo: store.tipo === 'demo',
+    navegadorDeApp: navegadorDeApp,
   };
 })();

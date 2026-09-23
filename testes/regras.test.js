@@ -2,7 +2,7 @@
 
 /*
  * Testes das regras do pedido. Rodar com:
- *   node --test testes/
+ *   node --test testes/regras.test.js testes/pix.test.js   (o do mensageiro: node testes/worker.test.mjs)
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -670,4 +670,30 @@ test('vagas: quem ocupa vaga no limite de lojas', () => {
   assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'teste', desde: antigo } }), false); /* teste acabou sem nunca pagar: libera */
   assert.equal(R.ocupaVaga({ ativa: false, plano: { status: 'ativo', planoPago: 'uma', pagoAte: futuro } }), false); /* desativada pelo Ligeiro */
   assert.equal(R.ocupaVaga(null), false);
+});
+
+test('divulgação: a frase de pagamento segue o que a loja aceita (sem prometer Pix a quem não tem Mercado Pago)', () => {
+  const base = lojaDeTeste();
+  assert.equal(R.frasePagamento(base), 'paga no Pix ou ao receber');
+  assert.equal(R.frasePagamento(Object.assign({}, base, { aceitaCartaoEntrega: false, aceitaDinheiroEntrega: false })), 'paga no Pix');
+  const semPix = Object.assign({}, base, { mpAtivo: false });
+  assert.equal(R.frasePagamento(semPix), 'paga ao receber');
+  assert.equal(R.frasePagamento(Object.assign({}, semPix, { aceitaCartaoEntrega: false, aceitaDinheiroEntrega: false })), 'paga na loja');
+  const texto = R.cardapioEmTexto(semPix, 'https://exemplo.com/#/juquia/teste');
+  assert.ok(!/Pix/.test(texto), 'loja sem Pix não promete Pix no cardápio em texto');
+  assert.ok(/paga ao receber/.test(texto));
+});
+
+test('tipos de loja: a lista mora nas regras (o cadastro não baixa a Central)', () => {
+  assert.ok(Array.isArray(R.TIPOS_DE_LOJA) && R.TIPOS_DE_LOJA.length >= 10);
+  assert.deepEqual(R.TIPOS_DE_LOJA[0], ['Lanchonete', '🍔']);
+  assert.equal(R.TIPOS_DE_LOJA[R.TIPOS_DE_LOJA.length - 1][0], 'Outro');
+});
+
+test('conferência: item que não existe no cardápio não passa como "ok" (pedido adulterado acende o aviso)', () => {
+  const loja = lojaDeTeste();
+  const falso = { itens: [{ produtoId: 'nao-existe', nome: 'Pizza grande', quantidade: 5, preco: 20 }], tipoEntrega: 'retirada', total: 100, desconto: 0 };
+  const c = R.conferirTotal(loja, falso);
+  assert.equal(c.ok, false);
+  assert.equal(c.esperado, null);
 });

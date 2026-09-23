@@ -18,7 +18,10 @@
   var lista = null;   /* [{ nome, uf, chave }] */
   var carregando = null;
 
-  function normal(t) { return R.semAcento(String(t || '')).toLowerCase().trim(); }
+  /* hifen e apostrofo viram espaco ("pau d arco" acha Pau-d'Arco) */
+  function normal(t) { return R.semAcento(String(t || '')).toLowerCase().replace(/[-'’`]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  /* o estado de casa vem na frente quando o nome se repete (Santos/SP antes de Santos Dumont/MG) */
+  function ufDeCasa() { return String((window.LIGEIRO_CONFIG || {}).ufPreferida || 'SP').toUpperCase(); }
 
   function carregar() {
     if (lista) return Promise.resolve(lista);
@@ -33,22 +36,35 @@
     return carregando;
   }
 
-  /* Busca: primeiro quem comeca com o termo, depois quem contem. Aceita "juquia sp". */
+  /* Busca: primeiro o nome igual, depois quem comeca com o termo, depois quem contem; em cada grupo, o estado de casa
+     e os nomes mais curtos na frente. Antes saia na ordem dos estados: "Eldorado" dava Eldorado do Carajas/PA primeiro
+     e o nome certo nem aparecia entre as 6 sugestoes. Aceita "juquia sp". */
   function buscar(termo, limite) {
     if (!lista) return [];
     var t = normal(termo);
     var uf = '';
-    var m = /^(.*?)[\s,\-·]+([a-z]{2})$/.exec(t);
+    var m = /^(.*?)[\s,·]+([a-z]{2})$/.exec(t);
     if (m && lista.some(function (c) { return c.uf.toLowerCase() === m[2]; })) { t = m[1].trim(); uf = m[2].toUpperCase(); }
     if (!t) return [];
-    var comeca = [], contem = [];
-    for (var i = 0; i < lista.length && (comeca.length + contem.length) < 400; i++) {
+    var casa = ufDeCasa();
+    var igual = [], comeca = [], contem = [];
+    for (var i = 0; i < lista.length; i++) {
       var c = lista[i];
       if (uf && c.uf !== uf) continue;
+      if (c.chave === t) { igual.push(c); continue; }
       var pos = c.chave.indexOf(t);
       if (pos === 0) comeca.push(c); else if (pos > 0) contem.push(c);
     }
-    return comeca.concat(contem).slice(0, limite || 8);
+    var ordem = function (a, b) { return ((a.uf === casa ? 0 : 1) - (b.uf === casa ? 0 : 1)) || (a.nome.length - b.nome.length) || (a.nome < b.nome ? -1 : 1); };
+    return igual.sort(ordem).concat(comeca.sort(ordem), contem.sort(ordem)).slice(0, limite || 8);
+  }
+  /* o nome digitado bate com uma cidade so (ou uma so no estado de casa)? */
+  function unicaIgual(texto) {
+    var t = normal(String(texto || '').replace(/\s*·\s*[A-Za-z]{2}$/, ''));
+    var iguais = buscar(texto, 20).filter(function (c) { return c.chave === t; });
+    if (iguais.length === 1) return iguais[0];
+    var deCasa = iguais.filter(function (c) { return c.uf === ufDeCasa(); });
+    return deCasa.length === 1 ? deCasa[0] : null;
   }
 
   function existe(nome, uf) {
@@ -124,9 +140,12 @@
       carregar().then(function () { if (document.activeElement === input) mostrar(buscar(input.value, 6)); });
     });
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !sugestoes.hidden) {
-        var primeiro = sugestoes.querySelector('.sugestao');
-        if (primeiro) { e.preventDefault(); primeiro.click(); }
+      /* Enter so escolhe sozinho quando o nome bate certinho; se nao, deixa a lista aberta para a pessoa tocar na certa
+         (antes escolhia a primeira sugestao, e "Santos" virava Santos Dumont/MG) */
+      if (e.key === 'Enter' && !escolhida && lista) {
+        var exata = unicaIgual(input.value);
+        if (exata) { e.preventDefault(); escolher(exata); }
+        else if (!sugestoes.hidden) e.preventDefault();
       }
       if (e.key === 'Escape') esconder();
     });
@@ -136,14 +155,16 @@
         esconder();
         /* digitou o nome inteiro certinho sem clicar: aceita igual */
         if (!escolhida && lista) {
-          var achados = buscar(input.value, 2);
-          if (achados.length === 1 && achados[0].chave === normal(input.value.replace(/\s*·\s*[A-Za-z]{2}$/, ''))) escolher(achados[0]);
+          var exata = unicaIgual(input.value);
+          if (exata) escolher(exata);
         }
         input.classList.toggle('erro', !!input.value && !escolhida);
       }, 120);
     });
 
     bloco.valor = function () {
+      /* digitou o nome certinho e tocou em Continuar na hora (antes do campo soltar): vale igual */
+      if (!escolhida && lista) { var exata = unicaIgual(input.value); if (exata) escolher(exata); }
       if (escolhida) return { nome: escolhida.nome, uf: escolhida.uf };
       /* lista nao carregou (sem internet no primeiro acesso): aceita o que foi digitado, sem travar ninguem */
       if (!lista && input.value.trim()) return { nome: input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };

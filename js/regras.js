@@ -575,7 +575,9 @@
       var esperado = o.cupomErro ? total : o.total;
       return { ok: esperado === pedido.total, esperado: esperado };
     } catch (_) {
-      return { ok: true, esperado: pedido.total };
+      /* item que nao existe no cardapio (ou quantidade fora do normal): nao da para refazer a conta. Antes passava como
+         "ok" e um pedido adulterado (5 pizzas por R$ 1) nao acendia aviso nenhum */
+      return { ok: false, esperado: null };
     }
   }
 
@@ -797,7 +799,7 @@
       var frete = descreverFrete(loja);
       linhas.push(frete === 'Entrega grátis' ? '🛵 Entrega grátis' : 'Entrega: ' + frete.replace(/^Taxa /, ''));
     }
-    if (link) linhas.push('Peça pelo link, é rápido e paga no Pix: ' + link);
+    if (link) linhas.push('Peça pelo link, é rápido e ' + frasePagamento(loja) + ': ' + link);
     return textoSimples(linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim());
   }
 
@@ -1214,7 +1216,21 @@
     };
   }
 
+  /* como o cliente paga, em uma frase (divulgacao e cardapio em texto): a mesma conta do site, sem prometer Pix a quem
+     nao tem Mercado Pago */
+  function frasePagamento(loja) {
+    var l = loja || {};
+    var pix = l.aceitaPix !== false && !!l.mpAtivo;
+    var aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+    return pix && aoReceber ? 'paga no Pix ou ao receber' : pix ? 'paga no Pix' : aoReceber ? 'paga ao receber' : 'paga na loja';
+  }
+
+  /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central */
+  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🛵']];
+
   return {
+    TIPOS_DE_LOJA: TIPOS_DE_LOJA,
+    frasePagamento: frasePagamento,
     STATUS: STATUS,
     TRANSICOES: TRANSICOES,
     EM_ANDAMENTO: EM_ANDAMENTO,

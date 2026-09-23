@@ -59,8 +59,9 @@
   }
 
   /* ---------- Sons (gerados na hora, sem arquivo) ---------- */
-  var menosMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var som = { contexto: null, ligado: lerLocal('ligeiro:som') !== false && !menosMovimento };
+  /* vale a escolha guardada (Apito ligado ou desligado). "Reduzir movimento" do celular nao mexe no som: antes, no
+     iPhone com essa opcao, o apito voltava desligado a cada abertura e o pedido novo entrava calado */
+  var som = { contexto: null, ligado: lerLocal('ligeiro:som') !== false };
 
   function prepararSom() {
     if (som.contexto) { if (som.contexto.state === 'suspended') som.contexto.resume(); return; }
@@ -112,6 +113,18 @@
     return som.ligado;
   }
   document.addEventListener('pointerdown', prepararSom, { once: true });
+  /* O navegador so libera o som depois do primeiro toque na pagina. Painel, cozinha e entregador recem-abertos (ou o PC
+     do caixa depois de reiniciar) ficariam mudos sem ninguem saber: uma faixa pede o toque e some com ele */
+  function pedirToqueParaSom(raiz) {
+    if (!som.ligado || (som.contexto && som.contexto.state === 'running') || !raiz || raiz.querySelector('.faixa-som')) return;
+    var faixa = el('button', { class: 'faixa-som', type: 'button' }, [iconeLinha('sino'), 'Toque aqui para ligar o apito dos pedidos']);
+    var tirar = function () { prepararSom(); if (faixa.parentNode) faixa.parentNode.removeChild(faixa); document.removeEventListener('pointerdown', tirar, true); };
+    faixa.addEventListener('click', tirar);
+    document.addEventListener('pointerdown', tirar, true);
+    /* logo abaixo do topo (sendo o topo o ultimo da tela, vai no fim dele mesmo) */
+    var topo = raiz.querySelector('.painel-topo, .topo-equipe');
+    if (topo && topo.parentNode) topo.parentNode.insertBefore(faixa, topo.nextSibling); else raiz.insertBefore(faixa, raiz.firstChild);
+  }
 
   function vibrar(padrao) { if (navigator.vibrate) { try { navigator.vibrate(padrao || [120, 60, 120]); } catch (_) { /* ignora */ } } }
 
@@ -130,7 +143,7 @@
         el('div', { class: 'titulo', text: opcoes.titulo || '' }),
         opcoes.sub ? el('div', { class: 'sub', text: opcoes.sub }) : null,
       ]),
-      el('button', { class: 'fechar', 'aria-label': 'Fechar', onclick: fecharModal, text: '✕' }),
+      el('button', { class: 'fechar', 'aria-label': 'Fechar', onclick: fecharModal }, [iconeLinha('fechar')]),
     ]);
     var corpo = el('div', { class: 'modal-corpo' });
     if (opcoes.corpo) corpo.appendChild(opcoes.corpo);
@@ -371,7 +384,7 @@
     ['', 'Verde limão (padrão)'], ['#FF8A3D', 'Laranja'], ['#E03131', 'Vermelho'], ['#E64980', 'Rosa'], ['#7048E8', 'Roxo'],
     ['#1C7ED6', 'Azul'], ['#2F9E44', 'Verde'], ['#FAB005', 'Amarelo'], ['#8D5524', 'Marrom'], ['#1F1F1F', 'Preto'],
   ];
-  var VARS_TEMA = ['--lime', '--lime-escuro', '--lime-suave', '--deep', '--deep2', '--texto-no-destaque', '--raio', '--raio-p', '--raio-btn-p', '--raio-btn-g', '--raio-logo', '--raio-logo-p', '--display', '--altura-capa'];
+  var VARS_TEMA = ['--lime', '--lime-escuro', '--lime-suave', '--deep', '--deep2', '--senha', '--texto-no-destaque', '--raio', '--raio-p', '--raio-btn-p', '--raio-btn-g', '--raio-logo', '--raio-logo-p', '--display', '--altura-capa'];
   var ESTILOS = {
     cantos: [['arredondado', 'Arredondados'], ['reto', 'Retos']],
     logo: [['quadrada', 'Quadrada'], ['redonda', 'Redonda']],
@@ -424,6 +437,9 @@
       v['--deep'] = hsl(c.h, Math.min(c.s, 45), 18);
       v['--deep2'] = hsl(c.h, Math.min(c.s, 50), 30);
       v['--texto-no-destaque'] = corDeTexto(cor);
+      /* numero da senha em cima do fundo escuro da loja: a propria cor quando ela aparece; escura demais (Preto, Marrom),
+         um tom claro da mesma cor */
+      v['--senha'] = luminancia(cor) < 0.2 ? hsl(c.h, Math.min(c.s, 60), 80) : cor;
     }
     return v;
   }
@@ -550,6 +566,9 @@
     var tag = (src.match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
     temaPronto = carregarCss('css/temas/' + o.tema + '.css?v=' + tag);
     raiz.classList.add('tema-' + o.tema, 'loja-oficial');
+    /* as janelas (modal) moram fora da tela da loja: levam o tema junto, senao abriam no visual padrao */
+    var modal = document.getElementById('modal');
+    if (modal) modal.classList.add('tema-' + o.tema);
     return o;
   }
   /* Tudo que o visual da loja oficial precisa pra aparecer inteiro: folha do tema, letras e imagens da marca.
@@ -600,6 +619,8 @@
   }
   function limparTemaOficial(raiz) {
     if (raiz) raiz.className = raiz.className.replace(/\btema-[a-z0-9-]+\b|\bloja-oficial\b/g, '').replace(/\s+/g, ' ').trim();
+    var modal = document.getElementById('modal');
+    if (modal) Array.prototype.slice.call(modal.classList).forEach(function (c) { if (c.indexOf('tema-') === 0) modal.classList.remove(c); });
   }
 
   /* largura da tela SEM a barra de rolagem (no Windows ela ocupa uns 15px): faixa de ponta a ponta nao passa da tela */
@@ -661,6 +682,12 @@
     presente: '<rect x="4" y="9" width="16" height="4" rx="1"/><path d="M5.5 13v7.5h13V13"/><path d="M12 9v11.5"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.8S9.5 3.8 12 9c2.5-5.2 4.5-4.6 4.5-2.8S14.5 9 12 9z"/>',
     olho: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
     estrela: '<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.6l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"/>',
+    subir: '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
+    descer: '<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>',
+    tocar: '<path d="M8 5.5v13l10.5-6.5z"/>',
+    desfazer: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    abrir: '<path d="m6 9 6 6 6-6"/>',
+    avancar: '<path d="m9 6 6 6-6 6"/>',
     fechar: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
     fogo: '<path d="M12 21a6 6 0 0 0 6-6c0-3.6-2.4-5.4-3.6-8.2-.7 1.8-1.8 2.9-2.9 3.4C11.3 7.6 10.4 5.3 11.6 3 7.9 4.6 6 8.6 6 12.4V15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 1-2.5-2.5c0-1.6 1.3-2.4 2.5-4 1.2 1.6 2.5 2.4 2.5 4A2.5 2.5 0 0 1 12 21z"/>',
     cadeado: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
@@ -685,6 +712,26 @@
     return el('span', { class: 'selo cinza selo-tipo' }, [iconeLinha(tipo), { entrega: 'Entrega', balcao: 'Balcão', retirada: 'Retirada' }[tipo]]);
   }
 
+  /* Dentro do Instagram ou do Facebook o Google nao deixa entrar. O aviso vem ANTES (no cadastro, o que foi digitado
+     ali se perderia ao trocar de navegador). Android: um toque abre o Chrome direto na tela certa (?ir=, ver app.js);
+     iPhone: o caminho dos tres pontinhos. Fora de app (ou na demonstracao), nada. */
+  function avisoNavegadorDeApp(rota) {
+    var D = window.LigeiroDados;
+    if (!D || D.modoDemo || !D.navegadorDeApp || !D.navegadorDeApp()) return null;
+    var ua = navigator.userAgent || '';
+    var android = /Android/i.test(ua);
+    var app = /Instagram/i.test(ua) ? 'do Instagram' : /FBAN|FBAV|FB_IAB/.test(ua) ? 'do Facebook' : 'de outro app';
+    var alvo = location.host + location.pathname + '?ir=' + encodeURIComponent(rota);
+    return el('div', { class: 'aviso aviso-falta aviso-app' }, [
+      iconeLinha('alerta'),
+      el('div', { class: 'aviso-app-texto' }, [
+        el('b', { text: 'Abra no navegador para continuar' }),
+        el('span', { text: 'Por dentro ' + app + ' o Google não deixa entrar. ' + (android ? 'Toque no botão e continue no Chrome, na mesma tela.' : 'Toque nos três pontinhos lá em cima e escolha "Abrir no navegador".') }),
+        android ? el('a', { class: 'btn btn-principal btn-largo', href: 'intent://' + alvo + '#Intent;scheme=https;package=com.android.chrome;end' }, [iconeLinha('site'), 'Abrir no Chrome']) : null,
+      ]),
+    ]);
+  }
+
   /* faixa do painel, cozinha e entregas quando o banco gratis chega no limite do dia (uma so, fica ate recarregar) */
   function faixaLimite(raiz) {
     if (!raiz || raiz.querySelector('.faixa-limite')) return;
@@ -701,9 +748,9 @@
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
-    avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
+    avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, pedirToqueParaSom: pedirToqueParaSom,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,

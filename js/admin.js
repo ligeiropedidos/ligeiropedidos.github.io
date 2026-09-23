@@ -13,7 +13,7 @@
   var el = UI.el;
   var $ = UI.$;
 
-  var TIPOS = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🛵']];
+  var TIPOS = R.TIPOS_DE_LOJA;
   var MODELOS = [['vazio', 'Cardápio vazio (monto na loja)'], ['lanchonete-do-ze', 'Modelo de lanchonete'], ['dom-conizza', 'Modelo de pizzaria'], ['marmitaria-da-cida', 'Modelo de marmitaria'], ['sorveteria-da-lu', 'Modelo de sorveteria / açaí']];
 
   var CHAVE_ABA = 'ligeiro:admin:aba';
@@ -50,7 +50,7 @@
   function normal(t) { return R.semAcento(String(t || '')).toLowerCase(); }
   function mesmoEmail(a, b) { return String(a || '').toLowerCase() === String(b || '').toLowerCase(); }
   function cidadeUF(l) { return (l.cidade || 'Sem cidade') + (l.uf ? '/' + l.uf : ''); }
-  function erroTexto(e, padrao) { return e && e.message ? e.message : padrao; }
+  function erroTexto(e, padrao) { return D.erroAmigavel(e, padrao); }
   function lerAba() {
     var a = '';
     try { a = sessionStorage.getItem(CHAVE_ABA) || ''; } catch (_) { /* ignora */ }
@@ -223,7 +223,7 @@
               if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro. Saia dela em "Minha conta" e entre com a certa.'; return; }
               try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
               parar = montar();
-            }).catch(function (e) { erro.hidden = false; erro.textContent = e.message || 'Não deu para entrar.'; });
+            }).catch(function (e) { erro.hidden = false; erro.textContent = D.erroAmigavel(e, 'Não deu para entrar.'); });
           } }),
         ]));
         return;
@@ -592,7 +592,7 @@
       if (totalVagas > 0) {
         var usadas = Math.max(0, Math.min(totalVagas, totalVagas - R.vagasFundador()));
         s.appendChild(el('div', { class: 'adm-fundadores' }, [
-          el('div', { class: 'adm-fundadores-texto' }, [el('span', { class: 'adm-estrela', 'aria-hidden': 'true', text: '★' }), 'Fundadores: ', el('b', { text: usadas + ' de ' + totalVagas }), ' vagas usadas']),
+          el('div', { class: 'adm-fundadores-texto' }, [el('span', { class: 'adm-estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Fundadores: ', el('b', { text: usadas + ' de ' + totalVagas }), ' vagas usadas']),
           el('div', { class: 'adm-fundadores-barra', role: 'progressbar', 'aria-label': 'Vagas de fundador usadas', 'aria-valuemin': '0', 'aria-valuemax': String(totalVagas), 'aria-valuenow': String(usadas) }, el('i', { style: { width: Math.round(usadas / totalVagas * 100) + '%' } })),
           el('div', { class: 'adm-fundadores-livres', text: plural(totalVagas - usadas, 'vaga livre', 'vagas livres') }),
         ]));
@@ -814,7 +814,7 @@
         el('span', { class: 'adm-c-principal' }, [
           el('span', { class: 'adm-textos' }, [
             /* fundador: estrela dourada logo depois do e-mail (igual o selo de verificada das lojas); a coluna da direita fica so com a situacao */
-            el('span', { class: 'adm-nome' }, [c.email, p.fundador === true ? el('span', { class: 'adm-fund', title: 'Fundador', 'aria-label': 'Fundador', text: '★' }) : null]),
+            el('span', { class: 'adm-nome' }, [c.email, p.fundador === true ? el('span', { class: 'adm-fund', title: 'Fundador', 'aria-label': 'Fundador' }, [UI.iconeLinha('estrela')]) : null]),
             el('span', { class: 'adm-sub adm-so-cel', text: plano.nome + ' · ' + tipo + ' · ' + textoLojas(c, minhas.length) }),
             el('span', { class: 'adm-sub adm-so-pc', text: minhas.length ? minhas.map(function (l) { return l.nome; }).join(', ') : 'Nenhuma loja ainda' }),
             p.avisoPagamentoEm ? el('span', { class: 'adm-sub adm-aviso-txt', text: 'Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) }) : null,
@@ -877,12 +877,12 @@
             el('span', { class: 'adm-data', text: dataBR(c.criadoEm) + ' ' + horaBR(c.criadoEm) }),
           ]),
           detalhes.length ? el('span', { class: 'adm-sub', text: detalhes.join(' · ') }) : null,
-          pendente ? null : el('span', { class: 'adm-sub adm-ok-txt', text: '✓ Chamado em ' + dataBR(c.atendidoEm) }),
+          pendente ? null : el('span', { class: 'adm-sub adm-ok-txt' }, [UI.iconeLinha('check'), 'Chamado em ' + dataBR(c.atendidoEm)]),
         ]),
         el('div', { class: 'adm-contato-acoes' }, [
           link ? el('a', { class: 'btn btn-whats btn-pequeno', href: link, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Chamar'])
             : el('button', { class: 'btn btn-whats btn-pequeno', type: 'button', disabled: true, title: 'Contato sem WhatsApp' }, [UI.icone('zap'), 'Chamar']),
-          pendente ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '✓ Já chamei', onclick: marcar(true) })
+          pendente ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: marcar(true) }, [UI.iconeLinha('check'), 'Já chamei'])
             : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', title: 'Volta para lista de quem falta chamar', text: 'Desmarcar', onclick: marcar(false) }),
         ]),
       ]);
@@ -902,7 +902,7 @@
         var btnVitrine = el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Refaz o resumo leve de todas as lojas (hub e cidades)', text: 'Reconstruir', onclick: function () {
           if (btnVitrine.disabled) return;
           btnVitrine.disabled = true; btnVitrine.textContent = 'Refazendo…';
-          store.reconstruirVitrine().then(function (n) { UI.avisar('Vitrine refeita: ' + n + ' lojas.'); }).catch(function (e) { UI.avisar(e.message || 'Não deu.'); })
+          store.reconstruirVitrine().then(function (n) { UI.avisar('Vitrine refeita: ' + n + ' lojas.'); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu.')); })
             .then(function () { btnVitrine.disabled = false; btnVitrine.textContent = 'Reconstruir'; });
         } });
         cards.push(ferramenta('atualizar', 'Reconstruir vitrine', 'Refaz o resumo leve de todas as lojas, que a página das cidades usa. Use se alguma loja aparecer errada lá.', btnVitrine));
@@ -944,7 +944,7 @@
         celulas.push(el('span', { class: 'adm-pc-nome', text: p.nome }));
         celulas.push(el('span', { class: 'adm-pc-num', text: R.dinheiro(p.mensal) }));
         celulas.push(el('span', { class: 'adm-pc-num', text: p.anual > 0 ? R.dinheiro(p.anual) : 'não tem' }));
-        if (p.fundador) celulas.push(el('span', { class: 'adm-pc-fund', text: '★ Fundador: ' + R.dinheiro(p.fundador.mensal) + ' por mês' + (p.fundador.anual > 0 && p.anual > 0 ? ', ' + R.dinheiro(p.fundador.anual) + ' por ano' : '') }));
+        if (p.fundador) celulas.push(el('span', { class: 'adm-pc-fund' }, [UI.iconeLinha('estrela'), 'Fundador: ' + R.dinheiro(p.fundador.mensal) + ' por mês' + (p.fundador.anual > 0 && p.anual > 0 ? ', ' + R.dinheiro(p.fundador.anual) + ' por ano' : '')]));
       });
       var dias = ((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis || 7;
       return el('div', { class: 'adm-precos-caixa' }, [
@@ -1106,7 +1106,7 @@
         };
         corpo.appendChild(el('div', { class: 'adm-caixa adm-plano' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Situação' }), sel]),
-          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', text: '✓ Pagou ' + R.dinheiro(precos.mensal || 7900) + ' (+30 dias)', onclick: function () { confirmarLoja(30); } }),
+          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', onclick: function () { confirmarLoja(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(precos.mensal || 7900) + ' (+30 dias)']),
         ]));
       } else {
         /* loja com dono: o plano e da conta dele, aqui so aponta pra ficha da conta */
@@ -1175,7 +1175,7 @@
           .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
-          .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu para confirmar.'); concluir(marca, trava); });
+          .catch(function (e) { trava.voando = false; UI.avisar(D.erroAmigavel(e, 'Não deu para confirmar.')); concluir(marca, trava); });
       }
       function tornarFundador() {
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
@@ -1183,7 +1183,7 @@
           .then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' agora é fundador'); concluir(marca, trava); })
-          .catch(function (e) { trava.voando = false; UI.avisar(e && e.message ? e.message : 'Não deu agora.'); concluir(marca, trava); }); /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
+          .catch(function (e) { trava.voando = false; UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); concluir(marca, trava); }); /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
       }
       /* Desfaz o ultimo "Pagou" (teste ou toque sem querer): so tira os dias que ele somou, nunca da dias a mais.
          Se o que sobra cai dentro dos dias gratis, era o primeiro pagamento: volta pro gratis e sai da receita. */
@@ -1231,7 +1231,7 @@
       var corpo = el('div', { class: 'adm-ficha' });
       corpo.appendChild(el('div', { class: 'adm-selos' }, [
         seloSituacao(sit),
-        p.fundador === true ? el('span', { class: 'selo adm-selo selo-fundador', text: '★ Fundador' }) : (viraFundador ? el('span', { class: 'selo adm-selo laranja', text: 'Vira fundador ao confirmar' }) : null),
+        p.fundador === true ? el('span', { class: 'selo adm-selo selo-fundador' }, [UI.iconeLinha('estrela'), 'Fundador']) : (viraFundador ? el('span', { class: 'selo adm-selo laranja', text: 'Vira fundador ao confirmar' }) : null),
         sit.data ? el('span', { class: 'adm-data', text: sit.data }) : null,
       ]));
       if (p.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) + '. Confira no banco e confirme.'));
@@ -1254,9 +1254,9 @@
 
       corpo.appendChild(el('h3', { text: 'Ações' }));
       corpo.appendChild(el('div', { class: 'adm-acoes-linha' }, [
-        el('button', { class: 'btn btn-principal', type: 'button', text: '✓ Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)', onclick: function () { confirmar(30); } }),
-        temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', text: '✓ Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)', onclick: function () { confirmar(365); } }) : null,
-        podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: tira os dias que o último Pagou somou', text: '↩ Desfazer o último pagamento', onclick: desfazerPagamento }) : null,
+        el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { confirmar(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)']),
+        temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', onclick: function () { confirmar(365); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)']) : null,
+        podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: tira os dias que o último Pagou somou', onclick: desfazerPagamento }, [UI.iconeLinha('desfazer'), 'Desfazer o último pagamento']) : null,
       ]));
       corpo.appendChild(grade([
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Libera a conta sem data para vencer', text: 'Cortesia', onclick: function () {
@@ -1358,7 +1358,7 @@
           UI.soar('sucesso');
           mostrarLinks(loja);
           if (!store.assistir) desenhar(); /* na nuvem a lista de tras ja aparece com a loja nova */
-        }).catch(function (e) { botao.disabled = false; botao.textContent = 'Cadastrar'; UI.avisar(e && e.message ? e.message : 'Não deu para cadastrar.'); });
+        }).catch(function (e) { botao.disabled = false; botao.textContent = 'Cadastrar'; UI.avisar(D.erroAmigavel(e, 'Não deu para cadastrar.')); });
       } })] });
       setTimeout(function () { f.nome.input.focus(); }, 60);
     }
@@ -1380,5 +1380,5 @@
     }
   }
 
-  window.LigeiroAdmin = { abrir: abrir, TIPOS: TIPOS, MODELOS: MODELOS };
+  window.LigeiroAdmin = { abrir: abrir };
 })();

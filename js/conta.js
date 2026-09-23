@@ -52,7 +52,7 @@
         return;
       }
       /* selo de fundador do lado do nome: aparece quando a conta travou o preco (ou e a do proprio Ligeiro) */
-      var seloTopo = el('span', { class: 'selo selo-fundador', text: '★ Fundador', hidden: true });
+      var seloTopo = el('span', { class: 'selo selo-fundador', hidden: true }, [UI.iconeLinha('estrela'), 'Fundador']);
       corpo.appendChild(el('div', { class: 'conta-cabeca' }, [
         u.foto ? el('img', { class: 'conta-foto', src: u.foto, alt: '', referrerpolicy: 'no-referrer' }) : el('span', { class: 'conta-foto conta-inicial', text: (u.nome || u.email || '?').trim().charAt(0).toUpperCase() }),
         el('div', { class: 'conta-texto' }, [
@@ -171,7 +171,7 @@
       caixa.appendChild(el('div', { class: 'cartao ' + (alerta ? 'destaque' : '') + ' conta-plano' }, [
         el('div', { class: 'conta-plano-topo' }, [
           el('div', {}, [el('div', { class: 'kicker', text: 'Seu plano' }), el('b', { class: 'conta-plano-nome', text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') })]),
-          el('span', { class: 'selo ' + corStatus, text: (corStatus ? '' : '● ') + rotuloStatus }),
+          el('span', { class: 'selo ' + corStatus }, [corStatus ? null : el('span', { class: 'bolinha', 'aria-hidden': 'true' }), rotuloStatus]),
         ]),
         el('div', { class: 'plano-dados' }, [
           quadro(q1[0], q1[1], q1[2]),
@@ -187,11 +187,11 @@
           (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && (a.estado !== 'ativa' || valendo.id !== plano.id)) ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }); } }) : null,
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar', text: 'Mudar plano' }),
           p.status === 'cancelado'
-            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix para suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); }); } })
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix para suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
             : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar', onclick: function () {
                 UI.perguntar('Encerrar a assinatura? Suas lojas continuam no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois param de receber pedidos.', { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
-                  store.salvarConta(conta.email, { plano: { status: 'cancelado', canceladoEm: new Date().toISOString() } }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { UI.avisar(e.message || 'Não deu agora.'); });
+                  store.salvarConta(conta.email, { plano: { status: 'cancelado', canceladoEm: new Date().toISOString() } }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
                 });
               } }) : null),
         ]),
@@ -211,7 +211,7 @@
       function avisar() {
         return store.salvarConta(conta.email, { plano: { avisoPagamentoEm: new Date().toISOString(), avisoValor: valor } })
           .then(function (c) { UI.soar('sucesso'); UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); aoAvisar(c); })
-          .catch(function (e) { UI.avisar(e && e.message ? e.message : 'Não deu para avisar agora.'); });
+          .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); });
       }
       window.LigeiroCobranca.abrir({
         valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, sufixo: ', todas as suas lojas',
@@ -244,7 +244,7 @@
       var textos = {
         gratis: 'Grátis até ' + dataCurta(a.limite), ativa: a.cortesia ? 'Assinatura liberada' : 'Paga até ' + dataCurta(a.limite),
         vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida, pague para não parar',
-        bloqueada: 'Bloqueada: site sem pedidos', pausada: 'Pausada', cancelada: 'Cancelada',
+        bloqueada: 'Bloqueada: site sem pedidos', pausada: 'Pausada', cancelada: 'Encerrada',
       };
       var classeSelo = a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
       var link = UI.linkDaLoja(l);
@@ -260,7 +260,7 @@
         ]),
         /* selos numa linha propria, com a largura toda do cartao: lado a lado ate em 320 */
         el('div', { class: 'conta-selos' }, [
-          el('span', { class: 'selo ' + (aberta ? '' : 'fechado') }, [el('span', { class: 'rot-longo', text: aberta ? '● Aberta agora' : '● Fechada agora' }), el('span', { class: 'rot-curto', text: aberta ? '● Aberta' : '● Fechada' })]),
+          el('span', { class: 'selo ' + (aberta ? '' : 'fechado') }, [el('span', { class: 'bolinha', 'aria-hidden': 'true' }), el('span', { class: 'rot-longo', text: aberta ? 'Aberta agora' : 'Fechada agora' }), el('span', { class: 'rot-curto', text: aberta ? 'Aberta' : 'Fechada' })]),
           el('span', { class: 'selo ' + classeSelo, text: textos[a.estado] || a.estado }),
         ]),
         /* entrada principal: o painel. Depois o site da loja e, separadas, as telas da equipe. */

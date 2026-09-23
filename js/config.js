@@ -50,6 +50,9 @@ window.LIGEIRO_CONFIG = {
   fundador: { vagas: 5, jaOcupadas: 0 }, /* 5 vagas so para clientes (era 20, depois 10): a meta de 5 lojas pagando. A Dom Conizza nao conta (jaOcupadas 0) */
   /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
      A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
+  /* tamanho do cardapio de cada loja: tudo fica num documento so (limite do banco) e baixa inteiro no celular do cliente.
+     As regras do banco (ferramentas/firestore.rules, cardapioNoLimite) usam os mesmos numeros */
+  limites: { categorias: 20, itens: 300 },
   capacidade: { maxLojas: 11 }, /* 11 lojas no gratis: com o cardapio na borda o Firebase gratis aguenta ~2.100 pedidos/dia; da ~190 por loja, e o pico de sexta cabe. Sobe no Blaze */
   /* Um plano so, tudo incluso (centavos). A assinatura e da conta: uma cobranca vale para todas as lojas dela.
      Loja a mais custa lojaExtra por mes (fundador tambem): 2 e 3 lojas aparecem so em "Assinar".

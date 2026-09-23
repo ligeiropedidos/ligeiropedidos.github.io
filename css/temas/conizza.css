@@ -88,8 +88,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 }
 .tema-conizza #descLoja { font-family: var(--cz-display); font-weight: 800; font-size: clamp(20px, 5.6vw, 28px); line-height: 1.1; color: var(--cz-tinta-suave); max-width: 18ch; margin-top: -8px !important; }
 
-/* selos: pilula com borda grossa */
-.tema-conizza .selo { padding: 8px 18px; border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-weight: 800; font-size: 15px; }
+/* selos do topo da loja: pilula com borda grossa (so ali: no painel e na cozinha os selos guardam a cor do aviso) */
+.tema-conizza .selos .selo { padding: 8px 18px; border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-weight: 800; font-size: 15px; }
 .tema-conizza .selo#seloAberto { background: var(--cz-verde-claro); color: var(--cz-verde); }
 .tema-conizza .selo#seloAberto.fechado { background: #fdecea; color: var(--cz-vermelho-escuro); }
 .tema-conizza .selo .bolinha { background: currentColor; width: 11px; height: 11px; }
@@ -122,6 +122,14 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .btn-fantasma { background: transparent; border-style: dashed; box-shadow: none; }
 .tema-conizza .btn-fantasma:active { transform: none; }
 .tema-conizza .btn-whats { background: var(--cz-verde); color: #fff; }
+/* marca de fora fica com a cor dela (como o WhatsApp verde): o cliente reconhece o Mercado Pago pelo azul */
+.tema-conizza .btn-mp { background: #009EE3; color: #fff; }
+/* recado da loja no topo: cartao da casa (borda grossa, sombra dura), no ouro claro */
+.tema-conizza .aviso-topo { background: var(--cz-ouro-claro); border: 3px solid var(--cz-tinta); color: var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); font-weight: 700; }
+.tema-conizza .aviso-topo .ico-traco { background: var(--cz-branco); color: var(--cz-tinta); }
+/* Meus pedidos: status nas cores da casa */
+.tema-conizza .escolha-grande .meu-status.andando { color: var(--cz-verde); }
+.tema-conizza .escolha-grande .meu-status.cancelado { color: var(--cz-vermelho); }
 
 /* como funciona: sem caixa, so icone e texto */
 .tema-conizza .como-passo { background: none; border: 0; padding: 4px 2px; font-size: 13px; font-weight: 700; color: var(--cz-tinta-suave); line-height: 1.35; }
@@ -170,7 +178,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .senha-gigante { font-family: var(--cz-display); color: var(--cz-ouro-claro); }
 .tema-conizza .painel-senha .instrucao, .tema-conizza .painel-senha .rotulo { color: var(--cz-creme); }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
-.tema-conizza .barra-carrinho, .tema-conizza .barra-fixa { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
+.tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }
 
@@ -194,7 +202,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .abas-painel { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
 .tema-conizza .aba-painel { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba-painel.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
-.tema-conizza .pedido-card, .tema-conizza .bloco-form, .tema-conizza .tela-card, .tema-conizza .linha-produto, .tema-conizza .metrica, .tema-conizza .ficha-cozinha, .tema-conizza .entrega-card {
+.tema-conizza .pedido-card, .tema-conizza .bloco-form, .tema-conizza .tela-card, .tema-conizza .linha-produto, .tema-conizza .metrica, .tema-conizza .ficha-cozinha {
   border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16);
 }
 .tema-conizza .pedido-card.novo { background: var(--cz-ouro-claro); box-shadow: 0 4px 0 var(--cz-tinta); }
@@ -208,13 +216,17 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .pedido-card .quando.laranja { background: #fdebd3; color: #8a3d0c; }
 .tema-conizza .pedido-card .quando.fechado { background: #fdecea; color: var(--cz-vermelho-escuro); }
 .tema-conizza .cartao.destaque { background: var(--cz-ouro-claro); border-color: var(--cz-tinta); }
-.tema-conizza .passos-config { background: var(--cz-creme); border: 3px dashed var(--cz-creme-borda); }
+
 .tema-conizza .salvar-fixo { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .hub-secao { color: var(--cz-tinta-suave); font-family: var(--cz-display); }
 .tema-conizza .login { background: var(--cz-creme-fundo); }
 .tema-conizza .login h2 { color: var(--cz-tinta); }
 .tema-conizza .marca span span { color: var(--cz-vermelho); }
-.tema-conizza .interruptor.ligado, .tema-conizza .chave.ligada { background: var(--cz-verde); }
+/* interruptor ligado, avisos de tudo certo e o Mercado Pago conectado: o verde da casa */
+.tema-conizza .chave.on { background: var(--cz-verde); }
+.tema-conizza .aviso:not(.aviso-falta) { background: var(--cz-verde-claro); }
+.tema-conizza .aviso:not(.aviso-falta) > .ico-traco, .tema-conizza .mp-selo { color: var(--cz-verde); }
+.tema-conizza .mp-conectado { background: var(--cz-verde-claro); border-color: #B9DCBB; }
 /* situacao da loja no painel, nas cores da casa: borda grossa e sombra dura como os outros cartoes daqui */
 .tema-conizza .status-loja { border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); background: var(--cz-branco); }
 .tema-conizza .status-loja .status-titulo { font-family: var(--cz-display); font-weight: 800; font-size: 18px; color: var(--cz-tinta); }
@@ -240,6 +252,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .tabela { border: 3px solid var(--cz-tinta); }
 /* janela do item: o preco nao quebra em duas linhas */
 .tema-conizza .modal-caixa .btn { font-size: 18px; white-space: nowrap; padding-left: 14px; padding-right: 14px; min-height: 56px; }
+/* janelas no visual da casa: titulo e grupos na Baloo, fechar com a borda grossa */
+.tema-conizza .modal-topo .titulo, .tema-conizza .modal-caixa .grupo-titulo { font-family: var(--cz-display); font-weight: 800; color: var(--cz-tinta); }
+.tema-conizza .modal-topo .fechar { border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-branco); color: var(--cz-tinta); }
 .tema-conizza .selo-oficial { display: inline-flex; align-items: center; gap: 6px; }
 /* bolinhas de contagem (itens por categoria, pedidos novos) nas cores da marca */
 .tema-conizza .aba-categoria .cat-qtd, .tema-conizza .aba-categoria.ativa .cat-qtd,

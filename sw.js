@@ -3,9 +3,11 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260925y';
-/* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
-var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/mascote-192.webp', './img/favicon.png'];
+var VERSAO = 'ligeiro-20260926a';
+/* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede.
+   O icone de 512 e o mascote em PNG ficam de fora: so servem para instalar na tela de inicio, e o navegador busca
+   sozinho quando precisa (antes todo cliente baixava os dois a toa) */
+var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './img/mascote-192.webp', './img/favicon.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSAO).then(function (c) { return c.addAll(ARQUIVOS); }).then(function () { return self.skipWaiting(); }));
@@ -47,16 +49,8 @@ self.addEventListener('notificationclick', function (e) {
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
-  /* SDK do Firebase (gstatic): guarda a primeira vez e serve do cache depois (nao muda de versao sozinho) */
-  if (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) {
-    e.respondWith(caches.match(e.request).then(function (guardado) {
-      return guardado || fetch(e.request).then(function (resposta) {
-        if (resposta && resposta.ok) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request, copia); }); }
-        return resposta;
-      });
-    }));
-    return;
-  }
+  /* de fora (Firebase, Mercado Pago, fontes): o proprio navegador guarda. Aqui dentro a resposta viria opaca e nao
+     daria para guardar */
   if (url.origin !== location.origin) return;
   /* video vai direto da rede: o navegador pede em pedacos (range) e guardar ocuparia o celular a toa */
   if (/\.(mp4|webm)$/.test(url.pathname)) return;

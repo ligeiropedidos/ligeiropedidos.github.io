@@ -131,6 +131,7 @@ function kvNovo() {
       kv.gravacoes += 1;
       mapa.set(chave, { valor: valor instanceof ReadableStream ? await new Response(valor).text() : valor, metadata: (op && op.metadata) || null });
     },
+    async delete(chave) { kv.gravacoes += 1; mapa.delete(chave); },
   };
   return kv;
 }
@@ -209,6 +210,24 @@ r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' 
 ok(r.status === 403 && conta.leituras === 0, 'quem nao e dono nao publica (e nao gasta leitura)');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
 ok(r.status === 200 && conta.leituras === 1, 'dono publica com 1 leitura');
+await new Promise((ok2) => setTimeout(ok2, 20));
+kv.mapa.set('vitrine', { valor: '{"borda":1,"lista":[]}', metadata: { em: Date.now() } });
+db.get('lojas/dom-conizza').aberta = false;
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+await new Promise((ok2) => setTimeout(ok2, 20));
+ok(r.status === 200 && !kv.mapa.has('vitrine'), 'fechar a loja apaga a vitrine da borda (a pagina da cidade nao fica dizendo "Aberta agora")');
+kv.mapa.set('vitrine', { valor: '{"borda":1,"lista":[]}', metadata: { em: Date.now() } });
+const produtos = db.get('lojas/dom-conizza').produtos || [];
+if (produtos[0]) produtos[0].preco = (produtos[0].preco || 0) + 100;
+db.get('lojas/dom-conizza').atualizadoEm = new Date().toISOString();
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+await new Promise((ok2) => setTimeout(ok2, 20));
+ok(r.status === 200 && kv.mapa.has('vitrine'), 'mudar so preco de item nao apaga a vitrine (nao gasta gravacao do KV)');
+/* volta ao que os proximos testes esperam: loja aberta publicada e sem a vitrine de mentira */
+db.get('lojas/dom-conizza').aberta = true;
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+await new Promise((ok2) => setTimeout(ok2, 20));
+kv.mapa.delete('vitrine');
 r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
 ok(j.loja.aberta === true, 'a mudanca aparece na hora para o cliente');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
