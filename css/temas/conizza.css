@@ -127,6 +127,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* recado da loja no topo: cartao da casa (borda grossa, sombra dura), no ouro claro */
 .tema-conizza .aviso-topo { background: var(--cz-ouro-claro); border: 3px solid var(--cz-tinta); color: var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); font-weight: 700; }
 .tema-conizza .aviso-topo .ico-traco { background: var(--cz-branco); color: var(--cz-tinta); }
+/* tirar capa ou logo: acao de segunda, mais leve que o Trocar */
+.tema-conizza .previa-tirar-linha .btn { border-width: 2px; min-height: 36px; font-size: 14px; padding: 4px 12px; color: var(--cz-tinta-suave); }
 /* Meus pedidos: status nas cores da casa */
 .tema-conizza .escolha-grande .meu-status.andando { color: var(--cz-verde); }
 .tema-conizza .escolha-grande .meu-status.cancelado { color: var(--cz-vermelho); }

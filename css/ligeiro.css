@@ -649,28 +649,36 @@ a.selo-google:hover { background: var(--lime-suave); }
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
 /* previa do site no painel: um celular de verdade em volta */
 .previa-bloco { align-items: center; }
-.previa-site { position: relative; width: 100%; max-width: 300px; margin: 0 auto; border: 10px solid #1F2A24; border-radius: 42px; overflow: hidden; background: var(--bg); box-shadow: 0 18px 40px rgba(14, 31, 20, 0.2); }
-/* o aro interno do aparelho vai POR CIMA do conteudo: antes ficava por baixo e a capa parecia mais larga que a tela */
-.previa-site::after { content: ""; position: absolute; inset: 0; border-radius: 32px; box-shadow: inset 0 0 0 2px #3A4640; pointer-events: none; z-index: 6; }
-.previa-status { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; height: 30px; padding: 0 18px; font-size: 11px; font-weight: 700; color: var(--ink); letter-spacing: 0.04em; pointer-events: none; }
-.previa-site.com-capa .previa-status { color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55); }
-.previa-entalhe { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 104px; height: 22px; background: #1F2A24; border-radius: 0 0 16px 16px; z-index: 3; }
-.previa-capa { position: relative; height: 158px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
-.previa-site.capa-alta .previa-capa { height: 198px; }
+/* celular da previa: borda fina quase preta, brilho de metal em volta, botoes na lateral e a ilha no alto da tela */
+.previa-aparelho { position: relative; width: 100%; max-width: 292px; margin: 6px auto 0; }
+.previa-aparelho::before, .previa-aparelho::after { content: ""; position: absolute; width: 3px; border-radius: 2px; background: #2A332E; }
+.previa-aparelho::before { right: -3px; top: 118px; height: 64px; } /* liga */
+.previa-aparelho::after { left: -3px; top: 96px; height: 44px; box-shadow: 0 58px 0 #2A332E; } /* volume: dois botoes */
+.previa-site { position: relative; width: 100%; border: 7px solid #111614; border-radius: 44px; overflow: hidden; background: var(--bg); box-shadow: 0 0 0 1.5px #4A5650, 0 22px 44px -10px rgba(14, 31, 20, 0.35); }
+.previa-status { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; height: 36px; padding: 0 22px 0 26px; font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; pointer-events: none; }
+.previa-icones { display: inline-flex; }
+.previa-icones svg { fill: currentColor; }
+.previa-site.com-capa .previa-status { color: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55)); }
+.previa-ilha { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 78px; height: 22px; background: #0B0F0D; border-radius: 12px; z-index: 3; }
+.previa-capa { position: relative; height: 150px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
+.previa-site.capa-alta .previa-capa { height: 190px; }
 .previa-capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.previa-capa.sem-capa::before { content: "Sua capa aqui"; position: absolute; inset: 30px 0 0; display: flex; align-items: center; justify-content: center; color: var(--deep2); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
-.previa-cam { position: absolute; right: 12px; bottom: 12px; width: 38px; height: 38px; border-radius: 50%; border: 2px solid #fff; background: rgba(14, 31, 20, 0.72); color: #fff; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
-.previa-cam.previa-tirar { right: 58px; font-size: 14px; }
-.previa-cam.mini { width: 30px; height: 30px; font-size: 13px; right: -6px; bottom: -4px; }
-.previa-corpo { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 16px 12px; margin-top: -42px; gap: 8px; }
-.previa-logo { position: relative; width: 84px; height: 84px; border-radius: var(--raio-logo, 22px); background: var(--card); border: 4px solid var(--card); box-shadow: 0 6px 16px rgba(14, 31, 20, 0.14); display: flex; align-items: center; justify-content: center; overflow: visible; }
+.previa-capa.sem-capa::before { content: "Sua capa aqui"; position: absolute; inset: 36px 0 0; display: flex; align-items: center; justify-content: center; color: var(--deep2); font-weight: 700; font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.previa-corpo { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 16px 10px; margin-top: -40px; gap: 8px; }
+.previa-logo { position: relative; width: 80px; height: 80px; border-radius: var(--raio-logo, 22px); background: var(--card); border: 4px solid var(--card); box-shadow: 0 6px 16px rgba(14, 31, 20, 0.14); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .previa-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
-.previa-logo .emoji { font-size: 42px; line-height: 1; }
+.previa-logo .emoji { font-size: 40px; line-height: 1; }
 .previa-nome { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1.15; }
-.previa-tipo { font-size: 13.5px; color: var(--muted); }
-.previa-botao { pointer-events: none; width: 100%; min-height: 56px; font-size: 18px; margin-top: 4px; animation: none; }
-.previa-home { width: 96px; height: 5px; border-radius: 3px; background: #1F2A24; opacity: 0.45; margin: 8px auto 10px; }
-.previa-acoes { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.previa-tipo { font-size: 13px; color: var(--muted); line-height: 1.35; max-width: 24ch; }
+.previa-selo { font-size: 12px; padding: 4px 10px; gap: 6px; }
+.previa-selo .bolinha { width: 7px; height: 7px; }
+.previa-botao { pointer-events: none; width: 100%; min-height: 58px; font-size: 18px; margin-top: 2px; animation: none; }
+.previa-botao .sub { font-size: 12px; }
+.previa-home { width: 104px; height: 5px; border-radius: 3px; background: #111614; opacity: 0.35; margin: 6px auto 9px; }
+.previa-acoes { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.previa-tirar-linha { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.previa-tirar-linha .btn { align-self: auto; color: var(--muted); }
+.previa-tirar-linha .ico-traco svg { width: 14px; height: 14px; }
 /* cor e estilo no mesmo eixo da previa: tudo centralizado */
 .campo-cor, .campo-estilo { align-items: center; text-align: center; }
 .campo-cor > label, .campo-estilo > label, .campo-cor > .ajuda, .campo-estilo > .ajuda { text-align: center; width: 100%; }
@@ -736,8 +744,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .avancado { border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 0 14px; }
 .avancado summary { cursor: pointer; list-style: none; padding: 14px 0; display: flex; align-items: baseline; gap: 10px; font-weight: 700; line-height: 1.35; color: var(--body); } /* 14 em cima e embaixo do titulo, seta na altura da 1a linha */
 .avancado summary::-webkit-details-marker { display: none; }
-.avancado summary::before { content: "▸"; color: var(--muted); font-size: 14px; }
-.avancado[open] summary::before { content: "▾"; }
+.avancado summary::before { content: ""; flex: none; align-self: flex-start; margin-top: 3px; width: 16px; height: 16px; background: var(--muted); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; transition: transform 0.15s; }
+.avancado[open] summary::before { transform: rotate(90deg); }
 .avancado > * { margin-bottom: 14px; } /* aberto: 14 entre os itens e ate a borda, o ritmo dos blocos */
 .avancado > summary { margin-bottom: 0; }
 /* horarios por dia */
@@ -1161,9 +1169,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .paleta { display: flex; flex-wrap: wrap; gap: 10px; }
 .paleta .cor { position: relative; width: 46px; height: 46px; border-radius: 50%; border: 0; padding: 0; box-shadow: 0 0 0 1.5px var(--line-forte); }
 .paleta .cor.marcada { box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--ink); }
-.paleta .cor.marcada::after { content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 20px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.paleta .cor.marcada::after { content: ""; position: absolute; inset: 0; margin: auto; width: 24px; height: 24px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat; }
 .paleta .outra { display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; background: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); color: #fff; font-weight: 700; font-size: 22px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
 .paleta .outra input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.paleta .outra.marcada > span { display: none; } /* escolhida: fica so o check, sem o + por baixo */
 .previa-cor { align-self: flex-start; margin-top: 10px; pointer-events: none; }
 .estilos { display: flex; flex-direction: column; gap: 10px; }
 .estilo-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -1946,8 +1955,6 @@ button.plano-card { cursor: pointer; }
 .pedido-card .obs, .ficha-cozinha .obs { display: flex; align-items: flex-start; gap: 8px; }
 .pedido-card .obs .ico-traco svg, .ficha-cozinha .obs .ico-traco svg { width: 18px; height: 18px; margin-top: 2px; }
 .linha-produto .editar .ico-traco svg { width: 18px; height: 18px; }
-.previa-cam .ico-traco svg { width: 18px; height: 18px; }
-.previa-cam.mini .ico-traco svg { width: 15px; height: 15px; }
 .sem-foto .ico-traco { color: var(--muted); }
 .sem-foto .ico-traco svg { width: 32px; height: 32px; stroke-width: 1.6; }
 .mp-selo { display: inline-flex; align-items: center; gap: 8px; }
@@ -2100,7 +2107,6 @@ button.plano-card { cursor: pointer; }
 .modal-topo .fechar .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.2; }
 .video-fechar { display: inline-flex; align-items: center; justify-content: center; }
 .video-fechar .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.4; }
-.previa-tirar .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.4; }
 .dia-acao { gap: 4px; }
 .dia-acao .ico-traco svg, .btn-mini .ico-traco svg { width: 15px; height: 15px; stroke-width: 2.6; }
 .btn-mini:has(> .ico-traco:only-child) { display: inline-flex; align-items: center; justify-content: center; }

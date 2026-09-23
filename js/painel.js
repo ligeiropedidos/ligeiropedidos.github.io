@@ -1095,15 +1095,28 @@
       var capa = el('div', { class: 'previa-capa' });
       var logo = el('div', { class: 'previa-logo' });
       var nome = el('div', { class: 'previa-nome' });
-      var tipo = el('div', { class: 'previa-tipo' });
-      var botao = el('span', { class: 'btn btn-principal btn-gigante previa-botao', text: 'PEDIR AGORA' });
+      var texto = el('div', { class: 'previa-tipo' });
+      var fraseBotao = el('span', { class: 'sub' });
+      var botao = el('span', { class: 'btn btn-principal btn-gigante previa-botao' }, [el('span', {}, [el('span', { text: 'PEDIR AGORA' }), fraseBotao])]);
+      /* barra de cima desenhada (sinal, wi-fi, bateria): antes eram letras soltas */
+      var icones = '<svg viewBox="0 0 52 12" width="52" height="12" aria-hidden="true">'
+        + '<rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0.5" width="3" height="11.5" rx="1"/>'
+        + '<path d="M26 11.2a1.3 1.3 0 1 0 0-.01zM22.4 7.6a5.1 5.1 0 0 1 7.2 0l-1.1 1.1a3.5 3.5 0 0 0-5 0zM20 5.2a8.5 8.5 0 0 1 12 0l-1.1 1.1a6.9 6.9 0 0 0-9.8 0z"/>'
+        + '<rect x="36" y="1.5" width="13" height="9" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="37.6" y="3.1" width="9.8" height="5.8" rx="1.3"/><rect x="49.8" y="4.3" width="1.6" height="3.4" rx="0.8"/>'
+        + '</svg>';
       var tela = el('div', { class: 'previa-site' }, [
-        el('div', { class: 'previa-status' }, [el('span', { text: '9:41' }), el('span', { text: '●●● ▮' })]),
-        el('div', { class: 'previa-entalhe' }),
+        el('div', { class: 'previa-status' }, [el('span', { text: '9:41' }), el('span', { class: 'previa-icones', html: icones })]),
+        el('div', { class: 'previa-ilha' }),
         capa,
-        el('div', { class: 'previa-corpo' }, [logo, nome, tipo, botao]),
+        el('div', { class: 'previa-corpo' }, [logo, nome, texto, el('span', { class: 'selo previa-selo' }, [el('span', { class: 'bolinha' }), 'Aberto agora']), botao]),
         el('div', { class: 'previa-home' }),
       ]);
+      var aparelho = el('div', { class: 'previa-aparelho' }, [tela]);
+      /* um jeito so de trocar: os botoes com nome (as cameras em cima da previa eram o segundo jeito, e a da capa ficava
+         torta na borda). Tirar a capa ou a logo aparece so quando tem */
+      var tirarCapa = el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', onclick: function () { var b = botaoDe(f.capa, /Remover/); if (b) b.click(); } }, [UI.iconeLinha('fechar'), 'Tirar a capa']);
+      var tirarLogo = el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', onclick: function () { var b = botaoDe(f.logo, /Remover/); if (b) b.click(); } }, [UI.iconeLinha('fechar'), 'Tirar a logo']);
+      var tirar = el('div', { class: 'previa-tirar-linha' }, [tirarCapa, tirarLogo]);
       var acoes = el('div', { class: 'previa-acoes' }, [
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('imagem'), 'Trocar capa']),
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']),
@@ -1113,14 +1126,17 @@
         var srcLogo = imgDe(f.logo);
         UI.limpar(capa);
         if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
-        capa.appendChild(el('button', { type: 'button', class: 'previa-cam', 'aria-label': 'Trocar capa', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('camera')]));
-        if (srcCapa) capa.appendChild(el('button', { type: 'button', class: 'previa-cam previa-tirar', 'aria-label': 'Tirar capa', onclick: function () { var b = botaoDe(f.capa, /Remover/); if (b) b.click(); } }, [UI.iconeLinha('fechar')]));
         capa.classList.toggle('sem-capa', !srcCapa);
         UI.limpar(logo);
         logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: '' }) : el('span', { class: 'emoji', text: (f.emoji && f.emoji.input.value.trim()) || l.emoji || '🍽️' }));
-        logo.appendChild(el('button', { type: 'button', class: 'previa-cam mini', 'aria-label': 'Trocar logo', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('camera')]));
         nome.textContent = f.nome.input.value.trim() || l.nome;
-        tipo.textContent = R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : '');
+        /* a mesma linha do topo da loja: a frase de apresentacao; sem ela, o tipo e a cidade */
+        var frase = f.descricao ? f.descricao.input.value.trim() : (l.descricao || '');
+        texto.textContent = frase || (R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : ''));
+        fraseBotao.textContent = l.aceitaEntrega === false ? 'retirar no balcão' : (R.descreverFrete(l) === 'Entrega grátis' ? 'entrega grátis' : 'entrega') + ' em ~' + (l.tempoEntrega || 40) + ' min';
+        tirarCapa.hidden = !srcCapa;
+        tirarLogo.hidden = !srcLogo;
+        tirar.hidden = !srcCapa && !srcLogo;
         var cor = f.cor ? f.cor.valor() : l.cor;
         var estilo = f.estilo ? f.estilo.valor() : l.estilo;
         UI.aplicarTemaEm(tela, cor, estilo);
@@ -1133,9 +1149,10 @@
       obs.observe(f.capa, { subtree: true, attributes: true, childList: true });
       var bloco = el('div', { class: 'campo largo previa-bloco' }, [
         el('label', { text: 'A cara da sua loja' }),
-        el('p', { class: 'ajuda', text: 'É assim que o cliente vê no celular. Toque na câmera para trocar a capa ou a logo. Cor e estilo mudam aqui embaixo.' }),
-        tela,
+        el('p', { class: 'ajuda', text: 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
+        aparelho,
         acoes,
+        tirar,
       ]);
       bloco.atualizar = atualizar;
       setTimeout(atualizar, 0);
@@ -1182,13 +1199,13 @@
         lista.querySelectorAll('button.cor').forEach(function (b) { b.classList.toggle('marcada', b.dataset.cor === escolhida); });
         var naPaleta = UI.PALETA.some(function (c) { return c[0] === escolhida; });
         outra.classList.toggle('marcada', !!escolhida && !naPaleta);
-        if (escolhida && !naPaleta) outra.style.background = escolhida; else outra.style.background = '';
+        if (escolhida && !naPaleta) { outra.style.background = escolhida; outra.style.color = UI.corDeTexto(escolhida); } else { outra.style.background = ''; outra.style.color = ''; }
         previa.style.background = escolhida || '#84CC16';
         previa.style.color = UI.corDeTexto(escolhida || '#84CC16');
         if (aoMudar) aoMudar(escolhida);
       }
       UI.PALETA.forEach(function (c) {
-        lista.appendChild(el('button', { type: 'button', class: 'cor', dataset: { cor: c[0] }, title: c[1], 'aria-label': c[1], style: { background: c[0] || '#84CC16' }, onclick: function () { escolhida = c[0]; pintar(); } }));
+        lista.appendChild(el('button', { type: 'button', class: 'cor', dataset: { cor: c[0] }, title: c[1], 'aria-label': c[1], style: { background: c[0] || '#84CC16', color: UI.corDeTexto(c[0] || '#84CC16') }, onclick: function () { escolhida = c[0]; pintar(); } }));
       });
       entrada.addEventListener('input', function () { escolhida = entrada.value.toUpperCase(); pintar(); });
       lista.appendChild(outra);
@@ -1752,6 +1769,7 @@
       ]);
       f.emoji = campoEmoji('Emoji da loja', l.emoji, { ajuda: 'Aparece no lugar da logo enquanto você não manda uma.', aoMudar: function () { if (f.previa) f.previa.atualizar(); } });
       f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: 'Ex: Lanche bem servido, feito na hora.' });
+      f.descricao.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.avisoTopo = campoTexto('Aviso no topo do site', l.avisoTopo, { max: 120, largo: true, placeholder: 'Ex: Hoje só entrega no Centro', ajuda: 'Aparece em destaque para o cliente. Deixe vazio para não mostrar.' });
       f.cidade = window.LigeiroCidades.campo(l.cidade, l.uf, { rotulo: 'Cidade', ajuda: 'Escolha na lista. É a página da cidade em que sua loja aparece.' });
       f.endereco = campoTexto('Endereço da loja', l.endereco, { max: 120, largo: true });
@@ -2021,7 +2039,7 @@
       }
       s.addEventListener('input', marcarMudanca);
       s.addEventListener('change', marcarMudanca);
-      s.addEventListener('click', function (e) { if (e.target.closest('.chave, .cor, .aba-painel, .previa-cam, .foto-botoes button')) marcarMudanca(); });
+      s.addEventListener('click', function (e) { if (e.target.closest('.chave, .cor, .aba-painel, .foto-botoes button')) marcarMudanca(); });
     }
 
     /* Aceita "18:00-23:00", "18h-23h30", "11:00 as 14:00; 18:00-23:00". Se nao entender, avisa e devolve null. */
