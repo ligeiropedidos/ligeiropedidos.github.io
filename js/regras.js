@@ -596,6 +596,20 @@
     }
   }
 
+  /* O status em palavras de cliente (o rotuloStatus e o da loja: "Novo, preparar", "Cliente diz que pagou") */
+  function rotuloStatusCliente(pedido) {
+    var entrega = pedido.tipoEntrega === 'entrega';
+    switch (pedido.status) {
+      case STATUS.AGUARDANDO: return 'Esperando o Pix';
+      case STATUS.PAGO: return 'Na fila da loja';
+      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
+      case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
+      case STATUS.CANCELADO: return 'Cancelado';
+      default: return '';
+    }
+  }
+
   function textoDoEstagio(pedido, loja) {
     var entrega = pedido.tipoEntrega === 'entrega';
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
@@ -1255,6 +1269,7 @@
     proximoStatus: proximoStatus,
     mensagemParaCliente: mensagemParaCliente,
     rotuloAvisoWhats: rotuloAvisoWhats,
+    rotuloStatusCliente: rotuloStatusCliente,
     mensagemDoCliente: mensagemDoCliente,
     fichaDoPedido: fichaDoPedido,
     enderecoEmLinha: enderecoEmLinha,

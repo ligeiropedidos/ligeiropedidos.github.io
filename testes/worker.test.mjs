@@ -433,6 +433,35 @@ avisos.length = 0;
 await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD777', external_reference: 'dom-conizza__' + PIXA } }, headers: { Origin: '' } });
 ok(avisos.length === 0, 'o Mercado Pago avisando duas vezes: a loja apita uma vez so');
 
+/* o mesmo celular como painel e entregador (loja pequena: o dono entrega) */
+const doDono = aparelho('https://fcm.googleapis.com/fcm/send/dono-entrega');
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doDono.inscricao }, headers: bearer('tok-dono') });
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doDono.inscricao }, headers: bearer('tok-dono') });
+const entradaDono = JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).filter((a) => a.e === doDono.inscricao.endpoint);
+ok(entradaDono.length === 1 && entradaDono[0].p.join(',') === 'painel,entregas', 'o mesmo celular fica com os dois papeis (painel e entregas), numa entrada so');
+avisos.length = 0;
+await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'donoentregadono01234', resumo: { senha: 30, total: 2000, tipoEntrega: 'entrega' } } });
+const doDonoNovo = avisos.filter((a) => a.url === doDono.inscricao.endpoint);
+ok(doDonoNovo.length === 1 && abrirAviso(doDonoNovo[0], doDono).url === '#/painel/dom-conizza', 'pedido novo chega nele como painel');
+avisos.length = 0;
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'donoentregadono01234', status: 'pronto', resumo: { senha: 30, total: 2000, tipoEntrega: 'entrega', bairro: 'Centro' } }, headers: bearer('tok-dono') });
+const doDonoEntrega = avisos.filter((a) => a.url === doDono.inscricao.endpoint);
+ok(doDonoEntrega.length === 1 && abrirAviso(doDonoEntrega[0], doDono).titulo === 'Entrega pronta! Senha 30', 'e a entrega pronta chega nele como entregador');
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', remover: doDono.inscricao.endpoint }, headers: bearer('tok-dono') });
+const depoisDeTirar = JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).filter((a) => a.e === doDono.inscricao.endpoint);
+ok(depoisDeTirar.length === 1 && depoisDeTirar[0].p.join(',') === 'painel', 'desligar no entregador tira so esse papel (o painel continua avisando)');
+
+/* KV com falha de leitura: nao troca a chave dos avisos nem apaga a lista de aparelhos */
+const listaAntes = kv.mapa.get('aparelhos:dom-conizza').valor;
+const getOriginal = kv.get;
+kv.get = async () => { throw new Error('KV fora do ar'); };
+const wFalha = await workerNovo();
+r = await chamar(wFalha, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('tok-dono') });
+ok(r.status === 503 && kv.mapa.get('aparelhos:dom-conizza').valor === listaAntes, 'KV sem responder: /aparelho diz tente de novo e nao mexe na lista');
+r = await chamar(wFalha, '/vapid');
+ok(r.status >= 500 && JSON.parse(kv.mapa.get('sistema:vapid').valor).publica === VAPID, 'KV sem responder: a chave dos avisos nao e trocada (os inscritos continuam valendo)');
+kv.get = getOriginal;
+
 /* aparelho que desinstalou: sai da lista sozinho */
 codigoAviso[daCozinha.inscricao.endpoint] = 410;
 db.set('lojas/dom-conizza/pedidos/outronovooutronovo01', { status: 'pago', total: 1500, senha: 25, cliente: { nome: 'Gil' } });

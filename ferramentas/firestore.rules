@@ -21,6 +21,8 @@ service cloud.firestore {
        Publique o mensageiro novo ANTES destas regras; depois, cada dono salva a senha da equipe de novo
        (6 numeros), fora do horario de movimento. Ate salvar, a equipe daquela loja fica sem ver os pedidos. */
     function isEquipe(loja) { return logado() && request.auth.token.get('equipe', '') == loja; }
+    /* login da senha da equipe (qualquer loja): nao cria conta nem loja */
+    function ehLoginDeEquipe() { return logado() && request.auth.token.get('equipe', '') != ''; }
     function planoDe(d) { return d.get('plano', {}); }
     /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
     function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
@@ -65,7 +67,7 @@ service cloud.firestore {
     /* conta do dono: a assinatura e daqui. Dono le, escolhe plano, avisa pagamento, encerra e reativa; pagoAte, planoPago, desde e 'ativo' so o admin */
     match /contas/{email} {
       allow read: if isAdmin() || (conferido() && request.auth.token.email == email);
-      allow create: if isAdmin() || (conferido() && request.auth.token.email == email
+      allow create: if isAdmin() || (conferido() && request.auth.token.email == email && !ehLoginDeEquipe()
         /* o campo email e o do proprio dono (o e-mail do Ligeiro ali daria cortesia) */
         && request.resource.data.get('email', email) == email
         /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo.
@@ -143,6 +145,7 @@ service cloud.firestore {
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
         || (conferido() && request.resource.data.donoEmail == request.auth.token.email
+            && !ehLoginDeEquipe()
             && !vagasFechadas()
             && request.resource.data.get('verificada', false) == false
             /* campo email na loja daria cortesia do Ligeiro: so o admin grava */

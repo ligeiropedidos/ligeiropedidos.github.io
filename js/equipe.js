@@ -210,7 +210,7 @@
     pintar();
     /* so aparece quando o mensageiro ja tem os avisos e o aparelho consegue receber */
     b.hidden = A.situacao() === 'sem';
-    A.preparar().then(function (sit) { b.hidden = sit === 'sem'; if (!b.hidden) A.conferirAparelho(slug, papel); });
+    A.preparar().then(function (sit) { b.hidden = sit === 'sem'; if (!b.hidden) { A.conferirAparelho(slug, papel); A.vigiar(slug, papel); } });
     return b;
   }
 

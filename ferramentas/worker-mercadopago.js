@@ -181,20 +181,24 @@ export default {
         const quem = await quemChamou(env, request);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
         if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
-        const lista = await aparelhosDaLoja(env, c.loja);
+        const lista = await aparelhosDaLoja(env, c.loja).catch(() => null);
+        if (!lista) return json({ ok: false, erro: 'não deu para ligar agora. Tente de novo daqui a pouco.' }, 503);
+        const papel = PAPEIS.indexOf(c.papel) >= 0 ? c.papel : 'painel';
         if (c.remover) {
-          const sobra = lista.filter((a) => a.e !== String(c.remover));
-          if (sobra.length !== lista.length) await gravarAparelhos(env, c.loja, sobra);
+          /* tira so este papel do aparelho (o mesmo celular pode ser painel e entregas) */
+          const nova = [];
+          lista.forEach((a) => { if (a.e !== String(c.remover)) { nova.push(a); return; } const ps = papeisDe(a).filter((x) => x !== papel); if (ps.length) nova.push(Object.assign({}, a, { p: ps })); });
+          if (JSON.stringify(nova) !== JSON.stringify(lista)) await gravarAparelhos(env, c.loja, nova);
           return json({ ok: true });
         }
         const insc = limparInscricao(c.inscricao);
         if (!insc) return json({ ok: false, erro: 'este navegador mandou um aviso que não dá para usar' }, 400);
-        const papel = PAPEIS.indexOf(c.papel) >= 0 ? c.papel : 'painel';
         const vapid = await chavesVapid(env);
         const atual = lista.filter((a) => a.e === insc.endpoint)[0];
-        /* mesmo aparelho, mesmas chaves: nao grava de novo (o KV gratis tem 1 mil gravacoes por dia) */
-        if (!atual || atual.k !== insc.p256dh || atual.a !== insc.auth || atual.p !== papel || atual.v !== vapid.publica.slice(0, 12)) {
-          const nova = lista.filter((a) => a.e !== insc.endpoint).concat([{ e: insc.endpoint, k: insc.p256dh, a: insc.auth, p: papel, v: vapid.publica.slice(0, 12), em: Date.now() }]);
+        const papeis = atual ? papeisDe(atual) : [];
+        /* mesmo aparelho, mesmas chaves e o papel ja la: nao grava de novo (o KV gratis tem 1 mil gravacoes por dia) */
+        if (!atual || atual.k !== insc.p256dh || atual.a !== insc.auth || papeis.indexOf(papel) < 0 || atual.v !== vapid.publica.slice(0, 12)) {
+          const nova = lista.filter((a) => a.e !== insc.endpoint).concat([{ e: insc.endpoint, k: insc.p256dh, a: insc.auth, p: papeis.concat(papeis.indexOf(papel) < 0 ? [papel] : []), v: vapid.publica.slice(0, 12), em: Date.now() }]);
           if (!(await gravarAparelhos(env, c.loja, nova))) return json({ ok: false, erro: 'não deu para guardar agora. Tente de novo daqui a pouco.' }, 503);
         }
         let teste = 0;
@@ -218,10 +222,10 @@ export default {
         const minuto = Math.floor(Date.now() / 60000);
         const ritmo = MEM.avisados['ritmo/' + c.loja] = MEM.avisados['ritmo/' + c.loja] && MEM.avisados['ritmo/' + c.loja].m === minuto ? MEM.avisados['ritmo/' + c.loja] : { m: minuto, n: 0 };
         if (++ritmo.n > 20) return json({ ok: true, enviados: 0, devagar: true });
-        const aparelhos = (await aparelhosDaLoja(env, c.loja)).filter((a) => a.p !== 'entregas');
+        const aparelhos = ((await aparelhosDaLoja(env, c.loja).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || temPapel(a, 'cozinha'));
         if (!aparelhos.length) return json({ ok: true, enviados: 0 });
         const p = { id: c.pedido, senha: senha, total: total, tipoEntrega: r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: r.origem === 'balcao' ? 'balcao' : '' };
-        const enviados = await avisarAparelhos(env, c.loja, aparelhos, (papel) => avisoDaLoja(p, c.loja, papel, false));
+        const enviados = await avisarAparelhos(env, c.loja, aparelhos, (a) => avisoDaLoja(p, c.loja, temPapel(a, 'painel') ? 'painel' : 'cozinha', false));
         return json({ ok: true, enviados: enviados });
       }
 
@@ -236,11 +240,11 @@ export default {
           if (!insc || !SLUG.test(c.cidade || '')) return json({ ok: false, erro: 'este navegador mandou um aviso que não dá para usar' }, 400);
           aviso = { e: insc.endpoint, k: insc.p256dh, a: insc.auth, u: '#/' + c.cidade + '/' + c.loja + '/pedido/' };
         }
-        lembrar(MEM.inscritos, marca);
         const fb = await firebase(env);
         /* grava no proprio pedido (1 gravacao, sem ler): o painel ja recebe junto e sabe que o cliente e avisado sozinho */
         const existe = await fb.mergeSeExiste('lojas/' + c.loja + '/pedidos/' + c.pedido, { aviso: aviso });
         if (!existe) return json({ ok: false, erro: 'pedido não existe' }, 404);
+        lembrar(MEM.inscritos, marca);
         return json({ ok: true });
       }
 
@@ -260,9 +264,9 @@ export default {
         const papel = c.status === 'pronto' && r.tipoEntrega === 'entrega' ? 'entregas' : (c.status === 'pago' ? 'cozinha' : '');
         if (papel && env.CARDAPIO) {
           tarefas.push(aparelhosDaLoja(env, c.loja).then((lista) => {
-            const deles = lista.filter((a) => a.p === papel);
-            return deles.length ? avisarAparelhos(env, c.loja, deles, (p) => (papel === 'entregas' ? avisoDeEntrega(r, c.loja) : avisoDaLoja(r, c.loja, p, true))) : 0;
-          }).then((n) => { equipe = n; }));
+            const deles = lista.filter((a) => temPapel(a, papel));
+            return deles.length ? avisarAparelhos(env, c.loja, deles, () => (papel === 'entregas' ? avisoDeEntrega(r, c.loja) : avisoDaLoja(r, c.loja, 'cozinha', true))) : 0;
+          }).then((n) => { equipe = n; }, () => { equipe = 0; }));
         }
         await Promise.all(tarefas);
         return json({ ok: true, cliente: cliente, equipe: equipe });
@@ -485,10 +489,16 @@ function atualizarDepois(ctx, chave, fazer) {
 }
 
 async function nomeDaLoja(env, slug) {
+  const meta = await etiquetaDaLoja(env, slug);
+  return (meta && meta.nome) || '';
+}
+/* a etiqueta da copia da loja (dono, nome, versao das fotos): da memoria ou do KV, sem ler o corpo (o cardapio inteiro) */
+async function etiquetaDaLoja(env, slug) {
   const mem = MEM.lojas[slug];
-  if (mem && mem.meta && mem.meta.nome) return mem.meta.nome;
-  const g = await lerKv(env, 'loja:' + slug, 'text');
-  return (g && g.metadata && g.metadata.nome) || '';
+  if (mem && mem.meta && mem.existe) return mem.meta;
+  const g = await lerKv(env, 'loja:' + slug, 'stream');
+  if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+  return g && g.metadata ? g.metadata : null;
 }
 
 /* Miniaturas: guardadas pela versao das fotos da loja. Os documentos do banco vao como vieram (texto), sem o worker
@@ -606,13 +616,17 @@ function lembrar(mapa, chave) {
 /* O par de chaves dos avisos (VAPID) nasce na primeira vez e fica no KV: ninguem precisa criar segredo no Cloudflare. */
 async function chavesVapid(env) {
   if (MEM.vapid) return MEM.vapid;
+  /* erro de leitura sobe (quem chamou responde erro): trocar a chave derrubaria todos os aparelhos e clientes inscritos */
+  const t = await env.CARDAPIO.get('sistema:vapid');
   let guardada = null;
-  try { const t = await env.CARDAPIO.get('sistema:vapid'); guardada = t ? JSON.parse(t) : null; } catch (_) { guardada = null; }
-  if (!guardada || !guardada.privada || !guardada.publica) {
+  try { guardada = t ? JSON.parse(t) : null; } catch (_) { guardada = null; }
+  if (!t) {
     const par = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
     const jwk = await crypto.subtle.exportKey('jwk', par.privateKey);
     guardada = { privada: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, d: jwk.d }, publica: b64url(new Uint8Array(await crypto.subtle.exportKey('raw', par.publicKey))) };
     await env.CARDAPIO.put('sistema:vapid', JSON.stringify(guardada));
+  } else if (!guardada || !guardada.privada || !guardada.publica) {
+    throw new Error('chave dos avisos estragada no KV');
   }
   const chave = await crypto.subtle.importKey('jwk', guardada.privada, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
   MEM.vapid = { publica: guardada.publica, chave: chave };
@@ -701,21 +715,27 @@ async function avisarAparelhos(env, slug, lista, montar) {
   const mortos = [];
   let enviados = 0;
   await Promise.all(lista.map(async (a) => {
-    const s = await mandarAviso(env, { endpoint: a.e, p256dh: a.k, auth: a.a }, montar(a.p), efemera);
+    const s = await mandarAviso(env, { endpoint: a.e, p256dh: a.k, auth: a.a }, montar(a), efemera);
     if (s >= 200 && s < 300) enviados += 1;
     else if (s === 403 || s === 404 || s === 410) mortos.push(a.e);
   }));
   if (mortos.length) {
-    const atual = await aparelhosDaLoja(env, slug);
-    await gravarAparelhos(env, slug, atual.filter((a) => mortos.indexOf(a.e) < 0));
+    /* leitura que falhou nao pode virar lista vazia gravada por cima */
+    const atual = await aparelhosDaLoja(env, slug).catch(() => null);
+    if (atual) await gravarAparelhos(env, slug, atual.filter((a) => mortos.indexOf(a.e) < 0));
   }
   return enviados;
 }
 
 async function aparelhosDaLoja(env, slug) {
-  const g = await lerKv(env, 'aparelhos:' + slug, 'text');
-  try { const l = g && g.value ? JSON.parse(g.value) : []; return Array.isArray(l) ? l : []; } catch (_) { return []; }
+  if (!env.CARDAPIO) return [];
+  const t = await env.CARDAPIO.get('aparelhos:' + slug); /* erro de leitura sobe: quem chama nao grava nada */
+  if (!t) return [];
+  try { const l = JSON.parse(t); return Array.isArray(l) ? l : []; } catch (_) { return []; }
 }
+/* papeis do aparelho: painel, cozinha e/ou entregas (o mesmo celular pode ter mais de um) */
+function papeisDe(a) { return Array.isArray(a.p) ? a.p.filter((x) => PAPEIS.indexOf(x) >= 0) : (PAPEIS.indexOf(a.p) >= 0 ? [a.p] : ['painel']); }
+function temPapel(a, papel) { return papeisDe(a).indexOf(papel) >= 0; }
 /* no maximo 8 aparelhos por loja (os mais novos ficam): cada aviso cifrado gasta um pouco dos 10 ms do plano gratis */
 function gravarAparelhos(env, slug, lista) { return gravarKv(env, 'aparelhos:' + slug, JSON.stringify(lista.slice(-8)), { em: Date.now() }); }
 
@@ -737,8 +757,8 @@ async function quemChamou(env, request) {
 async function ehDaLoja(env, slug, email) {
   if (!email) return false;
   if (email === ADMIN || email === 'equipe-' + slug + '@equipe.ligeiro.app.br') return true;
-  const g = await lerKv(env, 'loja:' + slug, 'text');
-  let dono = g && g.metadata ? String(g.metadata.dono || '') : '';
+  const meta = await etiquetaDaLoja(env, slug);
+  let dono = meta ? String(meta.dono || '') : '';
   if (!dono) { const item = await atualizarLoja(env, slug); dono = item.existe ? item.meta.dono : ''; }
   return !!dono && dono === email;
 }
@@ -794,8 +814,8 @@ async function avisarPixPago(env, slug, p) {
   if (MEM.avisados[marca]) return;
   lembrar(MEM.avisados, marca);
   const tarefas = [];
-  const lista = (await aparelhosDaLoja(env, slug)).filter((a) => a.p !== 'entregas');
-  if (lista.length) tarefas.push(avisarAparelhos(env, slug, lista, (papel) => avisoDaLoja(p, slug, papel, true)));
+  const lista = ((await aparelhosDaLoja(env, slug).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || temPapel(a, 'cozinha'));
+  if (lista.length) tarefas.push(avisarAparelhos(env, slug, lista, (a) => avisoDaLoja(p, slug, temPapel(a, 'painel') ? 'painel' : 'cozinha', true)));
   const insc = limparInscricao(p.aviso);
   if (insc) {
     const texto = avisoDoCliente('pago', { senha: p.senha, tipoEntrega: p.tipoEntrega }, await nomeDaLoja(env, slug));

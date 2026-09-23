@@ -658,16 +658,21 @@
     olho: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
     estrela: '<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.6l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"/>',
     fechar: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
+    fogo: '<path d="M12 21a6 6 0 0 0 6-6c0-3.6-2.4-5.4-3.6-8.2-.7 1.8-1.8 2.9-2.9 3.4C11.3 7.6 10.4 5.3 11.6 3 7.9 4.6 6 8.6 6 12.4V15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 1-2.5-2.5c0-1.6 1.3-2.4 2.5-4 1.2 1.6 2.5 2.4 2.5 4A2.5 2.5 0 0 1 12 21z"/>',
+    cadeado: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+    cupom: '<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14.5 6.5v2"/><path d="M14.5 11v2"/><path d="M14.5 15.5v2"/>',
     sino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
     semsino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
     celular: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/><path d="M3.5 9v6"/><path d="M20.5 9v6"/>',
-    entrega: '<circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M8.6 17h6.8"/><path d="M15.5 17 13.5 8.5h-3"/><path d="M13.9 10.5H18l2 6.5"/><path d="M3.4 13.5H10l1.5 3.5"/>',
+    entrega: '<circle cx="6" cy="17" r="2.8"/><circle cx="18" cy="17" r="2.8"/><path d="M8.8 17h6.4"/><path d="M18 17 15.5 8h-2.5"/><path d="M15.9 9.6 11.5 14H8.8"/><rect x="3" y="7" width="6.5" height="5" rx="1.2"/>',
     retirada: '<path d="M5.5 8.5h13l-1 12h-11z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>',
     balcao: '<path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"/><path d="M9 8.5h6"/><path d="M9 12.5h6"/>',
     mapa: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
     relogio: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   };
   function iconeTraco(nome) { return el('span', { class: 'topo-ico', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
+  /* o icone como texto, para as telas montadas em texto (index do cliente) */
+  function iconeHtml(nome) { return '<span class="ico-traco" aria-hidden="true"><svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg></span>'; }
   /* o mesmo icone de traco dentro de botao ou selo (o tamanho vem do lugar) */
   function iconeLinha(nome) { return el('span', { class: 'ico-traco', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
   /* selo do tipo do pedido (painel, cozinha): Entrega, Retirada ou Balcao, com icone de traco */
@@ -692,7 +697,7 @@
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,

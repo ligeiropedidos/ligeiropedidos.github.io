@@ -52,9 +52,21 @@
       if (jaEntrou && store.usuarioAtual) checa = store.usuarioAtual().then(function (u) { return !!u; });
       checa.then(function (ok) {
         if (!vivo) return;
-        if (ok) { marcarLogado(true); montarPainel(); publicarSeDono(); } else telaLogin();
+        if (ok) { marcarLogado(true); entrarComPapel(); publicarSeDono(); } else telaLogin();
       }).catch(function () { if (vivo) telaLogin(); });
     });
+
+    /* Senha da equipe: o painel vira so a fila (o banco so deixa a equipe andar com os pedidos; assinatura, cardapio,
+       ajustes e Minha conta dariam erro). O dono entra com a conta dele e ve tudo. */
+    function entrarComPapel() {
+      var qual = D.modoDemo || !store.usuarioAtual ? Promise.resolve(null) : store.usuarioAtual().catch(function () { return null; });
+      qual.then(function (u) {
+        if (!vivo) return;
+        estado.equipe = !!(u && /@equipe\.ligeiro\.app\.br$/i.test(String(u.email || '')));
+        if (estado.equipe) estado.aba = 'pedidos';
+        montarPainel();
+      });
+    }
 
     /* o dono abriu o painel: a copia da loja na borda (o que o cliente ve) fica igual ao banco, mesmo que algo
        tenha mudado por fora (pagamento confirmado, Pix conectado). Uma leitura por abertura, so para o dono */
@@ -102,15 +114,33 @@
         ]));
         return;
       }
-      var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••', autocomplete: 'current-password', 'aria-label': 'Senha do painel' });
+      var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••••', autocomplete: 'current-password', 'aria-label': D.modoDemo ? 'Senha do painel' : 'Senha da equipe' });
       var erro = el('div', { class: 'msg-erro', hidden: true });
+      /* o dono entra com o Google (a conta dele); a senha de numeros e a da equipe (cozinha, entregador, balcao) */
+      var dono = D.modoDemo || !store.entrarComGoogle ? null : el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Sou o dono: entrar com o Google', onclick: function (ev) {
+        var b = ev.currentTarget;
+        b.disabled = true;
+        store.entrarComGoogle().then(function (u) {
+          if (!u || !vivo) return null;
+          return store.donoLogado(estado.loja).then(function (ehDono) {
+            if (!vivo) return;
+            if (!ehDono) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta do Google não é a dona desta loja. Entre com a conta que criou a loja.'; return; }
+            marcarLogado(true);
+            entrarComPapel();
+            publicarSeDono();
+          });
+        }).catch(function (e) { if (vivo) { erro.hidden = false; erro.textContent = (e && e.message) || 'Não deu para entrar com o Google agora.'; } }).then(function () { b.disabled = false; });
+      } });
+      var letras = D.modoDemo ? null : el('button', { class: 'login-letras', type: 'button', text: 'Minha senha tem letras', onclick: function (ev) { campo.setAttribute('inputmode', 'text'); ev.currentTarget.hidden = true; campo.focus(); } });
       var caixa = el('div', { class: 'login' }, [
         el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
-        el('p', { class: 'centro muted', text: D.modoDemo && estado.loja.senhaPainel === '1234' ? 'Digite a senha do painel. Na demonstração é 1234.' : 'Digite a senha do painel.' }),
+        dono,
+        el('p', { class: 'centro muted', text: D.modoDemo ? (estado.loja.senhaPainel === '1234' ? 'Digite a senha do painel. Na demonstração é 1234.' : 'Digite a senha do painel.') : 'Equipe (cozinha, entregador): digite a senha da equipe.' }),
         el('div', { class: 'campo' }, campo),
         erro,
         el('button', { class: 'btn btn-principal btn-largo', text: 'Entrar', onclick: entrar }),
+        letras,
         el('button', { class: 'btn btn-fantasma btn-largo', text: 'Ver a loja como cliente', onclick: function () { window.LigeiroApp.ir(estado.loja.cidadeSlug + '/' + slug); } }),
       ]);
       function entrar() {
@@ -118,7 +148,7 @@
           if (!vivo) return; /* saiu da tela enquanto o login respondia */
           if (!ok) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Senha errada. Tente de novo.'; campo.value = ''; campo.focus(); return; }
           marcarLogado(true);
-          montarPainel();
+          entrarComPapel();
         }, function (e) {
           /* ex.: dono com e-mail ainda nao conferido (o aviso diz o que fazer) */
           if (!vivo) return;
@@ -207,7 +237,7 @@
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba, do jeito que o cliente vê' }), 'site', 'Ver site', 'Site'),
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
+          estado.equipe ? null : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
           rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair'),
         ]),
@@ -224,6 +254,8 @@
       /* abas com icone de traco (o desenho do topo), no lugar dos emojis */
       /* no celular as cinco cabem numa linha (icone em cima, nome curto embaixo), como o topo: antes Ajustes e Minha loja ficavam fora da tela */
       var defs = [['pedidos', 'Pedidos', 'lista'], ['cardapio', R.catalogo(estado.loja).Nome, 'cardapio'], ['vendas', 'Vendas', 'vendas'], ['ajustes', 'Ajustes', 'ajustes'], ['links', 'Minha loja', 'loja', 'Loja']];
+      /* equipe: so a fila (sem as abas) */
+      if (estado.equipe) { defs = defs.slice(0, 1); abas.hidden = true; }
       defs.forEach(function (d) {
         var b = el('button', { class: 'aba-painel' + (estado.aba === d[0] ? ' ativa' : ''), dataset: { aba: d[0] }, onclick: function () { trocarAba(d[0]); } }, [UI.iconeLinha(d[2]), el('span', { class: 'rot-longo', text: d[1] }), el('span', { class: 'rot-curto', text: d[3] || d[1] })]);
         if (d[0] === 'pedidos') b.appendChild(el('span', { class: 'badge', id: 'badgePedidos', hidden: true }));
@@ -302,6 +334,7 @@
         window.LigeiroAvisos.preparar().then(function (sit) {
           if (semAvisos && sit !== 'sem' && vivo && estado.aba === 'pedidos') desenharCabecaPedidos();
           window.LigeiroAvisos.conferirAparelho(slug, 'painel');
+          window.LigeiroAvisos.vigiar(slug, 'painel');
         });
       }
       /* Pix automatico (Mercado Pago), se a loja ligou */
@@ -440,7 +473,8 @@
       if (!s) return;
       var antigo = $('cabecaPedidos');
       var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' } }, [UI.iconeLinha('raio'), el('span', { text: estado.mpStatus })]) : null;
-      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]);
+      /* equipe: sem assinatura, primeiros passos e interruptor da loja (so o dono mexe na loja) */
+      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]);
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
     }
 
@@ -485,7 +519,11 @@
     /* o pedido andou: o celular do cliente (se ele quis), o entregador e a cozinha ficam sabendo. Nada no banco */
     function avisarQueAndou(p, status) {
       if (!window.LigeiroAvisos) return;
-      window.LigeiroAvisos.pedidoAndou(slug, p, status).then(function (recebeu) { if (recebeu) UI.avisar('Cliente avisado no celular.'); });
+      window.LigeiroAvisos.pedidoAndou(slug, p, status).then(function (r) {
+        if (r === 'sim') UI.avisar('Cliente avisado no celular.');
+        /* o cliente tinha pedido aviso, mas nao chegou (desligou, trocou de celular): a loja avisa pelo WhatsApp */
+        else if (r === 'nao') UI.avisar('O aviso não chegou no celular do cliente. Se precisar, avise pelo WhatsApp.');
+      });
     }
     /* o WhatsApp do pedido ja mandado neste aparelho (por status), para o botao mostrar "Avisado" */
     function zapMandados() { return UI.lerLocal('ligeiro:zap-mandados') || {}; }
@@ -621,14 +659,14 @@
       if (!s) return;
       var antigo = $('listaPedidos');
       var caixa = el('div', { id: 'listaPedidos', class: 'pilha' });
-      var hoje = R.diaLocal();
       var grupos = [
         { titulo: 'Aguardando Pix', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
         { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
-        { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO && R.diaLocal(new Date(p.criadoEm)) === hoje; }, fechado: true },
-        { titulo: 'Cancelados hoje', filtro: function (p) { return p.status === R.STATUS.CANCELADO && R.diaLocal(new Date(p.criadoEm)) === hoje; }, fechado: true },
+        /* "hoje" e o dia de trabalho da fila (desde as 5 h): depois da meia-noite os pedidos da noite continuam aqui */
+        { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO; }, fechado: true },
+        { titulo: 'Cancelados hoje', filtro: function (p) { return p.status === R.STATUS.CANCELADO; }, fechado: true },
       ];
       var algum = false;
       grupos.forEach(function (g) {
@@ -639,6 +677,10 @@
         caixa.appendChild(titulo);
         if (g.fechado) {
           var det = el('details');
+          /* a lista redesenha a cada minuto e a cada pedido: lembra se estava aberta */
+          estado.gruposAbertos = estado.gruposAbertos || {};
+          det.open = !!estado.gruposAbertos[g.titulo];
+          det.addEventListener('toggle', function () { estado.gruposAbertos[g.titulo] = det.open; });
           det.appendChild(el('summary', { text: 'Mostrar ' + lista.length, style: { cursor: 'pointer', color: '#6F7D72', fontWeight: '600', padding: '6px 0' } }));
           lista.forEach(function (p) { det.appendChild(cartaoPedido(p)); });
           caixa.appendChild(det);
@@ -740,6 +782,13 @@
     function avancar(p) {
       var proximo = R.proximoStatus(p);
       if (!proximo) return;
+      if (proximo === R.STATUS.PAGO && p.status === R.STATUS.AGUARDANDO) {
+        UI.perguntar('O Pix de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' caiu mesmo? Confira no app do banco antes. O pedido vai para a cozinha.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo); });
+        return;
+      }
+      avancarAgora(p, proximo);
+    }
+    function avancarAgora(p, proximo) {
       var mudancas = { status: proximo };
       if (proximo === R.STATUS.PAGO) { mudancas.pagamentoStatus = 'pago'; mudancas.pagoEm = new Date().toISOString(); }
       store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); }).catch(function (e) { UI.avisar(e.message); });
@@ -748,7 +797,7 @@
     function cancelar(p) {
       UI.perguntar('Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.', { sim: 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
         if (!sim) return;
-        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () { UI.avisar('Pedido cancelado.'); avisarQueAndou(p, R.STATUS.CANCELADO); });
+        store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () { UI.avisar('Pedido cancelado.'); avisarQueAndou(p, R.STATUS.CANCELADO); }).catch(function () { UI.avisar('Não deu para cancelar agora. Confira a internet e tente de novo.'); });
       });
     }
 
@@ -2020,6 +2069,7 @@
       if (!A) return null;
       var sit = A.situacao();
       var ligado = A.aparelhoLigado(slug, 'painel');
+      if (sit === 'sem' && !ligado) return null;
       var texto = ligado ? 'Ligados neste aparelho: pedido novo e Pix pago apitam aqui mesmo com a tela apagada.'
         : sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá.'
         : sit === 'pronto' ? 'Desligados neste aparelho. Ligue para receber pedido novo com a tela apagada.'

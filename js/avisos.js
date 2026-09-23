@@ -15,6 +15,8 @@
   function ehIOS() { var ua = navigator.userAgent || ''; return /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
   function instalado() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
   function temPush() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  /* iPhone antes do iOS 16.4 nao recebe aviso de site nem na tela de inicio */
+  function iosAntigo() { var m = /OS (\d+)_(\d+)/.exec(navigator.userAgent || ''); return !!m && (Number(m[1]) < 16 || (Number(m[1]) === 16 && Number(m[2]) < 4)); }
 
   /* o mensageiro ja tem os avisos? (a chave dele ja veio uma vez). Ate confirmar, nenhum botao de aviso aparece */
   var chaveOk = false;
@@ -24,6 +26,7 @@
   function situacao() {
     if (demo()) return 'pronto';
     if (!base() || !chaveOk) return 'sem';
+    if (ehIOS() && iosAntigo()) return 'sem';
     if (ehIOS() && !instalado()) return 'instalar';
     if (!temPush()) return 'sem';
     if (Notification.permission === 'denied') return 'bloqueado';
@@ -33,9 +36,16 @@
     instalar: 'No iPhone, os avisos só funcionam com o Ligeiro na tela de início.',
     bloqueado: 'Os avisos estão bloqueados neste navegador. Libere em Configurações do site, Notificações.',
     fechou: 'Sem a sua permissão não dá para avisar. Toque de novo e escolha Permitir.',
+    falhou: 'Não deu para ligar os avisos neste aparelho agora. Tente de novo daqui a pouco.',
     sem: 'Este navegador não recebe avisos. Use o Chrome no Android ou o Ligeiro na tela de início do iPhone.',
   };
   function erro(motivo) { var e = new Error(MOTIVOS[motivo] || MOTIVOS.sem); e.motivo = motivo; return e; }
+  function simplificar(e) { return e && (e.motivo || e.nossa) ? e : erro('falhou'); }
+  function nossa(texto) { var e = new Error(texto); e.nossa = true; return e; }
+  /* o service worker que nao instalou (internet fraca) deixaria o botao em "Ligando..." para sempre */
+  function swPronto() {
+    return Promise.race([navigator.serviceWorker.ready, new Promise(function (_, nao) { setTimeout(function () { nao(erro('falhou')); }, 8000); })]);
+  }
 
   /* confere uma vez se o mensageiro ja tem os avisos (mensageiro antigo ou sem KV: continua tudo escondido) */
   var conferindo = null;
@@ -71,7 +81,7 @@
   }
   /* a inscricao deste navegador (uma nova se a chave do Ligeiro mudou) */
   function inscricao(nova) {
-    return Promise.all([navigator.serviceWorker.ready, chaveVapid()]).then(function (r) {
+    return Promise.all([swPronto(), chaveVapid()]).then(function (r) {
       var reg = r[0], chave = r[1];
       return reg.pushManager.getSubscription().then(function (atual) {
         if (atual && !nova && ler('ligeiro:vapid-usada') === chave) return atual;
@@ -103,9 +113,13 @@
       sub = s;
       return token().then(function (t) { return postar('/aparelho', { loja: slug, papel: papel, inscricao: simples(s), testar: !!testar }, t); });
     }).then(function (j) {
-      /* a chave do Ligeiro mudou (o servico recusou o teste): inscreve de novo, uma vez */
-      if (j.ok && testar && j.teste === 403 && !nova) return enviarAparelho(slug, papel, testar, true);
-      if (!j.ok) throw new Error(j.erro || 'Não deu para ligar os avisos agora. Tente de novo.');
+      /* o teste nao chegou: inscricao velha (404/410) ou chave do Ligeiro nova (403). Inscreve de novo, uma vez */
+      if (j.ok && testar && !nova && (j.teste === 403 || j.teste === 404 || j.teste === 410)) {
+        if (j.teste === 403) guardar('ligeiro:vapid', null);
+        return enviarAparelho(slug, papel, testar, true);
+      }
+      if (!j.ok) throw nossa(j.erro || 'Não deu para ligar os avisos agora. Tente de novo.');
+      if (testar && !(j.teste >= 200 && j.teste < 300)) throw nossa('O aviso de teste não chegou. Confira a internet e toque de novo.');
       guardar(chaveAparelho(slug, papel), '1');
       guardar(chaveAparelho(slug, papel) + ':em', String(Date.now()));
       guardar(chaveAparelho(slug, papel) + ':fim', sub.endpoint);
@@ -120,18 +134,18 @@
     return pedirPermissao().then(function (sim) {
       if (!sim) throw erro(Notification.permission === 'denied' ? 'bloqueado' : 'fechou');
       return enviarAparelho(slug, papel, true, false);
-    });
+    }).catch(function (e) { throw simplificar(e); });
   }
   function testarAparelho(slug, papel) {
     if (demo()) return Promise.resolve({ ok: true, simulado: true });
-    return enviarAparelho(slug, papel, true, false);
+    return enviarAparelho(slug, papel, true, false).catch(function (e) { throw simplificar(e); });
   }
   function desligarAparelho(slug, papel) {
     guardar(chaveAparelho(slug, papel), null);
     if (demo() || !temPush()) return Promise.resolve();
     return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
       if (!sub) return null;
-      return token().then(function (t) { return postar('/aparelho', { loja: slug, remover: sub.endpoint }, t); });
+      return token().then(function (t) { return postar('/aparelho', { loja: slug, papel: papel, remover: sub.endpoint }, t); });
     }).catch(function () { /* sem internet: o aparelho sai da lista sozinho no primeiro aviso que falhar */ });
   }
   /* ao abrir a tela: confere se continua inscrito. Na hora se o navegador trocou o endereco do aviso;
@@ -140,10 +154,18 @@
     if (demo() || !aparelhoLigado(slug, papel) || situacao() !== 'pronto') return;
     var em = Number(ler(chaveAparelho(slug, papel) + ':em')) || 0;
     var fim = ler(chaveAparelho(slug, papel) + ':fim') || '';
-    navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (atual) {
+    swPronto().then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (atual) {
       if (atual && atual.endpoint === fim && Date.now() - em < 12 * 3600 * 1000) return null;
       return enviarAparelho(slug, papel, false, false);
     }).catch(function () { /* tenta de novo na proxima vez */ });
+  }
+  /* tela aberta o dia todo (tablet da cozinha): confere de novo cada vez que ela volta a aparecer */
+  var vigiados = {};
+  function vigiar(slug, papel) {
+    var chave = slug + ':' + papel;
+    if (vigiados[chave]) return;
+    vigiados[chave] = true;
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') conferirAparelho(slug, papel); });
   }
 
   /* ================= cliente ================= */
@@ -160,7 +182,7 @@
     return (pedir ? pedirPermissao() : Promise.resolve(Notification.permission === 'granted')).then(function (sim) {
       if (!sim) throw erro(Notification.permission === 'denied' ? 'bloqueado' : 'fechou');
       return inscricao(false);
-    }).then(function (s) {
+    }).catch(function (e) { throw simplificar(e); }).then(function (s) {
       guardar(CHAVE_CLIENTE, '1');
       var x = simples(s);
       return { e: x.endpoint, k: x.keys.p256dh, a: x.keys.auth, u: '#/' + cidade + '/' + loja + '/pedido/' };
@@ -171,9 +193,9 @@
     return avisoDoPedido(cidade, loja, true).then(function (aviso) {
       if (demo()) return aviso;
       return postar('/inscrever', { loja: loja, pedido: pedidoId, cidade: cidade, inscricao: { endpoint: aviso.e, keys: { p256dh: aviso.k, auth: aviso.a } } }).then(function (j) {
-        if (!j.ok) throw new Error(j.erro || 'Não deu para ligar os avisos agora.');
+        if (!j.ok) throw erro('falhou');
         return aviso;
-      });
+      }, function () { throw erro('falhou'); });
     });
   }
 
@@ -185,18 +207,18 @@
   }
   var PARA_CLIENTE = ['pago', 'producao', 'pronto', 'cancelado'];
   /* a loja mudou o status: avisa o cliente (se ele quis), o entregador (saiu) e a cozinha (Pix conferido a mao).
-     Resolve com true se o celular do cliente recebeu. */
+     Resolve com 'sim' (o celular do cliente recebeu), 'nao' (o cliente quis, mas nao chegou) ou '' (nao era para ele). */
   function pedidoAndou(loja, p, status) {
-    if (!base() || !p || !p.id) return Promise.resolve(false);
+    if (!base() || !p || !p.id) return Promise.resolve('');
     var entrega = p.tipoEntrega === 'entrega';
     var cliente = !!(p.aviso && p.aviso.e) && PARA_CLIENTE.indexOf(status) >= 0;
-    if (!cliente && !(status === 'pronto' && entrega) && status !== 'pago') return Promise.resolve(false);
+    if (!cliente && !(status === 'pronto' && entrega) && status !== 'pago') return Promise.resolve('');
     return token().then(function (t) {
       return postar('/avisar', {
         loja: loja, pedido: p.id, status: status, aviso: cliente ? p.aviso : null,
         resumo: { senha: p.senha, total: p.total, tipoEntrega: p.tipoEntrega, origem: p.origem || '', nome: String((p.cliente && p.cliente.nome) || '').split(' ')[0], bairro: entrega && p.endereco ? p.endereco.bairro : '' },
       }, t);
-    }).then(function (j) { return j.cliente >= 200 && j.cliente < 300; }).catch(function () { return false; });
+    }).then(function (j) { return !cliente ? '' : (j.cliente >= 200 && j.cliente < 300 ? 'sim' : 'nao'); }).catch(function () { return cliente ? 'nao' : ''; });
   }
 
   /* ================= telas ================= */
@@ -228,7 +250,7 @@
   window.LigeiroAvisos = {
     icone: icone, explicarIphone: explicarIphone,
     situacao: situacao, preparar: preparar, motivo: function (s) { return MOTIVOS[s] || ''; }, ehIOS: ehIOS, instalado: instalado,
-    aparelhoLigado: aparelhoLigado, ligarAparelho: ligarAparelho, testarAparelho: testarAparelho, desligarAparelho: desligarAparelho, conferirAparelho: conferirAparelho,
+    aparelhoLigado: aparelhoLigado, ligarAparelho: ligarAparelho, testarAparelho: testarAparelho, desligarAparelho: desligarAparelho, conferirAparelho: conferirAparelho, vigiar: vigiar,
     podeCliente: podeCliente, clienteQuer: clienteQuer, clienteNaoQuer: clienteNaoQuer, avisoDoPedido: avisoDoPedido, ligarNoPedido: ligarNoPedido,
     pedidoNovo: pedidoNovo, pedidoAndou: pedidoAndou,
   };
