@@ -210,6 +210,7 @@
     }
 
     function desenharLista() {
+      situacaoLojas = situacaoAgora();
       UI.limpar(lista);
       var termo = normal(estadoHub.termo).trim();
       var todas = estadoHub.lojas.slice();
@@ -373,8 +374,7 @@
     var relogio = setInterval(function () {
       if (!estadoHub.lojas.length) return;
       var agora = situacaoAgora();
-      if (!situacaoLojas) { situacaoLojas = agora; return; }
-      if (agora !== situacaoLojas) { situacaoLojas = agora; desenharLista(); }
+      if (agora !== situacaoLojas) desenharLista();
     }, 60000);
     raiz.appendChild(rodapeLigeiro(true));
     return function () { clearInterval(relogio); parar(); };
@@ -1239,25 +1239,31 @@
       if (!A.podeCliente()) { bloco.hidden = true; estado.avisoCel = null; return; }
       if (!$('icoAvisoCel').firstChild) $('icoAvisoCel').innerHTML = A.icone();
       bloco.hidden = false;
-      if (estado.avisoCel) { pintarAvisoCel(true); return; }
+      if (estado.avisoCel || estado.avisoCelQuer) { pintarAvisoCel(true); return; }
       pintarAvisoCel(false);
-      if (!A.clienteQuer()) return;
+      if (!A.clienteQuer() || estado.avisoCelQuer === false) return;
+      estado.avisoCelQuer = true;
       pintarAvisoCel(true);
-      estado.avisoCelPromessa = A.avisoDoPedido(estado.loja.cidadeSlug, estado.loja.slug, false).then(function (aviso) { estado.avisoCel = aviso; }, function () { estado.avisoCel = null; pintarAvisoCel(false); });
+      estado.avisoCelPromessa = A.avisoDoPedido(estado.loja.cidadeSlug, estado.loja.slug, false).then(function (aviso) {
+        if (estado.avisoCelQuer) estado.avisoCel = aviso; /* desligou enquanto ligava: fica desligado */
+      }, function () { estado.avisoCel = null; estado.avisoCelQuer = false; pintarAvisoCel(false); });
     }
     $('blocoAvisoCel').addEventListener('click', function () {
       var A = window.LigeiroAvisos;
-      if (!A || estado.ligandoAvisoCel) return;
-      if (estado.avisoCel) { estado.avisoCel = null; A.clienteNaoQuer(); pintarAvisoCel(false); return; }
-      estado.ligandoAvisoCel = true;
+      if (!A) return;
+      /* desligar vale na hora, mesmo com a inscricao ainda chegando */
+      if (estado.avisoCel || estado.avisoCelQuer) { estado.avisoCel = null; estado.avisoCelQuer = false; A.clienteNaoQuer(); pintarAvisoCel(false); return; }
+      estado.avisoCelQuer = true;
       pintarAvisoCel(true);
       estado.avisoCelPromessa = A.avisoDoPedido(estado.loja.cidadeSlug, estado.loja.slug, true).then(function (aviso) {
+        if (!estado.avisoCelQuer) return;
         estado.avisoCel = aviso;
         UI.soar('toque');
       }, function (e) {
+        estado.avisoCelQuer = false;
         pintarAvisoCel(false);
         UI.avisar((e && e.message) || 'Não deu para ligar os avisos neste celular.');
-      }).then(function () { estado.ligandoAvisoCel = false; });
+      });
     });
 
     /* ---------- dados e pagamento ---------- */
@@ -1468,7 +1474,7 @@
         ? Promise.race([estado.avisoCelPromessa.then(function () {}, function () {}), new Promise(function (r) { setTimeout(r, 4000); })])
         : Promise.resolve();
       esperarAviso.then(function () {
-        if (estado.avisoCel && !balcao) pedido.aviso = estado.avisoCel;
+        if (estado.avisoCel && estado.avisoCelQuer !== false && !balcao) pedido.aviso = estado.avisoCel;
         return store.criarPedido(estado.loja.slug, pedido);
       }).then(function (gravado) {
         estado.enviandoPedido = false;

@@ -117,14 +117,14 @@
       var campo = el('input', { type: 'password', inputmode: 'numeric', placeholder: '••••••', autocomplete: 'current-password', 'aria-label': D.modoDemo ? 'Senha do painel' : 'Senha da equipe' });
       var erro = el('div', { class: 'msg-erro', hidden: true });
       /* o dono entra com o Google (a conta dele); a senha de numeros e a da equipe (cozinha, entregador, balcao) */
-      var dono = D.modoDemo || !store.entrarComGoogle ? null : el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Sou o dono: entrar com o Google', onclick: function (ev) {
+      var dono = D.modoDemo || !store.entrarComGoogle ? null : el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Dono: entrar com o Google', onclick: function (ev) {
         var b = ev.currentTarget;
         b.disabled = true;
         store.entrarComGoogle().then(function (u) {
           if (!u || !vivo) return null;
           return store.donoLogado(estado.loja).then(function (ehDono) {
             if (!vivo) return;
-            if (!ehDono) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta do Google não é a dona desta loja. Entre com a conta que criou a loja.'; return; }
+            if (!ehDono) { if (store.sair) store.sair(); UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta do Google não é a dona desta loja. Entre com a conta que criou a loja.'; return; }
             marcarLogado(true);
             entrarComPapel();
             publicarSeDono();
@@ -250,7 +250,7 @@
       if (window.ResizeObserver && topoEl) new ResizeObserver(medirTopo).observe(topoEl);
       setTimeout(medirTopo, 600);
 
-      var abas = el('nav', { class: 'abas-painel' });
+      var abas = el('nav', { class: 'abas-painel abas-principais' });
       /* abas com icone de traco (o desenho do topo), no lugar dos emojis */
       /* no celular as cinco cabem numa linha (icone em cima, nome curto embaixo), como o topo: antes Ajustes e Minha loja ficavam fora da tela */
       var defs = [['pedidos', 'Pedidos', 'lista'], ['cardapio', R.catalogo(estado.loja).Nome, 'cardapio'], ['vendas', 'Vendas', 'vendas'], ['ajustes', 'Ajustes', 'ajustes'], ['links', 'Minha loja', 'loja', 'Loja']];
@@ -404,7 +404,7 @@
     /* Ajustes mudados e nao salvos: sair da aba (ou ir ao Mercado Pago) perdia tudo sem aviso */
     function ajustesPendentes() { var s = $('secaoPainel'); return estado.aba === 'ajustes' && !!(s && s.querySelector('.salvar-estado.pendente')); }
     function trocarAba(aba) {
-      if (aba !== estado.aba && ajustesPendentes()) {
+      if (ajustesPendentes()) { /* inclusive tocar em Ajustes de novo, que redesenha a aba */
         UI.perguntar('Você mudou os ajustes e ainda não salvou. Sair sem salvar?', { sim: 'Sair sem salvar', nao: 'Voltar para salvar' }).then(function (sim) {
           if (sim) { var s = $('secaoPainel'); var p = s && s.querySelector('.salvar-estado.pendente'); if (p) p.classList.remove('pendente'); trocarAba(aba); }
         });
@@ -667,14 +667,18 @@
       if (!s) return;
       var antigo = $('listaPedidos');
       var caixa = el('div', { id: 'listaPedidos', class: 'pilha' });
+      /* "hoje" e o dia de trabalho da fila (desde as 5 h; de madrugada, desde as 5 h de ontem), contado agora */
+      var ini = new Date(); if (ini.getHours() < 5) ini.setDate(ini.getDate() - 1);
+      ini.setHours(5, 0, 0, 0);
+      var inicioDoDia = ini.toISOString();
       var grupos = [
         { titulo: 'Aguardando Pix', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
         { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
         /* "hoje" e o dia de trabalho da fila (desde as 5 h): depois da meia-noite os pedidos da noite continuam aqui */
-        { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO; }, fechado: true },
-        { titulo: 'Cancelados hoje', filtro: function (p) { return p.status === R.STATUS.CANCELADO; }, fechado: true },
+        { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO && p.criadoEm >= inicioDoDia; }, fechado: true },
+        { titulo: 'Cancelados hoje', filtro: function (p) { return p.status === R.STATUS.CANCELADO && p.criadoEm >= inicioDoDia; }, fechado: true },
       ];
       var algum = false;
       grupos.forEach(function (g) {

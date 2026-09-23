@@ -241,7 +241,7 @@
       corpo: el('ol', { class: 'passos-iphone' }, [
         passo(1, '<path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/>', ['No Safari, toque em ', el('b', { text: 'Compartilhar' }), ' (o quadrado com a seta).']),
         passo(2, '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8"/><path d="M8 12h8"/>', ['Escolha ', el('b', { text: 'Adicionar à Tela de Início' }), ' e toque em Adicionar.']),
-        passo(3, CELULAR, ['Abra o Ligeiro pelo ícone novo e toque em ', el('b', { text: 'Ligar avisos' }), '.']),
+        passo(3, CELULAR, ['Abra o Ligeiro pelo ícone novo e ', el('b', { text: 'ligue os avisos' }), ' por lá.']),
       ]),
       rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: UI.fecharModal })],
     });
