@@ -752,7 +752,14 @@
     function ligarMP() {
       if (estado.mp) { estado.mp.parar(); estado.mp = null; }
       if (!estado.loja.mpAtivo || !window.LigeiroMP) return;
-      estado.mp = window.LigeiroMP.iniciar(slug, estado.loja, function (texto) { estado.mpStatus = texto; if (estado.aba === 'pedidos') desenharCabecaPedidos(); });
+      /* a faixa do Pix so aparece com problema (ligado, some: o estado fica em Ajustes). "Sem token" so para o dono:
+         a equipe nao le a conexao do Mercado Pago e veria "desligado" com o Pix funcionando */
+      var mostrar = function (texto) { estado.mpStatus = texto; if (estado.aba === 'pedidos') desenharCabecaPedidos(); };
+      estado.mp = window.LigeiroMP.iniciar(slug, estado.loja, function (texto, _e, tipo) {
+        if (tipo === 'ok') { mostrar(''); return; }
+        if (tipo !== 'semToken' || D.modoDemo) { mostrar(texto); return; }
+        store.usuarioAtual().then(function (u) { mostrar(u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase() ? texto : ''); }).catch(function () { mostrar(''); });
+      });
       estado.mp.processar(estado.pedidos || []);
     }
 

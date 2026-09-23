@@ -1958,6 +1958,15 @@ button.plano-card { cursor: pointer; }
 .selo-tipo { gap: 6px; }
 .selo.tempo { gap: 6px; }
 
+/* topo da cozinha e do entregador sem nenhum botao visivel (navegador sem aviso): a fileira some, sem sobrar vao */
+.topo-equipe .painel-topo-acoes:not(:has(> :not([hidden]))) { display: none; }
+/* um botao so (entregador): deitado, com o nome inteiro, em vez de um quadrado grande com texto pequeno */
+@media (max-width: 1199px) {
+  .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child { flex-direction: row; gap: 8px; min-height: 48px; padding: 0 16px; font-size: 15px; }
+  .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child .rot-longo { display: inline; }
+  .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child .rot-curto { display: none; }
+}
+
 /* ---------- avisos com a tela apagada (Web Push) ---------- */
 /* o sino de traco do topo do painel, em todo lugar que fala de aviso */
 .avisos-ico, .aviso-cel-ico, .cliente-avisado-ico, .passo-iphone-ico { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1; }

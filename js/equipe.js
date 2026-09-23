@@ -181,7 +181,6 @@
       el('div', { class: 'nome', text: titulo }),
     ].concat(extras, [el('div', { class: 'painel-topo-acoes' }, botoes.filter(Boolean))]));
   }
-  function botaoPainel(slug) { return rotuloTopo(el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () { window.LigeiroApp.ir('painel/' + slug); } }), 'painel', 'Voltar ao painel', 'Painel'); }
 
   /* Botao "Ligar avisos" do topo da cozinha e do entregador: pedido novo (ou entrega pronta) apita com a tela apagada.
      Ligado, um toque manda um aviso de teste. Sem suporte no navegador, o botao nem aparece. */
@@ -252,8 +251,8 @@
         btnSom.classList.toggle('on', estado.somLigado);
       }
       pintarSom();
-      var contador = el('span', { class: 'selo', text: '' });
-      raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [contador], [btnSom, botaoAvisos(slug, 'cozinha'), botaoPainel(slug)]));
+      /* sem contador no topo (cada coluna ja diz quantos) e sem ir ao painel: a cozinha so cuida da fila */
+      raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [], [btnSom, botaoAvisos(slug, 'cozinha')]));
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
 
@@ -263,7 +262,6 @@
         var fazendo = estado.pedidos.filter(function (p) { return p.status === R.STATUS.PRODUCAO; });
         fazer.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         fazendo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
-        contador.textContent = (fazer.length + fazendo.length) + ' na fila';
         [['Para fazer', fazer, 'Ainda não tem nada esperando. Bom sinal.'], ['Fazendo agora', fazendo, 'Nada no fogo ainda.']].forEach(function (col) {
           /* o mesmo titulo de fila do painel: nome a esquerda, quantos a direita */
           var caixa = el('section', { class: 'coluna' }, [el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: col[0] }), el('span', { text: col[1].length ? String(col[1].length) : '' })])]);
@@ -361,7 +359,7 @@
     return abrirComSenha(raiz, slug, 'Entregas', function (lojaInicial) {
       var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null };
 
-      raiz.appendChild(topoEquipe(slug, 'Entregas · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas'), botaoPainel(slug)]));
+      raiz.appendChild(topoEquipe(slug, 'Entregas · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas')]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
 

@@ -108,16 +108,17 @@
     var estado = { token: '', ativo: false, parado: false, pedidos: [], emAndamento: {}, relogio: null, ultimoErro: '', simulado: false };
     var store = D().store;
 
-    function avisar(texto) { estado.status = texto; if (aoMudar) aoMudar(texto, estado); }
+    /* tipo: 'ok' (tudo certo, o painel nao mostra nada), 'semToken' (so o dono ve) ou 'erro' */
+    function avisar(texto, tipo) { estado.status = texto; if (aoMudar) aoMudar(texto, estado, tipo || 'erro'); }
 
     lerToken(slug).then(function (token) {
       if (estado.parado) return; /* parou antes do token chegar: nao liga mais nada */
       estado.token = token;
       estado.simulado = D().modoDemo && !!token; /* simulacao so existe na demonstracao, nunca no site de verdade */
       estado.ativo = !!token && (estado.simulado || !!cfg.proxyMercadoPago);
-      if (!token) return avisar('Pix automático desligado: cadastre o token do Mercado Pago em Ajustes.');
+      if (!token) return avisar('Pix automático desligado: conecte o Mercado Pago em Ajustes, Pagamento.', 'semToken');
       if (!estado.ativo) return avisar('Token cadastrado, mas o Ligeiro ainda não ligou o proxy do Mercado Pago (config.proxyMercadoPago).');
-      avisar(estado.simulado ? 'Pix automático em simulação: aprova sozinho em 20 s.' : 'Pix automático ligado: o pedido vira pago sozinho quando o Pix cair.');
+      avisar(estado.simulado ? 'Pix automático em simulação: aprova sozinho em 20 s.' : 'Pix automático ligado: o pedido vira pago sozinho quando o Pix cair.', 'ok');
       /* com o mensageiro no ar, o aviso do Mercado Pago e o site do cliente liberam o pedido: o painel so reforca, devagar */
       estado.relogio = setInterval(conferir, estado.simulado ? 10000 : 30000);
       processar(estado.pedidos);
@@ -161,7 +162,7 @@
         return store.atualizarPedido(slug, p.id, mudancas);
       }).catch(function (e) {
         estado.ultimoErro = e.message;
-        avisar('Pix automático com problema: ' + e.message + ' Confira o token em Ajustes › Pagamento.');
+        avisar('Pix automático com problema: ' + e.message + ' Confira a conexão em Ajustes, Pagamento.');
       }).then(function () { delete estado.emAndamento[p.id]; });
     }
 
