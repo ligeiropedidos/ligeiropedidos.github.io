@@ -13,7 +13,7 @@
   var el = UI.el;
   var $ = UI.$;
 
-  var TIPOS = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🫐'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🛵']];
+  var TIPOS = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🛵']];
   var MODELOS = [['vazio', 'Cardápio vazio (monto na loja)'], ['lanchonete-do-ze', 'Modelo de lanchonete'], ['dom-conizza', 'Modelo de pizzaria'], ['marmitaria-da-cida', 'Modelo de marmitaria'], ['sorveteria-da-lu', 'Modelo de sorveteria / açaí']];
 
   var CHAVE_ABA = 'ligeiro:admin:aba';

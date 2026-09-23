@@ -152,14 +152,23 @@
       /* loja oficial com tema (Dom Conizza): o topo usa as cores do tema; as outras, as do Ligeiro */
       var topoComTema = !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).tema);
       /* rotulo do botao do topo: icone e nome; no celular vale o nome curto (os quatro botoes ficam identicos numa linha) */
+      /* icones de traco do mesmo desenho (os emojis variavam de estilo e o bonequinho cinza destoava) */
+      var ICONES_TOPO = {
+        loja: '<path d="M4 10v10h16V10"/><path d="M2.5 10 5 4h14l2.5 6z"/><path d="M10 20v-5h4v5"/>',
+        conta: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+        sino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+        semsino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
+        impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>',
+        sair: '<path d="M10 4H5.5v16H10"/><path d="M14.5 8 18.5 12l-4 4"/><path d="M18.5 12H9"/>',
+      };
       function rotuloTopo(botao, icone, longo, curto) {
         UI.limpar(botao);
-        botao.appendChild(el('span', { class: 'topo-ico', 'aria-hidden': 'true', text: icone }));
+        botao.appendChild(el('span', { class: 'topo-ico', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + ICONES_TOPO[icone] + '</svg>' }));
         botao.appendChild(el('span', { class: 'rot-longo', text: longo }));
         botao.appendChild(el('span', { class: 'rot-curto', text: curto }));
         return botao;
       }
-      function pintarSom() { rotuloTopo(btnSom, estado.somLigado ? '🔔' : '🔕', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito'); btnSom.setAttribute('aria-label', estado.somLigado ? 'Apito ligado' : 'Apito desligado'); }
+      function pintarSom() { rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', estado.somLigado ? 'Apito ligado' : 'Apito desligado', 'Apito'); btnSom.setAttribute('aria-label', estado.somLigado ? 'Apito ligado' : 'Apito desligado'); }
       var btnSom = el('button', { class: 'btn btn-pequeno' + (estado.somLigado ? ' on' : ''), onclick: function () {
         estado.somLigado = UI.somLigado(!estado.somLigado);
         pintarSom();
@@ -170,7 +179,7 @@
       /* Impressao automatica: cada pedido novo (pago ou pra cobrar na entrega) sai na impressora sozinho.
          No computador do caixa, abra o Chrome com --kiosk-printing pra nao aparecer a janela de imprimir. */
       function pintarImp() {
-        rotuloTopo(btnImp, '🖨️', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Automático' : 'Manual');
+        rotuloTopo(btnImp, 'impressora', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Automático' : 'Manual');
       }
       var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', onclick: function () {
         estado.impressaoAuto = !estado.impressaoAuto;
@@ -187,10 +196,10 @@
         (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), '👁️', 'Ver loja', 'Loja'),
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), '👤', 'Minha conta', 'Conta'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), 'loja', 'Ver loja', 'Loja'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
-          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), '🚪', 'Sair', 'Sair'),
+          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair'),
         ]),
       ]));
 
@@ -485,23 +494,37 @@
       });
     }
 
+    /* abre a aba e, se tiver bloco, rola ate ele e acende (o dono nao precisa cacar o campo) */
+    function irPara(aba, blocoId) {
+      trocarAba(aba);
+      if (!blocoId) return;
+      var alvo = $(blocoId);
+      if (!alvo) return;
+      var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var topo = alvo.getBoundingClientRect().top + window.pageYOffset - 88; /* abaixo da barra fixa do painel */
+      window.scrollTo({ top: Math.max(0, topo), behavior: reduzir ? 'auto' : 'smooth' });
+      alvo.classList.remove('realce'); void alvo.offsetWidth; alvo.classList.add('realce');
+      setTimeout(function () { alvo.classList.remove('realce'); }, 2600);
+    }
+
     /* Loja recem-criada: o que falta pra vender, com um toque pra cada coisa. Some quando o dono manda. */
     function primeirosPassos() {
       var l = estado.loja;
       if (l.configurada !== false) return null;
       var comPreco = (l.produtos || []).filter(function (p) { return p.ativo !== false && p.preco > 0; }).length;
+      /* na ordem do que mais importa para vender; cada item leva direto ao bloco certo (e acende ele) */
       var itens = [
-        [!!l.mpAtivo, 'Pix automático ligado (Mercado Pago)', 'ajustes'],
-        [!!l.whatsapp, 'WhatsApp da loja', 'ajustes'],
-        [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no ' + R.catalogo(l).nome + ' (confira os valores)' : R.catalogo(l).Nome + ' com preços', 'cardapio'],
-        [!!D.logoSrc(l), 'Logo da loja', 'ajustes'],
-        [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários em Ajustes)', 'ajustes'],
-        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$') + ' (troca em Ajustes)', 'ajustes'],
-        [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens que mais saem', 'cardapio'],
+        [!!l.mpAtivo, 'Pix automático ligado (Mercado Pago)', 'ajustes', 'aj-pagamento'],
+        [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no ' + R.catalogo(l).nome + ' (confira os valores)' : R.catalogo(l).Nome + ' com preços', 'cardapio', ''],
+        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'ajustes', 'aj-entrega'],
+        [!!l.whatsapp, 'WhatsApp da loja', 'ajustes', 'aj-dados'],
+        [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários de funcionamento)', 'ajustes', 'aj-funcionamento'],
+        [!!D.logoSrc(l), 'Logo da loja', 'ajustes', 'aj-aparencia'],
+        [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens que mais saem', 'cardapio', ''],
       ];
       var feitos = itens.filter(function (i) { return i[0]; }).length;
       var lista = el('div', { class: 'lista-simples' }, itens.map(function (i) {
-        return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { trocarAba(i[2]); window.scrollTo(0, 0); } }, [
+        return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { irPara(i[2], i[3]); } }, [
           el('span', { text: (i[0] ? '✅ ' : '⬜ ') + i[1] }),
           el('b', { text: i[0] ? '' : 'Ir →' }),
         ]);
@@ -1466,8 +1489,8 @@
       var f = { original: D.clonar(l) };
 
       s.appendChild(el('h2', { text: 'Ajustes da loja' }));
-      var identidade = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Dados da loja' })]);
-      var aparencia = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Aparência do site' })]);
+      var identidade = el('div', { class: 'bloco-form', id: 'aj-dados' }, [el('div', { class: 'bloco-titulo', text: 'Dados da loja' })]);
+      var aparencia = el('div', { class: 'bloco-form', id: 'aj-aparencia' }, [el('div', { class: 'bloco-titulo', text: 'Aparência do site' })]);
       var g1 = el('div', { class: 'grade-form' });
       f.nome = campoTexto('Nome', l.nome, { max: 60 });
       f.tipo = campoTexto('Tipo', l.tipo, { max: 30, placeholder: 'Lanchonete, Pizzaria, Marmitaria…' });
@@ -1514,7 +1537,7 @@
       identidade.appendChild(g1);
       s.appendChild(identidade);
 
-      var funcionamento = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Funcionamento' })]);
+      var funcionamento = el('div', { class: 'bloco-form', id: 'aj-funcionamento' }, [el('div', { class: 'bloco-titulo', text: 'Funcionamento' })]);
       f.aberta = interruptorCampo('Loja aberta para pedidos', 'Interruptor manual. Desligado, ninguém consegue pedir.', l.aberta !== false);
       f.usarHorarios = interruptorCampo('Fechar sozinha fora do horário', 'Além do interruptor, respeita os horários abaixo.', !!l.usarHorarios);
       funcionamento.appendChild(f.aberta);
@@ -1524,7 +1547,7 @@
       funcionamento.appendChild(f.horarios);
       s.appendChild(funcionamento);
 
-      var entrega = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Entrega e retirada' })]);
+      var entrega = el('div', { class: 'bloco-form', id: 'aj-entrega' }, [el('div', { class: 'bloco-titulo', text: 'Entrega e retirada' })]);
       f.aceitaEntrega = interruptorCampo('Faz entrega', 'É o botão "Quero entrega" que o cliente vê.', l.aceitaEntrega !== false);
       f.aceitaRetirada = interruptorCampo('Cliente pode buscar na loja', 'É o botão "Vou buscar". Desligue se você só entrega.', l.aceitaRetirada !== false);
       entrega.appendChild(f.aceitaEntrega);
@@ -1546,7 +1569,7 @@
       entrega.appendChild(ge);
       s.appendChild(entrega);
 
-      var pagamento = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Pagamento' })]);
+      var pagamento = el('div', { class: 'bloco-form', id: 'aj-pagamento' }, [el('div', { class: 'bloco-titulo', text: 'Pagamento' })]);
       /* Pix e sempre automatico, pela conta Mercado Pago da loja: o cliente paga e o pedido cai pronto */
       var cfgMP = window.LIGEIRO_CONFIG || {};
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;

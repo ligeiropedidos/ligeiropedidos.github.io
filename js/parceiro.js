@@ -121,7 +121,7 @@
     var espera = origem === 'lista-espera';
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
     if (espera) corpo.appendChild(el('p', { class: 'muted pequeno', text: ESPERA.intro }));
-    else if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener', text: '💬 Chamar no WhatsApp agora' }));
+    else if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Chamar no WhatsApp agora']));
     if (!espera) corpo.appendChild(el('p', { class: 'muted pequeno' + (c.whatsappLigeiro ? ' centro' : ''), text: c.whatsappLigeiro ? 'Ou deixe seu número que a gente chama você:' : 'Deixe seu número que a gente chama você no WhatsApp, sem compromisso:' }));
     var f = {
       nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
@@ -152,7 +152,7 @@
   /* Botao verde flutuante, igual ao das startups: aparece em todas as paginas de venda. */
   function botaoFlutuante(raiz) {
     raiz.appendChild(el('button', { class: 'zap-flutuante', type: 'button', 'aria-label': 'Fale conosco no WhatsApp', onclick: function () { abrirContato('botao-flutuante'); } }, [
-      el('span', { class: 'zap-icone', text: '💬' }),
+      el('span', { class: 'zap-icone' }, el('span', { class: 'icone-zap', 'aria-hidden': 'true' })),
       el('span', { class: 'zap-texto', text: 'Fale conosco no WhatsApp' }),
       el('span', { class: 'zap-ponto' }),
     ]));
@@ -194,7 +194,7 @@
       var antes = document.activeElement;
       var origem = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget : null;
       var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=1', poster: 'midia/comercial-ligeiro.jpg', controls: true, playsinline: true, preload: 'auto' });
+      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=2', poster: 'midia/comercial-ligeiro.jpg', controls: true, playsinline: true, preload: 'auto' });
       var fim = el('div', { class: 'video-fim', hidden: true }, [
         el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis', onclick: fechar }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { fechar(); abrirContato('video'); } }),
