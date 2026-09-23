@@ -188,7 +188,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* topo com cara de app (icone em cima no celular): no estilo da casa, cartao creme com borda e sombra de desenho */
 .tema-conizza .topo-app .btn-pequeno { border-radius: 16px; font-family: var(--cz-display); font-weight: 800; }
 @media (hover: hover) { .tema-conizza .topo-app .btn-pequeno:hover { background: var(--cz-branco); } .tema-conizza .topo-app .btn-pequeno.on:hover { background: var(--cz-ouro-claro); } }
-@media (max-width: 1199px) { .tema-conizza .topo-app .btn-pequeno { box-shadow: 0 4px 0 var(--cz-tinta); padding-top: 11px; padding-bottom: 5px; } .tema-conizza .topo-app .topo-ico { font-size: 23px; } }
+@media (max-width: 1199px) { .tema-conizza .topo-app .btn-pequeno { box-shadow: 0 4px 0 var(--cz-tinta); padding-top: 10.15px; padding-bottom: 5.85px; } } /* icone e nome no meio exato do botao (medido: ponta do icone ate a linha das letras) */
+/* icones de traco do topo: traco mais grosso, no peso das bordas de desenho animado da Conizza */
+.tema-conizza .topo-app .topo-ico svg { stroke-width: 2.3; }
 .tema-conizza .abas-painel { background: var(--cz-creme-fundo); border-bottom: 3px solid var(--cz-creme-borda); }
 .tema-conizza .aba-painel { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba-painel.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
@@ -248,3 +250,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* botoes da Conizza mantem a altura de linha de antes (letra Baloo, medidas proprias): link herda, botao usa a do navegador */
 .tema-conizza :where(a.btn) { line-height: inherit; } /* forca de .btn: regras mais especificas (topo do painel) continuam valendo */
 .tema-conizza :where(button.btn) { line-height: normal; }
+
+/* ID da loja no tema: fundo creme da casa (o verde-claro e do Ligeiro) */
+.tema-conizza .id-loja-valor { background: var(--cz-creme); color: var(--cz-tinta); border-radius: 14px; }
