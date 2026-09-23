@@ -1272,6 +1272,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .barra-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px var(--margem); background: var(--bg); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; }
 .barra-topo .marca { font-size: 30px; text-decoration: none; }
 .barra-acoes { display: flex; gap: 8px; }
+/* conta logada: bolinha com a inicial + "Minha conta", discreto como nos apps (o verde forte fica para Assinar) */
+.btn-conta { min-height: 44px; padding: 4px 16px 4px 4px; gap: 10px; border-radius: 999px; background: var(--card); color: var(--ink); border: 1.5px solid var(--line-forte); font-size: 16px; text-decoration: none; }
+.conta-bolinha { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--deep); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1; padding-top: 1px; }
+.conta-bolinha.sem-letra { background: var(--deep) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Ccircle cx='12' cy='8.5' r='4.2'/%3E%3Cpath d='M4 20.5c0-4.1 3.6-6.7 8-6.7s8 2.6 8 6.7z'/%3E%3C/svg%3E") center / 20px no-repeat; }
+@media (hover: hover) { .btn-conta:hover { border-color: var(--lime); background: var(--lime-suave); } }
+/* deslogado: a bolinha e verde-clara com o bonequinho escuro; "Assinar agora" na mesma pilula e altura */
+.btn-entrar .conta-bolinha.sem-letra { background: var(--lime-suave) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230F3D2E'%3E%3Ccircle cx='12' cy='8.5' r='4.2'/%3E%3Cpath d='M4 20.5c0-4.1 3.6-6.7 8-6.7s8 2.6 8 6.7z'/%3E%3C/svg%3E") center / 20px no-repeat; }
+@media (hover: hover) { .btn-entrar:hover .conta-bolinha.sem-letra { background-color: #fff; } }
+.barra-topo .btn-assinar { min-height: 44px; padding: 8px 20px; border-radius: 999px; }
+@media (max-width: 420px) { .barra-topo .btn-conta { min-height: 40px; padding: 3px 12px 3px 3px; gap: 8px; font-size: 14px; } .barra-topo .conta-bolinha { width: 32px; height: 32px; font-size: 16px; } .barra-topo .btn-assinar { min-height: 40px; padding: 6px 14px; } }
+@media (max-width: 360px) { .barra-topo .btn-entrar .conta-bolinha { display: none; } .barra-topo .btn-entrar { padding: 6px 14px; } } /* 320: "Entrar" e "Assinar" cabem do lado da marca */
 .preco-destaque { color: var(--lime-escuro); white-space: nowrap; }
 .heroi-mascote { position: relative; z-index: 1; width: 150px; height: 150px; object-fit: contain; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
 /* sombra de chao em elipse (o filter:drop-shadow numa imagem animada as vezes aparecia como um quadrado) */
@@ -1287,11 +1298,38 @@ a.selo-google:hover { background: var(--lime-suave); }
 .heroi-texto { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; }
 .final-mascote { width: 96px; height: 96px; object-fit: contain; }
 @media (max-width: 420px) { .barra-topo .marca { font-size: 24px; } .barra-topo .mascote { display: none; } .barra-topo .btn-pequeno { min-height: 40px; padding: 6px 10px; font-size: 14px; } }
-.teste-caixa { background: var(--card); border: 1.5px solid var(--lime); border-radius: 22px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
-.teste-caixa h2 { font-size: 26px; }
-.teste-caixa .btn { width: 100%; max-width: 440px; }
-@media (max-width: 420px) { .teste-caixa { padding-left: 16px; padding-right: 16px; } .teste-caixa .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
-.teste-caixa .checks { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: 14px; font-weight: 600; color: var(--deep2); }
+/* botao do comercial (segundo botao do heroi) e o player por cima da pagina */
+.btn-video .video-play { flex: none; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2.6v6.8L9.6 6z' fill='%230E1F14'/%3E%3C/svg%3E") 55% 50% / 13px no-repeat; }
+.btn-video > span:nth-child(2) { position: relative; top: 1px; } /* maiusculas no meio, na linha da bolinha e do selo */
+.btn-video .video-tempo { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); font-size: 13px; font-weight: 700; line-height: 1; }
+.video-fundo { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 22, 16, 0.88); }
+.video-caixa { position: relative; width: min(100%, calc((100vh - 32px) * 9 / 16)); max-width: 480px; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #0F3D2E; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
+.video-comercial { display: block; width: 100%; height: 100%; object-fit: contain; background: #0F3D2E; }
+.video-fechar { position: absolute; top: 10px; right: 10px; z-index: 2; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 18px; line-height: 1; }
+.video-fim { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; background: rgba(15, 61, 46, 0.92); }
+.video-fim[hidden] { display: none; }
+.video-fim .btn { width: 100%; max-width: 300px; }
+.video-denovo { margin-top: 4px; padding: 10px 14px; border: 0; background: none; color: rgba(255, 255, 255, 0.86); font-size: 15px; font-weight: 600; }
+/* teste gratis: faixa escura da marca (celular empilhado e centrado; PC em duas colunas) */
+.teste-banner { position: relative; overflow: hidden; border-radius: 28px; padding: 28px 20px 24px; color: #fff; display: grid; gap: 24px; text-align: center;
+  background: radial-gradient(circle at 12% 0%, rgba(27, 107, 74, 0.95) 0%, rgba(27, 107, 74, 0) 58%), linear-gradient(135deg, #0F3D2E 0%, #12462F 55%, #0B3024 100%); box-shadow: 0 18px 40px rgba(15, 61, 46, 0.22); }
+.teste-banner::after { content: ""; position: absolute; top: 14px; right: 14px; width: 62px; height: 62px; pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.2) 2px, transparent 2.6px); background-size: 16px 16px; }
+.teste-texto { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+.teste-selo { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13.8px 8px 15px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: var(--lime-suave); font-family: var(--display); font-weight: 700; font-size: 14px; line-height: 1; letter-spacing: 1.2px; text-transform: uppercase; }
+.teste-selo .estrela { color: var(--lemon); letter-spacing: 0; }
+.teste-banner h2 { margin-top: 16px; color: #fff; font-size: 28px; line-height: 1.15; }
+.teste-banner h2 .destaque { color: var(--lime); }
+.teste-checks { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
+.teste-checks li { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.2; color: rgba(255, 255, 255, 0.92); }
+.teste-checks li::before { content: ""; flex: none; width: 20px; height: 20px; border-radius: 50%; position: relative; top: 0.5px;
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3 4.9 8.7 9.6 3.6' fill='none' stroke='%230E1F14' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat; }
+.teste-botoes { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 440px; justify-self: center; }
+.teste-botoes .btn { width: 100%; }
+.btn-contorno { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.42); }
+@media (hover: hover) { .btn-contorno:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.7); } }
+@media (max-width: 420px) { .teste-banner { padding-left: 16px; padding-right: 16px; } .teste-banner h2 { font-size: 25px; } .teste-botoes .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 button.plano-card { cursor: pointer; }
@@ -1398,8 +1436,12 @@ button.plano-card { cursor: pointer; }
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
-.conta-acoes .btn-principal, .conta-acoes .conta-senha { grid-column: 1 / -1; }
-@media (max-width: 360px) { .conta-acoes .btn { font-size: 13px; } } /* celular pequeno: "Copiar link" e "Entregador" cabem com folga */
+.conta-acoes .btn-principal { grid-column: 1 / -1; }
+/* equipe: tres botoes iguais com o icone em cima do nome, como os do topo do painel (antes a senha sobrava sozinha numa linha) */
+.conta-equipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.conta-ladrilho { width: 100%; min-width: 0; flex-direction: column; gap: 6px; min-height: 72px; padding: 10.75px 4px 7.25px; font-size: 15px; line-height: 1.1; white-space: nowrap; }
+.conta-ladrilho-icone { font-size: 22px; line-height: 1; }
+@media (max-width: 360px) { .conta-acoes .btn, .conta-ladrilho { font-size: 13px; } } /* celular pequeno: "Copiar link" e "Entregador" cabem com folga */
 .conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
 .conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
@@ -1454,7 +1496,7 @@ button.plano-card { cursor: pointer; }
 .texto-legal h2 { font-size: 19px; margin-top: 14px; }
 .texto-legal p { color: var(--body); line-height: 1.5; }
 @media (min-width: 560px) { .planos { grid-template-columns: 1fr 1fr; } .checklist { grid-template-columns: 1fr 1fr; } .antes-depois { grid-template-columns: 1fr 1fr; } .raiox { grid-template-columns: 1fr 1fr; } }
-@media (min-width: 900px) { .checklist { grid-template-columns: 1fr 1fr 1fr; } .raiox { grid-template-columns: repeat(3, 1fr); } .teste-caixa { padding: 32px; } .planos { max-width: 760px; margin: 0 auto; width: 100%; } }
+@media (min-width: 900px) { .checklist { grid-template-columns: 1fr 1fr 1fr; } .raiox { grid-template-columns: repeat(3, 1fr); } .teste-banner { grid-template-columns: minmax(0, 1fr) 340px; align-items: center; gap: 40px; padding: 40px 44px; text-align: left; } .teste-banner .teste-texto { align-items: flex-start; } .teste-banner .teste-checks { justify-content: flex-start; } .teste-banner h2 { font-size: 32px; } .teste-banner::after { display: none; } .planos { max-width: 760px; margin: 0 auto; width: 100%; } }
 .calc-entrada, .calc-resultado, .preco-texto { display: flex; flex-direction: column; gap: 12px; }
 
 /* Computador: a pagina de vendas ganha colunas em vez de esticar a coluna do celular */

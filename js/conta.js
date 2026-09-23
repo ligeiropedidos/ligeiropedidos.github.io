@@ -221,6 +221,11 @@
       ]);
     }
 
+    function ladrilho(tag, atributos, icone, rotulo) {
+      atributos.class = 'btn btn-fantasma btn-pequeno conta-ladrilho';
+      return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true', text: icone }), el('span', { text: rotulo })]);
+    }
+
     function cartaoLoja(l) {
       var a = R.assinatura(l);
       var aberta = R.lojaAberta(l);
@@ -255,11 +260,12 @@
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '👁️ Ver loja' }),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
         ]),
-        el('div', { class: 'conta-grupo', text: 'Telas da equipe' }),
-        el('div', { class: 'conta-acoes' }, [
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/cozinha/' + l.slug, text: '👨‍🍳 Cozinha' }),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrega/' + l.slug, text: '🛵 Entregador' }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno conta-senha', type: 'button', text: '🔑 Senha da equipe', title: 'Senha da equipe: cozinha e entregador', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }),
+        /* equipe: tres quadradinhos iguais (antes a senha sobrava sozinha numa linha inteira) */
+        el('div', { class: 'conta-grupo', text: 'Equipe' }),
+        el('div', { class: 'conta-equipe' }, [
+          ladrilho('a', { href: '#/cozinha/' + l.slug }, '👨‍🍳', 'Cozinha'),
+          ladrilho('a', { href: '#/entrega/' + l.slug }, '🛵', 'Entregador'),
+          ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, '🔑', 'Senha'),
         ]),
       ]);
     }

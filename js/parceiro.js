@@ -63,27 +63,43 @@
 
   /* Barra do topo: marca, Entrar e Assinar. Igual em todas as paginas daqui. */
   function barraTopo() {
-    var entrar = el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/entrar', text: 'Entrar' });
+    /* "Entrar" e o botao da conta tem o mesmo desenho: ao entrar, so a bolinha troca o bonequinho pela inicial */
+    var entrar = el('a', { class: 'btn btn-conta btn-entrar', href: '#/entrar' }, [el('span', { class: 'conta-bolinha sem-letra', 'aria-hidden': 'true' }), el('span', { text: 'Entrar' })]);
     /* celular pequeno (ate 360): "Assinar"; o "agora" nao cabe do lado do Entrar */
-    var assinar = el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar' }, [el('span', { class: 'rot-longo', text: 'Assinar agora' }), el('span', { class: 'rot-curto', text: 'Assinar' })]);
+    var assinar = el('a', { class: 'btn btn-principal btn-pequeno btn-assinar', href: '#/assinar' }, [el('span', { class: 'rot-longo', text: 'Assinar agora' }), el('span', { class: 'rot-curto', text: 'Assinar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
       el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       acoes,
     ]);
-    /* logado: "Entrar" vira "Minha conta" e "Assinar agora" sai (o plano mora em Minha conta) */
-    function comoLogado(sim) {
-      entrar.textContent = sim ? '👤 Minha conta' : 'Entrar';
-      entrar.setAttribute('href', sim ? '#/conta' : '#/entrar');
-      entrar.classList.toggle('btn-principal', sim);
-      entrar.classList.toggle('btn-fantasma', !sim);
-      if (sim) { if (assinar.parentNode) assinar.remove(); } else if (!assinar.parentNode) acoes.appendChild(assinar);
+    /* logado: "Entrar" vira o botao da conta (bolinha com a inicial + "Minha conta") e "Assinar agora" sai (o plano mora em Minha conta) */
+    var bolinha = el('span', { class: 'conta-bolinha', 'aria-hidden': 'true' });
+    var conta = el('a', { class: 'btn btn-conta', href: '#/conta', 'aria-label': 'Minha conta' }, [
+      bolinha, el('span', { class: 'rot-longo', text: 'Minha conta' }), el('span', { class: 'rot-curto', text: 'Conta' }),
+    ]);
+    /* inicial do nome (ou do e-mail); sem nome ainda, a bolinha mostra o bonequinho desenhado */
+    function inicial(u) {
+      var base = String((u && (u.nome || u.email)) || '').trim();
+      var letra = base ? base.charAt(0).toUpperCase() : '';
+      bolinha.textContent = /[A-Z0-9À-Þ]/.test(letra) ? letra : '';
+      bolinha.classList.toggle('sem-letra', !bolinha.textContent);
+    }
+    inicial(null);
+    function comoLogado(sim, u) {
+      if (sim) {
+        if (entrar.parentNode) entrar.replaceWith(conta); else if (!conta.parentNode) acoes.insertBefore(conta, acoes.firstChild);
+        if (assinar.parentNode) assinar.remove();
+        if (u) inicial(u);
+      } else {
+        if (conta.parentNode) conta.replaceWith(entrar);
+        if (!assinar.parentNode) acoes.appendChild(assinar);
+      }
     }
     var store = D() && D().store;
-    /* ja entrou antes neste aparelho: abre direto com "Minha conta", sem piscar "Entrar" */
+    /* ja entrou antes neste aparelho: abre direto com a conta, sem piscar "Entrar" */
     if (store && store.pareceLogado && store.pareceLogado()) comoLogado(true);
-    /* o Firebase confirma e corrige se a sessao tiver caido */
-    if (store && store.usuarioAtual) store.usuarioAtual().then(function (u) { comoLogado(!!u); });
+    /* o Firebase confirma (e traz o nome) ou corrige se a sessao tiver caido */
+    if (store && store.usuarioAtual) store.usuarioAtual().then(function (u) { comoLogado(!!u, u); });
     return barra;
   }
 
@@ -163,9 +179,76 @@
 
     function botoesChamada(grande) {
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
-      /* o WhatsApp ja tem o botao flutuante: aqui nao repete */
-      lista.push(el('a', { class: 'btn btn-fantasma' + (grande ? '' : ' btn-pequeno'), href: '#/cidades', text: 'Ver lojas do Ligeiro' }));
+      /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
+      lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
+        el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '37 s' }),
+      ]));
       return el('div', { class: 'pilha chamada' }, lista);
+    }
+
+    /* Comercial por cima da pagina: o video so baixa quando a pessoa clica (a pagina nao fica mais pesada) */
+    function abrirVideo(ev) {
+      var antes = document.activeElement;
+      var origem = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget : null;
+      var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=1', poster: 'midia/comercial-ligeiro.jpg', controls: true, playsinline: true, preload: 'auto' });
+      var fim = el('div', { class: 'video-fim', hidden: true }, [
+        el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis', onclick: fechar }),
+        el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { fechar(); abrirContato('video'); } }),
+        el('button', { class: 'video-denovo', type: 'button', text: '↻ Ver de novo', onclick: function () { fim.hidden = true; video.currentTime = 0; video.play(); } }),
+      ]);
+      var botaoX = el('button', { class: 'video-fechar', type: 'button', 'aria-label': 'Fechar vídeo', text: '✕', onclick: fechar });
+      var caixa = el('div', { class: 'video-caixa' }, [video, fim, botaoX]);
+      var fundo = el('div', { class: 'video-fundo', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Comercial do Ligeiro' }, caixa);
+      /* de onde o video "sai": o centro do botao tocado, bem pequeno (escala igual nos dois lados, sem achatar a imagem) */
+      function saidaDoBotao() {
+        if (!origem || !document.body.contains(origem)) return 'scale(0.9)';
+        var o = origem.getBoundingClientRect(), f = caixa.getBoundingClientRect();
+        var dx = (o.left + o.width / 2) - (f.left + f.width / 2), dy = (o.top + o.height / 2) - (f.top + f.height / 2);
+        return 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + Math.max(0.08, o.height / f.height).toFixed(3) + ')';
+      }
+      var animar = !!caixa.animate;
+      function tecla(e) { if (e.key === 'Escape') fechar(); }
+      var fechando = false;
+      function fechar() {
+        if (!fundo.parentNode || fechando) return;
+        fechando = true;
+        try { video.pause(); } catch (_) { /* ignora */ }
+        document.removeEventListener('keydown', tecla);
+        window.removeEventListener('hashchange', fechar);
+        function tirar() {
+          if (!fundo.parentNode) return;
+          video.removeAttribute('src'); video.load(); /* para de baixar */
+          fundo.remove();
+          document.documentElement.style.overflow = '';
+          if (antes && antes.focus) antes.focus();
+        }
+        if (!animar) return tirar();
+        /* volta para dentro do botao (ou so some, com movimento reduzido) */
+        fundo.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+        caixa.animate(reduzir ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: saidaDoBotao(), opacity: 0 }],
+          { duration: reduzir ? 180 : 260, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+        setTimeout(tirar, reduzir ? 190 : 270);
+      }
+      fundo.addEventListener('click', function (e) { if (e.target === fundo) fechar(); });
+      video.addEventListener('ended', function () { fim.hidden = false; });
+      document.addEventListener('keydown', tecla);
+      window.addEventListener('hashchange', fechar);
+      document.documentElement.style.overflow = 'hidden';
+      document.body.appendChild(fundo);
+      /* entrada: o fundo escurece e o video cresce de dentro do botao ate o meio da tela */
+      if (animar) {
+        fundo.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduzir ? 180 : 260, easing: 'ease-out' });
+        if (reduzir) caixa.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
+        else {
+          caixa.animate([{ transform: saidaDoBotao(), opacity: 0.35, borderRadius: '60px' }, { transform: 'none', opacity: 1, borderRadius: '22px' }],
+            { duration: 460, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+          botaoX.animate([{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], { duration: 220, delay: 300, easing: 'ease-out', fill: 'backwards' });
+        }
+      }
+      botaoX.focus();
+      var tocar = video.play();
+      if (tocar && tocar.catch) tocar.catch(function () { /* navegador pediu toque: os controles ficam na tela */ });
     }
 
     raiz.appendChild(barraTopo());
@@ -199,12 +282,16 @@
     raiz.appendChild(corpo);
 
     /* ---------- teste gratis ---------- */
-    corpo.appendChild(el('section', { class: 'teste-caixa' }, [
-      el('h2', {}, ['Teste grátis por ', el('span', { class: 'preco-destaque', text: pr.diasGratis + ' dias' })]),
-      el('p', { class: 'muted', text: 'Crie sua loja agora, sem cartão de crédito. Em três minutos ela está no ar com um cardápio do seu tipo.' }),
-      el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Criar minha loja grátis' }),
-      el('div', { class: 'checks' }, [
-        el('span', { text: '✓ Sem cartão' }), el('span', { text: '✓ Cancela quando quiser' }), el('span', { text: '✓ Todos os recursos' }),
+    /* faixa escura da marca: selo, titulo, garantias e duas saidas (criar sozinho ou pedir para a gente montar) */
+    corpo.appendChild(el('section', { class: 'teste-banner' }, [
+      el('div', { class: 'teste-texto' }, [
+        el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true', text: '★' }), 'Teste grátis por ' + pr.diasGratis + ' dias']),
+        el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', com o cardápio do seu tipo.']),
+        el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Todos os recursos'].map(function (t) { return el('li', { text: t }); })),
+      ]),
+      el('div', { class: 'teste-botoes' }, [
+        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Criar minha loja grátis' }),
+        el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
       ]),
     ]));
 

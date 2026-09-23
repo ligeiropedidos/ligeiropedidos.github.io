@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260924z';
+var VERSAO = 'ligeiro-20260925a';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede. */
 var ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icone-192.png', './icone-512.png', './img/mascote-192.png', './img/mascote-192.webp', './img/favicon.png'];
 
@@ -32,6 +32,8 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   if (url.origin !== location.origin) return;
+  /* video vai direto da rede: o navegador pede em pedacos (range) e guardar ocuparia o celular a toa */
+  if (/\.(mp4|webm)$/.test(url.pathname)) return;
   /* codigo com a versao no endereco (?v=) e imagens: nao mudam dentro da mesma versao do site (versao nova = cache novo,
      o antigo e apagado), entao saem direto do aparelho, sem esperar a internet */
   var ehPaginaSw = e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
