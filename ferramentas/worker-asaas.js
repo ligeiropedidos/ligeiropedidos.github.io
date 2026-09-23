@@ -15,6 +15,8 @@
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        PLANOS           JSON com os precos em centavos, igual ao config.js. Exemplo:
  *                         {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000},"duas":{"mensal":15800,"anual":158000,"fm":14800,"fa":148000},"tres":{"mensal":22700,"anual":227000,"fm":21700,"fa":217000}}
+ *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
+ *      (o mesmo do ligeiro-mp). Com ele, a loja destrava para o cliente na hora em que o pagamento cai.
  *   3. No Asaas: Integracoes > Webhooks > Adicionar: URL do worker, token = ASAAS_WEBHOOK,
  *      eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED. Fila sincrona, versao 3.
  *   4. O e-mail do cliente no Asaas tem que ser o MESMO e-mail com que o dono entra no Ligeiro
@@ -66,7 +68,10 @@ export default {
       for (const slug of lojas) {
         await fb.merge('lojas/' + slug, { plano: espelho, atualizadoEm: new Date().toISOString() });
         await fb.merge('vitrine/' + slug, { plano: espelho, atualizadoEm: new Date().toISOString() });
+        /* a copia da loja na borda (o que o cliente ve) cai fora: a proxima visita ja le a loja paga, destravada */
+        if (env.CARDAPIO) await env.CARDAPIO.delete('loja:' + slug).catch(() => {});
       }
+      if (env.CARDAPIO && lojas.length) await env.CARDAPIO.delete('vitrine').catch(() => {});
       return json({ ok: true, email: email, plano: plano.id, tipo: plano.tipo, pagoAte: pagoAte, lojas: lojas.length });
     } catch (e) {
       return json({ ok: false, erro: String(e && e.message || e) }, 500);
