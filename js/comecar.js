@@ -259,14 +259,14 @@
         var iTaxa = entrada({ rotulo: 'Valor da taxa de entrega', placeholder: 'R$ 0,00', inputmode: 'numeric', max: 12, valor: st.taxa });
         UI.mascaraDinheiro(iTaxa);
         var caixaTaxa = el('div', { class: 'cadastro-taxa', hidden: st.frete !== 'taxa' }, [el('label', { class: 'cadastro-rotulo', text: 'Quanto é a taxa?' }), iTaxa]);
-        var opcoes = [['gratis', '🎁', 'Entrega grátis', 'O cliente não paga pela entrega'], ['taxa', '🛵', 'Cobro uma taxa', 'Você diz quanto logo abaixo']].map(function (op) {
+        var opcoes = [['gratis', 'presente', 'Entrega grátis', 'O cliente não paga pela entrega'], ['taxa', 'entrega', 'Cobro uma taxa', 'Você diz quanto logo abaixo']].map(function (op) {
           return el('button', { class: 'escolha-grande' + (st.frete === op[0] ? ' marcada' : ''), type: 'button', onclick: function (e) {
             st.frete = op[0];
             [].forEach.call(e.currentTarget.parentNode.children, function (b) { b.classList.toggle('marcada', b === e.currentTarget); });
             caixaTaxa.hidden = op[0] !== 'taxa';
             erro.hidden = true;
             if (op[0] === 'taxa') focar(iTaxa);
-          } }, [el('span', { class: 'icone', 'aria-hidden': 'true', text: op[1] }), el('span', {}, [el('span', { class: 'rotulo', text: op[2] }), el('span', { class: 'detalhe', text: op[3] })])]);
+          } }, [el('span', { class: 'icone', 'aria-hidden': 'true' }, [UI.iconeLinha(op[1])]), el('span', {}, [el('span', { class: 'rotulo', text: op[2] }), el('span', { class: 'detalhe', text: op[3] })])]);
         });
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Como é a entrega?', 'Você troca quando quiser no painel.').concat([
           el('div', { class: 'escolhas-lista' }, opcoes), caixaTaxa, erro, botaoContinuar(function () {
@@ -423,7 +423,7 @@
       var qr = el('div', { class: 'qr-caixa', style: { width: '200px', margin: '0 auto' } });
       var textoZap = 'Agora você pode pedir na ' + loja.nome + ' pelo nosso link: ' + link;
       corpo.appendChild(el('div', { class: 'cartao destaque centro', style: { padding: '26px 18px' } }, [
-        el('div', { style: { fontSize: '46px' } }, '🎉'),
+        el('img', { class: 'pronto-mascote', src: 'img/mascote-192.webp', alt: '', width: '96', height: '96' }),
         el('h2', { text: loja.nome + ' está no ar' }),
         el('p', { class: 'muted', text: 'Sua loja já tem itens de exemplo. Ajuste nomes e preços no painel e comece a divulgar.' }),
         el('p', { class: 'muted pequeno', text: 'Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlano).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
@@ -433,7 +433,7 @@
         el('div', { class: 'caixa-link', text: link }),
         el('a', { class: 'btn btn-whats btn-largo', href: 'https://wa.me/?text=' + encodeURIComponent(textoZap), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar no WhatsApp']),
         el('div', { class: 'linha-botoes' }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar link']),
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: 'Ver minha loja' }),
         ]),
         qr,

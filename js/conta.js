@@ -52,7 +52,7 @@
       ]));
       /* so a conta do Ligeiro: atalho pra Central (o #/admin confere o Google de novo, ninguem mais entra) */
       if (R.ehDoLigeiro({ email: u.email })) corpo.appendChild(el('a', { class: 'btn btn-escuro conta-painel conta-central', href: '#/admin' }, [
-        el('span', { class: 'conta-painel-texto' }, [el('b', { text: '🛠️ Central do Ligeiro' }), el('small', { text: 'Lojas, assinaturas, contatos e pagamentos' })]),
+        el('span', { class: 'conta-painel-texto' }, [el('b', {}, [UI.iconeLinha('ferramenta'), 'Central do Ligeiro']), el('small', { text: 'Lojas, assinaturas, contatos e pagamentos' })]),
         el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
       ]));
       var caixaPlano = el('div');
@@ -166,9 +166,9 @@
           quadro('Valor', a.cortesia ? R.dinheiro(0) : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
           quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
         ]),
-        (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado', text: (alerta ? '⚠️ ' : '') + (textos[a.estado] || '') }) : null,
-        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', '★', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
-        p.avisoPagamentoEm ? avisoPlano('espera', '⏳', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
+        (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado' + (alerta ? ' com-alerta' : '') }, [alerta ? UI.iconeLinha('alerta') : null, el('span', { text: textos[a.estado] || '' })]) : null,
+        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', 'estrela', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
+        p.avisoPagamentoEm ? avisoPlano('espera', 'ampulheta', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
         valendo.id !== plano.id ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.' }) : null,
         el('div', { class: 'plano-acoes' }, [
           /* em dia nao tem o que pagar: o botao volta 7 dias antes de vencer, ou quando trocou pra um plano maior */
@@ -189,7 +189,7 @@
     /* aviso do plano: icone num circulo, titulo e uma linha curta (tipo: 'fundador' dourado, 'espera' laranja) */
     function avisoPlano(tipo, icone, titulo, texto) {
       return el('div', { class: 'aviso-plano aviso-' + tipo, role: 'note' }, [
-        el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true', text: icone }),
+        el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]),
         el('span', { class: 'aviso-plano-texto' }, [el('b', { text: titulo }), el('span', {}, texto)]),
       ]);
     }
@@ -212,7 +212,7 @@
       var nome = R.planoPorId(R.planoQueVale(conta || {})).nome;
       var temMaior = R.planos().some(function (p) { return !p.oculto && p.lojas > limite; });
       return el('div', { class: 'conta-cheio' }, [
-        el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true', text: '🏪' }),
+        el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]),
         el('div', { class: 'conta-cheio-texto' }, [
           el('b', { text: 'Quer abrir outra loja?' }),
           el('span', { text: temMaior ? 'Seu plano ' + nome + ' já está cheio. Um plano maior libera mais lojas.' : 'Você já está no maior plano (' + limite + ' lojas). Fale com o Ligeiro para ter mais.' }),
@@ -223,7 +223,7 @@
 
     function ladrilho(tag, atributos, icone, rotulo) {
       atributos.class = 'btn btn-fantasma btn-pequeno conta-ladrilho';
-      return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true', text: icone }), el('span', { text: rotulo })]);
+      return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { text: rotulo })]);
     }
 
     function cartaoLoja(l) {
@@ -257,15 +257,15 @@
           el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
         ]),
         el('div', { class: 'conta-acoes' }, [
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug, text: '👁️ Ver loja' }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }),
+          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug }, [UI.iconeLinha('olho'), 'Ver loja']),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar link']),
         ]),
         /* equipe: tres quadradinhos iguais (antes a senha sobrava sozinha numa linha inteira) */
         el('div', { class: 'conta-grupo', text: 'Equipe' }),
         el('div', { class: 'conta-equipe' }, [
-          ladrilho('a', { href: '#/cozinha/' + l.slug }, '👨‍🍳', 'Cozinha'),
-          ladrilho('a', { href: '#/entrega/' + l.slug }, '🛵', 'Entregador'),
-          ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, '🔑', 'Senha'),
+          ladrilho('a', { href: '#/cozinha/' + l.slug }, 'chef', 'Cozinha'),
+          ladrilho('a', { href: '#/entrega/' + l.slug }, 'entrega', 'Entregador'),
+          ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, 'chave', 'Senha'),
         ]),
       ]);
     }

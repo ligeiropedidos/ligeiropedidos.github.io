@@ -1967,6 +1967,58 @@ button.plano-card { cursor: pointer; }
   .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child .rot-curto { display: none; }
 }
 
+/* abas do painel: no PC o nome inteiro; no celular as cinco numa linha, icone em cima e nome curto embaixo */
+.abas-painel .aba-painel .rot-curto { display: none; }
+@media (max-width: 640px) {
+  .abas-painel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; overflow: visible; }
+  .abas-painel .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; min-width: 0; padding: 9px 2px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
+  .abas-painel .aba-painel .rot-longo { display: none; }
+  .abas-painel .aba-painel .rot-curto { display: inline; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .abas-painel .aba-painel .ico-traco svg { width: 20px; height: 20px; }
+  .abas-painel .aba-painel .badge { position: absolute; top: 3px; right: 3px; min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; }
+}
+@media (max-width: 340px) { .abas-painel .aba-painel { font-size: 11.5px; } }
+
+/* ---------- icones de traco no lugar dos emojis de interface (a comida escolhida pela loja continua emoji) ---------- */
+.btn-pequeno .ico-traco svg, .aba-painel .ico-traco svg { width: 18px; height: 18px; }
+.vazio .icone, .grafico-vazio .icone { display: flex; justify-content: center; color: var(--line-forte); }
+.vazio .icone .ico-traco svg { width: 48px; height: 48px; stroke-width: 1.5; }
+.grafico-vazio .icone .ico-traco svg { width: 36px; height: 36px; stroke-width: 1.6; }
+.aviso > .ico-traco { align-self: flex-start; margin-top: 1px; }
+.aviso-falta > .ico-traco { color: #B4501A; }
+.cartao h3.titulo-alerta { display: flex; align-items: center; gap: 8px; }
+.cartao h3.titulo-alerta .ico-traco { color: var(--erro); }
+.aviso-plano-ico .ico-traco svg { width: 20px; height: 20px; }
+.passo-texto { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.passo-config .passo-texto .ico-traco { color: var(--line-forte); }
+.passo-config.feito .passo-texto .ico-traco { color: var(--lime-escuro); }
+.pedido-card .obs, .ficha-cozinha .obs { display: flex; align-items: flex-start; gap: 8px; }
+.pedido-card .obs .ico-traco svg, .ficha-cozinha .obs .ico-traco svg { width: 18px; height: 18px; margin-top: 2px; }
+.linha-produto .editar .ico-traco svg { width: 18px; height: 18px; }
+.previa-cam .ico-traco svg { width: 18px; height: 18px; }
+.previa-cam.mini .ico-traco svg { width: 15px; height: 15px; }
+.sem-foto .ico-traco { color: var(--muted); }
+.sem-foto .ico-traco svg { width: 32px; height: 32px; stroke-width: 1.6; }
+.mp-selo { display: inline-flex; align-items: center; gap: 8px; }
+.som-texto b { display: inline-flex; align-items: center; gap: 8px; }
+.som-texto b .ico-traco svg { width: 18px; height: 18px; }
+.bloco-titulo .ico-traco { color: var(--deep2); }
+.bloco-titulo .ico-traco svg { width: 22px; height: 22px; }
+.tela-card .icone { display: inline-flex; color: var(--deep2); }
+.tela-card .icone .ico-traco svg { width: 28px; height: 28px; }
+.conta-painel-texto b { display: inline-flex; align-items: center; gap: 8px; }
+.plano-recado.com-alerta { display: flex; align-items: flex-start; gap: 8px; }
+.plano-recado.com-alerta .ico-traco { color: var(--erro); margin-top: 1px; }
+.conta-cheio-ico { color: var(--deep2); }
+.conta-cheio-ico .ico-traco svg { width: 28px; height: 28px; }
+.conta-ladrilho-icone { display: inline-flex; }
+.conta-ladrilho-icone .ico-traco svg { width: 22px; height: 22px; }
+.escolha-grande .icone { display: flex; align-items: center; justify-content: center; color: var(--deep2); }
+.escolha-grande .icone .ico-traco svg { width: 30px; height: 30px; }
+.pronto-mascote { display: block; width: 96px; height: 96px; margin: 0 auto 4px; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
+/* busca: a lupa desenhada no campo (no lugar do emoji no texto de exemplo) */
+.busca { padding-left: 42px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F7D72' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M20 20l-4.3-4.3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 14px center; background-size: 18px 18px; }
+
 /* ---------- avisos com a tela apagada (Web Push) ---------- */
 /* o sino de traco do topo do painel, em todo lugar que fala de aviso */
 .avisos-ico, .aviso-cel-ico, .cliente-avisado-ico, .passo-iphone-ico { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1; }

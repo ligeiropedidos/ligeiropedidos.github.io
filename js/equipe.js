@@ -74,7 +74,7 @@
       if (!vivo) return;
       if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir esta tela. Confira a internet.', function () { location.reload(); })); return; }
       if (!loja) {
-        raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
+        raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone' }, [UI.iconeLinha('busca')]), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
       }
       UI.aplicarTemaOficial(raiz, slug);
@@ -229,7 +229,7 @@
       if (it.observacao) linha.appendChild(el('div', { class: 'obs-item', text: 'obs: ' + it.observacao }));
       caixa.appendChild(linha);
     });
-    if (p.observacao) caixa.appendChild(el('div', { class: 'obs', text: '📝 ' + p.observacao }));
+    if (p.observacao) caixa.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
     return caixa;
   }
 

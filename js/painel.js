@@ -39,7 +39,7 @@
       if (!vivo) return;
       if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir o painel.')); return; }
       if (!loja) {
-        raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone', text: '🔍' }), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
+        raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [el('div', { class: 'icone' }, [UI.iconeLinha('busca')]), el('p', { class: 'forte', text: 'Não achamos esse estabelecimento.' })]));
         return;
       }
       estado.loja = loja;
@@ -169,6 +169,7 @@
         semsino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
         impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>',
         sair: '<path d="M10 4H5.5v16H10"/><path d="M14.5 8 18.5 12l-4 4"/><path d="M18.5 12H9"/>',
+        site: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18"/><path d="M12.5 3a17 17 0 0 1 0 18"/>',
       };
       function rotuloTopo(botao, icone, longo, curto) {
         UI.limpar(botao);
@@ -196,7 +197,7 @@
         UI.guardarLocal('ligeiro:impressao:' + slug, estado.impressaoAuto);
         pintarImp();
         btnImp.classList.toggle('on', estado.impressaoAuto);
-        UI.avisar(estado.impressaoAuto ? 'Cada pedido novo vai sair na impressora deste aparelho.' : 'Impressão só pelo botão 🖨️ do pedido.');
+        UI.avisar(estado.impressaoAuto ? 'Cada pedido novo vai sair na impressora deste aparelho.' : 'Impressão só pelo botão de imprimir de cada pedido.');
       } });
       pintarImp();
       /* No celular nao existe impressao silenciosa: o botao so aparece em tela grande (computador do caixa). */
@@ -205,7 +206,7 @@
         (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a loja em outra aba, do jeito que o cliente vê' }), 'loja', 'Ver loja', 'Loja'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba, do jeito que o cliente vê' }), 'site', 'Ver site', 'Site'),
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
           rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair'),
@@ -220,9 +221,11 @@
       setTimeout(medirTopo, 600);
 
       var abas = el('nav', { class: 'abas-painel' });
-      var defs = [['pedidos', '📋 Pedidos'], ['cardapio', R.catalogo(estado.loja).icone + ' ' + R.catalogo(estado.loja).Nome], ['vendas', '📊 Vendas'], ['ajustes', '⚙️ Ajustes'], ['links', '🏪 Minha loja']];
+      /* abas com icone de traco (o desenho do topo), no lugar dos emojis */
+      /* no celular as cinco cabem numa linha (icone em cima, nome curto embaixo), como o topo: antes Ajustes e Minha loja ficavam fora da tela */
+      var defs = [['pedidos', 'Pedidos', 'lista'], ['cardapio', R.catalogo(estado.loja).Nome, 'cardapio'], ['vendas', 'Vendas', 'vendas'], ['ajustes', 'Ajustes', 'ajustes'], ['links', 'Minha loja', 'loja', 'Loja']];
       defs.forEach(function (d) {
-        var b = el('button', { class: 'aba-painel' + (estado.aba === d[0] ? ' ativa' : ''), dataset: { aba: d[0] }, text: d[1], onclick: function () { trocarAba(d[0]); } });
+        var b = el('button', { class: 'aba-painel' + (estado.aba === d[0] ? ' ativa' : ''), dataset: { aba: d[0] }, onclick: function () { trocarAba(d[0]); } }, [UI.iconeLinha(d[2]), el('span', { class: 'rot-longo', text: d[1] }), el('span', { class: 'rot-curto', text: d[3] || d[1] })]);
         if (d[0] === 'pedidos') b.appendChild(el('span', { class: 'badge', id: 'badgePedidos', hidden: true }));
         abas.appendChild(b);
       });
@@ -436,7 +439,7 @@
       var s = $('secaoPainel');
       if (!s) return;
       var antigo = $('cabecaPedidos');
-      var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' }, text: '⚡ ' + estado.mpStatus }) : null;
+      var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' } }, [UI.iconeLinha('raio'), el('span', { text: estado.mpStatus })]) : null;
       var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]);
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
     }
@@ -518,7 +521,8 @@
       var valor = precoAssinatura(a.tipo);
       var periodo = a.tipo === 'anual' ? 'ano' : 'mês';
       var nomePlano = R.planoPorId(plano.planoId || 'uma').nome;
-      var tranquila = a.estado === 'ativa' || (a.estado === 'gratis' && (a.cortesia || a.dias > 15));
+      /* periodo gratis (7 dias): o cartao so aparece nos 3 ultimos; antes ficava a semana toda em cima do interruptor e dos pedidos */
+      var tranquila = a.estado === 'ativa' || (a.estado === 'gratis' && (a.cortesia || a.dias > 3));
       if (!sempre && tranquila) return null;
       var textos = {
         gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + ' (' + a.dias + ' dias). Depois é ' + dinheiro(valor) + ' por ' + periodo + ': cartão, boleto ou Pix, aqui mesmo.',
@@ -532,13 +536,13 @@
       if (a.encerrando) textos.ativa = 'Assinatura encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? É só reativar.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada';
       var filhos = [
-        el('h3', { text: (alerta ? '⚠️ ' : '') + 'Assinatura · ' + nomePlano + (a.estado === 'gratis' ? ' · período grátis' : a.estado === 'ativa' ? ' · em dia' : '') }),
+        el('h3', { class: alerta ? 'titulo-alerta' : null }, [alerta ? UI.iconeLinha('alerta') : null, 'Assinatura · ' + nomePlano + (a.estado === 'gratis' ? ' · período grátis' : a.estado === 'ativa' ? ' · em dia' : '')]),
         el('p', { class: 'pequeno', text: (textos[a.estado] || '') + (estado.conta ? ' Vale para todas as lojas da sua conta.' : '') }),
       ];
       if (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) {
         /* pagamento avisado: o mesmo aviso de Minha conta (icone, titulo e uma linha), em vez de selo que virava bolha em 2 linhas */
         if (plano.avisoPagamentoEm) filhos.push(el('div', { class: 'aviso-plano aviso-espera aviso-no-cartao', role: 'note' }, [
-          el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true', text: '⏳' }),
+          el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]),
           el('span', { class: 'aviso-plano-texto' }, [el('b', { text: 'Pagamento avisado' }), el('span', { text: 'Em ' + dataBR(plano.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.' })]),
         ]));
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
@@ -597,7 +601,7 @@
       var feitos = itens.filter(function (i) { return i[0]; }).length;
       var lista = el('div', { class: 'lista-simples' }, itens.map(function (i) {
         return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { irPara(i[2], i[3]); } }, [
-          el('span', { text: (i[0] ? '✅ ' : '⬜ ') + i[1] }),
+          el('span', { class: 'passo-texto' }, [UI.iconeLinha(i[0] ? 'feito' : 'pendente'), i[1]]),
           el('b', { text: i[0] ? '' : 'Ir →' }),
         ]);
       }));
@@ -606,7 +610,7 @@
         el('p', { class: 'muted pequeno', text: 'Com o Pix ligado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
         lista,
         el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '🔗 Pegar meu link', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }, [UI.iconeLinha('link'), 'Pegar meu link']),
           el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Pronto, esconder', onclick: function () { salvarLoja({ configurada: true }, 'Boa! Agora é vender.').then(desenharCabecaPedidos).catch(function () { /* ja avisou */ }); } }),
         ]),
       ]);
@@ -643,7 +647,7 @@
           lista.forEach(function (p) { caixa.appendChild(cartaoPedido(p)); });
         }
       });
-      if (!algum) caixa.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone', text: '🧾' }), el('p', { text: 'Nenhum pedido por enquanto. Quando entrar, ele aparece aqui apitando.' })]));
+      if (!algum) caixa.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('recibo')]), el('p', { text: 'Nenhum pedido por enquanto. Quando entrar, ele aparece aqui apitando.' })]));
       if (antigo) antigo.replaceWith(caixa); else s.appendChild(caixa);
     }
 
@@ -691,7 +695,7 @@
         itens.appendChild(linha);
       });
       card.appendChild(itens);
-      if (p.observacao) card.appendChild(el('div', { class: 'obs', text: '📝 ' + p.observacao }));
+      if (p.observacao) card.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
       var conferencia = R.conferirTotal(loja, p);
       if (!conferencia.ok) card.appendChild(el('div', { class: 'divergente', text: 'Atenção: pelo ' + R.catalogo(estado.loja).nome + ' de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de fazer.' }));
       card.appendChild(el('div', { class: 'total' }, [
@@ -725,7 +729,7 @@
       if (avisoSozinho && p.cliente.telefone) {
         acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno btn-so-icone', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', title: 'Falar com o cliente no WhatsApp', 'aria-label': 'Falar com o cliente no WhatsApp' }, [UI.icone('zap')]));
       }
-      acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '🖨️', title: 'Imprimir', onclick: function () { imprimir(p); } }));
+      acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno btn-so-icone', title: 'Imprimir', 'aria-label': 'Imprimir', onclick: function () { imprimir(p); } }, [UI.iconeLinha('imprimir')]));
       if (p.status !== R.STATUS.FINALIZADO && p.status !== R.STATUS.CANCELADO) {
         acoes.appendChild(el('button', { class: 'btn btn-erro btn-pequeno', text: 'Cancelar', onclick: function () { cancelar(p); } }));
       }
@@ -824,7 +828,7 @@
       /* com muitos itens, achar pelo nome em vez de rolar categoria por categoria */
       var busca = null;
       if (l.produtos.length > 8) {
-        busca = el('input', { type: 'search', class: 'busca', placeholder: '🔍 Buscar item pelo nome', 'aria-label': 'Buscar item' });
+        busca = el('input', { type: 'search', class: 'busca', placeholder: 'Buscar item pelo nome', 'aria-label': 'Buscar item' });
         busca.value = estado.buscaCardapio || '';
         s.appendChild(busca);
       } else estado.buscaCardapio = '';
@@ -848,7 +852,7 @@
         }
         if (cat.ativa === false) conteudo.appendChild(el('p', { class: 'aviso', text: 'Esta categoria está desligada: ela e os itens não aparecem no site. Ligue em "Editar categoria".' }));
         conteudo.appendChild(el('div', { class: 'linha-botoes dupla' }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', text: '✏️ Editar', title: 'Editar categoria', 'aria-label': 'Editar categoria', onclick: function () { editarCategoria(cat); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', title: 'Editar categoria', 'aria-label': 'Editar categoria', onclick: function () { editarCategoria(cat); } }, [UI.iconeLinha('lapis'), 'Editar']),
           el('button', { class: 'btn btn-principal btn-pequeno', text: '+ Novo item', onclick: function () { editarProduto(null, cat.id); } }),
         ]));
         var lista = el('div', { class: 'pilha' });
@@ -889,8 +893,8 @@
         srcFoto ? el('img', { class: 'miniatura-produto', src: srcFoto, alt: '' }) : el('span', { class: 'emoji', text: p.emoji || '🍽️' }),
         el('div', { class: 'nome' }, [p.nome, el('small', { text: p.descricao || '' })]),
         preco,
-        el('button', { class: 'editar apagar', text: '🗑️', 'aria-label': 'Excluir ' + p.nome, title: 'Excluir', onclick: function () { excluirProduto(p); } }),
-        el('button', { class: 'editar', text: '✏️', 'aria-label': 'Editar ' + p.nome, title: 'Editar', onclick: function () { editarProduto(p, p.categoria); } }),
+        el('button', { class: 'editar apagar', 'aria-label': 'Excluir ' + p.nome, title: 'Excluir', onclick: function () { excluirProduto(p); } }, [UI.iconeLinha('lixeira')]),
+        el('button', { class: 'editar', 'aria-label': 'Editar ' + p.nome, title: 'Editar', onclick: function () { editarProduto(p, p.categoria); } }, [UI.iconeLinha('lapis')]),
         chave,
       ]);
     }
@@ -936,7 +940,7 @@
     /* Frete: dois botoes, "Entrega gratis" ou "Cobro taxa". bloco.valor() -> 'gratis' | 'taxa'. */
     function campoFrete(l, aoMudar) {
       var modo = l.freteGratis ? 'gratis' : 'taxa';
-      var opcoes = [['gratis', '🛵 Entrega grátis'], ['taxa', 'Cobro taxa']];
+      var opcoes = [['gratis', 'Entrega grátis'], ['taxa', 'Cobro taxa']];
       var botoes = opcoes.map(function (op) {
         var b = el('button', { type: 'button', class: 'aba-painel' + (modo === op[0] ? ' ativa' : ''), text: op[1], dataset: { valor: op[0] } });
         b.addEventListener('click', function () {
@@ -977,20 +981,20 @@
         el('div', { class: 'previa-home' }),
       ]);
       var acoes = el('div', { class: 'previa-acoes' }, [
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '🖼️ Trocar capa', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }),
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '🙂 Trocar logo', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }),
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('imagem'), 'Trocar capa']),
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']),
       ]);
       function atualizar() {
         var srcCapa = imgDe(f.capa);
         var srcLogo = imgDe(f.logo);
         UI.limpar(capa);
         if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
-        capa.appendChild(el('button', { type: 'button', class: 'previa-cam', 'aria-label': 'Trocar capa', text: '📷', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }));
+        capa.appendChild(el('button', { type: 'button', class: 'previa-cam', 'aria-label': 'Trocar capa', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('camera')]));
         if (srcCapa) capa.appendChild(el('button', { type: 'button', class: 'previa-cam previa-tirar', 'aria-label': 'Tirar capa', text: '✕', onclick: function () { var b = botaoDe(f.capa, /Remover/); if (b) b.click(); } }));
         capa.classList.toggle('sem-capa', !srcCapa);
         UI.limpar(logo);
         logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: '' }) : el('span', { class: 'emoji', text: (f.emoji && f.emoji.input.value.trim()) || l.emoji || '🍽️' }));
-        logo.appendChild(el('button', { type: 'button', class: 'previa-cam mini', 'aria-label': 'Trocar logo', text: '📷', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }));
+        logo.appendChild(el('button', { type: 'button', class: 'previa-cam mini', 'aria-label': 'Trocar logo', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('camera')]));
         nome.textContent = f.nome.input.value.trim() || l.nome;
         tipo.textContent = R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : '');
         var cor = f.cor ? f.cor.valor() : l.cor;
@@ -1322,7 +1326,7 @@
           el('h3', { text: g.titulo }),
           el('span', { class: 'selo cinza', style: { whiteSpace: 'nowrap' }, text: g.tipo === 'unico' ? 'escolhe 1' : 'vários' + (g.max ? ', até ' + g.max : '') }),
         ]),
-        el('button', { class: 'editar', style: { border: '1.5px solid #B9CBAB', background: '#fff', borderRadius: '10px', minHeight: '40px', padding: '0 10px' }, text: '✏️', onclick: function () { editarGrupo(chave, categoriaId); } }),
+        el('button', { class: 'editar', style: { border: '1.5px solid #B9CBAB', background: '#fff', borderRadius: '10px', minHeight: '40px', padding: '0 10px' }, 'aria-label': 'Editar', title: 'Editar', onclick: function () { editarGrupo(chave, categoriaId); } }, [UI.iconeLinha('lapis')]),
       ]));
       var lista = el('div', { class: 'pilha' });
       (g.opcoes || []).forEach(function (op, indice) {
@@ -1487,7 +1491,7 @@
           }
           conteudo.appendChild(el('h3', { text: 'Por dia' }));
           if (!maximo) {
-            conteudo.appendChild(el('div', { class: 'grafico-vazio' }, [el('div', { class: 'icone', text: '📊' }), el('p', { text: 'Nenhuma venda nesse período ainda. Assim que entrar pedido, o gráfico aparece aqui.' })]));
+            conteudo.appendChild(el('div', { class: 'grafico-vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('vendas')]), el('p', { text: 'Nenhuma venda nesse período ainda. Assim que entrar pedido, o gráfico aparece aqui.' })]));
           } else {
             var poucos = dias <= 7;
             var barras = el('div', { class: 'barras' + (poucos ? ' poucos' : '') });
@@ -1525,7 +1529,7 @@
         if (listaClientes.length) {
           conteudo.appendChild(el('h3', { text: 'Seus clientes no período · ' + listaClientes.length }));
           /* a lista cresce sem limite: 15 de cada vez, com filtro, pra pagina nao virar um rolo */
-          var filtro = el('input', { type: 'search', class: 'busca', placeholder: '🔍 Nome, bairro ou telefone', 'aria-label': 'Filtrar clientes' });
+          var filtro = el('input', { type: 'search', class: 'busca', placeholder: 'Nome, bairro ou telefone', 'aria-label': 'Filtrar clientes' });
           var caixaTabela = el('div', { style: { overflowX: 'auto' } });
           var mostrar = 15;
           function desenharClientes() {
@@ -1550,10 +1554,10 @@
           if (listaClientes.length > 8) conteudo.appendChild(filtro);
           conteudo.appendChild(caixaTabela);
           desenharClientes();
-          conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '📋 Copiar para o Excel', onclick: function () {
+          conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () {
             var csv = 'Nome;WhatsApp;Bairro;Pedidos;Total\n' + listaClientes.map(function (c) { return [c.nome, c.telefone, c.bairro, c.pedidos, (c.total / 100).toFixed(2).replace('.', ',')].join(';'); }).join('\n');
             UI.copiar(csv).then(function () { UI.avisar('Lista copiada. Cole no Excel ou no Planilhas.'); });
-          } }));
+          } }, [UI.iconeLinha('copiar'), 'Copiar para o Excel']));
         }
       });
     }
@@ -1581,7 +1585,7 @@
       f.nome = campoTexto('Nome', l.nome, { max: 60 });
       f.tipo = campoTexto('Tipo', l.tipo, { max: 30, placeholder: 'Lanchonete, Pizzaria, Marmitaria…' });
       f.logo = UI.campoFoto('Logo', D.logoSrc(l), { quadrado: true, lado: 200, qualidade: 0.82, vazio: l.emoji || '🍽️' });
-      f.capa = UI.campoFoto('Capa', l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null), { lado: 1080, qualidade: 0.72, larga: true, vazio: '🖼️' });
+      f.capa = UI.campoFoto('Capa', l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null), { lado: 1080, qualidade: 0.72, larga: true, vazio: 'imagem' });
       f.logo.hidden = true; f.capa.hidden = true; /* quem mostra e a previa; eles so guardam a foto */
       f.previa = previaDaLoja(l, f);
       f.cor = campoCor('Cor da sua loja', l.cor, function () { f.previa.atualizar(); });
@@ -1626,7 +1630,7 @@
         el('div', { class: 'id-loja-texto' }, [el('b', { text: 'ID da loja' }), el('span', { class: 'muted pequeno', text: 'É o código único desta loja. Para pedir o design exclusivo, mande ele para o Ligeiro.' })]),
         el('div', { class: 'id-loja-linha' }, [
           el('code', { class: 'id-loja-valor', text: l.slug }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar', onclick: function () { UI.copiar(l.slug).then(function (ok) { UI.avisar(ok ? 'ID copiado: ' + l.slug : 'Toque e segure no código para copiar'); }); } }),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(l.slug).then(function (ok) { UI.avisar(ok ? 'ID copiado: ' + l.slug : 'Toque e segure no código para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar']),
         ]),
       ]));
       s.appendChild(identidade);
@@ -1682,7 +1686,7 @@
         if (c && c.token) {
           f.mpToken.temSalvo = true;
           conexao.appendChild(el('div', { class: 'mp-conectado' }, [
-            el('span', { class: 'mp-selo', text: '✅ Mercado Pago conectado' }),
+            el('span', { class: 'mp-selo' }, [UI.iconeLinha('feito'), 'Mercado Pago conectado']),
             el('span', { class: 'muted pequeno', text: (c.conectadoEm ? 'desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR') : '') + (c.mpUserId ? ' · conta ' + c.mpUserId : '') }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
               UI.perguntar('Desconectar o Mercado Pago? O Pix para de funcionar até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
@@ -1693,11 +1697,11 @@
           ]));
           return;
         }
-        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', text: '🔗 Conectar Mercado Pago', onclick: function () {
+        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
           window.LigeiroMP.conectar(slug).then(function (r) {
             if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true }, 'Pix automático ligado.').then(function () { desenharAjustes(); }); }
           }).catch(function (e) { UI.avisar(e.message || 'Não deu para conectar agora.'); });
-        } }));
+        } }, [UI.iconeLinha('link'), 'Conectar Mercado Pago']));
         conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta para cá com o Pix ligado. Sem copiar nada.' }));
       }
       if (window.LigeiroMP) window.LigeiroMP.lerConexao(l.slug).then(desenharConexao); else desenharConexao(null);
@@ -1714,9 +1718,9 @@
       ]);
       if (!temConexao) avancadoMP.open = true;
       pagamento.appendChild(avancadoMP);
-      pagamento.appendChild(el('p', { class: 'aviso' + (l.mpAtivo ? '' : ' aviso-falta'), text: l.mpAtivo
-        ? '✅ Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
-        : (pixPossivel ? '⚠️ Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).' : '⚠️ O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.') }));
+      pagamento.appendChild(el('p', { class: 'aviso' + (l.mpAtivo ? '' : ' aviso-falta') }, [UI.iconeLinha(l.mpAtivo ? 'feito' : 'alerta'), el('span', { text: l.mpAtivo
+        ? 'Pix automático ligado. O Mercado Pago cobra cerca de 1% por Pix recebido.'
+        : (pixPossivel ? 'Pix desligado. Sem ele, o cliente só paga na entrega ou no balcão (maquininha ou dinheiro).' : 'O Ligeiro ainda não ligou o mensageiro do Pix. Enquanto isso, o cliente paga na entrega ou no balcão.') })]));
       f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', '', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
       f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, retirada só com Pix.', l.aceitaPagarNoBalcao !== false);
@@ -1758,13 +1762,13 @@
       s.appendChild(cupons);
 
       /* sons do painel: o dono ouve cada um e sabe o que significa */
-      var listaSons = [['apito', '🔔 Pedido novo', 'Alto, para ouvir da cozinha'], ['pago', '💸 Pix caiu', 'O pedido já pode começar'], ['cancelado', '✕ Cliente cancelou', 'O pedido saiu da fila'], ['lembrete', '⏰ Pedido parado', 'Pago há mais de 5 minutos sem começar']];
+      var listaSons = [['apito', 'Pedido novo', 'Alto, para ouvir da cozinha', 'sino'], ['pago', 'Pix caiu', 'O pedido já pode começar', 'dinheiro'], ['cancelado', 'Cliente cancelou', 'O pedido saiu da fila', 'fechar'], ['lembrete', 'Pedido parado', 'Pago há mais de 5 minutos sem começar', 'relogio']];
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Sons do painel' }),
         el('p', { class: 'muted pequeno', text: 'Toque para ouvir cada aviso. Para silenciar tudo, use o botão Apito lá em cima.' }),
         el('div', { class: 'sons-lista' }, listaSons.map(function (x) {
           return el('button', { type: 'button', class: 'som-linha', onclick: function () { if (!UI.somLigado()) { UI.avisar('O apito está desligado. Ligue no botão Apito, lá em cima.'); return; } UI.soar(x[0]); } }, [
-            el('span', { class: 'som-texto' }, [el('b', { text: x[1] }), el('small', { text: x[2] })]),
+            el('span', { class: 'som-texto' }, [el('b', {}, [UI.iconeLinha(x[3]), x[1]]), el('small', { text: x[2] })]),
             el('span', { class: 'som-tocar', 'aria-hidden': 'true', text: '▶' }),
           ]);
         })),
@@ -1781,7 +1785,7 @@
       s.appendChild(el('button', { class: 'btn btn-principal btn-largo', text: 'Salvar tudo', onclick: function () { salvarAjustes(f); } }));
       /* barra fixa: salva de qualquer ponto da pagina, sem descer ate o fim */
       var estadoSalvar = el('span', { class: 'salvar-estado', text: 'Ajustes da loja' });
-      var barraSalvar = el('div', { class: 'salvar-fixo' }, [estadoSalvar, el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '💾 Salvar tudo', onclick: function () { salvarAjustes(f); } })]);
+      var barraSalvar = el('div', { class: 'salvar-fixo' }, [estadoSalvar, el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function () { salvarAjustes(f); } }, [UI.iconeLinha('check'), 'Salvar tudo'])]);
       s.appendChild(barraSalvar);
       s.classList.add('com-salvar');
       function marcarMudanca() { estadoSalvar.textContent = '● Alterações não salvas'; estadoSalvar.classList.add('pendente'); }
@@ -1856,11 +1860,11 @@
       }
       dias.forEach(function (d) { linhas[d[0]] = desenharDia(d[0]); caixa.appendChild(linhas[d[0]]); });
       caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', text: '📋 Repetir a segunda', title: 'Copia o horário de segunda para todos os outros dias', onclick: function () {
+        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', title: 'Copia o horário de segunda para todos os outros dias', onclick: function () {
           var base = estadoH.seg;
           dias.forEach(function (d) { if (d[0] !== 'seg') { estadoH[d[0]] = { aberto: base.aberto, turnos: base.turnos.map(function (t) { return [t[0], t[1]]; }) }; redesenhar(d[0]); } });
           UI.avisar('Segunda copiada para os outros dias. Ajuste o que for diferente.');
-        } }),
+        } }, [UI.iconeLinha('copiar'), 'Repetir a segunda']),
       ]));
       var bloco = el('div', { class: 'campo largo' }, [
         el('label', { text: 'Horário de cada dia' }),
@@ -2036,7 +2040,7 @@
       }
       return el('div', { class: 'bloco-form senha-equipe bloco-avisos' }, [
         el('div', { class: 'senha-equipe-texto' }, [
-          el('div', { class: 'bloco-titulo', text: '📲 Avisos com a tela apagada' }),
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('celular'), 'Avisos com a tela apagada']),
           el('p', { class: 'muted pequeno', text: texto + ' Cozinha e entregador ligam na tela deles, no botão Tela apagada.' }),
         ]),
         botoes.length ? el('div', { class: 'bloco-avisos-botoes' }, botoes) : null,
@@ -2055,12 +2059,12 @@
       function copiar(texto, aviso) { return function () { UI.copiar(texto).then(function () { UI.avisar(aviso || 'Link copiado.'); }); }; }
       function tela(icone, titulo, texto, link, abrir) {
         return el('div', { class: 'tela-card' }, [
-          el('span', { class: 'icone', text: icone }),
+          el('span', { class: 'icone' }, [UI.iconeLinha(icone)]),
           el('b', { text: titulo }),
           el('p', { text: texto }),
           el('div', { class: 'linha-botoes' }, [
             el('a', { class: 'btn btn-principal btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: abrir || 'Abrir' }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link', onclick: copiar(link) }), /* fila .tela-acoes: duas metades iguais */
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(link) }, [UI.iconeLinha('copiar'), 'Copiar link']), /* fila .tela-acoes: duas metades iguais */
           ]),
         ]);
       }
@@ -2069,16 +2073,16 @@
       s.appendChild(el('h2', { text: 'Minha loja' }));
       s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As duas usam a senha da equipe, que você define aqui embaixo.' }));
       s.appendChild(el('div', { class: 'telas-grade' }, [
-        tela('👨‍🍳', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', base + '#/cozinha/' + l.slug),
-        tela('🛵', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', base + '#/entrega/' + l.slug),
+        tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', base + '#/cozinha/' + l.slug),
+        tela('entrega', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', base + '#/entrega/' + l.slug),
       ]));
       s.appendChild(el('p', { class: 'muted pequeno linha-painel-link' }, [
         'Este painel em outro aparelho: ',
-        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar link do painel', onclick: copiar(linkPainel, 'Link do painel copiado.') }),
+        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(linkPainel, 'Link do painel copiado.') }, [UI.iconeLinha('copiar'), 'Copiar link do painel']),
       ]));
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [
-          el('div', { class: 'bloco-titulo', text: '🔑 Senha da equipe' }),
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('chave'), 'Senha da equipe']),
           el('p', { class: 'muted pequeno', text: 'Cozinha e entregador abrem com ela (6 a 8 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
         ]),
         el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
@@ -2087,7 +2091,7 @@
       if (blocoAvisos) s.appendChild(blocoAvisos);
 
       /* 2. divulgar */
-      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + ' — é rápido, você paga no Pix e acompanha pela senha.';
+      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + '. É rápido, você paga no Pix e acompanha pela senha.';
       var qr = el('div', { class: 'qr-caixa', style: { width: '180px', margin: '0', flex: 'none' } });
       Pix.desenharQr(qr, linkLoja, 180);
       s.appendChild(el('div', { class: 'bloco-form' }, [
@@ -2097,9 +2101,9 @@
           qr,
           el('div', { class: 'pilha divulgar-acoes' }, [
             el('div', { class: 'caixa-link', text: linkLoja }),
-            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: '📋 Copiar link do ' + R.catalogo(estado.loja).nome, onclick: copiar(linkLoja) }),
+            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link do ' + R.catalogo(estado.loja).nome]),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. No WhatsApp Business: Ferramentas > Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📄 Copiar ' + R.catalogo(estado.loja).nome + ' em texto', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
           ]),
         ]),
       ]));

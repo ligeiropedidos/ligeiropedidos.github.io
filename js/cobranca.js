@@ -30,8 +30,8 @@
     /* 1 e 2: cartao e boleto pelo link de assinatura */
     if (link) {
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
-        el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener', text: '💳 Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') }),
-        el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener', text: '🧾 Boleto' }),
+        el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
+        el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Boleto']),
       ]));
       corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a página segura do ' + provedor + '. Você cadastra uma vez e não precisa lembrar de pagar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     }
@@ -47,7 +47,7 @@
         bloco.appendChild(qr);
         Pix.desenharQr(qr, codigo, 180);
         bloco.appendChild(el('div', { class: 'codigo-pix', text: codigo }));
-        bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '📋 Copiar Pix copia e cola', onclick: function () { UI.copiar(codigo).then(function () { UI.avisar('Código copiado. Cole no app do banco.'); }); } }));
+        bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(codigo).then(function () { UI.avisar('Código copiado. Cole no app do banco.'); }); } }, [UI.iconeLinha('copiar'), 'Copiar Pix copia e cola']));
         bloco.appendChild(el('p', { class: 'muted pequeno', text: 'Pagou no Pix? Toque em "Já paguei". A gente confere no banco e libera mais ' + o.periodo + '. Suas lojas não param enquanto isso.' }));
         corpo.appendChild(bloco);
       }
