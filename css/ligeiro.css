@@ -1221,6 +1221,14 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (min-width: 1181px) { .vender-capa { width: var(--vw, 100vw); margin-left: calc(50% - var(--vw, 100vw) / 2); padding-left: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); padding-right: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); } } /* --vw: largura sem a barra de rolagem */
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
 .vender-sub { font-size: 17px; color: var(--body); max-width: 520px; }
+/* heroi: a dor (comissao) em vermelho no titulo; a oferta numa linha propria, logo embaixo */
+.dor-destaque { color: var(--erro); white-space: nowrap; }
+.vender-oferta { font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.25; color: var(--ink); max-width: 560px; text-wrap: balance; }
+.vender-capa .kicker, .vender-titulo, .vender-sub { text-wrap: balance; } /* linhas do mesmo tamanho: nada de palavra sozinha embaixo */
+/* vagas de fundador: mesmo amarelo do selo de fundador dos planos; leva ate os planos */
+.selo-fundador { background: #FFFBEB; color: #3F2A00; box-shadow: inset 0 0 0 1.5px #FCD34D; text-decoration: none; gap: 6px; }
+.selo-fundador .estrela { color: #D97706; }
+@media (hover: hover) { .selo-fundador:hover { background: #FEF3C7; } }
 .vender-selos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .vender { gap: 24px; }
 .vender-bloco { display: flex; flex-direction: column; gap: 12px; }
@@ -1512,7 +1520,7 @@ button.plano-card { cursor: pointer; }
   .heroi-texto .chamada { max-width: 420px; }
   .heroi-texto .vender-selos { justify-content: flex-start; }
   .vender-titulo { font-size: 44px; max-width: 640px; }
-  .vender-sub { font-size: 19px; max-width: 560px; }
+  .vender-sub { font-size: 19px; max-width: 560px; } .vender-oferta { font-size: 26px; max-width: 640px; }
   .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 48px; } /* PC: o dobro do ritmo de 24 */
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }

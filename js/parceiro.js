@@ -59,6 +59,8 @@
     var c = cfg();
     return c.whatsappLigeiro ? R.linkWhatsapp(c.whatsappLigeiro, texto || 'Oi! Quero colocar meu estabelecimento no Ligeiro.') : '';
   }
+  /* dinheiro redondo sem centavos: "R$ 79" (e nao "R$ 79,00"); com centavos, igual ao dinheiro() */
+  function reais(centavos) { return dinheiro(centavos).replace(/,00$/, ''); }
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
 
   /* Barra do topo: marca, Entrar e Assinar. Igual em todas as paginas daqui. */
@@ -66,7 +68,7 @@
     /* "Entrar" e o botao da conta tem o mesmo desenho: ao entrar, so a bolinha troca o bonequinho pela inicial */
     var entrar = el('a', { class: 'btn btn-conta btn-entrar', href: '#/entrar' }, [el('span', { class: 'conta-bolinha sem-letra', 'aria-hidden': 'true' }), el('span', { text: 'Entrar' })]);
     /* celular pequeno (ate 360): "Assinar"; o "agora" nao cabe do lado do Entrar */
-    var assinar = el('a', { class: 'btn btn-principal btn-pequeno btn-assinar', href: '#/assinar' }, [el('span', { class: 'rot-longo', text: 'Assinar agora' }), el('span', { class: 'rot-curto', text: 'Assinar' })]);
+    var assinar = el('a', { class: 'btn btn-principal btn-pequeno btn-assinar', href: '#/comecar' }, [el('span', { class: 'rot-longo', text: 'Começar grátis' }), el('span', { class: 'rot-curto', text: 'Começar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
       el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
@@ -178,7 +180,8 @@
     document.title = 'Ligeiro para sua loja — pedido ligeiro, sem comissão';
 
     function botoesChamada(grande) {
-      var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/assinar', text: '🚀 Assinar agora' })];
+      /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */
+      var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/comecar', text: '🚀 Começar grátis' })];
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '37 s' }),
@@ -251,6 +254,15 @@
       if (tocar && tocar.catch) tocar.catch(function () { /* navegador pediu toque: os controles ficam na tela */ });
     }
 
+    function seloFundador() {
+      var restam = R.vagasFundador();
+      if (!(restam > 0)) return null;
+      return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) {
+        var alvo = document.getElementById('planos');
+        if (alvo) { e.preventDefault(); alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true', text: '★' }), 'Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador']);
+    }
+
     raiz.appendChild(barraTopo());
 
     /* ---------- heroi ---------- */
@@ -259,14 +271,16 @@
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         el('div', { class: 'kicker', text: 'Sistema de pedidos para delivery de cidade pequena' }),
-        el('h1', { class: 'vender-titulo' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: dinheiro(pr.mensal) }), ' fixo por mês, ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: 'Cardápio num link, pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago. Sem comissão, sem app para instalar, sem robô caro.' }),
+        /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
+        el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,5%' }), ' de cada pedido para o iFood.']),
+        el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
+        el('p', { class: 'vender-sub', text: 'Cardápio num link, o pedido caindo no seu celular e o Pix confirmado sozinho pelo Mercado Pago: comprovante falso não passa. Sem app para instalar.' }),
         botoesChamada(true),
         el('div', { class: 'vender-selos' }, [
-          el('span', { class: 'selo', text: '✓ ' + pr.diasGratis + ' dias grátis' }),
           el('span', { class: 'selo', text: '✓ Sem cartão de crédito' }),
           el('span', { class: 'selo', text: '✓ Sem fidelidade' }),
-          el('span', { class: 'selo', text: '✓ 0% de comissão' }),
+          el('span', { class: 'selo', text: '✓ A gente monta para você' }),
+          seloFundador(),
           seloLojas,
         ]),
       ]),
@@ -280,20 +294,6 @@
 
     var corpo = el('div', { class: 'conteudo vender' });
     raiz.appendChild(corpo);
-
-    /* ---------- teste gratis ---------- */
-    /* faixa escura da marca: selo, titulo, garantias e duas saidas (criar sozinho ou pedir para a gente montar) */
-    corpo.appendChild(el('section', { class: 'teste-banner' }, [
-      el('div', { class: 'teste-texto' }, [
-        el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true', text: '★' }), 'Teste grátis por ' + pr.diasGratis + ' dias']),
-        el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', com o cardápio do seu tipo.']),
-        el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Todos os recursos'].map(function (t) { return el('li', { text: t }); })),
-      ]),
-      el('div', { class: 'teste-botoes' }, [
-        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Criar minha loja grátis' }),
-        el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
-      ]),
-    ]));
 
     /* ---------- calculadora ---------- */
     var vendas = el('input', { type: 'text', inputmode: 'numeric', value: dinheiro(500000), 'aria-label': 'Vendas por mês no delivery' });
@@ -339,7 +339,17 @@
           el('div', { class: 'campo' }, [el('label', { text: 'Pedidos' }), pedidos]),
         ]),
       ]),
-      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/assinar', text: 'Quero essa economia' })]),
+      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Quero essa economia' })]),
+    ]));
+
+    /* ---------- antes e depois ---------- */
+    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+      el('div', { class: 'kicker', text: 'Antes e depois' }),
+      el('h2', { text: 'Sem Ligeiro vs com Ligeiro' }),
+      el('div', { class: 'antes-depois' }, [
+        el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['Comissão comendo a margem', 'Comprovante de Pix falso passando', 'WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente pergunta "e o meu pedido?"', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', { text: '✕ ' + t }); }))),
+        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['0% de comissão: a margem fica com você', 'Pix confirmado pelo Mercado Pago: print falso não passa', 'Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com senha e endereço', 'Cliente acompanha pela senha, sem perguntar', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', { text: '✓ ' + t }); }))),
+      ]),
     ]));
 
     /* ---------- como funciona ---------- */
@@ -359,11 +369,25 @@
       el('h2', { text: 'Atende, vende e organiza' }),
       el('div', { class: 'vender-grade' }, [
         item('🔗', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'),
-        item('💸', 'Pix automático', 'Pelo Mercado Pago: o cliente paga e o pedido já cai pago na cozinha.'),
+        item('💸', 'Pix automático', 'Pelo Mercado Pago: o cliente paga e o pedido já cai pago na cozinha. Sem conferir comprovante.'),
         item('🔔', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'),
         item('👨‍🍳', 'Cozinha e entregador', 'Uma tela para cozinha e outra para o motoboy, com mapa e o que cobrar.'),
         item('🖨️', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
         item('📊', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'),
+      ]),
+    ]));
+
+    /* ---------- teste gratis ---------- */
+    /* faixa escura da marca: selo, titulo, garantias e duas saidas (criar sozinho ou pedir para a gente montar) */
+    corpo.appendChild(el('section', { class: 'teste-banner' }, [
+      el('div', { class: 'teste-texto' }, [
+        el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true', text: '★' }), 'Teste grátis por ' + pr.diasGratis + ' dias']),
+        el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', com o cardápio do seu tipo.']),
+        el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Todos os recursos'].map(function (t) { return el('li', { text: t }); })),
+      ]),
+      el('div', { class: 'teste-botoes' }, [
+        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Criar minha loja grátis' }),
+        el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
       ]),
     ]));
 
@@ -376,29 +400,22 @@
       tabelaConcorrentes(pr),
     ]));
 
-    /* ---------- antes e depois ---------- */
+    /* ---------- duvidas ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'Antes e depois' }),
-      el('h2', { text: 'Sem Ligeiro vs com Ligeiro' }),
-      el('div', { class: 'antes-depois' }, [
-        el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente pergunta "e o meu pedido?"', 'Comissão comendo a margem', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', { text: '✕ ' + t }); }))),
-        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com senha e endereço', 'Cliente acompanha pela senha, sem perguntar', 'Pix cai na sua conta, sem intermediário', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', { text: '✓ ' + t }); }))),
-      ]),
-    ]));
-
-    /* ---------- prova ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'Feito por quem tem delivery' }),
-      el('h2', { text: 'Rodando de verdade, não em slide' }),
-      el('div', { class: 'prova' }, [
-        el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '0%' }), el('div', { class: 'l', text: 'de comissão, sempre' })]),
-        el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '3 min' }), el('div', { class: 'l', text: 'para sua loja ficar no ar' })]),
-        el('div', { class: 'metrica' }, [el('div', { class: 'v', text: '1 preço' }), el('div', { class: 'l', text: 'com 50 ou 500 pedidos' })]),
-      ]),
-      el('div', { class: 'cartao destaque' }, [
-        el('b', { text: 'Dom Conizza, Juquiá/SP' }),
-        el('p', { text: 'O Ligeiro nasceu dentro de uma pizzaria de cone de cidade pequena, para resolver o pedido pelo WhatsApp e a comissão do iFood. Abra a loja e faça um pedido de teste: é o mesmo sistema que você vai usar.' }),
-        el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + lojaDemo, text: 'Abrir a Dom Conizza' }),
+      el('div', { class: 'kicker', text: 'Dúvidas' }),
+      el('h2', { text: 'O que todo dono pergunta' }),
+      el('div', { class: 'faq' }, [
+        duvida('Preciso cadastrar cartão para testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
+        duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
+        duvida('Preciso ter conta no Mercado Pago?', 'Para receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere para o banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
+        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
+        duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
+        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
+        duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
+        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
+        duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
+        duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio com foto: toca no lanche, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
+        duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. O sistema é enxuto, e o preço acompanha.'),
       ]),
     ]));
 
@@ -455,24 +472,6 @@
       ]));
     })();
 
-    /* ---------- duvidas ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'Dúvidas' }),
-      el('h2', { text: 'O que todo dono pergunta' }),
-      el('div', { class: 'faq' }, [
-        duvida('Preciso cadastrar cartão para testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
-        duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + dinheiro(pr.mensal) + ' e pronto.'),
-        duvida('Preciso ter conta no Mercado Pago?', 'Para receber Pix automático, sim: é grátis, abre em 5 minutos no app, e no painel você conecta com um clique (sem copiar nada). O dinheiro do Pix fica na sua conta Mercado Pago, com a taxa deles (cerca de 1%), e você transfere para o banco quando quiser. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
-        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
-        duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago, que você liga no painel em dois minutos. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro.'),
-        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
-        duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
-        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
-        duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
-        duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. É feito e mantido por quem tem delivery em cidade pequena.'),
-      ]),
-    ]));
-
     /* ---------- fechamento ---------- */
     corpo.appendChild(el('section', { class: 'vender-final' }, [
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
@@ -487,7 +486,7 @@
     /* barra fixa no celular: aparece quando o heroi sai da tela */
     var barra = el('div', { class: 'cta-fixa', hidden: true }, [
       el('span', {}, [el('b', { text: pr.diasGratis + ' dias grátis' }), ' · sem cartão']),
-      el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar', text: 'Assinar agora' }),
+      el('a', { class: 'btn btn-principal btn-pequeno', href: '#/comecar', text: 'Começar grátis' }),
     ]);
     raiz.appendChild(barra);
     function conferirBarra() { barra.hidden = capa.getBoundingClientRect().bottom > 0; }
