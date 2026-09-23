@@ -47,7 +47,7 @@ window.LIGEIRO_CONFIG = {
   precos: { mensal: 8900, anual: 89000, diasGratis: 7 },
   /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo enquanto nao cancelarem (campo "fundador" de cada plano).
      A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
-  fundador: { vagas: 5, jaOcupadas: 1 }, /* 5 vagas (era 20, depois 10): cabe no limite de lojas de agora, mais urgencia e menos desconto para sempre. jaOcupadas: a Dom Conizza */
+  fundador: { vagas: 6, jaOcupadas: 0 }, /* 6 vagas so para clientes (era 20, depois 10, depois 5): cabe no limite de lojas de agora. A Dom Conizza nao conta (jaOcupadas 0) */
   /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
      A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
   capacidade: { maxLojas: 11 }, /* 11 lojas no gratis: com o cardapio na borda o Firebase gratis aguenta ~2.100 pedidos/dia; da ~190 por loja, e o pico de sexta cabe. Sobe no Blaze */
