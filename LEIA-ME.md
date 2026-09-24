@@ -119,6 +119,38 @@ Pago da loja.
 6. Fora do tablet do balcão (lá tem a maquininha). Sem 3DS por enquanto: o
    banco que pede confirmação extra recusa com o recado de usar outro cartão
    ou o Pix.
+7. **Nunca duas cobranças (24/09/2026):** sem resposta do Mercado Pago, o
+   mensageiro repete uma vez com a **mesma chave** (a mesma cobrança volta,
+   nunca outra). Sem resposta de novo: responde `conferindo` e a trava
+   (`cobrandoEm` + `cobrancaIncerta`) fica 5 min. Banco analisando
+   (`processing`): responde `analise`, a trava fica e o aviso do Mercado Pago
+   marca pago ou solta. Antes de cobrar de novo, o mensageiro pergunta ao
+   Mercado Pago como ficou a cobrança anterior (`p.mp.id`). Toda cobrança fica
+   em `cobrancas` e o `/devolver` devolve todas as aprovadas.
+8. **Aviso do Mercado Pago (webhook):** no app do Ligeiro no Mercado Pago
+   (Suas integrações › Webhooks), a URL de produção é
+   `https://ligeiro-mp.ligeiro-pedidos.workers.dev/webhook` com o evento
+   **Order**. Sem isso o pedido só vira pago com a tela do cliente ou o
+   painel abertos (as consultas de 8 s).
+
+## Limites (para nada virar bagunça)
+
+| O quê | Limite | Onde trava |
+|---|---|---|
+| Categorias | 20 por loja | painel avisa, regra do banco |
+| Itens | 300 por loja | painel avisa, regra do banco |
+| Grupos de opções | 30 por loja | painel avisa, regra do banco |
+| Opções por grupo | 30 | painel avisa |
+| Cupons | 20 por loja | painel avisa, regra do banco (`privado/cupons`) |
+| Itens num pedido | 40 | `R.montarPedido` (mensageiro) |
+| Pedidos | 15 por aparelho em 10 min | mensageiro `/pedido` |
+| Código de cupom | 12 tentativas por aparelho em 10 min, 300 por loja | mensageiro `/cupom` e `/pedido` |
+| Cartão | 4 tentativas por pedido, 8 por aparelho em 10 min | mensageiro `/cartao` |
+| Contato ("Fale com a gente") | 3 por aparelho em 10 min, 300 por dia | mensageiro `/lead` (a regra não deixa gravar direto) |
+| Aparelhos com aviso | 8 por loja | mensageiro (`aparelhos:`) |
+
+No IPv6 o limite vale para a casa inteira (`/64`), porque o celular troca o
+fim do endereço a toda hora.
 
 ## Como funciona o dinheiro
 

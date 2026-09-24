@@ -154,9 +154,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    /* contatos da pagina de vendas: visitante cria (so os campos do formulario, com tamanho), so o admin le e marca como atendido */
+    /* contatos da pagina de vendas: nascem no mensageiro (/lead, com limite por aparelho e por dia). Direto do site, um robo
+       mandando milhares gastava a cota de gravacoes do dia (a mesma dos pedidos). So o admin le e marca como atendido.
+       A regra de criar fica para o admin (e como referencia do formato que o mensageiro grava) */
     match /leads/{id} {
-      allow create: if request.resource.data.keys().hasOnly(['id', 'nome', 'whatsapp', 'loja', 'cidade', 'uf', 'origem', 'pagina', 'criadoEm', 'atendidoEm'])
+      allow create: if isAdmin() && request.resource.data.keys().hasOnly(['id', 'nome', 'whatsapp', 'loja', 'cidade', 'uf', 'origem', 'pagina', 'criadoEm', 'atendidoEm'])
                     && request.resource.data.keys().hasAll(['nome', 'whatsapp', 'criadoEm'])
                     && request.resource.data.nome is string && request.resource.data.nome.size() <= 60
                     && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() <= 16
@@ -179,7 +181,8 @@ service cloud.firestore {
        Na edicao so confere quando o campo muda: loja que ja tivesse mais continua salvando o resto */
     function cardapioNoLimite() {
       return (!('categorias' in request.resource.data) || request.resource.data.categorias.size() <= 20)
-        && (!('produtos' in request.resource.data) || request.resource.data.produtos.size() <= 300);
+        && (!('produtos' in request.resource.data) || request.resource.data.produtos.size() <= 300)
+        && (!('grupos' in request.resource.data) || !(request.resource.data.grupos is map) || request.resource.data.grupos.size() <= 30);
     }
 
     match /lojas/{loja} {
@@ -207,7 +210,7 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
         /* cupom nunca no documento publico: so apagar a lista antiga (vazia ou sem o campo) */
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cupons']) || !(request.resource.data.get('cupons', []) is list) || request.resource.data.get('cupons', []).size() == 0)
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos']) || cardapioNoLimite()));
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos', 'grupos']) || cardapioNoLimite()));
       allow delete: if isAdmin();
 
       /* senha do dia e usos de cupom: quem grava e o mensageiro (conta de servico), junto com o pedido, no mesmo lote.

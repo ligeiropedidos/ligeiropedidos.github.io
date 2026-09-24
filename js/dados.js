@@ -1132,12 +1132,27 @@
   };
 
   /* Contatos: qualquer visitante cria (regra do Firestore), so o admin le e atualiza. */
+  /* o contato nasce no mensageiro (/lead), que conta as tentativas por aparelho. Mensageiro antigo, sem a rota (404):
+     grava direto, como antes (ate as regras novas entrarem) */
   FirebaseStore.prototype.salvarLead = function (dados) {
-    return this._pronto.then(function () {
-      var ref = this.db.collection('leads').doc();
-      var lead = Object.assign({ id: ref.id, criadoEm: agoraISO(), atendidoEm: '' }, clonar(dados));
-      return ref.set(lead).then(function () { return lead; });
-    }.bind(this));
+    var eu = this;
+    var base = enderecoBorda();
+    var direto = function () {
+      return eu._pronto.then(function () {
+        var ref = eu.db.collection('leads').doc();
+        var lead = Object.assign({ id: ref.id, criadoEm: agoraISO(), atendidoEm: '' }, clonar(dados));
+        return ref.set(lead).then(function () { return lead; });
+      });
+    };
+    if (!base || !window.fetch) return direto();
+    return fetch(base + '/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clonar(dados)) })
+      .then(function (r) {
+        if (r.status === 404) return direto();
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j || !j.ok) { var e = new Error((j && j.erro) || 'Não deu para enviar. Tente de novo.'); e.publico = true; throw e; }
+          return Object.assign({ id: j.id }, clonar(dados));
+        });
+      });
   };
   /* so a lista de espera, sem limite de 200 (uma condicao de igualdade: nao precisa de indice) */
   FirebaseStore.prototype.listarListaEspera = function () {

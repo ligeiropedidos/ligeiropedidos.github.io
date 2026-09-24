@@ -1337,7 +1337,7 @@
           var g = (l.grupos || {})[chave];
           if (g) conteudo.appendChild(blocoGrupo(chave, g, cat.id));
         });
-        conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '+ Novo grupo de opções', onclick: function () { editarGrupo(null, cat.id); } }));
+        conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '+ Novo grupo de opções', onclick: function () { if (cabeMais('grupos')) editarGrupo(null, cat.id); } }));
       }
       if (busca) busca.addEventListener('input', function () { estado.buscaCardapio = busca.value; desenharConteudo(); });
       desenharConteudo();
@@ -1712,13 +1712,20 @@
 
     /* Cardapio com tamanho de gente (config.limites): tudo fica num documento so do banco e baixa inteiro no celular
        do cliente. No limite, avisa com calma o que fazer; as regras do banco conferem o mesmo numero */
-    function cabeMais(tipo) {
-      var lim = ((window.LIGEIRO_CONFIG || {}).limites || {})[tipo] || (tipo === 'categorias' ? 20 : 300);
-      var qtd = (tipo === 'categorias' ? estado.loja.categorias : estado.loja.produtos).length;
+    /* limites do cardapio (o banco trava categorias, itens e grupos; aqui o dono ouve o motivo antes de tentar) */
+    var LIMITES_PADRAO = { categorias: 20, itens: 300, grupos: 30, opcoes: 30 };
+    function cabeMais(tipo, chaveGrupo) {
+      var lim = ((window.LIGEIRO_CONFIG || {}).limites || {})[tipo] || LIMITES_PADRAO[tipo];
+      var l = estado.loja;
+      var qtd = tipo === 'categorias' ? l.categorias.length
+        : tipo === 'itens' ? l.produtos.length
+        : tipo === 'grupos' ? Object.keys(l.grupos || {}).length
+        : (((l.grupos || {})[chaveGrupo] || {}).opcoes || []).length;
       if (qtd < lim) return true;
-      UI.avisar(tipo === 'categorias'
-        ? 'Chegou no limite de ' + lim + ' categorias. Para criar outra, junte duas ou exclua uma que não usa mais.'
-        : 'Chegou no limite de ' + lim + ' itens no ' + R.catalogo(estado.loja).nome + '. Para criar outro, exclua um que não vende mais.');
+      UI.avisar(tipo === 'categorias' ? 'Chegou no limite de ' + lim + ' categorias. Para criar outra, junte duas ou exclua uma que não usa mais.'
+        : tipo === 'itens' ? 'Chegou no limite de ' + lim + ' itens no ' + R.catalogo(l).nome + '. Para criar outro, exclua um que não vende mais.'
+        : tipo === 'grupos' ? 'Chegou no limite de ' + lim + ' grupos de opções. Um grupo vale para várias categorias: use o mesmo em vez de criar outro igual.'
+        : 'Esse grupo chegou no limite de ' + lim + ' opções. Exclua uma que não usa mais para criar outra.');
       return false;
     }
 
@@ -1879,6 +1886,7 @@
       salvarLoja({ grupos: grupos }, 'Opção removida').then(desenharCardapio);
     }
     function novaOpcao(chave) {
+      if (!cabeMais('opcoes', chave)) return;
       var nome = campoTexto('Nome da opção', '', { max: 40, placeholder: 'Ex: Bacon' });
       var preco = campoDinheiro('Acréscimo no preço', 0, 'Deixe vazio se for grátis');
       UI.abrirModal({ titulo: 'Nova opção', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [nome, preco]), rodape: [el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Adicionar', onclick: function () {
@@ -2462,13 +2470,8 @@
         })),
       ]));
 
-      if (D.modoDemo) {
-        var seguranca = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Senha do painel' })]);
-        f.senhaPainel = campoTexto('Nova senha (deixe vazio para não mudar)', '', { max: 20, tipo: 'password', inputmode: 'numeric' });
-        f.senhaPainel.input.setAttribute('autocomplete', 'new-password');
-        seguranca.appendChild(f.senhaPainel);
-        s.appendChild(seguranca);
-      }
+      /* senha do painel: nenhuma no site de verdade (o dono entra com a conta Google). Na demonstracao ela e a senha da
+         equipe (Minha loja, Senha da equipe): um lugar so, igual ao site de verdade */
 
       s.appendChild(el('button', { class: 'btn btn-principal btn-largo', text: 'Salvar tudo', onclick: function () { salvarAjustes(f); } }));
       /* barra fixa: salva de qualquer ponto da pagina, sem descer ate o fim */

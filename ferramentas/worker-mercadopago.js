@@ -1829,6 +1829,25 @@ export default {
         return json({ cupom: { codigo: regra.codigo, percentual: regra.percentual, minimo: regra.minimo, ativo: true } });
       }
 
+      /* ---- contato da pagina de vendas ("Fale com a gente", lista de espera): 3 por aparelho em 10 min, 300 por dia no
+         total. Um robo nao gasta mais a cota de gravacoes do banco (a mesma dos pedidos) ---- */
+      if (caminho === '/lead' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        const txt = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+        const nome = txt(c.nome, 60);
+        let whatsapp = String(c.whatsapp || '').replace(/\D/g, '');
+        if (whatsapp.length > 11 && whatsapp.indexOf('55') === 0) whatsapp = whatsapp.slice(2);
+        if (nome.length < 2 || whatsapp.length < 10 || whatsapp.length > 11) return json({ ok: false, erro: 'Confira o nome e o WhatsApp com DDD.' }, 400);
+        const ip = ipDaCasa(request.headers.get('CF-Connecting-IP'));
+        if (demais('lead-ip:' + ip, 3, 10 * 60 * 1000)) return json({ ok: false, erro: 'Recebemos seus dados. Espere alguns minutos antes de mandar de novo.' }, 429);
+        if (demais('lead-dia', 300, 24 * 3600 * 1000)) return json({ ok: false, erro: 'Muitos contatos agora. Chame a gente no WhatsApp.' }, 429);
+        const fb = await firebase(env);
+        const id = idAleatorio(20);
+        const lead = { id: id, nome: nome, whatsapp: whatsapp, loja: txt(c.loja, 80), cidade: txt(c.cidade, 80), uf: txt(c.uf, 2).toUpperCase().replace(/[^A-Z]/g, ''), origem: txt(c.origem, 40) || 'site', pagina: txt(c.pagina, 200), criadoEm: new Date().toISOString(), atendidoEm: '' };
+        await fb.merge('leads/' + id, lead);
+        return json({ ok: true, id: id });
+      }
+
       /* ---- cria o pedido (o banco nao aceita pedido gravado direto pelo celular) ---- */
       if (caminho === '/pedido' && request.method === 'POST') {
         const c = await request.json().catch(() => ({}));

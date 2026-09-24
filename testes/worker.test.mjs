@@ -875,6 +875,26 @@ console.log('Token do Mercado Pago guardado na borda');
   w = await workerNovo();
 }
 
+console.log('Contato da pagina de vendas');
+{
+  w = await workerNovo();
+  const ipL = { 'CF-Connecting-IP': '10.99.1.1' };
+  const lead = (corpo, h) => chamar(w, '/lead', { metodo: 'POST', corpo, headers: h || ipL });
+  zerar();
+  r = await lead({ nome: 'Ana Souza', whatsapp: '(13) 99999-1234', loja: 'Lanches da Ana', cidade: 'Juquiá', uf: 'SP', origem: 'botao-flutuante', pagina: '#/' }); j = await r.json();
+  const salvo = db.get('leads/' + j.id);
+  ok(r.status === 200 && j.ok && salvo && salvo.whatsapp === '13999991234' && salvo.atendidoEm === '' && conta.gravacoes === 1, 'contato gravado pelo mensageiro (1 gravacao, numero so com digitos)');
+  r = await lead({ nome: 'A', whatsapp: '123' });
+  ok(r.status === 400, 'contato sem nome ou WhatsApp de verdade: 400');
+  r = await lead({ nome: 'Ana\u202eX\nY', whatsapp: '13999991235' }); j = await r.json();
+  ok(j.ok && db.get('leads/' + j.id).nome === 'Ana X Y', 'texto com quebra de linha e inversor de direcao vira espaco');
+  r = await lead({ nome: 'Ana Souza', whatsapp: '13999991236' });
+  r = await lead({ nome: 'Ana Souza', whatsapp: '13999991237' });
+  ok(r.status === 429, 'o 4o contato do mesmo aparelho em 10 min: espera (um robo nao gasta a cota do banco)');
+  r = await lead({ nome: 'Bia Lima', whatsapp: '13999991238' }, { 'CF-Connecting-IP': '2804:14c:65a1:4001:aaaa::1' });
+  ok(r.status === 200, 'outro aparelho passa normal');
+}
+
 console.log('Marca do dono no login');
 {
   w = await workerNovo();
