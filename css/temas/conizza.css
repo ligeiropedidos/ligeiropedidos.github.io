@@ -247,6 +247,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 
 /* respiro pras sombras duras nao encostarem no que vem embaixo nem no teto */
 .tema-conizza .abas-painel { padding: 12px var(--margem) 14px; gap: 8px; }
+@media (max-width: 360px) { .tema-conizza .abas-principais { gap: 4px; padding-left: 12px; padding-right: 12px; } }
 .tema-conizza .aba-painel { margin-bottom: 4px; }
 .tema-conizza .metricas { margin-top: 12px; gap: 12px; }
 .tema-conizza .hub-chips { gap: 8px; padding-bottom: 4px; }

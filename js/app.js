@@ -175,6 +175,9 @@
   }
 
   window.addEventListener('hashchange', render);
+  /* voltou pelo "voltar" de outro site (Mercado Pago, banco) e o navegador devolveu a pagina congelada: a conexao com
+     o banco fica parada e a tela presa em "Conferindo…". Recarrega para tudo voltar vivo */
+  window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
   window.addEventListener('resize', UI.medirBarras);
 
   window.LigeiroApp = { ir: ir, render: render, partes: partes, manifestDaLoja: manifestDaLoja };

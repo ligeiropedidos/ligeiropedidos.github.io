@@ -2005,6 +2005,7 @@
       /* pode ligar: Mercado Pago conectado pelo botao e com a chave publica */
       function cartaoPodeLigar() { return pixPossivel && temConexao && f.mpToken.temSalvo && !!estado.loja.mpChavePublica; }
       function pintarCartao() {
+        if (!cartaoSituacao) return; /* a conexao respondeu antes de a linha do cartao existir: ela se pinta ao nascer */
         var texto = '', lendo = false, liberar = false;
         if (!pixPossivel || !temConexao) texto = 'Em breve';
         else if (!f.mpToken.lido) { texto = 'Conferindo…'; lendo = true; }
@@ -2017,7 +2018,7 @@
         liberarCartao.hidden = !liberar;
         if (texto && !lendo) { f.aceitaCartaoOnline.chave.ligado = false; f.aceitaCartaoOnline.chave.classList.remove('on'); }
       }
-      if (!pixPossivel || !temConexao) pintarCartao();
+      pintarCartao(); /* ja nasce certo: "Conferindo…" sem o interruptor do lado enquanto a conexao nao responde */
       pagamento.appendChild(formaCartao);
       f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', 'O cliente passa o cartão quando recebe ou quando busca.', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);

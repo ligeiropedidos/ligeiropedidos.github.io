@@ -45,7 +45,9 @@
   }
   /* Estado da conexao (pra tela): { token, conectadoEm, mpUserId, viaOauth } ou null. */
   function lerConexao(slug) {
-    return D().store.lerSegredo(slug, SEGREDO).then(function (seg) {
+    /* nunca fica "Conferindo…" para sempre (internet fraca, banco parado): em 12 s vira "Tentar de novo" */
+    var limite = new Promise(function (_, falhou) { setTimeout(function () { falhou(new Error('A conferência demorou demais.')); }, 12000); });
+    return Promise.race([D().store.lerSegredo(slug, SEGREDO), limite]).then(function (seg) {
       if (!seg || !seg.token) return null;
       return { token: String(seg.token), conectadoEm: seg.conectadoEm || seg.atualizadoEm || '', mpUserId: seg.mpUserId || '', viaOauth: !!seg.refresh };
     });

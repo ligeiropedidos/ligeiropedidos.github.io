@@ -1276,10 +1276,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .final-mascote { width: 96px; height: 96px; object-fit: contain; }
 @media (max-width: 420px) { .barra-topo .marca { font-size: 24px; } .barra-topo .mascote { display: none; } .barra-topo .btn-pequeno { min-height: 40px; padding: 6px 10px; font-size: 14px; } }
 /* botao do comercial (segundo botao do heroi) e o player por cima da pagina */
-/* play: triangulo de cantos redondos com 40% da bolinha, desenhado no centro da propria grade de 24 (o centro de peso
-   dele fica meio ponto a direita, que e onde o olho ve o meio). Antes: 6 px numa grade de 12 empurrada a mao, caia torto */
+/* play: triangulo de cantos redondos com 40% da bolinha, com a caixa dele no centro exato da bolinha (medido por
+   pixel: meio em 12,0 x 12,0 na grade de 24). Antes a caixa ficava 1,75 a direita e parecia torto */
 .btn-video .video-play { flex: none; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.4 7.4v9.2c0 .9 1 1.4 1.7.9l6.6-4.6c.6-.4.6-1.4 0-1.8l-6.6-4.6c-.7-.5-1.7 0-1.7.9z' fill='%230E1F14'/%3E%3C/svg%3E") center / 100% no-repeat; }
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.625 7.4v9.2c0 .9 1 1.4 1.7.9l6.6-4.6c.6-.4.6-1.4 0-1.8l-6.6-4.6c-.7-.5-1.7 0-1.7.9z' fill='%230E1F14'/%3E%3C/svg%3E") center / 100% no-repeat; }
 .btn-video > span:nth-child(2) { position: relative; top: 1px; } /* maiusculas no meio, na linha da bolinha e do selo */
 .btn-video .video-tempo { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); font-size: 13px; font-weight: 700; line-height: 1; }
 .video-fundo { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 22, 16, 0.88); }
@@ -1937,7 +1937,11 @@ button.plano-card { cursor: pointer; }
   .abas-principais .aba-painel .ico-traco svg { width: 20px; height: 20px; }
   .abas-principais .aba-painel .badge { position: absolute; top: 3px; right: 3px; min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; }
 }
-@media (max-width: 340px) { .abas-principais .aba-painel { font-size: 11.5px; } }
+/* iPhone com "Tela ampliada" (320 px): margem e vao um pouco menores e letra 11,5 para "Cardapio" caber inteiro */
+@media (max-width: 360px) {
+  .abas-principais { gap: 4px; padding-left: 12px; padding-right: 12px; }
+  .abas-principais .aba-painel { padding-left: 1px; padding-right: 1px; font-size: 11.5px; }
+}
 
 /* ---------- icones de traco no lugar dos emojis de interface (a comida escolhida pela loja continua emoji) ---------- */
 .btn-pequeno .ico-traco svg, .aba-painel .ico-traco svg { width: 18px; height: 18px; }
