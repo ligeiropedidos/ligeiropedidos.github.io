@@ -227,7 +227,7 @@
       var antes = document.activeElement;
       var origem = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget : null;
       var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=4', poster: 'midia/comercial-ligeiro.jpg?v=4', controls: true, playsinline: true, preload: 'auto' });
+      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=5', poster: 'midia/comercial-ligeiro.jpg?v=4', controls: true, playsinline: true, preload: 'auto' });
       var fim = el('div', { class: 'video-fim', hidden: true }, [
         el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis', onclick: fechar }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { fechar(); abrirContato('video'); } }),
