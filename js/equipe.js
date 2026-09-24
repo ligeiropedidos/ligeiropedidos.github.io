@@ -19,6 +19,13 @@
   var $ = UI.$;
   var dinheiro = R.dinheiro;
 
+  /* um pedido torto nunca apaga a tela da cozinha ou do entregador: vira um cartao curto e o resto aparece */
+  function seguro(montar, p) {
+    try { return montar(); } catch (_) {
+      return el('div', { class: 'pedido-card' }, [el('div', { class: 'cliente', text: 'Senha ' + String((p && p.senha) || '?') + ': pedido com dados incompletos. Chame o dono da loja.' })]);
+    }
+  }
+
   /* cozinha e entregador: so o que entrou desde as 5 h de ontem (a noite de ontem ainda aparece). Pedido mais velho que
      ninguem concluiu nao volta para a fila: o painel mostra e conclui esses de uma vez */
   function desdeOntem(lista) {
@@ -79,7 +86,8 @@
     var limpar = function () {};
     var vivo = true;
     UI.abrirOficialCedo(raiz, slug);
-    store.obterLoja(slug).catch(function () { return { _erro: true }; }).then(function (loja) {
+    /* a copia da borda (0 leituras no banco); sem ela, o banco */
+    (store.lojaDaEquipe ? store.lojaDaEquipe(slug) : store.obterLoja(slug)).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
       if (loja && loja._erro) { raiz.appendChild(UI.erroCarregar('Não deu para abrir esta tela. Confira a internet.', function () { location.reload(); })); return; }
       if (!loja) {
@@ -283,7 +291,7 @@
           /* o mesmo titulo de fila do painel: nome a esquerda, quantos a direita */
           var caixa = el('section', { class: 'coluna' }, [el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: col[0] }), el('span', { text: col[1].length ? String(col[1].length) : '' })])]);
           if (!col[1].length) caixa.appendChild(el('p', { class: 'muted', text: col[2] }));
-          col[1].forEach(function (p) { caixa.appendChild(ficha(p)); });
+          col[1].forEach(function (p) { caixa.appendChild(seguro(function () { return ficha(p); }, p)); });
           colunas.appendChild(caixa);
         });
       }
@@ -403,10 +411,10 @@
         vindo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         lista.appendChild(el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: 'Para entregar agora' }), el('span', { text: naRua.length ? String(naRua.length) : '' })]));
         if (!naRua.length) lista.appendChild(el('p', { class: 'muted', text: 'Nenhuma entrega na rua. Quando a cozinha marcar "pronto", aparece aqui.' }));
-        naRua.forEach(function (p) { lista.appendChild(cartao(p, true)); });
+        naRua.forEach(function (p) { lista.appendChild(seguro(function () { return cartao(p, true); }, p)); });
         lista.appendChild(el('div', { class: 'fila-titulo', role: 'heading', 'aria-level': '2' }, [el('span', { text: 'Sendo preparadas' }), el('span', { text: vindo.length ? String(vindo.length) : '' })]));
         if (!vindo.length) lista.appendChild(el('p', { class: 'muted', text: 'Nada em preparo agora.' }));
-        vindo.forEach(function (p) { lista.appendChild(cartao(p, false)); });
+        vindo.forEach(function (p) { lista.appendChild(seguro(function () { return cartao(p, false); }, p)); });
       }
 
       function cartao(p, naRua) {

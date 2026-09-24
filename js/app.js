@@ -20,8 +20,11 @@
   var limparTelaAtual = null;
 
   function partes() {
-    var hash = location.hash.replace(/^#\/?/, '');
-    return hash.split('/').map(function (p) { try { return decodeURIComponent(p).trim(); } catch (_) { return p.trim(); } }).filter(Boolean);
+    var hash = location.hash.replace(/^#\/?/, '').split('?')[0];
+    /* cada pedaco do endereco com formato fixo (letras, numeros, hifen): "%2F" nao vira "/" e nada aponta para outro
+       documento do banco. Pedaco torto some (a pagina cai no inicio) */
+    return hash.split('/').map(function (p) { try { return decodeURIComponent(p).trim(); } catch (_) { return ''; } })
+      .filter(function (p) { return /^[A-Za-z0-9-]{1,60}$/.test(p); });
   }
 
   /* Medicao de visitas, so se o Ligeiro colocou o token (config.analytics.cloudflareToken). */
@@ -183,7 +186,9 @@
   window.LigeiroApp = { ir: ir, render: render, partes: partes, manifestDaLoja: manifestDaLoja };
 
   /* vagas de fundador: valor guardado neste aparelho na hora; o numero de verdade chega em seguida e, se mudou, redesenha a pagina de vendas */
-  try { var cf = JSON.parse(localStorage.getItem('ligeiro:fundadores') || 'null'); window.LigeiroFundadores = { usados: (cf && cf.usados) || 0, capacidade: (cf && cf.capacidade) || null }; } catch (_) { window.LigeiroFundadores = { usados: 0, capacidade: null }; }
+  /* sem o numero conferido nos ultimos 10 min, "usados" fica desconhecido (null) e o site mostra o preco normal: o de
+     fundador so aparece com vaga confirmada (antes, sem o numero, supunha 0 usados e prometia R$ 79 com as vagas esgotadas) */
+  try { var cf = JSON.parse(localStorage.getItem('ligeiro:fundadores') || 'null'); var fresco = cf && Date.now() - (cf.em || 0) < 10 * 60 * 1000; window.LigeiroFundadores = { usados: fresco ? (cf.usados || 0) : null, capacidade: (cf && cf.capacidade) || null }; } catch (_) { window.LigeiroFundadores = { usados: null, capacidade: null }; }
   /* so quem vende ou administra precisa do numero (pagina de vendas, assinar, conta, painel, Central). A loja do cliente
      e o hub nao leem nada: eram ~2% das leituras do dia. Busca uma vez, quando entrar numa dessas telas. */
   var ROTAS_COM_VAGAS = ['lojas', 'assinar', 'comecar', 'conta', 'admin', 'painel', 'entrar'];

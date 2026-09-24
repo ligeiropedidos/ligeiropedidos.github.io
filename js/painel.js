@@ -73,7 +73,10 @@
     function publicarSeDono() {
       if (!store.publicarLoja || !store.usuarioAtual || !estado.loja) return;
       store.usuarioAtual().then(function (u) {
-        if (u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase()) store.publicarLoja(slug);
+        if (!(u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase())) return;
+        store.publicarLoja(slug);
+        /* marca de dono no login (uma vez por loja): a fila passa a custar 1 leitura por pedido que anda, nao 2 */
+        if (store.marcarDono) store.marcarDono(slug);
       }).catch(function () { /* segue */ });
     }
 
@@ -303,17 +306,48 @@
       var inicio = new Date(); if (inicio.getHours() < 5) inicio.setDate(inicio.getDate() - 1);
       inicio.setHours(5, 0, 0, 0);
       var desde = inicio.toISOString();
-      /* o que ficou andando de outros dias (ninguem concluiu): uma leitura so, ao abrir. Sem isso eles ficavam para
-         sempre na fila da cozinha e do entregador, e cada abertura dessas telas lia todos de novo */
+      /* A fila escuta SO o que esta andando (aguardando, pago, preparando, pronto). O celular que volta do bloqueio
+         depois de 30 min rele so esses (antes relia todos os pedidos do dia, ate 150 leituras por volta). Concluidos
+         e cancelados do dia vem quando o dono abre a lista; o que ficou andando de outros dias vem na mesma escuta */
       estado.deOutrosDias = [];
-      if (store.pedidosParados) store.pedidosParados(slug, desde).then(function (l) { estado.deOutrosDias = l || []; if (vivo && estado.aba === 'pedidos') desenharPedidos(); }).catch(function () { /* fica para a proxima abertura */ });
+      estado.encerrados = null;
+      var ATIVOS = [R.STATUS.AGUARDANDO, R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO];
       /* a escuta da fila se refaz: dia novo (sem recarregar) e volta do limite do banco */
       var pararFila = function () {};
       var filaNoLimite = false;
       function assinarFila() {
         pararFila();
-        pararFila = store.assistirPedidos(slug, function (lista) {
+        pararFila = store.assistirPedidos(slug, function (listaToda) {
         if (filaNoLimite || raiz.querySelector('.faixa-limite')) { filaNoLimite = false; var fx = raiz.querySelector('.faixa-limite'); if (fx) fx.remove(); }
+        /* do dia de trabalho, na fila; de outros dias, o aviso de concluir todos (Pix velho so passa pelo vencimento) */
+        var lista = [], velhos = [], pixVelhos = [];
+        listaToda.forEach(function (x) {
+          if (String(x.criadoEm || '') >= desde) lista.push(x);
+          else if (x.status === R.STATUS.AGUARDANDO) pixVelhos.push(x);
+          else velhos.push(x);
+        });
+        estado.deOutrosDias = velhos;
+        if (pixVelhos.length) conferirPixVencidos(pixVelhos);
+        /* saiu da fila (concluido ou cancelado): a versao nova ja veio junto com a escuta e esta no aparelho */
+        if (estado.statusAntes) {
+          var naFila = {};
+          lista.forEach(function (x) { naFila[x.id] = true; });
+          Object.keys(estado.statusAntes).forEach(function (id) {
+            if (naFila[id] || ATIVOS.indexOf(estado.statusAntes[id]) < 0) return;
+            estado.statusAntes[id] = 'fora';
+            if (!store.pedidoDoCache) return;
+            store.pedidoDoCache(slug, id).then(function (x) {
+              if (!x || !vivo || ATIVOS.indexOf(x.status) >= 0) return;
+              estado.statusAntes[id] = x.status;
+              if (estado.encerrados) estado.encerrados[id] = x;
+              if (x.status === R.STATUS.CANCELADO && x.canceladoPor === 'cliente') {
+                UI.soar('cancelado');
+                UI.avisar('O cliente cancelou o pedido da senha ' + x.senha + '.');
+              }
+              if (estado.aba === 'pedidos') desenharPedidos();
+            });
+          });
+        }
         var novos = [];
         if (estado.conhecidos) {
           lista.forEach(function (p) { if (!estado.conhecidos[p.id] && R.EM_ANDAMENTO.indexOf(p.status) >= 0 && p.status !== R.STATUS.PRODUCAO && p.status !== R.STATUS.PRONTO) novos.push(p.id); });
@@ -323,7 +357,7 @@
           lista.forEach(function (p) {
             var antes = estado.statusAntes[p.id];
             if (!antes || antes === p.status) return;
-            if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO) && R.pagaPeloSite(p)) {
+            if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO || (antes === 'fora' && p.pagoAposCancelar)) && R.pagaPeloSite(p)) {
               UI.soar('pago'); UI.vibrar([80, 40, 160]);
               var comoPagou = p.formaPagamento === 'cartao_online' ? 'Cartão da senha ' + p.senha + ' aprovado' : 'Pix da senha ' + p.senha + ' caiu';
               UI.avisar(p.pagoAposCancelar ? comoPagou + ' depois do cancelamento. Confira com o cliente.' : comoPagou + '! Pode começar.');
@@ -333,7 +367,8 @@
             }
           });
         }
-        estado.statusAntes = {};
+        /* guarda tambem quem saiu da fila: um cancelado que foi pago depois volta e apita como Pix que caiu */
+        estado.statusAntes = estado.statusAntes || {};
         lista.forEach(function (p) { estado.statusAntes[p.id] = p.status; });
         estado.conhecidos = estado.conhecidos || {};
         lista.forEach(function (p) { estado.conhecidos[p.id] = true; });
@@ -345,7 +380,7 @@
         if (estado.mp) estado.mp.processar(lista);
         atualizarBadge();
         if (estado.aba === 'pedidos') desenharPedidos();
-      }, { desde: desde, aoErro: function (e) {
+      }, { status: ATIVOS, aoErro: function (e) {
         /* banco gratis no limite de hoje: nao e o login. Os clientes vao para o WhatsApp da loja ate zerar; o relogio
            tenta de novo a cada 10 min (a escuta que deu erro morre) */
         if (D.ehLimite && D.ehLimite(e)) { filaNoLimite = true; estado.filaTentouEm = Date.now(); UI.faixaLimite(raiz); return; }
@@ -362,6 +397,15 @@
       }
       assinarFila();
       estado.parar.push(function () { pararFila(); });
+      /* cancelado com o dinheiro pago pelo site (a loja cancelou, ou pagou depois de cancelado): lista pequena propria,
+         de qualquer dia, ate devolver. So o dono devolve */
+      estado.aDevolver = [];
+      if (!estado.equipe) estado.parar.push(store.assistirPedidos(slug, function (l) {
+        /* o devolvido sai daqui e volta para "Cancelados hoje" ja na versao nova (sem o botao) */
+        if (estado.encerrados) l.forEach(function (p) { if (estado.encerrados[p.id]) estado.encerrados[p.id] = p; });
+        estado.aDevolver = l.filter(pagoPeloSite);
+        if (estado.aba === 'pedidos') desenharPedidos();
+      }, { devolver: true }));
 
       /* avisos com a tela apagada: o mensageiro ja tem? (o cartao aparece so depois) e o aparelho continua inscrito? */
       if (window.LigeiroAvisos) {
@@ -385,7 +429,7 @@
         var hoje = new Date(); if (hoje.getHours() < 5) hoje.setDate(hoje.getDate() - 1);
         hoje.setHours(5, 0, 0, 0);
         var andando = (estado.pedidos || []).some(function (x) { return R.EM_ANDAMENTO.indexOf(x.status) >= 0; });
-        if (hoje.toISOString() !== desde && !andando) { desde = hoje.toISOString(); assinarFila(); }
+        if (hoje.toISOString() !== desde && !andando) { desde = hoje.toISOString(); estado.encerrados = null; assinarFila(); }
         /* banco no limite: tenta de novo a cada 10 min; quando a cota zerar, a fila volta sozinha e a faixa sai */
         else if (filaNoLimite && Date.now() - (estado.filaTentouEm || 0) > 10 * 60 * 1000) { estado.filaTentouEm = Date.now(); assinarFila(); }
         if (estado.aba === 'pedidos') desenharPedidos();
@@ -406,9 +450,13 @@
       estado.parar.push(function () { clearInterval(relogio); });
 
       trocarAba(estado.aba);
-      if (!estado.equipe && !mpVolta && estado.loja && estado.loja.configurada === false && !UI.lerLocal(CHAVE_TOUR)) {
-        setTimeout(function () { if (raiz.isConnected) abrirTour(); }, 900);
-      }
+      /* primeiro o aceite dos termos (se faltar); depois, na primeira vez de uma loja nova, o tutorial */
+      setTimeout(function () {
+        if (!raiz.isConnected) return;
+        pedirAceiteDosTermos(function () {
+          if (!estado.equipe && !mpVolta && estado.loja && estado.loja.configurada === false && !UI.lerLocal(CHAVE_TOUR)) abrirTour();
+        });
+      }, 900);
     }
 
     /* Pix vencido que ficou pra tras (cliente fechou a aba): sai da fila sozinho.
@@ -711,7 +759,7 @@
       var prontos = feitos ? el('details', { class: 'passos-feitos' }, [
         el('summary', {}, [UI.iconeLinha('feito'), el('span', { text: feitos === 1 ? '1 já pronto' : feitos + ' já prontos' }), el('span', { class: 'passos-abre' }, [UI.iconeLinha('avancar')])]),
         el('div', { class: 'passos-feitos-lista' }, itens.filter(function (i) { return i[0]; }).map(function (i) {
-          return el('button', { class: 'passo-feito', type: 'button', onclick: function () { irPara(i[4], i[5]); } }, [UI.iconeLinha('feito'), el('span', { text: i[1] })]);
+          return el('button', { class: 'passo-feito', type: 'button', onclick: function () { irPara(i[4], i[5]); } }, [UI.iconeLinha('feito'), el('span', { class: 'passo-feito-texto', text: i[1] }), el('span', { class: 'passo-seta' }, [UI.iconeLinha('avancar')])]);
         })),
       ]) : null;
       return el('div', { class: 'cartao destaque passos-card' + (faltam ? '' : ' completo'), id: 'primeirosPassosCartao' }, [
@@ -767,6 +815,45 @@
       UI.guardarLocal(CHAVE_TOUR, true);
       if (concluido) UI.soar('sucesso');
     }
+    /* Termos novos (ou loja de antes do aceite registrado): o Ligeiro pede o aceite antes de tudo, no mesmo balao do
+       tutorial. Sem "Pular": ou aceita, ou fica na tela (a loja continua recebendo pedidos normalmente) */
+    function pedirAceiteDosTermos(depois) {
+      if (estado.equipe || !estado.loja || R.termosEmDia(estado.loja) || R.ehDoLigeiro(estado.loja) || raiz.querySelector('.tour')) { if (depois) depois(); return; }
+      var botao = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Li e aceito' });
+      var caixa = el('div', { class: 'tour tour-abertura tour-termos', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Termos de uso', tabindex: '-1' }, [
+        el('span', { class: 'tour-mascote-caixa' }, [el('img', { class: 'tour-mascote pulando', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 })]),
+        el('div', { class: 'tour-balao entrando' }, [
+          el('span', { class: 'tour-nome', text: 'Ligeiro' }),
+          el('div', { class: 'tour-titulo', text: 'Combinado entre a gente' }),
+          el('p', { class: 'tour-texto', text: 'Antes de continuar, confira o que combinamos. Em resumo:' }),
+          el('ul', { class: 'termos-resumo' }, [
+            el('li', { text: 'Quem vende é a sua loja: cardápio, preços, entrega e qualidade são seus.' }),
+            el('li', { text: 'O dinheiro dos pedidos vai direto para o seu Mercado Pago. O Ligeiro não encosta nele.' }),
+            el('li', { text: 'Os dados dos seus clientes são para atender e avisar da sua loja, nunca para repassar.' }),
+            el('li', { text: 'Sem fidelidade: parou de pagar, a loja para de receber pedidos pelo site.' }),
+          ]),
+          el('p', { class: 'termos-links' }, [el('a', { href: '#/termos', target: '_blank', rel: 'noopener', text: 'Ler os termos de uso' }), el('a', { href: '#/privacidade', target: '_blank', rel: 'noopener', text: 'Política de privacidade' })]),
+          el('div', { class: 'tour-rodape' }, [botao]),
+        ]),
+      ]);
+      botao.addEventListener('click', function () {
+        botao.disabled = true;
+        botao.textContent = 'Guardando…';
+        salvarLoja({ termos: { versao: R.TERMOS_VERSAO, aceitoEm: new Date().toISOString() } }).then(function () {
+          if (caixa.parentNode) caixa.parentNode.removeChild(caixa);
+          UI.soar('sucesso');
+          if (depois) depois();
+        }).catch(function (e) {
+          botao.disabled = false;
+          botao.textContent = 'Li e aceito';
+          UI.avisar(D.erroAmigavel(e, 'Não deu para guardar agora. Tente de novo.'));
+        });
+      });
+      raiz.appendChild(caixa);
+      estado.parar.push(function () { if (caixa.parentNode) caixa.parentNode.removeChild(caixa); });
+      try { caixa.focus({ preventScroll: true }); } catch (_) { caixa.focus(); }
+    }
+
     function abrirTour() {
       if (tour || estado.equipe) return;
       var passos = passosDoTour();
@@ -901,17 +988,25 @@
       ini.setHours(5, 0, 0, 0);
       var inicioDoDia = ini.toISOString();
       var grupos = [
+        /* cancelado com o dinheiro ainda com a loja: fica no topo, aberto, ate devolver (de qualquer dia) */
+        { titulo: 'Falta devolver', lista: estado.aDevolver || [] },
         { titulo: 'Aguardando pagamento', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
         { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
-        /* "hoje" e o dia de trabalho da fila (desde as 5 h): depois da meia-noite os pedidos da noite continuam aqui */
-        { titulo: 'Concluídos hoje', filtro: function (p) { return p.status === R.STATUS.FINALIZADO && p.criadoEm >= inicioDoDia; }, fechado: true },
-        { titulo: 'Cancelados hoje', filtro: function (p) { return p.status === R.STATUS.CANCELADO && p.criadoEm >= inicioDoDia; }, fechado: true },
       ];
+      /* "hoje" e o dia de trabalho da fila (desde as 5 h): depois da meia-noite os pedidos da noite continuam aqui.
+         Concluidos e cancelados so depois que o dono abre (a fila nao escuta mais o dia inteiro) */
+      var encerrados = estado.encerrados ? Object.keys(estado.encerrados).map(function (id) { return estado.encerrados[id]; }).filter(function (p) { return p.criadoEm >= inicioDoDia; }) : null;
+      if (encerrados) {
+        var devolver = {};
+        (estado.aDevolver || []).forEach(function (p) { devolver[p.id] = true; });
+        grupos.push({ titulo: 'Concluídos hoje', lista: encerrados.filter(function (p) { return p.status === R.STATUS.FINALIZADO; }), fechado: true });
+        grupos.push({ titulo: 'Cancelados hoje', lista: encerrados.filter(function (p) { return p.status === R.STATUS.CANCELADO && !devolver[p.id]; }), fechado: true });
+      }
       var algum = false;
       grupos.forEach(function (g) {
-        var lista = estado.pedidos.filter(g.filtro);
+        var lista = g.lista || estado.pedidos.filter(g.filtro);
         if (lista.length === 0) return;
         algum = true;
         var titulo = el('div', { class: 'fila-titulo' }, [el('span', { text: g.titulo }), el('span', { text: lista.length })]);
@@ -927,17 +1022,42 @@
           det.addEventListener('toggle', function () { estado.gruposAbertos[g.titulo] = det.open; rotularGrupo(det, resumoGrupo, lista.length); });
           rotularGrupo(det, resumoGrupo, lista.length);
           det.appendChild(resumoGrupo);
-          lista.forEach(function (p) { det.appendChild(cartaoPedido(p)); });
+          lista.forEach(function (p) { det.appendChild(cartaoSeguro(p)); });
           caixa.appendChild(det);
         } else {
           lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
-          lista.forEach(function (p) { caixa.appendChild(cartaoPedido(p)); });
+          lista.forEach(function (p) { caixa.appendChild(cartaoSeguro(p)); });
         }
       });
       if (!algum) caixa.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('recibo')]), el('p', { text: 'Nenhum pedido por enquanto. Quando entrar, ele aparece aqui apitando.' })]));
+      /* concluidos e cancelados do dia: um toque carrega (uma leitura por pedido do dia, so quando o dono quer ver) */
+      if (!encerrados && store.pedidosDoDia) {
+        var carregar = el('details', {}, [el('summary', { class: 'fila-mostrar', text: estado.carregandoEncerrados ? 'Carregando…' : 'Mostrar' })]);
+        carregar.addEventListener('toggle', function () {
+          if (!carregar.open || estado.carregandoEncerrados) return;
+          estado.carregandoEncerrados = true;
+          carregar.querySelector('summary').textContent = 'Carregando…';
+          store.pedidosDoDia(slug, inicioDoDia).then(function (l) {
+            estado.encerrados = {};
+            l.forEach(function (p) { if (p.status === R.STATUS.FINALIZADO || p.status === R.STATUS.CANCELADO) estado.encerrados[p.id] = p; });
+            estado.gruposAbertos = estado.gruposAbertos || {};
+            estado.gruposAbertos['Concluídos hoje'] = true;
+            estado.gruposAbertos['Cancelados hoje'] = true;
+          }).catch(function () { UI.avisar('Não deu para carregar agora. Confira a internet e tente de novo.'); })
+            .then(function () { estado.carregandoEncerrados = false; if (vivo && estado.aba === 'pedidos') desenharPedidos(); });
+        });
+        caixa.appendChild(el('div', { class: 'fila-titulo' }, [el('span', { text: 'Concluídos e cancelados hoje' }), el('span')]));
+        caixa.appendChild(carregar);
+      }
       if (antigo) antigo.replaceWith(caixa); else s.appendChild(caixa);
     }
 
+    /* um pedido torto nunca apaga a fila inteira: ele vira um cartao curto e os outros aparecem normais */
+    function cartaoSeguro(p) {
+      try { return cartaoPedido(p); } catch (_) {
+        return el('div', { class: 'pedido-card' }, [el('div', { class: 'cliente', text: 'Senha ' + String((p && p.senha) || '?') + ': pedido com dados incompletos. Abra a ficha ou fale com o cliente.' })]);
+      }
+    }
     function cartaoPedido(p) {
       var loja = estado.loja;
       var novo = estado.novos && estado.novos.indexOf(p.id) >= 0;
@@ -957,7 +1077,7 @@
       }
       selos.push(UI.seloTipo(p));
       if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: p.canceladoPor === 'pix-vencido' ? 'Pix venceu' : 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
-      if (p.pagoAposCancelar) extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
+      if (p.pagoAposCancelar && !p.devolvidoEm) extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
 
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
       card.appendChild(el('div', { class: 'cabeca' }, [
@@ -1015,6 +1135,13 @@
       var proximo = R.proximoStatus(p);
       if (proximo && R.rotuloProximoPasso(p)) {
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
+      }
+      /* cancelado com o dinheiro ainda com a loja (pagou depois de cancelar, ou a devolucao falhou): devolve daqui,
+         no lugar do botao principal (o mesmo desenho dos outros cartoes) */
+      if (p.status === R.STATUS.CANCELADO && pagoPeloSite(p)) {
+        acoes.appendChild(el('button', { class: 'btn btn-principal', text: 'Devolver ' + dinheiro(p.total), onclick: function () {
+          UI.perguntar('Devolver ' + dinheiro(p.total) + ' da senha ' + p.senha + ' para o cliente pelo Mercado Pago?', { sim: 'Devolver', nao: 'Voltar' }).then(function (sim) { if (sim) devolverPagamento(p); });
+        } }));
       }
       /* conversa com quem ja recebe os avisos sozinho (duvida, troco, endereco) */
       if (avisoSozinho && p.cliente.telefone) {
@@ -1941,7 +2068,9 @@
           conteudo.appendChild(caixaTabela);
           desenharClientes();
           conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () {
-            var csv = 'Nome;WhatsApp;Bairro;Pedidos;Total\n' + listaClientes.map(function (c) { return [c.nome, c.telefone, c.bairro, c.pedidos, (c.total / 100).toFixed(2).replace('.', ',')].join(';'); }).join('\n');
+            /* celula segura: texto que comeca com = + - @ vira texto (nada de formula no Excel), com aspas quando precisa */
+            var celula = function (v) { var t = String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' '); if (/^[=+\-@]/.test(t)) t = "'" + t; return /[;"]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+            var csv = 'Nome;WhatsApp;Bairro;Pedidos;Total\n' + listaClientes.map(function (c) { return [celula(c.nome), celula(c.telefone), celula(c.bairro), c.pedidos, (c.total / 100).toFixed(2).replace('.', ',')].join(';'); }).join('\n');
             UI.copiar(csv).then(function () { UI.avisar('Lista copiada. Cole no Excel ou no Planilhas.'); });
           } }, [UI.iconeLinha('copiar'), 'Copiar para o Excel']));
         }
@@ -2253,32 +2382,41 @@
 
       var cupons = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
       var listaCupons = el('div', { class: 'pilha' });
-      (l.cupons || []).forEach(function (c, i) {
-        var chave = el('button', { class: 'chave' + (c.ativo !== false ? ' on' : ''), type: 'button', 'aria-label': 'Ligar ou desligar ' + c.codigo, onclick: function () {
-          var lista = D.clonar(estado.loja.cupons);
-          lista[i].ativo = !(lista[i].ativo !== false);
-          salvarLoja({ cupons: lista }, 'Cupom ' + (lista[i].ativo ? 'ligado' : 'desligado')).then(desenharAjustes);
-        } });
-        var excluir = el('button', { class: 'editar', type: 'button', 'aria-label': 'Excluir ' + c.codigo, onclick: function () {
-          UI.perguntar('Excluir o cupom ' + c.codigo + '?', { sim: 'Excluir', perigo: true }).then(function (sim) {
-            if (!sim) return;
-            salvarLoja({ cupons: estado.loja.cupons.filter(function (x) { return x.codigo !== c.codigo; }) }, 'Cupom excluído').then(desenharAjustes);
-          });
-        } }, [UI.iconeLinha('fechar')]);
-        function textoUsos(usos) { return (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? usos + ' de ' + c.limite + ' usos' : usos + ' usos'); }
-        var usosTexto = el('small', { text: textoUsos(c.usos || 0) });
-        /* na nuvem os usos contam em contadores/cupom-CODIGO (o numero do cupom nao muda): mostra o de verdade.
-           Guardado 2 min: os Ajustes redesenham a cada salvar, e cada conferida era uma leitura por cupom */
-        estado.usosCupom = estado.usosCupom || {};
-        var sabido = estado.usosCupom[c.codigo];
-        if (sabido && Date.now() - sabido.em < 2 * 60 * 1000) usosTexto.textContent = textoUsos(sabido.n);
-        else if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { estado.usosCupom[c.codigo] = { n: Number(n) || 0, em: Date.now() }; usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
-        listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
-          el('div', { class: 'nome nome-cupom' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
-          excluir,
-          chave,
-        ]));
-      });
+      /* a lista mora na parte privada da loja (o cliente nao ve os codigos): carrega na primeira vez que os Ajustes abrem,
+         e so a lista se redesenha (o resto dos Ajustes, talvez com algo digitado, fica como esta) */
+      if (!estado.cupons) {
+        listaCupons.appendChild(el('small', { class: 'muted', text: 'Carregando os cupons…' }));
+        carregarCupons().then(function () { if (vivo && listaCupons.isConnected) pintarCupons(); }, function () { /* fica o aviso */ });
+      } else pintarCupons();
+      function pintarCupons() {
+        UI.limpar(listaCupons);
+        (estado.cupons || []).forEach(function (c, i) {
+          var chave = el('button', { class: 'chave' + (c.ativo !== false ? ' on' : ''), type: 'button', 'aria-label': 'Ligar ou desligar ' + c.codigo, onclick: function () {
+            var lista = D.clonar(estado.cupons);
+            lista[i].ativo = !(lista[i].ativo !== false);
+            salvarCupons(lista, 'Cupom ' + (lista[i].ativo ? 'ligado' : 'desligado')).then(desenharAjustes);
+          } });
+          var excluir = el('button', { class: 'editar', type: 'button', 'aria-label': 'Excluir ' + c.codigo, onclick: function () {
+            UI.perguntar('Excluir o cupom ' + c.codigo + '?', { sim: 'Excluir', perigo: true }).then(function (sim) {
+              if (!sim) return;
+              salvarCupons(estado.cupons.filter(function (x) { return x.codigo !== c.codigo; }), 'Cupom excluído').then(desenharAjustes);
+            });
+          } }, [UI.iconeLinha('fechar')]);
+          function textoUsos(usos) { return (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? usos + ' de ' + c.limite + ' usos' : usos + ' usos'); }
+          var usosTexto = el('small', { text: textoUsos(c.usos || 0) });
+          /* na nuvem os usos contam em contadores/cupom-CODIGO (o numero do cupom nao muda): mostra o de verdade.
+             Guardado 2 min: os Ajustes redesenham a cada salvar, e cada conferida era uma leitura por cupom */
+          estado.usosCupom = estado.usosCupom || {};
+          var sabido = estado.usosCupom[c.codigo];
+          if (sabido && Date.now() - sabido.em < 2 * 60 * 1000) usosTexto.textContent = textoUsos(sabido.n);
+          else if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { estado.usosCupom[c.codigo] = { n: Number(n) || 0, em: Date.now() }; usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
+          listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
+            el('div', { class: 'nome nome-cupom' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
+            excluir,
+            chave,
+          ]));
+        });
+      }
       cupons.appendChild(listaCupons);
       cupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '+ Criar cupom', onclick: novoCupom }));
       s.appendChild(cupons);
@@ -2542,14 +2680,50 @@
         var pct = Number(percentual.input.value);
         if (cod.length < 3) return UI.avisar('Código com pelo menos 3 letras ou números.');
         if (!(pct >= 1 && pct <= 100)) return UI.avisar('Desconto entre 1 e 100.');
-        var antigo = (estado.loja.cupons || []).filter(function (c) { return c.codigo === cod; })[0];
-        var lista = (estado.loja.cupons || []).filter(function (c) { return c.codigo !== cod; });
+        var antigo = (estado.cupons || []).filter(function (c) { return c.codigo === cod; })[0];
+        var lista = (estado.cupons || []).filter(function (c) { return c.codigo !== cod; });
         lista.push({ codigo: cod, percentual: pct, minimo: minimo.centavos(), limite: Number(limite.input.value) || 0, usos: antigo ? (antigo.usos || 0) : 0, ativo: true });
         /* codigo novo (ou de um cupom excluido): zera o contador antigo antes, senao o cupom nasce esgotado.
            Se o banco recusar (regra antiga), segue e cria do mesmo jeito. */
         var zerar = antigo || !store.zerarUsosDoCupom ? Promise.resolve() : store.zerarUsosDoCupom(slug, cod).catch(function () { /* ignora */ });
-        zerar.then(function () { return salvarLoja({ cupons: lista }, 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado')); }).then(function () { UI.fecharModal(); desenharAjustes(); });
+        zerar.then(function () { return salvarCupons(lista, 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado')); }).then(function () { UI.fecharModal(); desenharAjustes(); });
       } })] });
+    }
+
+    /* Cupons na parte privada da loja (lojas/{slug}/privado/cupons): o cliente nao le a lista (antes qualquer um via os
+       codigos, ate um cupom secreto de 100%). A loja publica guarda so "temCupom", para o site mostrar o campo.
+       Loja antiga, com a lista no documento: passa para a parte privada aqui, uma vez */
+    function carregarCupons() {
+      if (estado.cupons) return Promise.resolve(estado.cupons);
+      var antigos = D.clonar(estado.loja.cupons || []);
+      return mensageiroConfereCupom().then(function (novo) {
+        /* mensageiro antigo (sem /cupom): o site do cliente ainda confere o codigo pela lista da loja, entao ela fica la */
+        if (!novo) { estado.cuponsNaLoja = true; estado.cupons = antigos; return null; }
+        return store.lerSegredo ? store.lerSegredo(slug, 'cupons').catch(function () { return undefined; }) : null;
+      }).then(function (seg) {
+        if (estado.cuponsNaLoja) return estado.cupons;
+        if (seg === undefined) { estado.cuponsNaLoja = true; estado.cupons = antigos; return estado.cupons; } /* leitura falhou: mostra o que tem, sem mudar nada */
+        var lista = seg && Array.isArray(seg.lista) ? seg.lista : [];
+        antigos.forEach(function (c) { if (!lista.some(function (x) { return x.codigo === c.codigo; })) lista.push(c); });
+        estado.cupons = lista;
+        if (antigos.length) return salvarCupons(lista, '').then(function () { return estado.cupons; }, function () { return estado.cupons; });
+        return estado.cupons;
+      });
+    }
+    /* O mensageiro ja confere cupom (/cupom)? O antigo responde 404 a rota que nao conhece. Pergunta uma vez por abertura */
+    function mensageiroConfereCupom() {
+      if (D.modoDemo) return Promise.resolve(true);
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (!cfg.proxyMercadoPago || !window.fetch) return Promise.resolve(false);
+      if (estado.cupomNoMensageiro != null) return Promise.resolve(estado.cupomNoMensageiro);
+      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/cupom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { estado.cupomNoMensageiro = r.status !== 404; return estado.cupomNoMensageiro; }, function () { return false; });
+    }
+    function salvarCupons(lista, msg) {
+      estado.cupons = lista;
+      if (estado.cuponsNaLoja) return salvarLoja({ cupons: lista }, msg);
+      return store.guardarSegredo(slug, 'cupons', { lista: D.clonar(lista), atualizadoEm: new Date().toISOString() })
+        .then(function () { return salvarLoja({ cupons: [], temCupom: lista.some(function (c) { return c.ativo !== false; }) }, msg); });
     }
 
     /* ---------------------------------------------------------- links */

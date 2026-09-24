@@ -95,7 +95,7 @@
       UI.limpar(lista); lista.appendChild(UI.erroCarregar('Não deu para carregar as cidades.')); return null;
     }).then(function (lojas) {
       if (!lojas) return;
-      var mapa = {};
+      var mapa = Object.create(null); /* cidade "__proto__" gravada por fora nao contamina o site */
       lojas.forEach(function (l) {
         if (l.ativa === false || R.lojaBloqueada(l)) return;
         if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: [] };
@@ -351,7 +351,7 @@
       desenhar(lojas);
       /* outras cidades com loja: o nome da cidade no titulo vira seletor */
       if (store.listarVitrine) store.listarVitrine().then(function (todas) {
-        var mapa = {};
+        var mapa = Object.create(null);
         todas.forEach(function (l) {
           if (l.ativa === false || R.lojaBloqueada(l)) return;
           if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: 0, abertas: 0 };
@@ -624,9 +624,17 @@
       }
     }
 
+    /* cupom confirmado pelo mensageiro (a lista de cupons nao vem na loja publica): fica junto da loja nesta visita,
+       ate quando a loja se atualiza */
+    function juntarCupons(l) {
+      var extras = estado.cuponsExtra || [];
+      if (!l || !extras.length) return l;
+      var lista = (l.cupons || []).filter(function (c) { return extras.every(function (x) { return x.codigo !== c.codigo; }); }).concat(extras);
+      return Object.assign({}, l, { cupons: lista });
+    }
     function aplicarLoja(dados, atualizacao) {
       var primeira = !estado.loja;
-      estado.loja = dados;
+      estado.loja = juntarCupons(dados);
       estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
@@ -1207,32 +1215,57 @@
         $('cupomNome').textContent = estado.cupom.codigo;
         $('cupomQuanto').textContent = estado.cupom.percentual === 100 ? 'pedido grátis' : '−' + estado.cupom.percentual + '% nos itens';
       }
-      $('blocoCupom').hidden = !(estado.loja && estado.loja.cupons && estado.loja.cupons.length) && !tem;
+      $('blocoCupom').hidden = !(estado.loja && (estado.loja.temCupom === true || (estado.loja.cupons && estado.loja.cupons.length))) && !tem;
     }
     $('btnAbrirCupom').addEventListener('click', function () { $('formCupom').hidden = false; $('btnAbrirCupom').hidden = true; $('campoCupom').focus(); });
     $('btnTirarCupom').addEventListener('click', function () { estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; $('campoCupom').value = ''; $('msgCupom').hidden = true; montarCarrinho(); atualizarBarraCarrinho(); });
+    /* O codigo vale? Pergunta ao mensageiro (a lista de cupons e da loja, nao do publico). Mensageiro antigo: null, e
+       vale a lista que vier na loja. Na demonstracao, a lista guardada no aparelho */
+    function buscarCupom(codigo) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo) {
+        return (store.lerSegredo ? store.lerSegredo(estado.loja.slug, 'cupons') : Promise.resolve(null)).then(function (s) {
+          var regra = ((s && s.lista) || []).filter(function (x) { return x.codigo === codigo; })[0];
+          return regra ? { cupom: regra } : null;
+        }).catch(function () { return null; });
+      }
+      if (!cfg.proxyMercadoPago || !window.fetch) return Promise.resolve(null);
+      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/cupom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loja: estado.loja.slug, codigo: codigo }) })
+        .then(function (r) { return r.status === 404 ? null : r.json().catch(function () { return {}; }).then(function (j) { return j || {}; }); })
+        .catch(function () { return { erro: 'Sem internet agora. Confira e tente de novo.' }; });
+    }
     function aplicarCupom() {
       var digitado = $('campoCupom').value.trim();
       var msg = $('msgCupom');
       if (!digitado) { msg.hidden = false; msg.textContent = 'Digite o código para aplicar.'; return; }
       if (estado.carrinho.length === 0) { msg.hidden = false; msg.textContent = 'Adicione um item antes do código.'; return; }
+      var codigo = R.semAcento(digitado).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
+      var conhecido = (estado.loja.cupons || []).some(function (x) { return x.codigo === codigo; });
+      var botao = $('btnAplicarCupom');
+      botao.disabled = true;
+      (conhecido ? Promise.resolve(null) : buscarCupom(codigo)).then(function (res) {
+        botao.disabled = false;
+        if (res && res.erro) { UI.soar('erro'); msg.hidden = false; msg.textContent = res.erro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
+        if (res && res.cupom) {
+          estado.cuponsExtra = (estado.cuponsExtra || []).filter(function (x) { return x.codigo !== res.cupom.codigo; }).concat([res.cupom]);
+          estado.loja = juntarCupons(estado.loja);
+        }
+        aplicarCupomConferido(digitado, msg);
+      });
+    }
+    function aplicarCupomConferido(digitado, msg) {
       var orc;
       try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado }); }
       catch (e) { msg.hidden = false; msg.textContent = e && e.message ? e.message : 'Algo mudou no cardápio. Confira o pedido.'; return; }
       if (orc.cupomErro) { UI.soar('erro'); msg.hidden = false; msg.textContent = orc.cupomErro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
-      /* cupom com limite: os usos de verdade ficam num contador (o numero dentro da loja nao sobe). Uma leitura so, na
-         hora de aplicar, para o cliente saber ja aqui, e nao so ao pagar, que o codigo acabou */
-      var regra = (estado.loja.cupons || []).filter(function (x) { return x.codigo === orc.cupom; })[0];
-      var conferir = regra && regra.limite > 0 && !D.modoDemo && store.usosDoCupom ? store.usosDoCupom(estado.loja.slug, orc.cupom) : Promise.resolve(0);
-      conferir.then(function (usos) {
-        if (regra && regra.limite > 0 && usos >= regra.limite) { UI.soar('erro'); msg.hidden = false; msg.textContent = 'Esse código já foi todo usado.'; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
-        msg.hidden = true;
-        estado.cupom = { codigo: orc.cupom, percentual: orc.cupomPercentual, desconto: orc.desconto };
-        UI.soar('sucesso');
-        UI.avisar('Código aplicado! −' + dinheiro(orc.desconto));
-        montarCarrinho();
-        atualizarBarraCarrinho();
-      });
+      /* cupom com limite: quem conta os usos e o mensageiro, na hora de criar o pedido (o contador e fechado para o
+         publico). Esgotado, o envio avisa "Esse codigo ja foi todo usado" e o pedido nao nasce: nenhuma leitura aqui */
+      msg.hidden = true;
+      estado.cupom = { codigo: orc.cupom, percentual: orc.cupomPercentual, desconto: orc.desconto };
+      UI.soar('sucesso');
+      UI.avisar('Código aplicado! −' + dinheiro(orc.desconto));
+      montarCarrinho();
+      atualizarBarraCarrinho();
     }
     $('btnAplicarCupom').addEventListener('click', aplicarCupom);
     $('campoCupom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); aplicarCupom(); } });
@@ -1495,7 +1528,7 @@
       conferir.then(function (fresca) {
         if (!vivo) return;
         if (fresca) {
-          estado.loja = fresca;
+          estado.loja = juntarCupons(fresca);
           if (fechouNoMeio()) { soltar(); return; }
           if (orcamento().total !== totalVisto) {
             UI.soar('erro');
@@ -1535,14 +1568,22 @@
       var esperarAviso = estado.avisoCelPromessa && !balcao
         ? Promise.race([estado.avisoCelPromessa.then(function () {}, function () {}), new Promise(function (r) { setTimeout(r, 4000); })])
         : Promise.resolve();
+      var avisado = false;
       esperarAviso.then(function () {
         if (estado.avisoCel && estado.avisoCelQuer !== false && !balcao) pedido.aviso = estado.avisoCel;
-        return store.criarPedido(estado.loja.slug, pedido);
+        /* o pedido nasce no servidor (ele refaz a conta pelo cardapio, da a senha e conta o cupom); o banco nao aceita
+           pedido gravado direto. Servidor antigo, sem a rota: o caminho de antes, ate o novo entrar no ar */
+        return criarNoServidor(dados, pedido.aviso).then(function (r) {
+          if (r === null) return store.criarPedido(estado.loja.slug, pedido);
+          avisado = !!r.avisado;
+          return r.pedido;
+        });
       }).then(function (gravado) {
         estado.enviandoPedido = false;
         estado.pedido = gravado;
-        /* pedido ja na fila (pago ou para cobrar na entrega): o painel e a cozinha apitam, mesmo com a tela apagada */
-        if (window.LigeiroAvisos) window.LigeiroAvisos.pedidoNovo(estado.loja.slug, gravado);
+        /* pedido ja na fila (pago ou para cobrar na entrega): o painel e a cozinha apitam, mesmo com a tela apagada
+           (o servidor novo ja avisou quando criou) */
+        if (window.LigeiroAvisos && !avisado) window.LigeiroAvisos.pedidoNovo(estado.loja.slug, gravado);
         salvarDadosDoCliente();
         if (!balcao) guardarMeuPedido(estado.loja.slug, gravado);
         estado.ultimoCarrinho = estado.carrinho; /* se desistir do Pix, os itens voltam */
@@ -1555,7 +1596,7 @@
         if (gravado.status === R.STATUS.AGUARDANDO) mostrarPagar(gravado);
         else mostrarSenha(gravado);
       }).catch(function (erro) {
-        if (D.ehLimite && D.ehLimite(erro)) {
+        if ((erro && erro.pausa) || (D.ehLimite && D.ehLimite(erro))) {
           estado.pausaLocal = true;
           if (store.avisarPausa) store.avisarPausa();
           abrirPausa(pedido);
@@ -1572,6 +1613,28 @@
         estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
+      });
+    }
+
+    /* Cria o pedido no servidor. Devolve { pedido, avisado }, ou null quando nao da para usar o servidor (demonstracao,
+       sem mensageiro, ou mensageiro antigo sem a rota): ai o pedido vai pelo caminho de antes */
+    function criarNoServidor(dados, aviso) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo || !cfg.proxyMercadoPago || !window.fetch) return Promise.resolve(null);
+      var login = balcao && store.obterIdToken ? store.obterIdToken().catch(function () { return ''; }) : Promise.resolve('');
+      return login.then(function (token) {
+        var cab = { 'Content-Type': 'application/json' };
+        if (token) cab.Authorization = 'Bearer ' + token;
+        return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/pedido', { method: 'POST', headers: cab, body: JSON.stringify({ loja: estado.loja.slug, dados: dados, aviso: aviso || null }) });
+      }).then(function (r) {
+        if (r.status === 404) return null; /* mensageiro antigo */
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.ok && j && j.pedido) return j;
+          var e = new Error((j && j.erro) || 'Não conseguimos enviar o pedido. Tente de novo.');
+          e.publico = true;
+          if (j && j.pausa) e.pausa = true;
+          throw e;
+        });
       });
     }
 
@@ -2491,6 +2554,8 @@
           '</div>' +
           '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small>Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
           (balcao ? '' : '<p class="nota">' + UI.iconeHtml('cadeado') + 'Seus dados ficam guardados só neste aparelho.</p>') +
+          /* quem pede sabe com quem esta comprando e onde estao as regras (sem caixinha: pedir comida nao pode ter atrito) */
+          '<p class="nota nota-termos">Ao pedir, você compra da loja e concorda com os <a href="#/termos" target="_blank" rel="noopener">termos</a> e a <a href="#/privacidade" target="_blank" rel="noopener">privacidade</a>.</p>' +
           '<div class="msg-erro" id="erroDados" hidden></div>' +
         '</form>' +
       '</div>' +

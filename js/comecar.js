@@ -148,7 +148,8 @@
     /* #/comecar/<plano>/<tipo>; links antigos #/comecar/anual continuam valendo */
     var planoId = R.planos().some(function (p) { return p.id === o.plano; }) ? o.plano : R.planos()[0].id;
     var planoTipo = (o.tipo === 'anual' || o.plano === 'anual') && R.planoPorId(planoId).anual > 0 ? 'anual' : 'mensal';
-    var precoPlano = R.precoDoPlano(planoId, planoTipo); /* visitante: fundador enquanto houver vaga */
+    /* visitante: fundador so com vaga confirmada; a conta e refeita a cada tela (as vagas se conferem por tras) */
+    function precoPlanoAgora() { return R.precoDoPlano(planoId, planoTipo); }
     var planoNome = R.planoPorId(planoId).nome;
     var TIPOS = R.TIPOS_DE_LOJA;
     document.title = 'Crie sua loja no Ligeiro';
@@ -197,11 +198,28 @@
       return i;
     }
     function focar(i) { setTimeout(function () { try { i.focus(); } catch (_) { /* ignora */ } }, 60); }
+    /* aceite de verdade: caixinha desmarcada que a pessoa marca (antes era "ao criar voce aceita", o aceite mais fraco) */
     function legal() {
-      return el('p', { class: 'muted pequeno centro cadastro-legal' }, [
-        'Grátis por ' + precos.diasGratis + ' dias. Depois, ' + R.dinheiro(precoPlano).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', sem cartão agora, sem fidelidade e sem comissão. Ao criar a loja você aceita os ',
-        el('a', { href: '#/termos', target: '_blank', text: 'termos de uso' }), ' e a ', el('a', { href: '#/privacidade', target: '_blank', text: 'política de privacidade' }), '.',
+      var caixa = el('input', { type: 'checkbox', class: 'aceite-campo', id: 'aceiteTermos' });
+      caixa.checked = !!st.aceitouTermos;
+      caixa.addEventListener('change', function () { st.aceitouTermos = caixa.checked; aceite.classList.remove('falta'); if (caixa.checked) erro.hidden = true; });
+      var aceite = el('label', { class: 'aceite-termos', for: 'aceiteTermos' }, [
+        caixa,
+        el('span', { class: 'aceite-caixa', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]),
+        el('span', { class: 'aceite-texto' }, ['Li e aceito os ', el('a', { href: '#/termos', target: '_blank', text: 'termos de uso' }), ' e a ', el('a', { href: '#/privacidade', target: '_blank', text: 'política de privacidade' }), '.']),
       ]);
+      return el('div', { class: 'cadastro-legal' }, [
+        aceite,
+        el('p', { class: 'muted pequeno centro', text: 'Grátis por ' + precos.diasGratis + ' dias. Depois, ' + R.dinheiro(precoPlanoAgora()).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', sem cartão agora, sem fidelidade e sem comissão.' }),
+      ]);
+    }
+    /* sem o aceite, nada nasce (nem o login do Google abre): acende a caixinha e diz o que falta */
+    function exigirAceite() {
+      if (st.aceitouTermos) return true;
+      falhar('Marque "Li e aceito os termos de uso" para criar a loja.');
+      var a = corpo.querySelector('.aceite-termos');
+      if (a) { a.classList.remove('falta'); void a.offsetWidth; a.classList.add('falta'); a.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      return false;
     }
 
     function desenhar() {
@@ -275,32 +293,34 @@
           } }, [el('span', { class: 'icone', 'aria-hidden': 'true' }, [UI.iconeLinha(op[1])]), el('span', {}, [el('span', { class: 'rotulo', text: op[2] }), el('span', { class: 'detalhe', text: op[3] })])]);
         });
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Como é a entrega?', 'Você troca quando quiser no painel.').concat([
-          el('div', { class: 'escolhas-lista' }, opcoes), caixaTaxa, erro, botaoContinuar(function () {
+          el('div', { class: 'escolhas-lista' }, opcoes), caixaTaxa, erro, ultimo ? legal() : null, botaoContinuar(function () {
             if (!st.frete) { falhar('Toque em "Entrega grátis" ou em "Cobro uma taxa".'); return false; }
             st.taxa = iTaxa.value;
             if (st.frete === 'taxa' && UI.centavosDoCampo(iTaxa.value) <= 0) { falhar('Coloque o valor da taxa de entrega.'); focar(iTaxa); return false; }
             return true;
-          }), ultimo ? legal() : null,
+          }),
         ])));
       }
 
       if (passo === 'senha') {
         var iSenha = entrada({ rotulo: 'Senha do painel', placeholder: '4 números', inputmode: 'numeric', max: 20, valor: st.senhaDemo });
-        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Crie a senha do painel', 'Você digita ela para ver os pedidos. Na demonstração, 4 números bastam.').concat([iSenha, erro, botaoContinuar(function () {
+        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Crie a senha do painel', 'Você digita ela para ver os pedidos. Na demonstração, 4 números bastam.').concat([iSenha, erro, legal(), botaoContinuar(function () {
           st.senhaDemo = iSenha.value.trim();
           if (st.senhaDemo.length < 4) { falhar('Senha do painel com pelo menos 4 números.'); return false; }
           return true;
-        }), legal()])));
+        })])));
         focar(iSenha);
       }
 
       if (passo === 'acesso') {
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Última coisa: onde guardar sua loja?', 'Entre com o Google e pronto. É com ele que você abre o painel depois, em qualquer celular.').concat([
+          legal(),
           el('button', { class: 'btn btn-google btn-gigante btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function (e) {
             botao = e.currentTarget;
+            if (!exigirAceite()) return;
             store.entrarComGoogle().then(function (u) { if (u) { contaLogada = u; criar(); } }).catch(function (x) { falhar(x.message); });
           } }),
-          erro, legal(),
+          erro,
         ])));
       }
       window.scrollTo(0, 0);
@@ -308,6 +328,7 @@
 
     /* cria a loja com as respostas (mesma regra de antes: plano da conta, limite de lojas, cardapio-modelo do tipo) */
     function criar() {
+      if (!exigirAceite()) return;
       erro.hidden = true;
       var falta = !st.nome ? 'nome' : !st.cidade ? 'cidade' : !st.whatsapp ? 'whatsapp' : '';
       if (falta && PASSOS.indexOf(falta) >= 0) { atual = PASSOS.indexOf(falta); desenhar(); falhar('Falta responder este passo.'); return; }
@@ -325,6 +346,8 @@
         categorias: [], produtos: [], grupos: {}, gruposPorCategoria: {},
         configurada: false,
         plano: { status: 'teste', tipo: planoTipo, planoId: planoId, desde: new Date().toISOString() },
+        /* o aceite fica gravado: qual versao e quando */
+        termos: { versao: R.TERMOS_VERSAO, aceitoEm: new Date().toISOString() },
       };
       if (D.modoDemo) dados.senhaPainel = st.senhaDemo;
       var modelo = modeloDoTipo(tipo);
@@ -419,7 +442,7 @@
         el('img', { class: 'pronto-mascote', src: 'img/mascote-192.webp', alt: '', width: '96', height: '96' }),
         el('h2', { text: loja.nome + ' está no ar' }),
         el('p', { class: 'muted', text: 'Sua loja já tem itens de exemplo. Ajuste nomes e preços no painel e comece a divulgar.' }),
-        el('p', { class: 'muted pequeno', text: 'Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlano).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
+        el('p', { class: 'muted pequeno', text: 'Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlanoAgora()).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
       ]));
       corpo.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Seu link (para bio e para o WhatsApp)' }),

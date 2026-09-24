@@ -33,13 +33,29 @@
     });
     return l;
   }
-  function daNuvem(dados) {
-    if (!dados) return dados;
-    if (dados.horarios) Object.keys(dados.horarios).forEach(function (dia) {
-      dados.horarios[dia] = (dados.horarios[dia] || []).map(function (f) { return typeof f === 'string' ? f.split('-') : f; });
+  /* Loja ou resumo vindo do banco (ou da borda): os tipos que as telas usam, sempre. Um dono que grave um horario ou um
+     nome torto por fora nao derruba a pagina das cidades de todo mundo. O slug e o do documento (id), nunca o escrito
+     dentro: uma loja nao se passa por outra */
+  function daNuvem(dados, id) {
+    if (!dados || typeof dados !== 'object') return dados;
+    if (id) dados.slug = id;
+    var h = dados.horarios;
+    if (h && typeof h === 'object' && !Array.isArray(h)) {
+      Object.keys(h).forEach(function (dia) {
+        h[dia] = (Array.isArray(h[dia]) ? h[dia] : []).map(function (f) { return typeof f === 'string' ? f.split('-') : f; })
+          .filter(function (f) { return Array.isArray(f) && f.length === 2 && typeof f[0] === 'string' && typeof f[1] === 'string'; });
+      });
+    } else if ('horarios' in dados) dados.horarios = {};
+    ['nome', 'descricao', 'cidade', 'cidadeSlug', 'tipo', 'emoji', 'uf', 'avisoTopo'].forEach(function (k) {
+      if (k in dados && dados[k] != null && typeof dados[k] !== 'string') dados[k] = String(dados[k]);
     });
+    if (dados.cidadeSlug && !/^[a-z0-9-]{1,60}$/.test(dados.cidadeSlug)) dados.cidadeSlug = '';
+    /* imagem so do proprio site ou em dados (nada de endereco de fora para rastrear quem abre a loja) */
+    ['logoUrl', 'capaUrl'].forEach(function (k) { if (dados[k] && !imagemSegura(dados[k])) dados[k] = ''; });
+    if (Array.isArray(dados.produtos)) dados.produtos.forEach(function (p) { if (p && p.fotoUrl && !imagemSegura(p.fotoUrl)) p.fotoUrl = ''; });
     return dados;
   }
+  function imagemSegura(url) { var t = String(url || ''); return /^data:image\/(jpeg|png|webp|gif);/i.test(t) || /^img\/[A-Za-z0-9_\/.-]+$/.test(t); }
 
   function idAleatorio(tamanho) {
     var letras = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -555,15 +571,15 @@
     var todos = db.pedidos[lojaSlug] || {};
     var lista = Object.keys(todos).map(function (k) { return todos[k]; });
     if (o.status) lista = lista.filter(function (p) { return o.status.indexOf(p.status) >= 0 && (!o.tipoEntrega || p.tipoEntrega === o.tipoEntrega); });
+    else if (o.devolver) lista = lista.filter(function (p) { return p.status === 'cancelado' && p.pagamentoStatus === 'pago'; });
     else if (o.desde) lista = lista.filter(function (p) { return p.criadoEm >= o.desde; });
     lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
     if (o.limite) lista = lista.slice(0, o.limite);
     return Promise.resolve(lista.map(clonar));
   };
 
-  DemoStore.prototype.pedidosParados = function (lojaSlug, antesDe) {
-    return this.listarPedidos(lojaSlug, { status: ['pago', 'producao', 'pronto'] }).then(function (l) { return l.filter(function (p) { return String(p.criadoEm || '') < antesDe; }); });
-  };
+  DemoStore.prototype.pedidoDoCache = function (lojaSlug, id) { return this.obterPedido(lojaSlug, id).catch(function () { return null; }); };
+  DemoStore.prototype.pedidosDoDia = function (lojaSlug, desde) { return this.listarPedidos(lojaSlug, { desde: desde }); };
 
   DemoStore.prototype.atualizarPedido = function (lojaSlug, id, mudancas) {
     var db = this._ler();
@@ -590,6 +606,8 @@
   };
 
   DemoStore.prototype.obterIdToken = function () { return Promise.resolve('demo'); };
+  DemoStore.prototype.marcarDono = function () { return Promise.resolve(false); };
+  DemoStore.prototype.lojaDaEquipe = function (slug) { return this.obterLoja(slug); };
 
   /* Segredos da loja (token do Mercado Pago): na demonstracao ficam so neste aparelho. */
   DemoStore.prototype.lerSegredo = function (slug, nome) {
@@ -791,7 +809,7 @@
         if (daMemoria) { if (daMemoria.valor) abrir(daMemoria.valor); else falhar(new Error('sem internet')); }
       }, 4000);
       parar = eu.db.collection('lojas').doc(slug).onSnapshot({ includeMetadataChanges: true }, function (d) {
-        var valor = d.exists ? daNuvem(d.data()) : null;
+        var valor = d.exists ? daNuvem(d.data(), d.id) : null;
         if (!tem) {
           if (!d.metadata.fromCache) { abrir(valor); return; }
           if (!prazoPassou) { daMemoria = { valor: valor }; return; }
@@ -829,7 +847,7 @@
       return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
         if (x.status === 404) return null;
         if (x.status !== 200 || !x.dados.loja) throw erroBorda();
-        var l = daNuvem(x.dados.loja);
+        var l = daNuvem(x.dados.loja, slug);
         /* o banco gratis chegou no limite de hoje: a loja manda o pedido pelo WhatsApp ate zerar (de madrugada) */
         if (x.dados.pausa === true) l._pausaSite = true;
         return l;
@@ -957,39 +975,80 @@
     var cancelado = false;
     this._pronto.then(function () {
       if (cancelado) return;
-      parar = this.db.collection('lojas').doc(slug).onSnapshot(function (d) { cb(d.exists ? daNuvem(d.data()) : null); });
+      parar = this.db.collection('lojas').doc(slug).onSnapshot(function (d) { cb(d.exists ? daNuvem(d.data(), d.id) : null); });
     }.bind(this));
     return function () { cancelado = true; parar(); };
   };
+
+  /* Pedido que chega do banco passa por aqui antes de qualquer tela: cliente sempre objeto, itens sempre lista de itens
+     com texto e numero no lugar certo, adicionais e removidos sempre listas. Um pedido torto (gravado por fora) nunca
+     derruba a fila do painel, da cozinha ou do entregador. O id e o do documento (nunca o que veio escrito dentro) */
+  function texto(v, max) { return v == null ? '' : String(v).slice(0, max || 300); }
+  function sanearPedido(doc) {
+    var x = doc && typeof doc.data === 'function' ? (doc.data() || {}) : (doc || {});
+    if (doc && doc.id) x.id = doc.id;
+    if (!x.cliente || typeof x.cliente !== 'object' || Array.isArray(x.cliente)) x.cliente = {};
+    x.cliente.nome = texto(x.cliente.nome, 80);
+    x.cliente.telefone = texto(x.cliente.telefone, 20);
+    if (x.endereco && (typeof x.endereco !== 'object' || Array.isArray(x.endereco))) x.endereco = {};
+    if (x.endereco) Object.keys(x.endereco).forEach(function (k) { x.endereco[k] = texto(x.endereco[k], 140); });
+    x.itens = (Array.isArray(x.itens) ? x.itens : []).filter(function (it) { return it && typeof it === 'object'; }).map(function (it) {
+      var y = Object.assign({}, it);
+      y.nome = texto(it.nome, 120);
+      y.quantidade = Math.max(0, Math.floor(Number(it.quantidade) || 0));
+      y.adicionais = (Array.isArray(it.adicionais) ? it.adicionais : []).filter(function (a) { return a && typeof a === 'object'; });
+      y.removidos = (Array.isArray(it.removidos) ? it.removidos : []).map(function (r) { return texto(r, 60); });
+      if (y.tamanho && typeof y.tamanho !== 'object') y.tamanho = null;
+      y.observacao = texto(it.observacao, 300);
+      return y;
+    });
+    x.observacao = texto(x.observacao, 300);
+    ['total', 'subtotal', 'taxaEntrega', 'desconto', 'trocoPara', 'acrescimoCartao'].forEach(function (k) { if (k in x) x[k] = Math.round(Number(x[k]) || 0); });
+    return x;
+  }
 
   FirebaseStore.prototype.assistirPedidos = function (lojaSlug, cb, opcoes) {
     var o = opcoes || {};
     var parar = function () {};
     var cancelado = false;
-    this._pronto.then(function () {
-      if (cancelado) return;
-      var q = this.db.collection('lojas').doc(lojaSlug).collection('pedidos');
+    var db = null;
+    function ouvir(comTipo) {
+      var q = db.collection('lojas').doc(lojaSlug).collection('pedidos');
       /* filtro por situacao (cozinha, entregador): so o que esta em andamento, sem ordenar no banco (dispensa indice composto) */
+      /* sempre com limite: as regras do banco exigem (a equipe nunca puxa o historico inteiro de clientes) */
       if (o.status) {
-        q = q.where('status', 'in', o.status); /* so um filtro no banco: o tipo de entrega e separado no aparelho (sem indice composto) */
+        /* entregador: o tipo de entrega tambem no banco. Pedido de retirada nem chega (antes ele pagava a leitura de
+           todos e separava no aparelho: ~40% das leituras dele eram de retirada) */
+        if (comTipo) q = q.where('tipoEntrega', '==', o.tipoEntrega);
+        q = q.where('status', 'in', o.status).limit(300);
+      } else if (o.devolver) {
+        /* cancelado com o dinheiro pago pelo site: poucos, e a tela separa os ja devolvidos */
+        q = q.where('status', '==', 'cancelado').where('pagamentoStatus', '==', 'pago').limit(50);
       } else {
         if (o.desde) q = q.where('criadoEm', '>=', o.desde);
-        q = q.orderBy('criadoEm', 'desc');
-        if (o.limite) q = q.limit(o.limite);
+        q = q.orderBy('criadoEm', 'desc').limit(Math.min(o.limite || 300, 300));
       }
       parar = q.onSnapshot(function (snap) {
         var lista = [];
         /* pedido torto (sem cliente ou sem itens) nao pode derrubar a fila inteira da loja */
-        snap.forEach(function (d) { var x = d.data(); if (!x.cliente || typeof x.cliente !== 'object') x.cliente = {}; if (!Array.isArray(x.itens)) x.itens = []; lista.push(x); });
-        if (o.status) {
+        snap.forEach(function (d) { try { lista.push(sanearPedido(d)); } catch (_) { /* pedido ilegivel: fica de fora, a fila segue */ } });
+        if (o.status || o.devolver) {
           if (o.tipoEntrega) lista = lista.filter(function (p) { return p.tipoEntrega === o.tipoEntrega; });
           lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
         }
         cb(lista, !!(snap.metadata && snap.metadata.fromCache));
       }, function (e) {
+        /* o banco pediu um indice para os dois filtros: volta para o filtro de sempre (so a situacao), sem a tela parar */
+        if (comTipo && e && e.code === 'failed-precondition' && !cancelado) { ouvir(false); return; }
+        if (o.devolver) return; /* a lista do "Falta devolver" e extra: sem ela o painel segue */
         /* banco recusou (saiu da conta, senha da equipe trocada): a tela precisa saber, senao fica muda pra sempre */
         if (typeof o.aoErro === 'function') o.aoErro(e);
       });
+    }
+    this._pronto.then(function () {
+      if (cancelado) return;
+      db = this.db;
+      ouvir(!!(o.status && o.tipoEntrega));
     }.bind(this));
     return function () { cancelado = true; parar(); };
   };
@@ -1000,7 +1059,7 @@
     this._pronto.then(function () {
       if (cancelado) return;
       parar = this.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id)
-        .onSnapshot(function (d) { cb(d.exists ? d.data() : null); });
+        .onSnapshot(function (d) { var x = null; try { x = d.exists ? sanearPedido(d) : null; } catch (_) { x = null; } cb(x); });
     }.bind(this));
     return function () { cancelado = true; parar(); };
   };
@@ -1009,7 +1068,7 @@
     return this._pronto.then(function () {
       return this.db.collection('lojas').get().then(function (snap) {
         var lista = [];
-        snap.forEach(function (d) { lista.push(daNuvem(d.data())); });
+        snap.forEach(function (d) { try { lista.push(daNuvem(d.data(), d.id)); } catch (_) { /* loja ilegivel: fica de fora */ } });
         return lista.sort(function (a, b) { return a.nome.localeCompare(b.nome); });
       });
     }.bind(this));
@@ -1119,7 +1178,7 @@
       return eu._pronto.then(function () {
         return eu.db.collection('vitrine').get().then(function (snap) {
           var lista = [];
-          snap.forEach(function (d) { lista.push(daNuvem(d.data())); });
+          snap.forEach(function (d) { try { lista.push(daNuvem(d.data(), d.id)); } catch (_) { /* loja ilegivel: fica de fora */ } });
           return guardar(lista);
         });
       });
@@ -1152,7 +1211,7 @@
 
   FirebaseStore.prototype.obterLoja = function (slug) {
     return this._pronto.then(function () {
-      return this.db.collection('lojas').doc(slug).get().then(function (d) { return d.exists ? daNuvem(d.data()) : null; });
+      return this.db.collection('lojas').doc(slug).get().then(function (d) { return d.exists ? daNuvem(d.data(), d.id) : null; });
     }.bind(this));
   };
 
@@ -1166,7 +1225,7 @@
       return ref.update(paraNuvem(nova)).then(function () {
         eu.publicarLoja(loja.slug);
         /* vitrine acompanha: precisa da loja inteira pra montar o resumo */
-        var inteira = completa ? Promise.resolve(Object.assign({}, clonar(completa), nova)) : ref.get().then(function (d) { return d.exists ? daNuvem(d.data()) : null; });
+        var inteira = completa ? Promise.resolve(Object.assign({}, clonar(completa), nova)) : ref.get().then(function (d) { return d.exists ? daNuvem(d.data(), d.id) : null; });
         return inteira.then(function (l) {
           if (!l) return nova;
           /* so grava a vitrine quando o resumo mudou (preco de item, foto e recado nao aparecem nela): cada gravacao
@@ -1486,7 +1545,7 @@
   FirebaseStore.prototype.obterPedido = function (lojaSlug, id) {
     return this._pronto.then(function () {
       return this.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id).get()
-        .then(function (d) { return d.exists ? d.data() : null; });
+        .then(function (d) { return d.exists ? sanearPedido(d) : null; });
     }.bind(this));
   };
 
@@ -1499,7 +1558,7 @@
       if (o.limite) q = q.limit(o.limite);
       return q.get().then(function (snap) {
         var lista = [];
-        snap.forEach(function (d) { lista.push(d.data()); });
+        snap.forEach(function (d) { try { lista.push(sanearPedido(d)); } catch (_) { /* ilegivel: fora */ } });
         return lista;
       });
     }.bind(this));
@@ -1507,12 +1566,19 @@
 
   /* Pedidos que ficaram andando de outros dias (ninguem concluiu): uma leitura avulsa ao abrir o painel, sem escuta.
      So o filtro de situacao vai ao banco (dispensa indice composto); a data e separada no aparelho */
-  FirebaseStore.prototype.pedidosParados = function (lojaSlug, antesDe) {
+  /* A versao que ja esta no aparelho (sem leitura): o pedido que saiu da fila do painel chega junto com a escuta */
+  FirebaseStore.prototype.pedidoDoCache = function (lojaSlug, id) {
     return this._pronto.then(function () {
-      return this.db.collection('lojas').doc(lojaSlug).collection('pedidos').where('status', 'in', ['pago', 'producao', 'pronto']).get();
+      return this.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id).get({ source: 'cache' });
+    }.bind(this)).then(function (d) { return d.exists ? sanearPedido(d) : null; }).catch(function () { return null; });
+  };
+  /* Todos os pedidos do dia de trabalho, uma vez (o dono abriu "Concluidos e cancelados hoje") */
+  FirebaseStore.prototype.pedidosDoDia = function (lojaSlug, desde) {
+    return this._pronto.then(function () {
+      return this.db.collection('lojas').doc(lojaSlug).collection('pedidos').where('criadoEm', '>=', desde).orderBy('criadoEm', 'desc').limit(300).get();
     }.bind(this)).then(function (snap) {
       var lista = [];
-      snap.forEach(function (doc) { var x = doc.data(); if (String(x.criadoEm || '') < antesDe) lista.push(x); });
+      snap.forEach(function (doc) { try { lista.push(sanearPedido(doc)); } catch (_) { /* ilegivel: fora */ } });
       return lista;
     });
   };
@@ -1549,14 +1615,16 @@
   FirebaseStore.prototype.entrarPainel = function (lojaSlug, senha) {
     var eu = this;
     var pin = String(senha || '').trim();
-    return this.obterLoja(lojaSlug).then(function (loja) {
-      if (!loja) return false;
-      /* 1) senha da equipe; 2) dono com e-mail e senha (quem criou a conta sem Google) */
-      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; }).catch(function (e1) {
-        /* sem internet ou tentativas demais: dizer "Senha errada." fazia a equipe achar que o dono trocou a senha */
-        var c1 = (e1 && e1.code) || '';
-        if (c1 === 'auth/network-request-failed' || c1 === 'auth/too-many-requests') throw erroDeLogin(e1);
-        if (!loja.donoEmail) return false;
+    /* 1) senha da equipe (sem ler a loja); 2) dono com e-mail e senha (quem criou a conta sem Google): ai sim le a
+       loja, para saber o e-mail do dono */
+    return this._pronto.then(function () {
+      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; });
+    }).catch(function (e1) {
+      /* sem internet ou tentativas demais: dizer "Senha errada." fazia a equipe achar que o dono trocou a senha */
+      var c1 = (e1 && e1.code) || '';
+      if (c1 === 'auth/network-request-failed' || c1 === 'auth/too-many-requests') throw erroDeLogin(e1);
+      return eu.obterLoja(lojaSlug).then(function (loja) {
+        if (!loja || !loja.donoEmail) return false;
         return eu.auth.signInWithEmailAndPassword(loja.donoEmail, pin).then(function (r) {
           if (r && r.user && r.user.emailVerified === true) return true;
           /* e-mail ainda nao conferido: o banco recusa tudo. Manda o e-mail de confirmacao, sai e avisa (senao o painel recarrega sem fim) */
@@ -1572,6 +1640,36 @@
       });
     });
   };
+  /* Loja para as telas da equipe: a copia da borda (a mesma do cliente, 0 leituras no banco). Sem borda: o banco */
+  FirebaseStore.prototype.lojaDaEquipe = function (slug) {
+    var eu = this;
+    return pegarBorda('/loja/' + encodeURIComponent(slug), false).then(function (x) {
+      if (x.status === 404) return null;
+      if (x.status !== 200 || !x.dados.loja) throw erroBorda();
+      return daNuvem(x.dados.loja, slug);
+    }).catch(function () { return eu.obterLoja(slug); });
+  };
+  /* Marca do dono no login: com ela as regras reconhecem o dono sem ler a loja (cada pedido que anda no painel custava
+     2 leituras, agora 1). Pedida uma vez por loja na vida: o login ja com a marca nao chama ninguem. Falhou: tudo segue
+     igual, so mais caro */
+  FirebaseStore.prototype.marcarDono = function (slug) {
+    var eu = this;
+    var base = enderecoBorda();
+    if (!base || !slug) return Promise.resolve(false);
+    return this._pronto.then(function () {
+      var u = eu.auth.currentUser;
+      if (!u || !u.getIdTokenResult) return false;
+      return u.getIdTokenResult().then(function (res) {
+        var lojas = (res && res.claims && res.claims.lojas) || [];
+        if (Array.isArray(lojas) && lojas.indexOf(slug) >= 0) return false;
+        return fetch(base + '/dono', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + res.token }, body: JSON.stringify({ loja: slug }) })
+          .then(function (r) { return r.json().catch(function () { return {}; }); })
+          /* marca nova: token novo, e o banco passa a usar ele sozinho (as escutas abertas seguem) */
+          .then(function (j) { return j && j.marca ? u.getIdToken(true).then(function () { return true; }) : false; });
+      });
+    }).catch(function () { return false; });
+  };
+
   /* Token de identidade do usuario logado (pro mensageiro conferir quem esta pedindo). forcar = pega um token novo. */
   FirebaseStore.prototype.obterIdToken = function (forcar) {
     return this._pronto.then(function () {
@@ -1590,8 +1688,13 @@
     }.bind(this));
   };
   FirebaseStore.prototype.guardarSegredo = function (slug, nome, dados) {
+    var eu = this;
     return this._pronto.then(function () {
-      return this.db.collection('lojas').doc(slug).collection('privado').doc(nome).set(clonar(dados)).then(function () { return true; });
+      return this.db.collection('lojas').doc(slug).collection('privado').doc(nome).set(clonar(dados)).then(function () {
+        /* token do Mercado Pago trocado ou desconectado: o mensageiro esquece a copia que guardava (vale na hora) */
+        if (nome === 'mercadopago' && dados && 'token' in dados) eu.publicarLoja(slug);
+        return true;
+      });
     }.bind(this));
   };
 
@@ -1652,17 +1755,27 @@
     return this._pronto.then(function () {
       return this.db.collection('lojas').where('donoEmail', '==', String(email || '').toLowerCase()).get().then(function (snap) {
         var lista = [];
-        snap.forEach(function (d) { lista.push(daNuvem(d.data())); });
+        snap.forEach(function (d) { try { lista.push(daNuvem(d.data(), d.id)); } catch (_) { /* loja ilegivel: fica de fora */ } });
         return lista.filter(function (l) { return l.ativa !== false; }).sort(function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); });
       });
     }.bind(this));
   };
   FirebaseStore.prototype.donoLogado = function (loja) {
+    var eu = this;
     return this.usuarioAtual().then(function (u) {
       /* e-mail nao conferido: as regras do banco recusam o dono, entao nao abre o painel sem senha */
-      if (!u || u.emailVerified !== true) return false;
+      if (!u || u.emailVerified !== true || /@equipe\.ligeiro\.app\.br$/.test(u.email)) return false;
       var admin = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
-      return u.email === String(loja.donoEmail || '').toLowerCase() || (!!admin && u.email === admin);
+      if (admin && u.email === admin) return true;
+      if (loja.donoEmail) return u.email === String(loja.donoEmail).toLowerCase();
+      /* loja da borda (sem o e-mail do dono): a marca de dono do login responde sem ler o banco; sem ela, le a loja.
+         E so o atalho para entrar sem senha: quem decide o acesso de verdade sao as regras do banco */
+      var cu = eu.auth.currentUser;
+      return (cu && cu.getIdTokenResult ? cu.getIdTokenResult() : Promise.resolve(null)).then(function (res) {
+        var lojas = res && res.claims && res.claims.lojas;
+        if (Array.isArray(lojas) && lojas.indexOf(loja.slug) >= 0) return true;
+        return eu.obterLoja(loja.slug).then(function (l) { return !!l && u.email === String(l.donoEmail || '').toLowerCase(); });
+      }).catch(function () { return false; });
     });
   };
 

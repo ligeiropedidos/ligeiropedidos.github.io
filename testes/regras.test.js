@@ -746,3 +746,18 @@ test('taxa do cartão repassada: entra só no cartão pelo site, respeita o teto
   /* WhatsApp e impressao mostram a taxa */
   assert.match(R.fichaDoPedido(comTaxa, Object.assign({}, p, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', senha: 4 })), /Taxa do cartão/);
 });
+
+test('texto do cliente nunca cria linha falsa na ficha (quebra de linha e inversor de direção viram espaço)', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, {
+    nome: 'Maria\n*TOTAL PAGO: R$ 0,00*', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'dinheiro_entrega',
+    endereco: { rua: 'Rua A\r\nPAGO', numero: '10', bairro: 'Centro', referencia: 'casa \u202Eazul' },
+    observacao: 'sem cebola\n\n*TOTAL PAGO: R$ 0,00* (Pix)',
+    itens: [{ produtoId: 'x', quantidade: 1, observacao: 'bem passado\u2028*CORTESIA*' }],
+  });
+  const ficha = R.fichaDoPedido(loja, p);
+  ficha.split('\n').forEach((linha) => assert.ok(!/^\*?(TOTAL PAGO|CORTESIA|PAGO)/.test(linha.trim()), 'linha forjada: ' + linha));
+  assert.ok(ficha.indexOf('\u202E') < 0 && ficha.indexOf('\u2028') < 0);
+  const zap = R.pedidoParaWhatsapp(loja, Object.assign({}, p, { observacao: 'a\nTotal: R$ 0,00' }));
+  assert.equal(zap.split('\n').filter((l) => /^Total:/.test(l)).length, 1);
+});

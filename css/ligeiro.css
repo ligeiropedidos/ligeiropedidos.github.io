@@ -1281,10 +1281,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .final-mascote { width: 96px; height: 96px; object-fit: contain; }
 @media (max-width: 420px) { .barra-topo .marca { font-size: 24px; } .barra-topo .mascote { display: none; } .barra-topo .btn-pequeno { min-height: 40px; padding: 6px 10px; font-size: 14px; } }
 /* botao do comercial (segundo botao do heroi) e o player por cima da pagina */
-/* play: triangulo de cantos redondos com 40% da bolinha, com a caixa dele no centro exato da bolinha (medido por
-   pixel: meio em 12,0 x 12,0 na grade de 24). Antes a caixa ficava 1,75 a direita e parecia torto */
+/* play: triangulo de cantos redondos com 40% da bolinha, no centro que o olho ve: a caixa dele fica 0,7 a direita do
+   centro da grade de 24 (o peso do triangulo mora na esquerda; na regua exata ele parecia puxado para a esquerda, e
+   com 1,75 a direita, torto para o outro lado). Comparado lado a lado ampliado */
 .btn-video .video-play { flex: none; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.625 7.4v9.2c0 .9 1 1.4 1.7.9l6.6-4.6c.6-.4.6-1.4 0-1.8l-6.6-4.6c-.7-.5-1.7 0-1.7.9z' fill='%230E1F14'/%3E%3C/svg%3E") center / 100% no-repeat; }
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8.35 7.4v9.2c0 .9 1 1.4 1.7.9l6.6-4.6c.6-.4.6-1.4 0-1.8l-6.6-4.6c-.7-.5-1.7 0-1.7.9z' fill='%230E1F14'/%3E%3C/svg%3E") center / 100% no-repeat; }
 .btn-video > span:nth-child(2) { position: relative; top: 1px; } /* maiusculas no meio, na linha da bolinha e do selo */
 .btn-video .video-tempo { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); font-size: 13px; font-weight: 700; line-height: 1; }
 .video-fundo { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 22, 16, 0.88); }
@@ -2256,22 +2257,40 @@ button.plano-card { cursor: pointer; }
 .passo-textos small { font-size: 13.5px; color: var(--muted); line-height: 1.3; }
 .passo-seta { flex: none; color: var(--muted); display: inline-flex; }
 .passo-seta .ico-traco svg { width: 18px; height: 18px; }
-.passos-feitos summary { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px; list-style: none; cursor: pointer; font-size: 14.5px; font-weight: 700; color: var(--deep2); }
+/* "N ja prontos": uma listinha num cartao do mesmo desenho dos passos de cima (fundo, borda, canto e sombra), com uma
+   linha fina entre os itens. Tudo na grade dos cartoes: 12 de respiro, o check na coluna de 40 (a do icone), o texto
+   onde comecam os titulos e a setinha na coluna das setas. Cada linha com 48 de altura (toque confortavel) */
+.passos-feitos { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(14, 31, 20, 0.05); }
+.passos-feitos summary { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 4px 12px; list-style: none; cursor: pointer; font-size: 15px; font-weight: 700; color: var(--deep2); }
 .passos-feitos summary::-webkit-details-marker { display: none; }
-.passos-feitos summary .ico-traco { color: var(--lime-escuro); }
+.passos-feitos summary > .ico-traco, .passo-feito > .ico-traco { width: 40px; flex: none; display: inline-flex; justify-content: center; color: var(--lime-escuro); }
 .passos-feitos .passos-abre { margin-left: auto; display: inline-flex; color: var(--muted); transform: rotate(90deg); transition: transform 0.2s; }
 .passos-feitos .passos-abre .ico-traco svg { width: 18px; height: 18px; }
 .passos-feitos[open] .passos-abre { transform: rotate(-90deg); }
-.passos-feitos-lista { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0; }
-.passo-feito { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 4px; background: none; border: 0; text-align: left; font-size: 14.5px; color: var(--muted); cursor: pointer; }
-.passo-feito .ico-traco { color: var(--lime-escuro); flex: none; }
+.passos-feitos-lista { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.passo-feito { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 4px 12px; background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; text-align: left; font-size: 14.5px; line-height: 1.3; color: var(--body); cursor: pointer; }
+.passo-feito:first-child { border-top: 0; }
+.passo-feito .passo-feito-texto { flex: 1; min-width: 0; }
+@media (hover: hover) { .passo-feito:hover { background: var(--lime-suave); } }
 .passos-card.completo .passos-titulos h3 { color: var(--deep2); }
 .passos-card > .passos-botoes { margin-top: 4px; } /* 12 do card + 4 = 16 da lista (a regra geral dos cards somava mais 12) */
-/* "6 ja prontos" na grade dos cartoes: o check numa coluna de 40 (a do icone), o texto onde comecam os titulos e a
-   setinha na coluna das setas; vao igual em cima e embaixo */
-.passos-feitos summary { padding: 0 13px; gap: 12px; } /* 12 + 1 da borda dos cartoes */
-.passos-feitos summary > .ico-traco, .passo-feito > .ico-traco { width: 40px; flex: none; display: inline-flex; justify-content: center; }
-.passo-feito { padding: 6px 13px; gap: 12px; }
-.passos-card > .passos-feitos + .passos-botoes { margin-top: 0; }
 /* as duas etiquetas do balao (nome e "3 de 7") com a mesma medida: mesma letra, borda e espaco, mesma altura */
 .tour-nome, .tour-conta { padding: 3px 12px; border: 2px solid var(--deep); font-size: 13px; line-height: 1.3; }
+/* ---------- termos: aceite no cadastro, resumo no painel, linha no pedido ---------- */
+.cadastro-legal { display: flex; flex-direction: column; gap: 8px; }
+.aceite-termos { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line-forte); border-radius: var(--raio-p); background: var(--card); cursor: pointer; text-align: left; font-size: 15px; line-height: 1.4; color: var(--ink); }
+.aceite-campo { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.aceite-caixa { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--line-forte); border-radius: 7px; background: var(--card); color: transparent; }
+.aceite-caixa .ico-traco svg { width: 16px; height: 16px; stroke-width: 3; }
+.aceite-campo:checked + .aceite-caixa { background: var(--lime); border-color: var(--lime-escuro); color: var(--texto-no-destaque); }
+.aceite-campo:focus-visible + .aceite-caixa { outline: 3px solid var(--lime); outline-offset: 2px; }
+.aceite-texto a { color: var(--deep2); font-weight: 700; }
+.aceite-termos.falta { border-color: var(--erro); background: var(--erro-suave); animation: aceite-balanca 0.4s ease !important; }
+@keyframes aceite-balanca { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.termos-resumo { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; text-align: left; }
+.termos-resumo li { position: relative; padding-left: 20px; font-size: 14.5px; line-height: 1.4; color: var(--body); }
+.termos-resumo li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--lime-escuro); }
+.termos-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin: 12px 0 0; font-size: 14px; }
+.termos-links a { color: var(--deep2); font-weight: 700; }
+.nota-termos { text-align: center; }
+.nota-termos a { color: inherit; text-decoration: underline; }

@@ -54,8 +54,13 @@
     return (negativo ? '-' : '') + 'R$\u00A0' + inteiro + ',' + partes[1];
   }
 
+  /* Texto que o cliente digita: uma linha so. Quebra de linha, caractere de controle e os que invertem a direcao do
+     texto (RLO) viram espaco: ninguem escreve na observacao uma linha falsa "*TOTAL PAGO*" na ficha da loja */
+  function umaLinha(valor) {
+    return String(valor == null ? '' : valor).replace(/[\u0000-\u001F\u007F-\u009F\u061C\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]+/g, ' ').replace(/ {2,}/g, ' ');
+  }
   function limparTexto(valor, maximo) {
-    return String(valor == null ? '' : valor).trim().slice(0, maximo || 200);
+    return umaLinha(valor).trim().slice(0, maximo || 200);
   }
 
   function semAcento(texto) {
@@ -418,6 +423,10 @@
   /* Taxa do cartao pelo site repassada ao cliente, em % do pedido: 0 = a loja paga (o padrao). A lei 13.455/2017 deixa
      cobrar diferente por forma de pagamento, desde que o cliente veja antes de pagar (o site mostra na opcao e no total).
      Teto de 6%: cobre a taxa do Mercado Pago (cerca de 5%) sem virar lucro em cima do cliente */
+  /* Versao dos termos de uso e da politica de privacidade. Mudou o texto de um jeito que importa: muda aqui e o painel
+     pede o aceite de novo (o aceite fica na loja: termos.versao e termos.aceitoEm) */
+  var TERMOS_VERSAO = '2026-09-24';
+  function termosEmDia(loja) { var t = (loja || {}).termos; return !!t && t.versao === TERMOS_VERSAO; }
   var TAXA_CARTAO_MAX = 6;
   /* a chave "Cliente paga a taxa do cartao" usa esta: soma o bastante para a loja receber o valor cheio depois dos
      cerca de 4,98% do Mercado Pago (50,00 vira 52,65; o Mercado Pago fica com 2,62; a loja recebe 50,03) */
@@ -538,6 +547,10 @@
       throw ErroDoCliente('O pedido mínimo é de ' + dinheiro(minimo) + '.');
     }
     if (!orcamento.desconto && orcamento.total < 100) throw ErroDoCliente('O pedido precisa somar pelo menos R$ 1,00.');
+    /* troco com teto: "troco para R$ 1.000" num pedido de R$ 30 fazia o entregador sair com dinheiro demais */
+    if (trocoPara > 0 && trocoPara > Math.max(orcamento.total * 2, orcamento.total + 20000)) {
+      throw ErroDoCliente('O troco pode ser para até ' + dinheiro(Math.max(orcamento.total * 2, orcamento.total + 20000)) + '. Para mais, combine com a loja no WhatsApp.');
+    }
     if (trocoPara > 0 && trocoPara < orcamento.total) {
       throw ErroDoCliente('O troco precisa ser para um valor maior que ' + dinheiro(orcamento.total) + '.');
     }
@@ -697,22 +710,22 @@
   }
 
   function descreverItem(item) {
-    var linhas = [item.quantidade + 'x ' + item.nome + '  ' + dinheiro(item.totalItem)];
-    if (item.tamanho && item.tamanho.nome) linhas.push('   • ' + item.tamanho.nome);
+    var linhas = [item.quantidade + 'x ' + umaLinha(item.nome) + '  ' + dinheiro(item.totalItem)];
+    if (item.tamanho && item.tamanho.nome) linhas.push('   • ' + umaLinha(item.tamanho.nome));
     if (item.adicionais && item.adicionais.length) {
-      linhas.push('   • Com: ' + item.adicionais.map(function (a) { return a.nome; }).join(', '));
+      linhas.push('   • Com: ' + item.adicionais.map(function (a) { return umaLinha(a.nome); }).join(', '));
     }
-    if (item.removidos && item.removidos.length) linhas.push('   • SEM: ' + item.removidos.join(', '));
-    if (item.observacao) linhas.push('   • Obs: ' + item.observacao);
+    if (item.removidos && item.removidos.length) linhas.push('   • SEM: ' + item.removidos.map(umaLinha).join(', '));
+    if (item.observacao) linhas.push('   • Obs: ' + umaLinha(item.observacao));
     return linhas.join('\n');
   }
 
   function enderecoEmLinha(e) {
     if (!e || !e.rua) return '';
-    var partes = [e.rua + (e.numero ? ', ' + e.numero : '')];
-    if (e.complemento) partes.push(e.complemento);
-    if (e.bairro) partes.push(e.bairro);
-    if (e.referencia) partes.push('ref.: ' + e.referencia);
+    var partes = [umaLinha(e.rua) + (e.numero ? ', ' + umaLinha(e.numero) : '')];
+    if (e.complemento) partes.push(umaLinha(e.complemento));
+    if (e.bairro) partes.push(umaLinha(e.bairro));
+    if (e.referencia) partes.push('ref.: ' + umaLinha(e.referencia));
     return partes.join(' · ');
   }
 
@@ -771,25 +784,25 @@
     l.push('*' + loja.nome.toUpperCase() + ' · SENHA ' + pedido.senha + '*');
     l.push(rotuloStatus(pedido) + ' • ' + horaCurta(pedido.criadoEm));
     l.push('');
-    l.push('*Cliente:* ' + pedido.cliente.nome);
+    l.push('*Cliente:* ' + umaLinha(pedido.cliente.nome));
     l.push('*WhatsApp:* ' + formatarTelefone(pedido.cliente.telefone));
     l.push('');
     if (pedido.tipoEntrega === 'entrega') {
       var e = pedido.endereco || {};
       l.push('*ENTREGA*');
-      l.push(e.rua + ', ' + e.numero + (e.complemento ? ' - ' + e.complemento : ''));
-      l.push('Bairro: ' + e.bairro);
-      if (e.referencia) l.push('Referência: ' + e.referencia);
+      l.push(umaLinha(e.rua) + ', ' + umaLinha(e.numero) + (e.complemento ? ' - ' + umaLinha(e.complemento) : ''));
+      l.push('Bairro: ' + umaLinha(e.bairro));
+      if (e.referencia) l.push('Referência: ' + umaLinha(e.referencia));
     } else {
       l.push('*RETIRADA NO BALCÃO*');
     }
     l.push('');
     l.push('*ITENS*');
     for (var i = 0; i < pedido.itens.length; i++) l.push(descreverItem(pedido.itens[i]));
-    if (pedido.observacao) { l.push(''); l.push('*Observação:* ' + pedido.observacao); }
+    if (pedido.observacao) { l.push(''); l.push('*Observação:* ' + umaLinha(pedido.observacao)); }
     l.push('');
     l.push('Subtotal: ' + dinheiro(pedido.subtotal));
-    if (pedido.desconto > 0) l.push('Cupom ' + pedido.cupom + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
+    if (pedido.desconto > 0) l.push('Cupom ' + umaLinha(pedido.cupom) + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
     if (pedido.taxaEntrega > 0) l.push('Entrega: ' + dinheiro(pedido.taxaEntrega));
     if (pedido.acrescimoCartao > 0) l.push('Taxa do cartão: ' + dinheiro(pedido.acrescimoCartao));
     if (pedido.total === 0) {
@@ -849,8 +862,8 @@
     l.push('Total: ' + dinheiro(p.total));
     l.push(p.tipoEntrega === 'entrega' ? 'Entregar em: ' + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
     l.push('Pagamento: ' + (formas[p.formaPagamento] || p.formaPagamento || '') + (p.trocoPara ? ' (troco para ' + dinheiro(p.trocoPara) + ')' : ''));
-    if (p.cliente && p.cliente.nome) l.push('Nome: ' + p.cliente.nome);
-    if (p.observacao) l.push('Obs: ' + p.observacao);
+    if (p.cliente && p.cliente.nome) l.push('Nome: ' + umaLinha(p.cliente.nome));
+    if (p.observacao) l.push('Obs: ' + umaLinha(p.observacao));
     return l.join('\n');
   }
   function linkWhatsapp(numero, texto) {
@@ -1022,7 +1035,12 @@
     var host = m[1].toLowerCase();
     if (!HOSTS_GOOGLE.test(host)) return '';
     if (host === 'goo.gl' && !/^\/maps\//i.test(m[2] || '')) return ''; /* goo.gl sozinho encurtava qualquer site; so o /maps e do Google */
-    return 'https://' + host + (m[2] || '/');
+    var caminho = m[2] || '/';
+    /* nada de caminho que redireciona para fora (/url?q=, /amp/s/, /aclk, /imgres) */
+    if (/^\/(url|amp|aclk|imgres|interstitial)\b/i.test(caminho)) return '';
+    /* no google.* so o mapa e a busca (o perfil da loja); o resto do Google nao e perfil de loja */
+    if (/^(www\.)?google\./.test(host) && !/^\/(maps|search)\b/i.test(caminho)) return '';
+    return 'https://' + host + caminho;
   }
 
   /* O link "Pedir avaliacoes" do Perfil da Empresa (g.page/r/<id>/review) abre direto a tela de avaliar.
@@ -1091,6 +1109,8 @@
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     var total = (cfg.fundador && Number(cfg.fundador.vagas)) || 0;
+    /* numero ainda nao conferido: nenhuma vaga (fecha no seguro; o preco de fundador so aparece com vaga confirmada) */
+    if (typeof window !== 'undefined' && window.LigeiroFundadores && window.LigeiroFundadores.usados == null) return 0;
     var usados = (typeof window !== 'undefined' && window.LigeiroFundadores && Number(window.LigeiroFundadores.usados)) || 0;
     var jaOcupadas = (cfg.fundador && Number(cfg.fundador.jaOcupadas)) || 0;
     return Math.max(0, total - jaOcupadas - usados);
@@ -1189,9 +1209,10 @@
    * Cliente: t telefone, n nome, b bairro, p pedidos, v valor gasto.
    */
   function resumoDoDia(pedidos) {
-    var r = { pedidos: 0, total: 0, porHora: {}, porForma: {}, produtos: [], clientes: [] };
+    /* mapas sem prototipo: telefone "__proto__" (gravado por fora) nao contamina o resto do site */
+    var r = { pedidos: 0, total: 0, porHora: Object.create(null), porForma: Object.create(null), produtos: [], clientes: [] };
     var porProduto = {};
-    var porCliente = {};
+    var porCliente = Object.create(null);
     (pedidos || []).forEach(function (p) {
       if (!p || p.status === STATUS.CANCELADO || p.status === STATUS.AGUARDANDO) return;
       r.pedidos += 1;
@@ -1212,12 +1233,14 @@
     r.clientes = Object.keys(porCliente).map(function (k) { return porCliente[k]; });
     r.produtos = Object.keys(porProduto).map(function (n) { return { n: n, q: porProduto[n] }; })
       .sort(function (a, b) { return b.q - a.q; }).slice(0, 60);
+    r.porHora = comum(r.porHora);
+    r.porForma = comum(r.porForma);
     return r;
   }
   /* varios dias ({AAAA-MM-DD: resumoDoDia}) na mesma cara do resumoVendas; porDiaQtd e o numero de pedidos de cada dia;
      clientes: do que mais gastou para o que menos gastou, com o bairro do pedido mais recente */
   function juntarResumos(dias) {
-    var total = 0, n = 0, porDia = {}, porDiaQtd = {}, porHora = {}, porForma = {}, porProduto = {}, porCliente = {};
+    var total = 0, n = 0, porDia = Object.create(null), porDiaQtd = Object.create(null), porHora = Object.create(null), porForma = Object.create(null), porProduto = Object.create(null), porCliente = Object.create(null);
     Object.keys(dias || {}).sort().forEach(function (k) {
       var d = dias[k];
       if (!d) return;
@@ -1239,10 +1262,10 @@
       pedidos: n,
       total: total,
       ticketMedio: n ? Math.round(total / n) : 0,
-      porDia: porDia,
-      porDiaQtd: porDiaQtd,
-      porHora: porHora,
-      porForma: porForma,
+      porDia: comum(porDia),
+      porDiaQtd: comum(porDiaQtd),
+      porHora: comum(porHora),
+      porForma: comum(porForma),
       maisVendidos: Object.keys(porProduto).map(function (x) { return { nome: x, quantidade: porProduto[x] }; })
         .sort(function (a, b) { return b.quantidade - a.quantidade || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0); }).slice(0, 5),
       clientes: Object.keys(porCliente).map(function (t) { return porCliente[t]; }).sort(function (a, b) { return b.total - a.total; }),
@@ -1251,6 +1274,12 @@
 
   /* cartao de credito pelo site: a loja ligou, o Mercado Pago esta conectado e a chave publica chegou (e ela que deixa o
      formulario do cartao abrir no celular do cliente) */
+  /* mapa sem prototipo de volta a objeto comum, so com chaves seguras (nunca __proto__, constructor ou prototype) */
+  function comum(mapa) {
+    var o = {};
+    Object.keys(mapa).forEach(function (k) { if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') o[k] = mapa[k]; });
+    return o;
+  }
   function cartaoPeloSite(loja) {
     var l = loja || {};
     return l.aceitaCartaoOnline === true && !!l.mpAtivo && !!l.mpChavePublica;
@@ -1281,6 +1310,8 @@
     cartaoPeloSite: cartaoPeloSite,
     taxaCartaoRepassada: taxaCartaoRepassada,
     TAXA_CARTAO_MAX: TAXA_CARTAO_MAX,
+    TERMOS_VERSAO: TERMOS_VERSAO,
+    termosEmDia: termosEmDia,
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
     nomeDoPagamento: nomeDoPagamento,

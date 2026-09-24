@@ -369,9 +369,14 @@ Detalhes do modo nuvem que valem saber:
   "Nova senha" do painel só existe na demonstração.
 - **Horários** ficam gravados como texto (`"18:00-23:00"`) porque o Firestore
   não aceita lista dentro de lista. `js/dados.js` converte nos dois sentidos.
-- **Cupom com limite de usos** é contado em `lojas/<slug>/contadores/cupom-CODIGO`
-  dentro da mesma transação que cria o pedido; quem tenta usar além do limite
-  recebe a mensagem na hora de confirmar.
+- **O pedido nasce no mensageiro** (rota `/pedido`): ele monta o pedido com as
+  regras e o cardápio, dá a senha do dia e conta o uso do cupom num lote só. O
+  banco não aceita pedido gravado direto pelo celular (só o dono e o admin).
+- **Cupons ficam na parte privada** (`lojas/<slug>/privado/cupons`): a loja
+  pública só diz `temCupom`. O site pergunta ao mensageiro se o código vale
+  (`/cupom`, 12 tentativas a cada 10 min por aparelho). O painel muda a lista
+  antiga de lugar sozinho quando o dono abre os Ajustes (só com o mensageiro novo
+  no ar). Os usos contam em `lojas/<slug>/contadores/cupom-CODIGO`.
 - Salvar a loja usa `update()` (troca o campo inteiro), então grupo e cupom
   apagados somem de verdade.
 - Em `#/admin` no modo nuvem, o cadastro pede o e-mail do dono no lugar da
@@ -381,14 +386,34 @@ Detalhes do modo nuvem que valem saber:
 ### Quanto o plano grátis aguenta
 
 Com o cardápio, a loja e as fotos vindo pela borda (Cloudflare KV), o Firebase
-grátis fica só com os pedidos e aguenta cerca de 2.100 pedidos por dia no total,
-uns 190 por loja, com folga para o pico de sexta. Por isso o sistema trava em 11
+grátis fica só com os pedidos. Pela conta feita depois da otimização, cada
+pedido gasta perto de 18 leituras (eram 27,6) e o fixo do dia caiu para uns 5 mil.
+Dá cerca de 2.400 pedidos por dia no total; 11 lojas com 150 pedidos cada usam
+uns 70% da cota, e com 80 pedidos cada, menos de 40%. O que mais pesou:
+- **Marca de dono no login** (`/dono`): as regras reconhecem o dono sem ler a
+  loja. Antes cada pedido que andava custava 2 leituras no painel do dono.
+- **Painel ouve só o que está andando**: o celular que volta do bloqueio relê só
+  esses, não o dia inteiro. Concluídos e cancelados carregam num toque.
+- **Entregador filtra no banco** (só entrega), **cozinha e entregador abrem pela
+  borda**, **token do Mercado Pago guardado na borda** (6 h) e **cartão aprovado
+  numa gravação só**. A cópia da loja confere o banco a cada 6 h (a vitrine a
+  cada 3 h): toda mudança de verdade já chega na hora pelo `/publicar`.
+- **Dica sem código**: no PC do balcão, entre com a senha da equipe.
+
+Por isso o sistema trava em 11
 lojas de clientes (12 com a Dom Conizza): o limite fica em `capacidade.maxLojas`
 no `js/config.js` e pode ser mudado pela Central sem publicar o site. A partir
 daí, cliente novo cai na lista de espera. O quadro "Pedidos hoje no banco" da
 Central mostra o uso do dia; passando de 70%, é hora do plano Blaze (centavos
 por 100 mil leituras, com alerta de gasto). Fotos: uns 20 KB cada; 12 lojas com
 40 fotos dão cerca de 10 MB do 1 GB grátis.
+
+**Espaço (1 GB):** o que mais ocupa são os índices automáticos dos pedidos (um
+pedido de 2 KB leva uns 14 KB de índice). Isenções de índice no console tiram
+quase tudo: Firestore > Índices > Campo único > Adicionar isenção, coleção
+`pedidos` (grupo de coleções), campos `itens`, `cliente`, `endereco`, `aviso` e
+`mp`, desmarcando todas as opções. Nenhuma consulta do site usa esses campos.
+Com isso cada pedido cai para uns 3 a 4 KB no total.
 
 ## O que ainda não tem (de propósito)
 

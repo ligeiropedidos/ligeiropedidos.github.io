@@ -33,7 +33,8 @@
     var lista = Array.isArray(filhos) ? filhos : (filhos == null ? [] : [filhos]);
     lista.forEach(function (f) {
       if (f == null || f === false) return;
-      e.appendChild(typeof f === 'string' ? document.createTextNode(f) : f);
+      /* texto e numero viram texto; so no de verdade entra como no (dado torto nunca derruba a tela) */
+      e.appendChild(f && f.nodeType ? f : document.createTextNode(String(f)));
     });
     return e;
   }
@@ -564,7 +565,9 @@
   /* Loja oficial do Ligeiro (config.lojasOficiais): devolve a configuracao ou null. */
   function lojaOficial(slug) {
     var cfg = window.LIGEIRO_CONFIG || {};
-    return (cfg.lojasOficiais || {})[slug] || null;
+    var lista = cfg.lojasOficiais || {};
+    /* so as lojas escritas no config: uma loja chamada "constructor" achava uma funcao do JavaScript e virava "oficial" */
+    return Object.prototype.hasOwnProperty.call(lista, String(slug)) ? lista[slug] : null;
   }
   function ehOficial(slug) { var o = lojaOficial(slug); return !!(o && o.oficial !== false); }
   /* Liga o tema exclusivo da loja oficial num pedaco da tela (site, painel, cozinha, entregador, balcao). */

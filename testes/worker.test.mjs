@@ -36,7 +36,9 @@ function deFs(v) {
   if ('arrayValue' in v) return (v.arrayValue.values || []).map(deFs);
   const o = {}; Object.keys(v.mapValue.fields || {}).forEach((k) => { o[k] = deFs(v.mapValue.fields[k]); }); return o;
 }
-function docRest(caminho, obj) { return { name: 'projects/proj/databases/(default)/documents/' + caminho, fields: paraFs(obj).mapValue.fields, createTime: '2026-09-23T20:00:00Z' }; }
+const versoes = new Map();
+function horaDe(caminho) { return '2026-09-23T20:00:00.' + String(versoes.get(caminho) || 0).padStart(6, '0') + 'Z'; }
+function docRest(caminho, obj) { return { name: 'projects/proj/databases/(default)/documents/' + caminho, fields: paraFs(obj).mapValue.fields, createTime: (obj && typeof obj.criadoEm === 'string' && obj.criadoEm) || '2026-09-23T20:00:00Z', updateTime: horaDe(caminho) }; } /* o pedido nasce no banco na hora do criadoEm */
 const resposta = (obj, status) => new Response(typeof obj === 'string' ? obj : JSON.stringify(obj), { status: status || 200, headers: { 'Content-Type': 'application/json' } });
 
 /* ---------- Mercado Pago e usuarios de mentira ---------- */
@@ -47,6 +49,8 @@ const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-ad
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
+/* marca de cada login (customAttributes), por e-mail */
+const marcas = {};
 
 globalThis.fetch = async (url, op) => {
   const o = op || {};
@@ -56,8 +60,13 @@ globalThis.fetch = async (url, op) => {
   if (url.indexOf('accounts:lookup') >= 0) {
     conta.lookup += 1;
     const corpo = JSON.parse(o.body || '{}');
-    const email = usuarios[corpo.idToken];
-    return resposta(email ? { users: [{ email, emailVerified: true }] } : {}, email ? 200 : 400);
+    const email = corpo.idToken ? usuarios[corpo.idToken] : (corpo.email || [])[0];
+    return resposta(email ? { users: [{ email, emailVerified: true, localId: 'id-' + email, customAttributes: marcas[email] }] } : {}, email ? 200 : 400);
+  }
+  if (url.indexOf('accounts:update') >= 0) {
+    const corpo = JSON.parse(o.body || '{}');
+    if (corpo.customAttributes != null) marcas[String(corpo.localId).replace(/^id-/, '')] = corpo.customAttributes;
+    return resposta({ localId: corpo.localId });
   }
   if (url.indexOf('https://fcm.googleapis.com/') === 0 || url.indexOf('https://web.push.apple.com/') === 0) {
     avisos.push({ url, headers: o.headers || {}, corpo: new Uint8Array(o.body) });
@@ -87,6 +96,34 @@ globalThis.fetch = async (url, op) => {
     }
     return resposta({ message: 'rota mp' }, 404);
   }
+  if (url === BASE.slice(0, -1) + ':runQuery' && metodo === 'POST') {
+    conta.leituras += 1;
+    const q = JSON.parse(o.body).structuredQuery;
+    const valor = q.where.fieldFilter.value.stringValue;
+    const achadas = [...db.entries()].filter(([k, d]) => /^lojas\/[^/]+$/.test(k) && d.donoEmail === valor);
+    return resposta(achadas.length ? achadas.map(([k]) => ({ document: { name: 'projects/proj/databases/(default)/documents/' + k } })) : [{ readTime: 'x' }]);
+  }
+  if (url === BASE.slice(0, -1) + ':commit' && metodo === 'POST') {
+    if (globalThis.__limite) return resposta({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }, 429);
+    const writes = JSON.parse(o.body).writes || [];
+    const prefixo = 'projects/proj/databases/(default)/documents/';
+    for (const wr of writes) {
+      const cam = wr.update.name.slice(prefixo.length);
+      const cd = wr.currentDocument || {};
+      if (cd.exists === false && db.has(cam)) return resposta({ error: { code: 400, status: 'FAILED_PRECONDITION' } }, 400);
+      if (cd.updateTime && cd.updateTime !== horaDe(cam)) return resposta({ error: { code: 400, status: 'FAILED_PRECONDITION' } }, 400);
+    }
+    if (globalThis.__falharLote && globalThis.__falharLote-- > 0) return resposta({ error: { code: 400, status: 'FAILED_PRECONDITION' } }, 400);
+    for (const wr of writes) {
+      const cam = wr.update.name.slice(prefixo.length);
+      const obj = {};
+      Object.keys(wr.update.fields || {}).forEach((k) => { obj[k] = deFs(wr.update.fields[k]); });
+      db.set(cam, obj);
+      versoes.set(cam, (versoes.get(cam) || 0) + 1);
+      conta.gravacoes += 1;
+    }
+    return resposta({ writeResults: writes.map(() => ({})) });
+  }
   if (url.indexOf(BASE) === 0) {
     /* banco gratis no limite do dia: tudo volta 429 */
     if (globalThis.__limite) return resposta({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }, 429);
@@ -98,6 +135,10 @@ globalThis.fetch = async (url, op) => {
       conta.gravacoes += 1;
       /* "so se existe": o Firestore responde 404 e nao cria nada */
       if ((busca || '').indexOf('currentDocument.exists=true') >= 0 && !db.has(caminho)) return resposta({ error: { code: 404, status: 'NOT_FOUND' } }, 404);
+      /* "so se nao mudou": a hora da ultima mudanca tem que ser a mesma da leitura */
+      const pre = new URLSearchParams(busca || '').get('currentDocument.updateTime');
+      if (pre && pre !== horaDe(caminho)) return resposta({ error: { code: 400, status: 'FAILED_PRECONDITION' } }, 400);
+      versoes.set(caminho, (versoes.get(caminho) || 0) + 1);
       const campos = JSON.parse(o.body).fields;
       const atual = db.get(caminho) || {};
       Object.keys(campos).forEach((k) => { atual[k] = deFs(campos[k]); });
@@ -169,7 +210,10 @@ function zerar() { conta.leituras = 0; conta.gravacoes = 0; kv.gravacoes = 0; }
 
 /* ---------- dados ---------- */
 const FOTO = 'data:image/jpeg;base64,' + Buffer.from('JPEG-DE-MENTIRA-123').toString('base64');
-db.set('lojas/dom-conizza', { slug: 'dom-conizza', nome: 'Dom Conizza', donoEmail: 'dono@x.com', senhaEquipeEm: 'x', aberta: true, fotosVersao: 'v1', fotosPacote: 1, capa: 'capa-aa', produtos: [{ id: 'p1', nome: 'Pizza', foto: 'f1' }], mpAtivo: true, horarios: { seg: ['18:00-23:00'] } });
+db.set('lojas/dom-conizza', { slug: 'dom-conizza', nome: 'Dom Conizza', donoEmail: 'dono@x.com', senhaEquipeEm: 'x', aberta: true, fotosVersao: 'v1', fotosPacote: 1, capa: 'capa-aa', produtos: [{ id: 'p1', nome: 'Pizza', foto: 'f1', preco: 4590 }], mpAtivo: true, horarios: { seg: ['18:00-23:00'] } });
+/* pedido como o site monta: itens do cardapio e o total batendo com o preco de agora */
+const precoP1 = () => db.get('lojas/dom-conizza').produtos[0].preco;
+const pedidoDe = (qtd, extra) => Object.assign({ itens: [{ produtoId: 'p1', quantidade: qtd }], tipoEntrega: 'retirada', total: precoP1() * qtd, criadoEm: new Date().toISOString() }, extra);
 db.set('lojas/dom-conizza/fotos/_pacote0', { fotos: { f1: 'data:image/jpeg;base64,MINI' } });
 db.set('lojas/dom-conizza/fotos/_pacote2', { fotos: {} });
 db.set('lojas/dom-conizza/fotos/capa-aa', { dados: FOTO });
@@ -181,7 +225,7 @@ db.set('lojas/poucas/fotos/fb', { dados: FOTO });
 db.set('vitrine/dom-conizza', { slug: 'dom-conizza', nome: 'Dom Conizza', cidadeSlug: 'juquia' });
 db.set('vitrine/poucas', { slug: 'poucas', nome: 'Poucas Fotos', cidadeSlug: 'juquia' });
 const PED = 'abcdefghij0123456789';
-db.set('lojas/dom-conizza/pedidos/' + PED, { status: 'aguardando_pagamento', formaPagamento: 'pix', total: 4590, senha: 7, cliente: { nome: 'Ana' } });
+db.set('lojas/dom-conizza/pedidos/' + PED, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 7, cliente: { nome: 'Ana' } }));
 
 console.log('Cardapio na borda');
 let w = await workerNovo();
@@ -199,7 +243,7 @@ zerar();
 r = await chamar(w, '/loja/dom-conizza');
 ok(r.status === 200 && conta.leituras === 0, 'outro worker (memoria vazia) serve do KV: 0 leituras');
 /* copia velha: serve na hora e confere o banco por tras */
-kv.mapa.get('loja:dom-conizza').metadata.em = Date.now() - 25 * 60 * 1000;
+kv.mapa.get('loja:dom-conizza').metadata.em = Date.now() - 7 * 3600 * 1000;
 db.get('lojas/dom-conizza').aberta = false;
 w = await workerNovo();
 zerar();
@@ -292,6 +336,8 @@ console.log('Pix');
 w = await workerNovo();
 zerar();
 const googleAntes = conta.google;
+/* o preco mudou no teste do publicar: o pedido e montado de novo com o preco de agora, como o site faria */
+db.set('lojas/dom-conizza/pedidos/' + PED, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 7, cliente: { nome: 'Ana' } }));
 r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PED } }); j = await r.json();
 ok(r.status === 200 && j.codigo && j.mp, 'cria o Pix e devolve o codigo e o id do Mercado Pago');
 ok(conta.leituras === 2, '/criar: 2 leituras (pedido + token), sem ler a loja inteira');
@@ -331,7 +377,7 @@ console.log('Cartao de credito');
 {
   const PC = 'cartao00000000000001';
   const fim = () => new Promise((ok2) => setTimeout(ok2, 20));
-  db.set('lojas/dom-conizza/pedidos/' + PC, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', total: 3200, senha: 9, cliente: { nome: 'Bia Souza' }, criadoEm: new Date().toISOString() });
+  db.set('lojas/dom-conizza/pedidos/' + PC, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', senha: 9, cliente: { nome: 'Bia Souza' } }));
   /* a loja nao ligou o cartao: a copia da borda diz */
   const copia = kv.mapa.get('loja:dom-conizza');
   const lojaCopia = JSON.parse(copia.valor);
@@ -357,7 +403,9 @@ console.log('Cartao de credito');
   j = await r.json(); await fim();
   const pc = db.get('lojas/dom-conizza/pedidos/' + PC);
   ok(j.status === 'aprovado' && pc.status === 'pago' && pc.pagamentoStatus === 'pago' && pc.confirmadoPor === 'mercadopago', 'cartao aprovado: pedido pago na hora');
-  ok(cartoes[1].corpo.total_amount === '32.00' && cartoes[1].corpo.payer.email === 'cliente9@dom-conizza.ligeiro.app.br', 'cobra o valor do pedido (nao o que o site mandou)');
+  const gastoCartao = { leituras: conta.leituras, gravacoes: conta.gravacoes };
+  ok(pc.mp && /^ORD/.test(pc.mp.id) && pc.cobrandoEm === '' && gastoCartao.gravacoes === 2 && gastoCartao.leituras <= 2, 'aprovado na hora: a trava e o "pago" com o id (2 gravacoes, ' + gastoCartao.leituras + ' leituras)');
+  ok(cartoes[1].corpo.total_amount === (precoP1() / 100).toFixed(2) && cartoes[1].corpo.payer.email === 'cliente9@dom-conizza.ligeiro.app.br', 'cobra o valor do pedido (nao o que o site mandou)');
   /* toque duplo depois de pago: nao cobra de novo */
   r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'APROVA0000000000', metodo: 'master' } });
   ok((await r.json()).status === 'aprovado' && cartoes.length === 2, 'pedido ja pago: responde aprovado sem cobrar de novo');
@@ -366,7 +414,7 @@ console.log('Cartao de credito');
   ok(r.status === 400 && cartoes.length === 2, 'pedido de Pix: /cartao recusa');
   /* tentativas demais no mesmo pedido: para antes de chamar o Mercado Pago */
   const PC2 = 'cartao00000000000002';
-  db.set('lojas/dom-conizza/pedidos/' + PC2, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', total: 1000, senha: 10, cliente: { nome: 'Caio' }, criadoEm: new Date().toISOString() });
+  db.set('lojas/dom-conizza/pedidos/' + PC2, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 10, cliente: { nome: 'Caio' } }));
   for (let i = 0; i < 4; i++) await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC2, token: 'RECUSA000000000' + i, metodo: 'visa' } });
   const antes = cartoes.length;
   r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC2, token: 'RECUSA0000000009', metodo: 'visa' } });
@@ -390,6 +438,237 @@ console.log('Cartao de credito');
   db.set('lojas/dom-conizza/pedidos/cartao00000000000003', { status: 'cancelado', formaPagamento: 'dinheiro_entrega', pagamentoStatus: 'na_entrega', total: 1000, senha: 11 });
   r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'cartao00000000000003' }, headers: { Authorization: 'Bearer tok-dono' } });
   ok(r.status === 409 && devolucoes.length === 1, 'pedido pago na porta: nao ha o que devolver pelo site');
+}
+
+console.log('Pentest: ataques que tem que falhar');
+{
+  w = await workerNovo();
+  /* a loja de teste com o cartao ligado no banco (o worker rele a loja quando o valor nao bate com a copia) */
+  Object.assign(db.get('lojas/dom-conizza'), { aceitaCartaoOnline: true, mpChavePublica: 'APP_USR-teste' });
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const url = await import('node:url');
+  const aqui = path.dirname(url.fileURLToPath(import.meta.url));
+  const fonteWorker = fs.readFileSync(path.join(aqui, '..', 'ferramentas', 'worker-mercadopago.js'), 'utf8');
+  const fonteRegras = fs.readFileSync(path.join(aqui, '..', 'js', 'regras.js'), 'utf8');
+  ok(fonteWorker.indexOf(fonteRegras.trimEnd()) >= 0, 'as regras dentro do worker sao iguais ao js/regras.js (rode ferramentas/embutir-regras.py se mudar)');
+
+  /* total forjado: itens de verdade e total de R$ 1 gravado direto no banco */
+  const FORJADO = 'forjadoforjadoforj01';
+  db.set('lojas/dom-conizza/pedidos/' + FORJADO, pedidoDe(2, { total: 100, status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 40, cliente: { nome: 'Esperto' } }));
+  const ordensAntes = ordens.size;
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: FORJADO } });
+  ok(r.status === 409 && ordens.size === ordensAntes, 'Pix de pedido com total forjado: recusado, nada criado no Mercado Pago');
+  const FORJADO2 = 'forjadoforjadoforj02';
+  db.set('lojas/dom-conizza/pedidos/' + FORJADO2, pedidoDe(3, { total: 100, status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 41, cliente: { nome: 'Esperto' } }));
+  const cartoesAntes = cartoes.length;
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: FORJADO2, token: 'APROVA5555555555', metodo: 'visa' } });
+  ok(r.status === 409 && cartoes.length === cartoesAntes, 'cartao de pedido com total forjado: recusado, nada cobrado');
+  /* item que nao existe no cardapio */
+  const FANTASMA = 'fantasmafantasmafa01';
+  db.set('lojas/dom-conizza/pedidos/' + FANTASMA, { itens: [{ produtoId: 'naoexiste', quantidade: 1 }], total: 500, tipoEntrega: 'retirada', status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 42, criadoEm: new Date().toISOString() });
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: FANTASMA } });
+  ok(r.status === 409, 'pedido com item que nao existe no cardapio: recusado');
+  /* nomes com caminho escondido nao chegam no banco */
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza/pedidos', pedido: PED } });
+  ok(r.status === 400, '/criar com loja "dom-conizza/pedidos": 400');
+  r = await chamar(w, '/status?loja=dom-conizza&pedido=' + encodeURIComponent('../privado/mercadopago'));
+  ok(r.status === 400, '/status com pedido "../privado/mercadopago": 400');
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: '../../contas/x', pin: '482913' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(r.status === 400, '/equipe com loja inventada: 400');
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '123456' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(r.status === 400, 'senha da equipe 123456 (sequencia): recusada');
+  /* duas cobrancas do mesmo pedido: a segunda espera */
+  const DUPLO = 'duploduploduplodup01';
+  db.set('lojas/dom-conizza/pedidos/' + DUPLO, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 43, cliente: { nome: 'Dani' }, cobrandoEm: new Date().toISOString() }));
+  const antesDuplo = cartoes.length;
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: DUPLO, token: 'APROVA6666666666', metodo: 'visa' } });
+  j = await r.json();
+  ok(j.status === 'recusado' && /andamento/.test(j.motivo) && cartoes.length === antesDuplo, 'cobranca em andamento: a segunda nao cobra');
+  /* a trava do banco: se o pedido mudou entre a leitura e a trava, nao cobra */
+  db.get('lojas/dom-conizza/pedidos/' + DUPLO).cobrandoEm = '';
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = async (u, o) => {
+    if (String(u).indexOf('currentDocument.updateTime') >= 0) versoes.set('lojas/dom-conizza/pedidos/' + DUPLO, 999); /* outra aba mexeu antes */
+    return fetchOriginal(u, o);
+  };
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: DUPLO, token: 'APROVA7777777777', metodo: 'visa' } });
+  globalThis.fetch = fetchOriginal;
+  j = await r.json();
+  ok(j.status === 'recusado' && cartoes.length === antesDuplo, 'duas abas ao mesmo tempo: so uma cobra (trava pela hora da ultima mudanca)');
+  /* tentativas contadas no pedido: vale em qualquer copia do worker */
+  db.get('lojas/dom-conizza/pedidos/' + DUPLO).tentativasCartao = 5;
+  w = await workerNovo();
+  r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: DUPLO, token: 'APROVA8888888888', metodo: 'visa' } });
+  j = await r.json();
+  ok(j.status === 'recusado' && /Tentativas demais/.test(j.motivo) && cartoes.length === antesDuplo, '5 tentativas no pedido: barrado ate num worker novo');
+  /* a loja cancelou e o Pix caiu depois: fica marcado para devolver */
+  const TARDE = 'tardetardetardetar01';
+  db.set('lojas/dom-conizza/pedidos/' + TARDE, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 44, cliente: { nome: 'Gabi' } }));
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: TARDE } }); j = await r.json();
+  db.get('lojas/dom-conizza/pedidos/' + TARDE).status = 'cancelado';
+  db.get('lojas/dom-conizza/pedidos/' + TARDE).canceladoPor = 'loja';
+  ordens.get(j.mp).status = 'processed';
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: j.mp, external_reference: 'dom-conizza__' + TARDE } }, headers: { Origin: '' } });
+  const tarde = db.get('lojas/dom-conizza/pedidos/' + TARDE);
+  ok(tarde.status === 'cancelado' && tarde.pagamentoStatus === 'pago' && tarde.pagoAposCancelar === true, 'pago depois que a loja cancelou: continua cancelado e fica marcado para devolver');
+  const devAntes = devolucoes.length;
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: TARDE }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok((await r.json()).ok === true && devolucoes.length === devAntes + 1, 'e o dono devolve com um toque');
+  /* aviso do Mercado Pago sem assinatura, com o segredo configurado: recusado */
+  const envAssinado = Object.assign({}, env, { MP_WEBHOOK_SECRET: 'segredo-do-webhook' });
+  r = await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: j.mp } }, headers: { Origin: '' }, env: envAssinado });
+  ok(r.status === 401, 'webhook sem a assinatura do Mercado Pago (com o segredo ligado): 401');
+  const ts = String(Math.floor(Date.now() / 1000));
+  const molde = 'id:' + String(j.mp).toLowerCase() + ';request-id:req-1;ts:' + ts + ';';
+  const cripto = await import('node:crypto');
+  const v1 = cripto.createHmac('sha256', 'segredo-do-webhook').update(molde).digest('hex');
+  r = await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: j.mp } }, headers: { Origin: '', 'x-signature': 'ts=' + ts + ',v1=' + v1, 'x-request-id': 'req-1' }, env: envAssinado });
+  ok(r.status === 200, 'webhook assinado certo: aceito');
+  /* o erro nunca devolve detalhe tecnico */
+  globalThis.__limite = true;
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PED } });
+  globalThis.__limite = false;
+  j = await r.json();
+  ok(!/Firestore|429|RESOURCE/.test(JSON.stringify(j)), 'erro interno sem detalhe do banco na resposta');
+  /* o 429 de mentira deixou o aviso de "banco no limite" no KV: tira, para os proximos testes */
+  for (const k of [...kv.mapa.keys()]) if (/pausa/i.test(k)) kv.mapa.delete(k);
+}
+
+console.log('Pedido criado pelo servidor');
+{
+  const loja = db.get('lojas/dom-conizza');
+  Object.assign(loja, { aberta: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true, aceitaDinheiroEntrega: true, cupons: [{ codigo: 'PROMO', percentual: 10, limite: 1, ativo: true }] });
+  const recarregar = async () => { kv.mapa.delete('loja:dom-conizza'); kv.mapa.delete('cupons:dom-conizza'); w = await workerNovo(); };
+  await recarregar();
+  const dados = (extra) => Object.assign({ nome: 'Ana Souza', telefone: '13999990000', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 2 }], formaPagamento: 'pix' }, extra);
+  const pedir = (d, op) => chamar(w, '/pedido', Object.assign({ metodo: 'POST', corpo: { loja: 'dom-conizza', dados: d } }, op || {}));
+  db.delete('lojas/dom-conizza/contadores/senha');
+
+  r = await pedir(dados()); j = await r.json();
+  const criado = j.pedido && db.get('lojas/dom-conizza/pedidos/' + j.pedido.id);
+  ok(r.status === 200 && criado && criado.total === precoP1() * 2 && criado.status === 'aguardando_pagamento', 'pedido nasce no servidor com o total do cardapio');
+  ok(criado && criado.senha === 1 && db.get('lojas/dom-conizza/contadores/senha').ultima === 1, 'com a senha do dia (1) e o contador no mesmo lote');
+  ok(criado && criado.itens[0].nome === 'Pizza' && /^[A-Za-z0-9]{20}$/.test(criado.id), 'nome do item vem do cardapio e o id e sorteado aqui');
+  /* o celular manda preco, nome e total inventados: nada disso vale */
+  r = await pedir(dados({ itens: [{ produtoId: 'p1', quantidade: 1, preco: 1, nome: 'Pizza Gigante com Bacon' }], total: 1, desconto: 999999, cupom: 'QUALQUER' }));
+  j = await r.json();
+  ok(r.status === 422 && /código não existe/.test(j.erro || ''), 'cupom inventado: o pedido nem nasce');
+  r = await pedir(dados({ itens: [{ produtoId: 'p1', quantidade: 1, preco: 1, nome: 'Pizza Gigante com Bacon' }], total: 1 }));
+  j = await r.json();
+  const troca = j.pedido && db.get('lojas/dom-conizza/pedidos/' + j.pedido.id);
+  ok(troca && troca.total === precoP1() && troca.itens[0].nome === 'Pizza' && troca.senha === 2, 'preco e nome inventados ignorados: vale o cardapio');
+  /* cupom com limite de 1 uso: o segundo nao passa */
+  r = await pedir(dados({ cupom: 'PROMO' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.desconto > 0 && db.get('lojas/dom-conizza/contadores/cupom-PROMO').usos === 1, 'cupom de verdade: aplica e conta o uso');
+  r = await pedir(dados({ cupom: 'PROMO', telefone: '13988887777' })); j = await r.json();
+  ok(r.status === 422 && /todo usado/.test(j.erro || ''), 'cupom com limite 1 no segundo uso: recusado no servidor');
+  /* forma de pagamento que a loja nao aceita cai na que ela aceita; loja fechada nao recebe */
+  r = await pedir(dados({ formaPagamento: 'cartao_entrega', telefone: '13977776666' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.formaPagamento !== 'cartao_entrega', 'maquininha desligada: o pedido nao nasce como maquininha');
+  loja.aberta = false; await recarregar();
+  r = await pedir(dados({ telefone: '13966665555' })); j = await r.json();
+  ok(r.status === 422 && /fechada/.test(j.erro || ''), 'loja fechada: o pedido nao nasce');
+  loja.aberta = true; await recarregar();
+  /* dois pedidos disputando a mesma senha: o segundo tenta de novo e pega a proxima */
+  const senhaAntes = db.get('lojas/dom-conizza/contadores/senha').ultima;
+  globalThis.__falharLote = 1;
+  r = await pedir(dados({ telefone: '13955554444' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.senha === senhaAntes + 1, 'lote que perdeu a corrida tenta de novo: senha certa, sem repetir');
+  /* balcao sem o login da equipe */
+  r = await pedir(dados({ origem: 'balcao', telefone: '' }));
+  ok(r.status === 401, 'pedido "do balcao" sem o login da equipe: 401');
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe' } }); j = await r.json();
+  ok(r.status === 200 && j.pedido.origem === 'balcao', 'com o login da equipe, o balcao pede sem WhatsApp');
+  /* o aviso no celular so com endereco de servico de aviso de verdade */
+  r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dados({ telefone: '13944443333' }), aviso: { e: 'https://site-do-golpe.example/x', k: 'a'.repeat(87), a: 'b'.repeat(22), u: '#/juquia/dom-conizza/pedido/' } } }); j = await r.json();
+  ok(r.status === 200 && !db.get('lojas/dom-conizza/pedidos/' + j.pedido.id).aviso, 'aviso para endereco qualquer: ignorado');
+  /* spam: muitos pedidos do mesmo aparelho */
+  w = await workerNovo();
+  let barrado = false;
+  for (let i = 0; i < 20 && !barrado; i++) { r = await pedir(dados({ telefone: '1393333' + String(1000 + i) })); if (r.status === 429) barrado = true; }
+  ok(barrado, 'muitos pedidos seguidos do mesmo aparelho: barrado');
+  w = await workerNovo();
+  let barradoFone = false;
+  for (let i = 0; i < 10 && !barradoFone; i++) { r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dados({ telefone: '13922221111' }) }, headers: { 'CF-Connecting-IP': '10.0.0.' + i } }); if (r.status === 429) barradoFone = true; }
+  ok(barradoFone, 'muitos pedidos do mesmo telefone (trocando de aparelho): barrado');
+  /* a lista de cupons nao sai na copia publica: so "tem cupom" */
+  r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
+  ok(!('cupons' in j.loja) && j.loja.temCupom === true, 'copia publica da loja: sem a lista de cupons, so "temCupom"');
+  /* o site pergunta se o codigo vale */
+  const cupom = (codigo, ip) => chamar(w, '/cupom', { metodo: 'POST', corpo: { loja: 'dom-conizza', codigo }, headers: { 'CF-Connecting-IP': ip || '10.9.9.9' } });
+  db.set('lojas/dom-conizza/privado/cupons', { lista: [{ codigo: 'SEGREDO', percentual: 100, minimo: 0, limite: 0, ativo: true }, { codigo: 'VELHO', percentual: 5, ativo: false }] });
+  await recarregar();
+  r = await cupom('segredo'); j = await r.json();
+  ok(j.cupom && j.cupom.codigo === 'SEGREDO' && j.cupom.percentual === 100 && !('limite' in j.cupom), 'cupom da parte privada: o mensageiro confirma (sem contar o limite)');
+  r = await cupom('PROMO'); j = await r.json();
+  ok(!j.cupom && /não existe/.test(j.erro || ''), 'com a lista privada, o cupom velho do documento nao vale mais');
+  r = await cupom('VELHO'); j = await r.json();
+  ok(/não está mais valendo/.test(j.erro || ''), 'cupom desligado: avisa');
+  r = await pedir(dados({ cupom: 'SEGREDO', telefone: '13911112222' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 0 && j.pedido.desconto > 0, 'pedido com o cupom privado: desconto aplicado no servidor');
+  let chutes = 0, barradoCupom = false;
+  for (let i = 0; i < 20 && !barradoCupom; i++) { r = await cupom('CHUTE' + i, '10.8.8.8'); chutes++; if (r.status === 429) barradoCupom = true; }
+  ok(barradoCupom && chutes <= 13, 'chute de codigo: barrado depois de 12 tentativas');
+  db.delete('lojas/dom-conizza/privado/cupons');
+  loja.cupons = [];
+  await recarregar();
+}
+
+console.log('Token do Mercado Pago guardado na borda');
+{
+  kv.mapa.delete('mptoken:dom-conizza');
+  w = await workerNovo();
+  const PTK = 'tokenborda0000000001';
+  db.set('lojas/dom-conizza/pedidos/' + PTK, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 60, cliente: { nome: 'Gil' } }));
+  await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK } });
+  ok(kv.mapa.has('mptoken:dom-conizza'), 'leu o token no banco uma vez e guardou na borda');
+  w = await workerNovo();
+  const PTK2 = 'tokenborda0000000002';
+  db.set('lojas/dom-conizza/pedidos/' + PTK2, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 61, cliente: { nome: 'Gil' } }));
+  zerar();
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK2 } });
+  ok(r.status === 200 && conta.leituras === 1, 'outra copia do worker: token da borda, so o pedido lido no banco (' + conta.leituras + ')');
+  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(!kv.mapa.has('mptoken:dom-conizza'), 'o dono salvou (pode ter trocado de conta): a copia do token sai na hora');
+  const privado = db.get('lojas/dom-conizza/privado/mercadopago');
+  const tokenAntes = privado.token;
+  privado.token = '';
+  w = await workerNovo();
+  const PTK3 = 'tokenborda0000000003';
+  db.set('lojas/dom-conizza/pedidos/' + PTK3, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 62, cliente: { nome: 'Gil' } }));
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK3 } });
+  ok(r.status !== 200 && !kv.mapa.has('mptoken:dom-conizza'), 'loja desconectada: nao cria Pix e nao guarda token vazio');
+  privado.token = tokenAntes;
+  w = await workerNovo();
+}
+
+console.log('Marca do dono no login');
+{
+  w = await workerNovo();
+  const dono = db.get('lojas/dom-conizza').donoEmail;
+  const marcaDe = (email) => { try { return JSON.parse(marcas[email] || '{}'); } catch (_) { return {}; } };
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' } });
+  ok(r.status === 401, '/dono sem login: 401');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-outro' } });
+  ok(r.status === 403 && !marcaDe('outro@x.com').lojas, 'quem nao e dono nao ganha a marca');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-equipe' } });
+  ok(r.status === 403, 'login da equipe nao vira dono');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  ok(dono === 'dono@x.com' && r.status === 200 && j.marca === true && JSON.stringify(marcaDe('dono@x.com').lojas) === '["dom-conizza"]', 'dono de verdade: marca "lojas" gravada no login');
+  const leiturasAntes = conta.leituras;
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  ok(j.ok === true && j.marca === false && conta.leituras === leiturasAntes, 'ja tem a marca: nao le o banco nem grava de novo');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(r.status === 400, 'so o admin refaz a marca de outro e-mail');
+  /* troca de dono feita na mao: o admin refaz a marca do antigo pelas lojas de hoje (nenhuma) */
+  marcas['outro@x.com'] = JSON.stringify({ lojas: ['dom-conizza'], outra: 1 });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer tok-admin' } }); j = await r.json();
+  ok(j.ok === true && !marcaDe('outro@x.com').lojas && marcaDe('outro@x.com').outra === 1, 'admin tira a marca de quem nao e mais dono (e guarda o resto da marca)');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'dono@x.com' }, headers: { Authorization: 'Bearer tok-admin' } }); j = await r.json();
+  ok(JSON.stringify((marcaDe('dono@x.com').lojas || []).sort()) === '["dom-conizza","poucas"]' && JSON.stringify(j.lojas.sort()) === '["dom-conizza","poucas"]', 'e refaz a de quem e dono de verdade (todas as lojas dele)');
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: '../contas/x' }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok(r.status === 400, '/dono com loja inventada: 400');
 }
 
 console.log('Avisos no celular');
@@ -525,7 +804,7 @@ const abertos = avisos.map((a) => a.url === doPainel.inscricao.endpoint ? abrirA
 ok(db.get('lojas/dom-conizza/pedidos/' + PIXA).status === 'pago' && avisos.length === 3, 'Pix caiu: painel, cozinha e cliente avisados (o entregador nao)');
 ok(abertos.filter((t) => t.titulo === 'Pix pago! Senha 24').length === 2 && abertos.some((t) => t.texto === 'Pagamento confirmado! Seu pedido entrou na fila. Senha 24.' && t.url === '#/juquia/dom-conizza/pedido/' + PIXA), 'a loja le "Pix pago" e o cliente "Pagamento confirmado" (e abre o pedido dele)');
 console.log('    (webhook com aviso: ' + conta.leituras + ' leituras, ' + conta.gravacoes + ' gravacoes)');
-ok(conta.leituras === 2 && conta.gravacoes === 1, 'o aviso do Pix nao gasta nada a mais no banco (worker recem-ligado: token da loja + pedido, 1 gravacao, igual sem aviso)');
+ok(conta.leituras <= 2 && conta.gravacoes === 1, 'o aviso do Pix nao gasta nada a mais no banco (so o pedido e, no maximo, o token da loja; 1 gravacao, igual sem aviso)');
 avisos.length = 0;
 await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD777', external_reference: 'dom-conizza__' + PIXA } }, headers: { Origin: '' } });
 ok(avisos.length === 0, 'o Mercado Pago avisando duas vezes: a loja apita uma vez so');

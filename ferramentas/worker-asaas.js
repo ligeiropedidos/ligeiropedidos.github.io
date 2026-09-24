@@ -15,6 +15,8 @@
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        PLANOS           JSON com os precos em centavos, igual ao config.js. Exemplo:
  *                         {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000},"duas":{"mensal":15800,"anual":158000,"fm":14800,"fa":148000},"tres":{"mensal":22700,"anual":227000,"fm":21700,"fa":217000}}
+ *        FUNDADOR_VAGAS   (opcional, padrao 5) quantas vagas de fundador existem; FUNDADOR_JA (opcional, padrao 0)
+ *                         quantas ja estavam ocupadas fora da contagem publica (igual ao config.js: fundador.vagas e jaOcupadas)
  *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
  *      (o mesmo do ligeiro-mp). Com ele, a loja destrava para o cliente na hora em que o pagamento cai.
  *   3. No Asaas: Integracoes > Webhooks > Adicionar: URL do worker, token = ASAAS_WEBHOOK,
@@ -29,7 +31,7 @@ export default {
   async fetch(request, env) {
     if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok', { status: 200 });
     const token = request.headers.get('asaas-access-token') || '';
-    if (!env.ASAAS_WEBHOOK || token !== env.ASAAS_WEBHOOK) return json({ ok: false, erro: 'token' }, 401);
+    if (!env.ASAAS_WEBHOOK || !igual(token, env.ASAAS_WEBHOOK)) return json({ ok: false, erro: 'token' }, 401);
 
     let corpo;
     try { corpo = await request.json(); } catch (_) { return json({ ok: false, erro: 'json' }, 400); }
@@ -39,8 +41,18 @@ export default {
     if (['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].indexOf(evento) < 0) return json({ ok: true, ignorado: evento });
     if (!pag.id || !pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
 
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.id)) || !/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.customer))) return json({ ok: false, erro: 'sem pagamento' }, 400);
+
     try {
-      const cliente = await asaas(env, '/customers/' + pag.customer);
+      /* o aviso diz o que foi pago, mas quem manda e o Asaas: le a cobranca de novo pela chave da API (valor, cliente e
+         situacao de verdade). Um aviso inventado, mesmo com o token vazado, nao libera dia nenhum */
+      /* cobranca que o Asaas nao conhece: responde ok (erro repetido faz o Asaas pausar a fila de avisos inteira) */
+      const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+      if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
+      if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return json({ ok: true, ignorado: 'status ' + String(real.status || '') });
+      Object.assign(pag, { value: real.value, customer: real.customer, description: real.description, externalReference: real.externalReference, subscription: real.subscription, billingType: real.billingType });
+      if (!pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
+      const cliente = await asaas(env, '/customers/' + encodeURIComponent(pag.customer));
       const email = String(cliente.email || '').trim().toLowerCase();
       if (!email) return json({ ok: false, erro: 'cliente sem e-mail' }, 200);
 
@@ -53,11 +65,36 @@ export default {
       if (jaFeito) return json({ ok: true, repetido: pag.id });
 
       const base = Math.max(Date.now(), p.pagoAte ? new Date(p.pagoAte).getTime() : 0);
-      const dias = plano.tipo === 'anual' ? 365 : 30;
+      /* Quantos dias o pagamento vale. Preco cheio: o periodo inteiro. Preco de fundador: so para quem ja e fundador ou
+         enquanto houver vaga (conferida aqui, no servidor, na hora do pagamento; o site nao decide). Sem vaga, ou valor
+         que nao bate com nenhum plano: dias proporcionais ao que entrou, e o painel mostra a diferenca */
+      const planosPreco = lerPlanos(env)[plano.id] || {};
+      const cheio = Number(planosPreco[plano.tipo]) || 0;
+      let dias = plano.tipo === 'anual' ? 365 : 30;
+      let fundador = p.fundador === true;
+      let parcial = null;
+      if (plano.preco === 'fundador' && !fundador) {
+        const pub = (await fb.get('publico/fundadores')) || {};
+        const usados = Number(pub.usados) || 0;
+        const total = Number(env.FUNDADOR_VAGAS || 5), ja = Number(env.FUNDADOR_JA || 0);
+        /* so perde a chance quem ja pagou alguma vez sem ser fundador (a mesma regra do site) */
+        if (!p.ultimoPagamentoEm && usados + ja < total) {
+          fundador = true;
+          await fb.merge('publico/fundadores', { usados: usados + 1, atualizadoEm: new Date().toISOString() });
+        } else if (cheio > 0) {
+          parcial = { cobrado: centavos, cheio: cheio, motivo: 'fundador-sem-vaga' };
+        }
+      } else if (!plano.preco && cheio > 0 && centavos < cheio) {
+        parcial = { cobrado: centavos, cheio: cheio, motivo: 'valor-diferente' };
+      }
+      if (parcial) dias = Math.max(0, Math.floor((dias * parcial.cobrado) / parcial.cheio));
       const pagoAte = new Date(base + dias * 864e5).toISOString();
       const novoPlano = Object.assign({}, p, {
         status: 'ativo', tipo: plano.tipo, planoId: p.planoId || plano.id, planoPago: plano.id, pagoAte: pagoAte,
         avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), cobrancaAsaas: pag.id,
+        fundador: fundador,
+        /* pago a menos: guarda o que entrou e o que faltava (a Central e o painel mostram; ninguem ganha o mes inteiro) */
+        pagamentoParcial: parcial ? Object.assign({ em: new Date().toISOString(), dias: dias }, parcial) : null,
       });
       const pagamentos = ((conta && conta.pagamentos) || []).concat([pag.id]).slice(-50);
       await fb.merge('contas/' + encodeURIComponent(email), { email: email, plano: novoPlano, pagamentos: pagamentos, atualizadoEm: new Date().toISOString() });
@@ -74,30 +111,41 @@ export default {
       if (env.CARDAPIO && lojas.length) await env.CARDAPIO.delete('vitrine').catch(() => {});
       return json({ ok: true, email: email, plano: plano.id, tipo: plano.tipo, pagoAte: pagoAte, lojas: lojas.length });
     } catch (e) {
-      return json({ ok: false, erro: String(e && e.message || e) }, 500);
+      /* o detalhe fica no log do Cloudflare; a resposta nao conta nada de dentro */
+      console.error('asaas', e && e.message || e);
+      return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500);
     }
   },
 };
 
-/* Qual plano foi pago: pelo valor (bate com PLANOS) ou, se nao bater, pelo texto da cobranca. */
+/* compara o token sem parar na primeira letra diferente (ninguem descobre o token pelo tempo da resposta) */
+function igual(a, b) {
+  a = String(a); b = String(b);
+  let dif = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) dif |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return dif === 0;
+}
+
+function lerPlanos(env) { try { return JSON.parse(env.PLANOS || '{}') || {}; } catch (_) { return {}; } }
+/* Qual plano foi pago: pelo valor (bate com PLANOS) ou, se nao bater, pelo texto da cobranca (e ai vale proporcional).
+   preco: 'cheio', 'fundador' ou '' (valor que nao bate com nenhum plano) */
 function descobrirPlano(env, centavos, pag) {
-  let planos = {};
-  try { planos = JSON.parse(env.PLANOS || '{}'); } catch (_) { planos = {}; }
+  const planos = lerPlanos(env);
   /* fm e fa: o preco de fundador (mensal e anual) do mesmo plano */
   for (const id of Object.keys(planos)) {
-    for (const [campo, tipo] of [['mensal', 'mensal'], ['anual', 'anual'], ['fm', 'mensal'], ['fa', 'anual']]) {
-      if (Number(planos[id][campo]) === centavos) return { id: id, tipo: tipo };
+    for (const [campo, tipo, preco] of [['mensal', 'mensal', 'cheio'], ['anual', 'anual', 'cheio'], ['fm', 'mensal', 'fundador'], ['fa', 'anual', 'fundador']]) {
+      if (Number(planos[id][campo]) === centavos) return { id: id, tipo: tipo, preco: preco };
     }
   }
   const texto = String((pag.description || '') + ' ' + (pag.externalReference || '')).toLowerCase();
   const id = Object.keys(planos).filter((k) => texto.indexOf(k) >= 0)[0] || 'uma';
   const tipo = texto.indexOf('anual') >= 0 || (pag.subscription && String(pag.billingType || '').length && centavos >= Number((planos[id] || {}).anual || 1e12)) ? 'anual' : 'mensal';
-  return { id: id, tipo: tipo };
+  return { id: id, tipo: tipo, preco: '' };
 }
 
 async function asaas(env, caminho) {
   const r = await fetch('https://api.asaas.com/v3' + caminho, { headers: { access_token: env.ASAAS_KEY, accept: 'application/json' } });
-  if (!r.ok) throw new Error('Asaas ' + r.status + ' em ' + caminho);
+  if (!r.ok) { const e = new Error('Asaas ' + r.status + ' em ' + caminho); e.status = r.status; throw e; }
   return r.json();
 }
 

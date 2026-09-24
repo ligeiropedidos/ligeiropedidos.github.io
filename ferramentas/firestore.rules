@@ -15,7 +15,12 @@ service cloud.firestore {
     function diaAlto() { return dataISO(request.time); }
     function isAdmin() { return conferido() && request.auth.token.email == 'ligeiro.pedidos@gmail.com'; }
     function donoDaLoja(loja) { return get(/databases/$(db)/documents/lojas/$(loja)).data.donoEmail; }
-    function isDonoDaLoja(loja) { return conferido() && request.auth.token.email == donoDaLoja(loja); }
+    /* dono: primeiro pela marca "lojas" do login (o mensageiro grava em /dono depois de conferir no banco que a loja e
+       dele). Com a marca, a regra nao le a loja: antes cada pedido que andava custava 2 leituras no painel do dono (o
+       pedido e a loja). Sem a marca (dono novo, ate o painel abrir), confere lendo a loja, como sempre.
+       Trocar o dono de uma loja na mao: o admin chama /dono com o e-mail antigo (a marca vira as lojas de hoje). */
+    function isDonoPorMarca(loja) { return conferido() && request.auth.token.get('lojas', []) is list && loja in request.auth.token.get('lojas', []); }
+    function isDonoDaLoja(loja) { return isDonoPorMarca(loja) || (conferido() && request.auth.token.email == donoDaLoja(loja)); }
     /* usuario de equipe da loja (cozinha, entregador, balcao): o mensageiro grava a marca {equipe: <loja>} no login
        quando o dono define a senha da equipe. Quem se cadastra sozinho nao consegue essa marca.
        Publique o mensageiro novo ANTES destas regras; depois, cada dono salva a senha da equipe de novo
@@ -41,12 +46,27 @@ service cloud.firestore {
           || (novo.get('status', '') == 'cancelado' && velho.get('status', '') != 'pausado')
           || (novo.get('status', '') == 'teste' && velho.get('status', '') == 'cancelado');
     }
+    /* LISTA BRANCA do plano: o dono so mexe nestes campos (escolher plano, avisar pagamento, encerrar, reativar).
+       Todo o resto (pagoAte, planoPago, fundador, desde, ultimoPagamentoEm, pagamentoParcial, pagamentos...) e do
+       admin e dos mensageiros. Antes era lista negra, e campo novo ficava aberto sem ninguem ver */
+    function planoSoDoDono(novo, velho) {
+      return novo.diff(velho).affectedKeys().hasOnly(['planoId', 'tipo', 'status', 'avisoPagamentoEm', 'avisoValor', 'reativadoEm', 'canceladoEm'])
+          && novo.get('tipo', 'mensal') in ['mensal', 'anual']
+          && novo.get('avisoValor', 0) is int && novo.get('avisoValor', 0) >= 0 && novo.get('avisoValor', 0) <= 10000000;
+    }
     function planoIntacto() {
-      return planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
+      return planoSoDoDono(planoDe(request.resource.data), planoDe(resource.data))
+          && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
           && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
           && request.resource.data.get('ativa', true) == resource.data.get('ativa', true)
           && request.resource.data.get('verificada', false) == resource.data.get('verificada', false)
           && request.resource.data.donoEmail == resource.data.donoEmail;
+    }
+    /* endereco da loja: letras minusculas, numeros e hifen; nunca um nome que o site ou o JavaScript usam por dentro
+       ("constructor" virava "loja oficial" no site) */
+    function slugValido(loja) {
+      return loja.matches('^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$')
+          && !(loja in ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro']);
     }
     function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
     /* vagas de loja fechadas (limite do banco gratis, fechado pela Central ou na mao): ninguem cria loja nova */
@@ -68,19 +88,28 @@ service cloud.firestore {
     match /contas/{email} {
       allow read: if isAdmin() || (conferido() && request.auth.token.email == email);
       allow create: if isAdmin() || (conferido() && request.auth.token.email == email && !ehLoginDeEquipe()
+        /* so os campos do cadastro, e o plano so com os campos do comeco */
+        && request.resource.data.keys().hasOnly(['email', 'nome', 'criadoEm', 'atualizadoEm', 'plano'])
+        && planoDe(request.resource.data).keys().hasOnly(['planoId', 'tipo', 'status', 'desde'])
+        && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
         /* o campo email e o do proprio dono (o e-mail do Ligeiro ali daria cortesia) */
         && request.resource.data.get('email', email) == email
         /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo.
            E tem que ser data de verdade (formato do toISOString): lixo virava "gratis pra sempre" */
         && planoDe(request.resource.data).get('desde', '') is string
         && planoDe(request.resource.data).get('desde', '').matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
-        && planoDe(request.resource.data).get('desde', '')[0:10] <= hojeISO()
+        /* ate a hora de agora (antes era o dia: dava para ganhar quase um dia a mais de teste) */
+        && planoDe(request.resource.data).get('desde', '')[0:13] <= horaISO(request.time)
         && planoDe(request.resource.data).get('status', 'teste') == 'teste'
         && semPago(planoDe(request.resource.data))
         && planoDe(request.resource.data).get('planoPago', '') == ''
         && planoDe(request.resource.data).get('fundador', false) == false
         && planoDe(request.resource.data).get('ultimoPagamentoEm', '') == '');
       allow update: if isAdmin() || (conferido() && request.auth.token.email == email
+        /* LISTA BRANCA: o dono so muda o plano (nos campos dele), o nome e a hora. "pagamentos" (o controle do Asaas de
+           pagamento ja contado), "donoEmail" e o resto nao: apagar a lista dava dias de assinatura em dobro */
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plano', 'nome', 'atualizadoEm'])
+        && planoSoDoDono(planoDe(request.resource.data), planoDe(resource.data))
         && request.resource.data.get('email', email) == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
         && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
@@ -96,6 +125,12 @@ service cloud.firestore {
       allow create, update: if isAdmin() || (isDonoDaLoja(loja)
         /* resumo sem e-mail: o e-mail do Ligeiro aqui daria cortesia no hub */
         && !request.resource.data.keys().hasAny(['email', 'donoEmail'])
+        /* o resumo e da propria loja e com os tipos que o site le (um horario torto derrubava a pagina das cidades) */
+        && request.resource.data.get('slug', loja) == loja
+        && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
+        && request.resource.data.get('cidadeSlug', '') is string && request.resource.data.get('cidadeSlug', '').matches('^[a-z0-9-]{0,60}$')
+        && request.resource.data.get('horarios', {}) is map
+        && request.resource.data.size() <= 60
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
         && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true)
         && request.resource.data.get('verificada', false) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('verificada', false));
@@ -104,7 +139,8 @@ service cloud.firestore {
 
     /* numeros publicos do Ligeiro (vagas de fundador ocupadas): todo mundo le, so o admin escreve */
     match /publico/{doc} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -148,48 +184,32 @@ service cloud.firestore {
          nasce pago. So a regra nao resolve: falta o site e o painel (dados.js, painel.js, cliente.js) passarem
          a usar lojas/{loja}/cupons/{CODIGO}, com get publico e list e write so do dono e do admin */
       allow get: if true;
-      allow list: if isAdmin() || (logado() && resource.data.donoEmail == request.auth.token.email);
+      allow list: if isAdmin() || (conferido() && resource.data.donoEmail == request.auth.token.email);
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
       allow create: if isAdmin()
         || (conferido() && request.resource.data.donoEmail == request.auth.token.email
             && !ehLoginDeEquipe()
             && !vagasFechadas()
+            && slugValido(loja)
+            && request.resource.data.get('slug', loja) == loja
             && request.resource.data.get('verificada', false) == false
             /* campo email na loja daria cortesia do Ligeiro: so o admin grava */
             && !request.resource.data.keys().hasAny(['email'])
             && cardapioNoLimite()
             && planoCopiaDaConta(planoDe(request.resource.data)));
       allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto()
+        /* o slug e o endereco: uma loja nao se passa por outra (trocar o slug abria a pagina com o tema e o selo da outra) */
+        && request.resource.data.get('slug', loja) == loja
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos']) || cardapioNoLimite()));
       allow delete: if isAdmin();
 
-      /* senha do dia (dia, ultima) e usos de cupom: o cliente escreve sem login, dentro da transacao do pedido.
-         O dono e o admin gravam e apagam o que precisarem (pra consertar um contador torto). */
+      /* senha do dia e usos de cupom: quem grava e o mensageiro (conta de servico), junto com o pedido, no mesmo lote.
+         O dono e o admin corrigem se precisar. Ninguem de fora le (a lista mostrava os codigos de cupom) nem grava
+         (dava para queimar o cupom da loja, repetir senha ou travar os pedidos gravando sem parar) */
       match /contadores/{c} {
-        allow read: if true;
-        allow write: if isDonoDaLoja(loja) || isAdmin();
-        /* senha: so {dia, ultima}. Documento novo ou dia novo comeca em 1; no mesmo dia anda um passo so.
-           O dia e a data de Brasilia de agora (folga de 3 h pra cada lado). Das 21 h as 3 h valem duas datas
-           e a senha pode recomecar em 1 mais de uma vez: repete numero, mas nenhum pedido e recusado
-           (tablet com o app antigo aberto ha dias, ou celular com o relogio uns minutos atrasado) */
-        allow create, update: if c == 'senha'
-          && request.resource.data.keys().hasOnly(['dia', 'ultima'])
-          && request.resource.data.dia is string && request.resource.data.dia.size() == 10
-          && (request.resource.data.dia == diaBaixo() || request.resource.data.dia == diaAlto())
-          && request.resource.data.ultima is int
-          && ((resource == null && request.resource.data.ultima == 1)
-              || (resource != null && resource.data.get('dia', '') != request.resource.data.dia
-                  && request.resource.data.ultima == 1)
-              || (resource != null && resource.data.get('dia', '') == request.resource.data.dia
-                  && request.resource.data.ultima == resource.data.get('ultima', 0) + 1));
-        /* cupom: so {usos, atualizadoEm}. Nasce em 1 e anda um passo por vez */
-        allow create, update: if c.matches('cupom-[A-Z0-9]{1,20}')
-          && request.resource.data.keys().hasOnly(['usos', 'atualizadoEm'])
-          && request.resource.data.usos is int
-          && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 40
-          && ((resource == null && request.resource.data.usos == 1)
-              || (resource != null && request.resource.data.usos == resource.data.get('usos', 0) + 1));
+        allow get: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
+        allow list, write: if isDonoDaLoja(loja) || isAdmin();
       }
       /* vendas de cada dia que ja fechou (o relatorio de 30 dias le 30 resumos, nao os pedidos do mes): so o dono e o admin */
       match /resumos/{dia} {
@@ -204,44 +224,39 @@ service cloud.firestore {
         allow read, write: if isDonoDaLoja(loja) || isAdmin();
       }
       match /pedidos/{pedido} {
-        /* o cliente cria sem login, mas o pedido tem que ter a cara de um pedido do app:
-           total inteiro, no maximo 60 itens, nunca nasce "pago" no Pix e nunca nasce com "ja paguei" */
-        allow create: if request.resource.data.keys().hasAll(['lojaSlug', 'status', 'total', 'itens', 'criadoEm', 'formaPagamento', 'pagamentoStatus'])
-          && request.resource.data.lojaSlug == loja
-          && request.resource.data.total is int && request.resource.data.total >= 0
-          && request.resource.data.itens is list && request.resource.data.itens.size() <= 60
-          && request.resource.data.get('cliente', {}) is map && request.resource.data.get('cliente', {}).get('nome', '') is string
-          && request.resource.data.size() <= 40
-          && request.resource.data.get('clientePagou', false) == false
-          /* criadoEm: texto ISO (toISOString) com a hora, em UTC, entre agora - 3 h e agora + 3 h.
-             Celular com relogio muito errado faria o pedido sumir da fila da loja (a fila filtra por criadoEm) */
-          && request.resource.data.criadoEm is string
-          && request.resource.data.criadoEm.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
-          && request.resource.data.criadoEm[0:13] >= horaISO(request.time - duration.value(3, 'h'))
-          && request.resource.data.criadoEm[0:13] <= horaISO(request.time + duration.value(3, 'h'))
-          /* campos do pagamento so nascem pelo mensageiro ou pelo painel, nunca junto com o pedido */
-          && !request.resource.data.keys().hasAny(['mp', 'pixCodigo', 'pixExpiraEm', 'confirmadoPor', 'pagoAposCancelar'])
-          /* so tres jeitos de nascer: de graca (cupom de 100%), Pix ou cartao pelo site esperando pagamento (quem marca pago
-             e o mensageiro, depois que o Mercado Pago confirma), ou para cobrar na porta (so maquininha e dinheiro) */
-          && ((request.resource.data.total == 0 && request.resource.data.status == 'pago')
-              || (request.resource.data.formaPagamento in ['pix', 'cartao_online'] && request.resource.data.status == 'aguardando_pagamento' && request.resource.data.pagamentoStatus == 'pendente')
-              || (request.resource.data.formaPagamento in ['cartao_entrega', 'dinheiro_entrega'] && request.resource.data.status == 'pago' && request.resource.data.pagamentoStatus == 'na_entrega'));
-        allow get: if true;                               /* o cliente acompanha pelo id, que ninguem adivinha */
+        /* O PEDIDO NASCE NO MENSAGEIRO (rota /pedido, conta de servico, que passa por cima destas regras): ele monta o
+           pedido com as regras do site e o cardapio, da a senha e conta o cupom. Gravado direto pelo celular, nao:
+           era por aqui que dava para criar pedido de graca, com cupom inventado, com o nome de uma pizza e o preco de uma
+           agua, em loja fechada ou com forma de pagamento desligada. So o dono (na propria loja) e o admin gravam direto */
+        allow create: if isAdmin() || isDonoDaLoja(loja);
+        /* o cliente acompanha pelo id (ninguem adivinha). Nome, telefone e endereco ficam abertos so por 3 dias: link
+           vazado depois disso nao mostra mais nada */
+        allow get: if resource.data.get('criadoEm', '') >= dataISO(request.time - duration.value(3, 'd'))
+                   || isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
         /* a equipe vem primeiro: ela se reconhece pela marca do login, sem ler a loja (isDonoDaLoja le a loja inteira,
            e a leitura conta no plano gratis a cada toque da cozinha e do entregador) */
-        allow list: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();   /* a loja e a equipe dela listam a fila */
+        /* a loja e a equipe dela listam a fila; a equipe sempre com limite (nunca o historico inteiro de clientes) */
+        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300);
         allow update: if
           /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
-          (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm']))
+          (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm'])
+              && request.resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto', 'finalizado', 'cancelado']
+              /* pedido cancelado ou concluido nao volta (nem um cancelado e devolvido vira "pago" de novo) */
+              && (!(resource.data.status in ['cancelado', 'finalizado']) || request.resource.data.status == resource.data.status))
           || isDonoDaLoja(loja) || isAdmin()
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
-              && request.resource.data.clientePagou == true)
+              && request.resource.data.clientePagou == true
+              && resource.data.status == 'aguardando_pagamento' && resource.data.formaPagamento == 'pix'
+              && request.resource.data.get('clientePagouEm', '') is string && request.resource.data.get('clientePagouEm', '').size() <= 30
+              && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30)
           /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
               && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor in ['cliente', 'pix-vencido']
-              && resource.data.status == 'aguardando_pagamento');
-        allow delete: if isAdmin();
+              && resource.data.status == 'aguardando_pagamento'
+              && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30);
+        /* o dono apaga pedido cancelado (lixo gravado por fora, teste); o resto, so o admin */
+        allow delete: if isAdmin() || (isDonoDaLoja(loja) && resource.data.status == 'cancelado');
       }
     }
   }

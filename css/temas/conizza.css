@@ -206,8 +206,12 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .passo-item { border: 2px solid var(--cz-tinta); background: var(--cz-branco); box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .passo-ico { background: var(--cz-creme); color: var(--cz-vermelho); border: 2px solid var(--cz-tinta); }
 .tema-conizza .passos-titulos h3 { font-family: var(--cz-display); font-weight: 800; }
-.tema-conizza .passos-titulos span, .tema-conizza .passo-feito { color: var(--cz-tinta-suave); }
+.tema-conizza .passos-titulos span { color: var(--cz-tinta-suave); }
+.tema-conizza .passo-feito { color: var(--cz-tinta); }
 .tema-conizza .passos-feitos summary { color: var(--cz-tinta); }
+/* a listinha dos prontos no mesmo cartao da casa dos passos de cima (borda grossa e a sombra chapada) */
+.tema-conizza .passos-feitos { border: 2px solid var(--cz-tinta); background: var(--cz-branco); box-shadow: 0 3px 0 var(--cz-tinta); }
+.tema-conizza .passos-feitos-lista, .tema-conizza .passo-feito { border-color: rgba(36, 23, 8, 0.14); }
 .tema-conizza .passos-feitos summary .ico-traco, .tema-conizza .passo-feito .ico-traco { color: var(--cz-verde); }
 .tema-conizza .progresso-passos span { background: var(--cz-vermelho); }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
@@ -326,6 +330,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .avaliar-google { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); }
 .tema-conizza .avaliar-titulo { font-family: var(--cz-display); color: var(--cz-tinta); }
 .tema-conizza .avaliar-estrelas { color: var(--cz-ouro); }
-.tema-conizza .passos-feitos summary { padding: 0 14px; } /* 12 + 2 da borda grossa dos cartoes da casa */
-.tema-conizza .passo-feito { padding-left: 14px; padding-right: 14px; }
 .tema-conizza .tour-nome, .tema-conizza .tour-conta { border-width: 2px; font-size: 13px; line-height: 1.3; }
+.tema-conizza .aceite-termos { border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-branco); }
+.tema-conizza .aceite-campo:checked + .aceite-caixa { background: var(--cz-vermelho); border-color: var(--cz-tinta); color: var(--cz-creme); }
+.tema-conizza .termos-resumo li::before { background: var(--cz-vermelho); }
+.tema-conizza .termos-links a, .tema-conizza .aceite-texto a { color: var(--cz-vermelho); }
