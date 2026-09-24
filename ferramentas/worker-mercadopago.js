@@ -1554,14 +1554,18 @@ export default {
         if (!id || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return json({ ok: true, ignorado: true });
         if (slug && !SLUG.test(slug)) return json({ ok: true, ignorado: 'loja' });
         /* com o segredo do webhook (MP_WEBHOOK_SECRET) guardado, so aceita aviso assinado pelo Mercado Pago */
-        if (env.MP_WEBHOOK_SECRET && !(await assinaturaMpConfere(request, env.MP_WEBHOOK_SECRET, url.searchParams.get('data.id') || id))) return json({ ok: false, erro: 'assinatura' }, 401);
+        if (env.MP_WEBHOOK_SECRET && !(await assinaturaMpConfere(request, env.MP_WEBHOOK_SECRET, url.searchParams.get('data.id') || id))) {
+          /* aviso do app da propria loja (?loja=): a chave e a dela. Nada muda sem o Mercado Pago confirmar com o token da loja */
+          if (!slug) return json({ ok: false, erro: 'assinatura' }, 401);
+          if (demais('aviso:' + (request.headers.get('CF-Connecting-IP') || 'sem-ip'), 120, 60 * 1000)) return json({ ok: false, erro: 'devagar' }, 429);
+        }
         let pedidoId = null;
         if (!slug) {
           /* o aviso de order traz o external_reference (loja__pedido): acha a loja sem ler o banco.
              Ninguem ganha nada inventando: o pagamento e conferido no Mercado Pago com o token da loja, pela referencia e pelo valor */
           const ref = String(dados.external_reference || '');
           const i = ref.indexOf('__');
-          if (i > 0 && SLUG.test(ref.slice(0, i)) && /^[a-z0-9]{20}$/.test(ref.slice(i + 2))) { slug = ref.slice(0, i); pedidoId = ref.slice(i + 2); }
+          if (i > 0 && SLUG.test(ref.slice(0, i)) && PEDIDO_ID.test(ref.slice(i + 2))) { slug = ref.slice(0, i); pedidoId = ref.slice(i + 2); }
         }
         const fb = await firebase(env);
         if (!slug) {
@@ -1771,11 +1775,14 @@ export default {
         }
         const loja = String(c.loja || '');
         if (!SLUG.test(loja)) return json({ ok: false, erro: 'faltou a loja' }, 400);
-        if (Array.isArray(conta.marca.lojas) && conta.marca.lojas.indexOf(loja) >= 0) return json({ ok: true, marca: false });
-        /* a verdade e o banco (1 leitura, uma vez na vida por loja): a copia da borda pode estar velha numa troca de dono */
-        const l = await fb.get('lojas/' + loja);
-        if (!l || String(l.donoEmail || '').toLowerCase() !== conta.email) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
-        const lista = (Array.isArray(conta.marca.lojas) ? conta.marca.lojas : []).filter((x) => x !== loja).concat([loja]);
+        const ateMarca = Number(conta.marca.lojasAte || 0);
+        if (Array.isArray(conta.marca.lojas) && conta.marca.lojas.indexOf(loja) >= 0 && ateMarca - Date.now() / 1000 > 86400) return json({ ok: true, marca: false });
+        /* a verdade e o banco: as lojas que tem este e-mail como dono HOJE (uma loja que trocou de dono na mao sai da marca) */
+        const lista = await fb.lojasDoDono(conta.email);
+        if (lista.indexOf(loja) < 0) {
+          if (Array.isArray(conta.marca.lojas) && conta.marca.lojas.length) await gravarMarcaDono(fb, conta.email, conta, lista).catch(() => {});
+          return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        }
         await gravarMarcaDono(fb, conta.email, conta, lista);
         return json({ ok: true, marca: true });
       }
@@ -1805,8 +1812,11 @@ export default {
         const codigo = String(c.codigo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
         if (!SLUG.test(loja) || !codigo) return json({ erro: 'Digite o código para aplicar.' }, 400);
         /* chute de codigo: poucas tentativas por aparelho (e por loja), senao dava para descobrir um cupom secreto */
-        const ip = request.headers.get('CF-Connecting-IP') || 'sem-ip';
+        const ip = ipDaCasa(request.headers.get('CF-Connecting-IP'));
         if (demais('cupom-ip:' + ip, 12, 10 * 60 * 1000) || demais('cupom-loja:' + loja, 300, 10 * 60 * 1000)) return json({ erro: 'Muitas tentativas de código. Espere alguns minutos.' }, 429);
+        /* a copia da loja diz se ela existe e se tem cupom: loja inventada, ou sem cupom, nao gasta o banco */
+        const copiaLoja = await lerLoja(env, ctx, loja);
+        if (!copiaLoja.existe || !/"temCupom":true/.test(String(copiaLoja.corpo || ''))) return json({ erro: 'Esse código não existe. Confira as letras.' });
         const fb = await firebase(env);
         const lista = await cuponsDaLoja(env, fb, loja);
         const regra = lista.filter((x) => x.codigo === codigo)[0];
@@ -1845,7 +1855,9 @@ export default {
         if (!l) return json({ erro: 'Essa loja não existe mais.' }, 404);
         if (l.ativa === false) return json({ erro: 'Esta loja não está recebendo pedidos pelo site.' }, 409);
         /* cupons: a lista privada, so quando o pedido veio com codigo (pedido sem codigo nao gasta nada com isso) */
-        l = Object.assign({}, l, { cupons: String(dados.cupom || '').trim() ? await cuponsDaLoja(env, fb, loja) : [] });
+        const comCodigo = !!String(dados.cupom || '').trim();
+        if (comCodigo && (demais('cupom-ped:' + ipDaCasa(ip), 30, 10 * 60 * 1000) || demais('cupom-loja:' + loja, 300, 10 * 60 * 1000))) return json({ erro: 'Muitas tentativas de código. Espere alguns minutos.' }, 429);
+        l = Object.assign({}, l, { cupons: comCodigo && (l.temCupom === true || (Array.isArray(l.cupons) && l.cupons.length > 0)) ? await cuponsDaLoja(env, fb, loja) : [] });
         /* as regras contam o horario da loja pelo relogio local: o Cloudflare roda no horario de Londres, entao elas
            recebem a hora de Brasilia (o Brasil nao tem mais horario de verao). No pedido fica a hora de verdade */
         const agoraBr = new Date(Date.now() - 3 * 3600 * 1000);
@@ -1931,13 +1943,44 @@ export default {
           transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
           payer: { email: 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
         };
-        const ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido + '-o2' } });
-        const pagto = (ord.transactions && ord.transactions.payments && ord.transactions.payments[0]) || {};
-        const qr = (pagto.payment_method && pagto.payment_method.qr_code) || '';
+        const caminhoPix = 'lojas/' + loja + '/pedidos/' + pedido;
+        const codigoDa = (o) => { const pg = (o && o.transactions && o.transactions.payments && o.transactions.payments[0]) || {}; return { pagto: pg, qr: (pg.payment_method && pg.payment_method.qr_code) || '' }; };
+        let ord = null;
+        /* a order deste Pix ja foi criada (a resposta nao chegou ou veio sem o codigo): busca, nao cria outra */
+        if (p.mp && p.mp.id && !p.mp.cartao) {
+          try { ord = await mp(token, '/v1/orders/' + encodeURIComponent(String(p.mp.id)), {}); } catch (e) { if (e && e.status === 401) delete MEM.mp[loja]; ord = null; }
+          if (ord && ['action_required', 'processing', 'created'].indexOf(String(ord.status)) < 0) ord = null;
+        }
+        if (!ord) {
+          const criar = (chave) => mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': chave } });
+          try {
+            try { ord = await criar(pedido + '-o2'); } catch (e1) {
+              if (e1 && e1.status === 401) delete MEM.mp[loja];
+              /* chave ja usada numa order que se perdeu: uma chave nova (o cliente so ve um codigo) */
+              if (e1 && e1.status === 409) ord = await criar(pedido + '-o3');
+              else if (e1 && e1.status >= 400 && e1.status < 500) throw e1;
+              else ord = await criar(pedido + '-o2');
+            }
+          } catch (e) {
+            console.error('pix nao criou', loja, pedido, e && e.message);
+            return json({ erro: 'Não deu para gerar o Pix agora. Tente de novo em instantes.' }, 502);
+          }
+          /* o id fica guardado na hora: se o codigo demorar, a proxima tentativa busca esta mesma order */
+          if (ord && ord.id && !codigoDa(ord).qr) await fb.merge(caminhoPix, { mp: { id: String(ord.id), criadoEm: new Date().toISOString() }, atualizadoEm: new Date().toISOString() }).catch(() => {});
+        }
+        let { pagto, qr } = codigoDa(ord);
+        /* o Mercado Pago pode gerar o codigo um instante depois (order "processing"): pergunta de novo, ate 3 vezes */
+        for (let volta = 0; !qr && ord && ord.id && volta < 3; volta++) {
+          await new Promise((ok) => setTimeout(ok, 1000));
+          const de = await mp(token, '/v1/orders/' + encodeURIComponent(String(ord.id)), {}).catch(() => null);
+          if (de) { ord = de; ({ pagto, qr } = codigoDa(ord)); }
+        }
         if (!qr) return json({ erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)' }, 502);
-        const expira = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        /* o prazo que o Mercado Pago deu ao codigo (o do relogio daqui so se ele nao disser) */
+        const fimMp = Date.parse(pagto.date_of_expiration || '');
+        const expira = new Date(!isNaN(fimMp) && fimMp > Date.now() ? Math.min(fimMp, Date.now() + 30 * 60 * 1000) : Date.now() + 30 * 60 * 1000).toISOString();
         const agora2 = new Date().toISOString();
-        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
+        await fb.merge(caminhoPix, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
         /* indice pro webhook so quando a referencia foi cortada (loja de nome muito comprido): o aviso normal ja traz loja e pedido */
         if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
         return json({ codigo: qr, expiraEm: expira, mp: String(ord.id) });
@@ -1971,11 +2014,25 @@ export default {
         /* tentativas contadas no proprio pedido (valem em todas as copias do worker, nao so nesta) */
         if ((Number(p.tentativasCartao) || 0) >= 5) return json({ status: 'recusado', motivo: 'Tentativas demais com cartão neste pedido. Pague no Pix ou faça um pedido novo.' });
         /* outra cobranca deste pedido em andamento (dois toques, duas abas): espera, nunca cobra duas vezes */
-        if (p.cobrandoEm && Date.now() - Date.parse(p.cobrandoEm) < 90 * 1000) return json({ status: 'recusado', motivo: 'Um pagamento deste pedido já está em andamento. Espere um instante.' });
+        if (p.cobrandoEm && Date.now() - Date.parse(p.cobrandoEm) < (p.cobrancaIncerta ? 5 * 60 * 1000 : 90 * 1000)) {
+          return json({ status: 'recusado', motivo: p.cobrancaIncerta ? 'Ainda estamos confirmando o pagamento anterior com o banco. Espere alguns minutos: se ele passar, o pedido entra sozinho.' : 'Um pagamento deste pedido já está em andamento. Espere um instante.' });
+        }
         /* o valor tem que ser o do cardapio: pedido gravado direto no banco com total inventado nao e cobrado */
         if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'O cardápio mudou ou o valor do pedido não confere. Monte o pedido de novo.' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o cartão' }, 409);
+        /* a cobranca anterior deste pedido pode ter passado depois (analise do banco, resposta que nao chegou): pergunta
+           ao Mercado Pago antes de cobrar de novo. Nunca duas cobrancas do mesmo pedido */
+        if (p.mp && p.mp.cartao && p.mp.id) {
+          let antiga = null;
+          try { antiga = await mp(token, '/v1/orders/' + encodeURIComponent(String(p.mp.id)), {}); } catch (e) { if (!(e && e.status === 404)) return json({ status: 'recusado', motivo: 'Não deu para conferir o pagamento anterior agora. Espere um minuto e tente de novo.' }); }
+          const est = String((antiga && antiga.status) || '');
+          if (est === 'processed') {
+            const r0 = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env).catch(() => null);
+            if (r0 === 'pago') return json({ status: 'aprovado' });
+          }
+          if (est === 'processing' || est === 'in_process') return json({ status: 'analise', motivo: 'Seu pagamento anterior ainda está em análise pelo banco. Assim que aprovar, o pedido entra na fila sozinho.' });
+        }
         /* a trava: grava "cobrando" so se o pedido nao mudou desde a leitura. Duas cobrancas ao mesmo tempo: so uma passa */
         const travou = await fb.mergeSeIgual(caminhoPedido, { cobrandoEm: new Date().toISOString(), tentativasCartao: (Number(p.tentativasCartao) || 0) + 1 }, p._atualizadoNoBanco);
         if (!travou) return json({ status: 'recusado', motivo: 'Um pagamento deste pedido já está em andamento. Espere um instante.' });
@@ -1994,30 +2051,62 @@ export default {
           payer: pagador,
         };
         let ord;
+        const chaveCobranca = pedido + '-c' + cartao.slice(-16);
+        const cobrarUmaVez = () => mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': chaveCobranca } });
         try {
-          ord = await mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': pedido + '-c' + cartao.slice(-16) } });
+          try { ord = await cobrarUmaVez(); } catch (e1) {
+            /* sem resposta ou erro do lado deles: a mesma chave de novo devolve a mesma cobranca (nunca cobra duas vezes) */
+            if (e1 && e1.status >= 400 && e1.status < 500) throw e1;
+            ord = await cobrarUmaVez();
+          }
         } catch (e) {
-          await soltar();
           if (e && e.status === 401) delete MEM.mp[loja];
-          if (e && e.status >= 400 && e.status < 500) return json({ status: 'recusado', motivo: motivoDoCartao(detalheDoCartao(e.dados)) });
-          throw e;
+          /* recusa de verdade (4xx, menos o 409 da chave repetida, que quer dizer "ja estava cobrando"): nada foi cobrado */
+          if (e && e.status >= 400 && e.status < 500 && e.status !== 409) {
+            const idRecusa = e.dados && e.dados.id ? String(e.dados.id) : '';
+            await fb.merge(caminhoPedido, Object.assign({ cobrandoEm: '', cobrancaIncerta: '' }, idRecusa ? { cobrancas: ((Array.isArray(p.cobrancas) ? p.cobrancas : []).concat([idRecusa])).slice(-10) } : {})).catch(() => {});
+            return json({ status: 'recusado', motivo: motivoDoCartao(detalheDoCartao(e.dados)) });
+          }
+          /* sem resposta (queda, demora, erro do Mercado Pago): pode ter passado. A trava fica por 5 minutos e o aviso do
+             Mercado Pago (ou a proxima tentativa, que confere antes) resolve */
+          console.error('cartao sem resposta', loja, pedido, e && e.message);
+          await fb.merge(caminhoPedido, { cobrancaIncerta: new Date().toISOString(), cobrandoEm: new Date().toISOString() }).catch(() => {});
+          return json({ status: 'conferindo', motivo: 'O banco não respondeu a tempo. Se o valor aparecer no seu cartão, o pedido entra sozinho. Se não aparecer, tente de novo daqui a 5 minutos.' });
         }
         const detalhe = detalheDoCartao(ord);
         const agoraMp = new Date().toISOString();
         if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agoraMp }).catch(() => {});
         const idMp = { id: String(ord.id), criadoEm: agoraMp, cartao: true };
+        /* toda cobranca do pedido fica anotada: a devolucao alcanca todas */
+        const cobrancas = ((Array.isArray(p.cobrancas) ? p.cobrancas : []).concat([String(ord.id)])).filter((x, i, l) => l.indexOf(x) === i).slice(-10);
+        /* em analise pelo banco: a trava fica (ninguem cobra de novo); o aviso do Mercado Pago libera ou recusa depois */
+        const detalheOrd = String(detalhe || '').toLowerCase();
+        if (ord.status === 'processing' || ord.status === 'in_process' || (ord.status === 'action_required' && /waiting_retry|in_process|review/.test(detalheOrd))) {
+          await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: agoraMp, cobrancaIncerta: agoraMp, atualizadoEm: agoraMp }).catch(() => {});
+          return json({ status: 'analise', motivo: 'Seu pagamento está em análise pelo banco. Assim que aprovar, o pedido entra na fila sozinho.' });
+        }
         /* aprovado na hora, deste pedido e do mesmo valor: o "pago" vai junto com o id, numa gravacao so, travada na
            hora da trava (ninguem mexeu no pedido desde ela). Mexeram (o cliente cancelou no meio): o caminho de sempre */
-        if (ord.status === 'processed' && typeof travou === 'string' && String(ord.external_reference || '') === referencia && Math.round(Number(ord.total_amount) * 100) === p.total) {
-          const pagou = await fb.mergeSeIgual(caminhoPedido, { mp: idMp, cobrandoEm: '', status: 'pago', pagamentoStatus: 'pago', pagoEm: agoraMp, confirmadoPor: 'mercadopago', atualizadoEm: agoraMp }, travou);
+        const aprovadoNoMp = ord.status === 'processed' && String(ord.external_reference || '') === referencia && Math.round(Number(ord.total_amount) * 100) === p.total;
+        if (aprovadoNoMp && typeof travou === 'string') {
+          let pagou = false;
+          try {
+            pagou = await fb.mergeSeIgual(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: '', cobrancaIncerta: '', status: 'pago', pagamentoStatus: 'pago', pagoEm: agoraMp, confirmadoPor: 'mercadopago', atualizadoEm: agoraMp }, travou);
+          } catch (e) {
+            /* o banco falhou agora: o pagamento esta aprovado no Mercado Pago. O cliente ouve "aprovado", a trava fica
+               (nenhum toque cobra de novo) e o aviso do Mercado Pago marca o pedido pago daqui a pouco */
+            console.error('cartao aprovado, banco falhou', loja, pedido, e && e.message);
+            return json({ status: 'aprovado' });
+          }
           if (pagou) {
             await avisarPixPago(env, loja, Object.assign({}, p, { id: pedido, status: 'pago' })).catch(() => {});
             return json({ status: 'aprovado' });
           }
         }
-        await fb.merge(caminhoPedido, { mp: idMp, cobrandoEm: '', atualizadoEm: agoraMp }).catch(() => {});
+        await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: agoraMp }).catch(() => {});
         if (ord.status === 'processed') {
-          const r2 = await conferirPagamento(fb, loja, ord.id, pedido, env);
+          let r2 = null;
+          try { r2 = await conferirPagamento(fb, loja, ord.id, pedido, env); } catch (e) { if (aprovadoNoMp) return json({ status: 'aprovado' }); throw e; }
           if (r2 === 'pago') return json({ status: 'aprovado' });
         }
         if (ord.status === 'action_required') return json({ status: 'recusado', motivo: 'O banco pediu uma confirmação que ainda não fazemos por aqui. Tente outro cartão ou pague no Pix.' });
@@ -2044,11 +2133,27 @@ export default {
         if ((p.formaPagamento !== 'pix' && p.formaPagamento !== 'cartao_online') || p.pagamentoStatus !== 'pago' || !p.mp || !p.mp.id || p.mp.simulado) return json({ ok: false, erro: 'esse pedido não foi pago pelo site' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ ok: false, erro: 'a loja está sem Mercado Pago conectado' }, 409);
-        const mpId = String(p.mp.id);
-        /* pedido novo e uma "order" (ORD...); os Pix antigos eram pagamento avulso. Os dois devolvem o valor inteiro */
-        const ehOrder = mpId.indexOf('ORD') === 0;
+        /* todas as cobrancas aprovadas do pedido voltam (a ultima e as anteriores, se alguma tiver passado) */
+        const ids = [String(p.mp.id)].concat(Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : []).filter((x, i, l) => x && l.indexOf(x) === i && /^[A-Za-z0-9_-]{1,64}$/.test(x));
         try {
-          await mp(token, ehOrder ? '/v1/orders/' + encodeURIComponent(mpId) + '/refund' : '/v1/payments/' + encodeURIComponent(mpId) + '/refunds', { method: 'POST', body: ehOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'devolver-' + pedido } });
+          for (const mpId of ids) {
+            /* pedido novo e uma "order" (ORD...); os Pix antigos eram pagamento avulso. Os dois devolvem o valor inteiro */
+            const ehOrder = mpId.indexOf('ORD') === 0;
+            if (mpId !== String(p.mp.id)) {
+              /* cobranca anterior: so devolve se ela foi aprovada (a recusada nao tem o que devolver) */
+              const o = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(mpId), {}).catch(() => null);
+              if (!o || ['processed', 'approved'].indexOf(String(o.status)) < 0) continue;
+            }
+            try {
+              await mp(token, ehOrder ? '/v1/orders/' + encodeURIComponent(mpId) + '/refund' : '/v1/payments/' + encodeURIComponent(mpId) + '/refunds', { method: 'POST', body: ehOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'devolver-' + pedido + (mpId === String(p.mp.id) ? '' : '-' + mpId) } });
+            } catch (e) {
+              /* ja devolvido, ou devolucao em andamento (o toque anterior passou e a resposta se perdeu): confere e segue */
+              if (!(e && e.status === 409)) throw e;
+              const o = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(mpId), {}).catch(() => null);
+              const est = String((o && (o.status_detail || o.status)) || '') + ' ' + String((o && o.status) || '');
+              if (!/refund/.test(est) && !/already_refunded|refund_already_in_process|idempotency_key_already_used/.test(JSON.stringify(e.dados || {}))) throw e;
+            }
+          }
         } catch (e) {
           console.error('devolver', loja, pedido, e && e.message);
           return json({ ok: false, erro: 'o Mercado Pago não devolveu' }, 502);
@@ -2560,6 +2665,8 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     pg = await mp(token, (ehOrder ? '/v1/orders/' : '/v1/payments/') + encodeURIComponent(idPagamento), {});
   } catch (e) {
     if (e && e.status === 401) delete MEM.mp[slug]; /* token trocado ou desconectado: le de novo na proxima */
+    /* order ou pagamento que nao existe nesta conta (aviso inventado, ou de outra conta): nada a conferir */
+    if (e && e.status === 404) return null;
     throw e;
   }
   let ref = String(pg.external_reference || '');
@@ -2598,7 +2705,13 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     if (entrou) await avisarPixPago(env, slug, Object.assign({}, p, { id: id })).catch(() => {});
     return 'pago';
   }
-  if (pg.status === 'cancelled' || pg.status === 'expired') return 'aguardando_pagamento';
+  if (['failed', 'cancelled', 'expired', 'rejected'].indexOf(String(pg.status)) >= 0) {
+    /* cartao que estava em analise e foi recusado: solta a trava, para o cliente tentar outro cartao ou o Pix */
+    const p = await fb.get('lojas/' + slug + '/pedidos/' + id).catch(() => null);
+    if (p && p.formaPagamento === 'cartao_online' && p.status === 'aguardando_pagamento' && p.mp && String(p.mp.id) === String(idPagamento) && p.cobrandoEm) {
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, { cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: new Date().toISOString() }).catch(() => {});
+    }
+  }
   return 'aguardando_pagamento';
 }
 
@@ -2607,11 +2720,18 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
    Se veio pelo "Conectar" e esta perto de vencer, renova sozinho com o refresh_token. */
 const TOKEN_VALE = 6 * 3600 * 1000;
 function esquecerToken(env, ctx, slug) {
+  /* a copia da borda nao precisa sair: ela vale so para a versao da copia da loja em que foi guardada, e o /publicar
+     (ou o conectar) acabou de fazer uma copia nova. Apagar gastava 2 exclusoes do KV a cada "Salvar" do dono */
   delete MEM.mp[slug];
   delete MEM.cupons[slug];
-  if (!env || !env.CARDAPIO) return;
-  const apagar = Promise.all([env.CARDAPIO.delete('mptoken:' + slug), env.CARDAPIO.delete('cupons:' + slug)]).catch(() => {});
-  if (ctx && ctx.waitUntil) ctx.waitUntil(apagar);
+}
+/* versao da copia da loja na borda (a hora em que foi feita): muda a cada /publicar, conectar ou copia renovada */
+async function versaoDaCopia(env, slug) {
+  const mem = MEM.lojas[slug];
+  if (mem && mem.existe && mem.meta && Date.now() - mem.lida < 60 * 1000) return Number(mem.meta.em) || 0;
+  const g = await lerKv(env, 'loja:' + slug, 'stream');
+  if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+  return g && g.metadata ? Number(g.metadata.em) || 0 : 0;
 }
 /* Cupons da loja (lista privada): da memoria (1 min), da borda (6 h, chave que nenhuma rota publica alcanca) ou do
    banco (a parte privada; loja antiga, ainda com a lista no documento: dali). O painel salva: a copia sai (/publicar) */
@@ -2619,14 +2739,15 @@ async function cuponsDaLoja(env, fb, slug) {
   const m = MEM.cupons[slug];
   if (m && Date.now() - m.em < 60 * 1000) return m.lista;
   let lista = null;
+  const versao = await versaoDaCopia(env, slug);
   const g = await lerKv(env, 'cupons:' + slug, 'text');
-  if (g && g.value && g.metadata && Date.now() - Number(g.metadata.em || 0) < TOKEN_VALE) { try { lista = JSON.parse(g.value); } catch (_) { lista = null; } }
+  if (g && g.value && g.metadata && versao && Number(g.metadata.loja || 0) === versao && Date.now() - Number(g.metadata.em || 0) < TOKEN_VALE) { try { lista = JSON.parse(g.value); } catch (_) { lista = null; } }
   if (!Array.isArray(lista)) {
     const priv = await fb.get('lojas/' + slug + '/privado/cupons');
     if (priv && Array.isArray(priv.lista)) lista = priv.lista;
     else { const l = await fb.get('lojas/' + slug); lista = l && Array.isArray(l.cupons) ? l.cupons : []; }
     lista = lista.filter((c) => c && typeof c.codigo === 'string').map((c) => ({ codigo: String(c.codigo).slice(0, 20), percentual: Number(c.percentual) || 0, minimo: Number(c.minimo) || 0, limite: Number(c.limite) || 0, ativo: c.ativo !== false }));
-    await gravarKv(env, 'cupons:' + slug, JSON.stringify(lista), { em: Date.now() });
+    if (versao) await gravarKv(env, 'cupons:' + slug, JSON.stringify(lista), { em: Date.now(), loja: versao });
   }
   MEM.cupons[slug] = { lista: lista, em: Date.now() };
   return lista;
@@ -2634,14 +2755,27 @@ async function cuponsDaLoja(env, fb, slug) {
 async function tokenDaLoja(fb, slug, env) {
   const m = MEM.mp[slug];
   if (m && Date.now() - m.em < 10 * 60 * 1000) return m.token;
+  const versao = env && env.CARDAPIO ? await versaoDaCopia(env, slug) : 0;
   if (env && env.CARDAPIO) {
     const g = await lerKv(env, 'mptoken:' + slug, 'text');
-    if (g && g.value && g.metadata && Date.now() - Number(g.metadata.em || 0) < TOKEN_VALE && (!g.metadata.vence || g.metadata.vence - Date.now() > 7 * 864e5)) {
+    if (g && g.value && g.metadata && versao && Number(g.metadata.loja || 0) === versao && Date.now() - Number(g.metadata.em || 0) < TOKEN_VALE && (!g.metadata.vence || g.metadata.vence - Date.now() > 7 * 864e5)) {
       MEM.mp[slug] = { token: g.value, em: Date.now() };
       return g.value;
     }
   }
-  const seg = await fb.get('lojas/' + slug + '/privado/mercadopago');
+  let seg = await fb.get('lojas/' + slug + '/privado/mercadopago');
+  if (env && env.CARDAPIO) {
+    /* renovacao que o banco nao aceitou na hora: grava agora (o refresh que vale e esse) */
+    const pend = await lerKv(env, 'mpnovo:' + slug, 'text');
+    if (pend && pend.value) {
+      try {
+        const novo = JSON.parse(pend.value);
+        await fb.merge('lojas/' + slug + '/privado/mercadopago', novo);
+        seg = Object.assign({}, seg || {}, novo);
+        await env.CARDAPIO.delete('mpnovo:' + slug).catch(() => {});
+      } catch (_) { /* fica para a proxima */ }
+    }
+  }
   let token = seg && seg.token ? String(seg.token).trim() : '';
   const vence = seg && seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
   if (token && seg.refresh && env && env.MP_CLIENT_ID && env.MP_CLIENT_SECRET && vence && vence - Date.now() < 7 * 864e5) {
@@ -2652,7 +2786,11 @@ async function tokenDaLoja(fb, slug, env) {
       });
       const t = await r.json().catch(() => ({}));
       if (r.ok && t.access_token) {
-        await fb.merge('lojas/' + slug + '/privado/mercadopago', { token: t.access_token, refresh: t.refresh_token || seg.refresh, publica: String(t.public_key || seg.publica || ''), tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() });
+        const novo = { token: t.access_token, refresh: t.refresh_token || seg.refresh, publica: String(t.public_key || seg.publica || ''), tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(), atualizadoEm: new Date().toISOString() };
+        /* o refresh antigo ja nao vale: grava o novo com insistencia; se o banco nao aceitar, guarda na borda para a proxima */
+        let gravou = false;
+        for (let v = 0; v < 3 && !gravou; v++) { try { await fb.merge('lojas/' + slug + '/privado/mercadopago', novo); gravou = true; } catch (_) { /* tenta de novo */ } }
+        if (!gravou) await gravarKv(env, 'mpnovo:' + slug, JSON.stringify(novo), { em: Date.now() });
         if (t.public_key && t.public_key !== seg.publica) {
           await fb.merge('lojas/' + slug, { mpChavePublica: String(t.public_key), atualizadoEm: new Date().toISOString() }).catch(() => {});
           /* o formulario do cartao no site usa a chave publica: a copia da borda muda agora, nao em 6 h */
@@ -2664,15 +2802,16 @@ async function tokenDaLoja(fb, slug, env) {
   }
   MEM.mp[slug] = { token: token, em: Date.now() };
   /* sem token (loja desconectada) nao guarda: a proxima conferencia le o banco, e o Pix volta assim que conectar */
-  if (token && env && env.CARDAPIO) {
+  if (token && versao && env && env.CARDAPIO) {
     const venceEm = seg && seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
-    await gravarKv(env, 'mptoken:' + slug, token, { em: Date.now(), vence: venceEm || 0 });
+    await gravarKv(env, 'mptoken:' + slug, token, { em: Date.now(), vence: venceEm || 0, loja: versao });
   }
   return token;
 }
 
 async function mp(token, caminho, opcoes) {
-  const r = await fetch(MP + caminho, Object.assign({}, opcoes, { headers: Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, (opcoes && opcoes.headers) || {}) }));
+  const extra = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(20000) } : {};
+  const r = await fetch(MP + caminho, Object.assign({}, extra, opcoes, { headers: Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, (opcoes && opcoes.headers) || {}) }));
   const texto = await r.text();
   let dados = {};
   try { dados = JSON.parse(texto); } catch (_) { dados = { message: texto }; }
@@ -2752,13 +2891,14 @@ function pixVencidoNoServidor(p, agora) {
 /* o motivo da recusa que o Mercado Pago devolveu (no pedido ou no erro) */
 function detalheDoCartao(d) {
   const pg = d && d.transactions && d.transactions.payments && d.transactions.payments[0];
-  const erros = d && Array.isArray(d.errors) ? d.errors.map((x) => (x && (x.code || x.message)) || '').join(' ') : '';
+  const erros = d && Array.isArray(d.errors) ? d.errors.map((x) => (x && [x.code, x.message].concat(Array.isArray(x.details) ? x.details : []).filter(Boolean).join(' ')) || '').join(' ') : '';
   return String((pg && (pg.status_detail || pg.status)) || (d && d.status_detail) || erros || (d && d.message) || '');
 }
 function motivoDoCartao(detalhe) {
   const t = String(detalhe || '').toLowerCase();
   if (/insufficient/.test(t)) return 'O cartão está sem limite para esse valor. Tente outro cartão ou pague no Pix.';
   if (/security_code|cvv/.test(t)) return 'O código de segurança (atrás do cartão) não confere. Confira e tente de novo.';
+  if (/3ds|challenge/.test(t)) return 'O banco pediu uma confirmação que ainda não fazemos por aqui. Tente outro cartão ou pague no Pix.';
   if (/date|expir/.test(t)) return 'A validade do cartão não confere. Confira e tente de novo.';
   if (/call_for_authorize|authoriz/.test(t)) return 'O banco pediu para você autorizar a compra no aplicativo dele. Autorize e tente de novo.';
   if (/disabled|blocked/.test(t)) return 'Esse cartão está bloqueado. Fale com o banco ou use outro cartão.';
@@ -2767,6 +2907,12 @@ function motivoDoCartao(detalhe) {
   if (/high_risk|fraud|blacklist/.test(t)) return 'O pagamento não passou na análise de segurança. Use outro cartão ou pague no Pix.';
   if (/bad_filled|card_number|invalid/.test(t)) return 'Algum dado do cartão não confere. Confira e tente de novo.';
   return 'O banco recusou o pagamento. Tente outro cartão ou pague no Pix.';
+}
+
+/* o endereco de quem chama, para os limites: no IPv6 vale a casa (/64), porque o celular troca o fim a toda hora */
+function ipDaCasa(ip) {
+  const t = String(ip || 'sem-ip');
+  return t.indexOf(':') >= 0 ? t.split(':').slice(0, 4).join(':') + '::/64' : t;
 }
 
 function separarNome(nomeCompleto, lojaNome) {
@@ -2794,6 +2940,8 @@ async function contaDoToken(fb, idToken) {
 }
 /* marca "lojas" no login do dono: a lista das lojas dele (as regras leem daqui, sem ler a loja). Cabe em 1000
    caracteres: fica com as mais novas. Login de equipe nunca recebe (a marca da equipe e outra) */
+/* a marca de dono vale 3 dias; o painel renova quando falta menos de 1 (1 leitura no banco a cada ~2 dias) */
+const MARCA_VALE = 3 * 86400;
 async function gravarMarcaDono(fb, email, conta, lojas) {
   if (/@equipe\.ligeiro\.app\.br$/.test(email)) return false;
   if (!conta) {
@@ -2807,8 +2955,9 @@ async function gravarMarcaDono(fb, email, conta, lojas) {
   let lista = lojas.filter((x) => SLUG.test(x));
   const nova = Object.assign({}, conta.marca);
   delete nova.lojas;
-  while (lista.length && JSON.stringify(Object.assign({}, nova, { lojas: lista })).length > 900) lista = lista.slice(1);
-  if (lista.length) nova.lojas = lista;
+  delete nova.lojasAte;
+  while (lista.length && JSON.stringify(Object.assign({}, nova, { lojas: lista, lojasAte: 0 })).length > 900) lista = lista.slice(1);
+  if (lista.length) { nova.lojas = lista; nova.lojasAte = Math.floor(Date.now() / 1000) + MARCA_VALE; }
   const r2 = await fetch('https://identitytoolkit.googleapis.com/v1/projects/' + fb.projeto + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: conta.localId, customAttributes: JSON.stringify(nova) }) });
   if (!r2.ok) throw new Error('marca do dono ' + r2.status);
   return true;

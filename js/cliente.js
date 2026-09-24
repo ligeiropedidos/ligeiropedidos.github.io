@@ -1896,13 +1896,15 @@
       $('btnOutraForma').hidden = false;
     }
 
-    function cartaoRecusado(motivo) {
+    function cartaoRecusado(motivo, esperando) {
       var caixa = $('cartaoRecusado');
       UI.limpar(caixa);
-      caixa.appendChild(UI.iconeLinha('alerta'));
+      caixa.classList.toggle('cartao-esperando', !!esperando);
+      caixa.appendChild(UI.iconeLinha(esperando ? 'relogio' : 'alerta'));
       caixa.appendChild(el('span', { text: motivo || 'O banco recusou o pagamento. Tente outro cartão ou pague no Pix.' }));
       caixa.hidden = false;
-      $('btnOutraForma').hidden = false;
+      $('btnOutraForma').hidden = !!esperando;
+      if (esperando) return;
       UI.soar('erro');
       UI.vibrar([60, 40, 60]);
     }
@@ -1953,7 +1955,7 @@
         if (estado.montandoCartao !== chave || !$('tela-cartao').classList.contains('ativa')) return;
         var mp = new window.MercadoPago(estado.loja.mpChavePublica, { locale: 'pt-BR' });
         var emailSalvo = UI.lerLocal(CHAVE_EMAIL);
-        var inicio = { amount: Number(pedido.total) };
+        var inicio = { amount: Number(pedido.total) / 100 };
         if (typeof emailSalvo === 'string' && emailSalvo) inicio.payer = { email: emailSalvo };
         return mp.bricks().create('cardPayment', 'cartaoForm', {
           initialization: inicio,
@@ -1996,7 +1998,8 @@
               return cobrarCartao(pedido, dados).then(function (resp) {
                 estado.pagandoCartao = false;
                 if (resp.status === 'aprovado') { pagamentoAprovado(pedido); return; }
-                cartaoRecusado(resp.motivo);
+                if (resp.status === 'analise') { desmontarCartao(); cartaoRecusado(resp.motivo || 'Seu pagamento está em análise pelo banco. Assim que aprovar, o pedido entra na fila sozinho.', true); return; }
+                cartaoRecusado(resp.motivo, resp.status === 'conferindo');
                 /* o codigo do cartao so vale uma vez: o formulario abre de novo, limpo, para outra tentativa */
                 if (estado.montandoCartao === chave) montarFormCartao(estado.pedido || pedido);
               }).catch(function (e) {

@@ -210,7 +210,48 @@
     return true;
   }
 
+  /* Baixa o QR que ja esta na tela como imagem (PNG, 1080 px) para imprimir, com o nome da loja embaixo. */
+  function baixarQr(elemento, o) {
+    o = o || {};
+    return new Promise(function (ok, falhou) {
+      var svg = elemento && elemento.querySelector('svg');
+      if (!svg || typeof XMLSerializer === 'undefined') { falhou(new Error('sem qr')); return; }
+      var copia = svg.cloneNode(true);
+      copia.setAttribute('width', '900');
+      copia.setAttribute('height', '900');
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          c.width = 1080; c.height = 1320;
+          var g = c.getContext('2d');
+          g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height);
+          g.imageSmoothingEnabled = false;
+          g.drawImage(img, 90, 90, 900, 900);
+          g.textAlign = 'center';
+          g.fillStyle = '#0E1F14'; g.font = '700 64px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          g.fillText(String(o.nome || '').slice(0, 40), 540, 1120, 960);
+          g.fillStyle = '#4B5A4F'; g.font = '500 44px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          g.fillText(String(o.legenda || ''), 540, 1200, 960);
+          c.toBlob(function (b) {
+            if (!b) { falhou(new Error('sem imagem')); return; }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = o.arquivo || 'qr.png';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+            ok(true);
+          }, 'image/png');
+        } catch (e) { falhou(e); }
+      };
+      img.onerror = function () { falhou(new Error('qr nao abriu')); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(copia));
+    });
+  }
+
   return {
+    baixarQr: baixarQr,
     crc16: crc16,
     campo: campo,
     limpar: limpar,

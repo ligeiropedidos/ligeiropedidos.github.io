@@ -1430,7 +1430,7 @@
      * camera da capa ou da logo e escolhe a foto; cor e estilo mudam na hora.
      * Usa os campos de foto escondidos (f.logo, f.capa) pra ler e trocar a imagem.
      */
-    function previaDaLoja(l, f) {
+    function previaDaLoja(l, f, exclusiva) {
       function imgDe(campo) {
         var img = campo.querySelector('.foto-previa img');
         return img && !img.hidden && img.getAttribute('src') ? img.getAttribute('src') : null;
@@ -1460,10 +1460,13 @@
          torta na borda). Tirar a capa ou a logo aparece so quando tem */
       var tirarCapa = el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', onclick: function () { var b = botaoDe(f.capa, /Remover/); if (b) b.click(); } }, [UI.iconeLinha('fechar'), 'Tirar a capa']);
       var tirarLogo = el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', onclick: function () { var b = botaoDe(f.logo, /Remover/); if (b) b.click(); } }, [UI.iconeLinha('fechar'), 'Tirar a logo']);
-      var tirar = el('div', { class: 'previa-tirar-linha' }, [tirarCapa, tirarLogo]);
-      var acoes = el('div', { class: 'previa-acoes' }, [
+      /* design exclusivo: a capa e parte do design (travada); a logo o dono troca quando quiser */
+      /* sem "tirar" no design exclusivo: sem logo o design quebra; o dono so troca por outra */
+      var tirar = el('div', { class: 'previa-tirar-linha' }, exclusiva ? [] : [tirarCapa, tirarLogo]);
+      var trocarLogo = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']);
+      var acoes = el('div', { class: 'previa-acoes' + (exclusiva ? ' so-logo' : '') }, exclusiva ? [trocarLogo] : [
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('imagem'), 'Trocar capa']),
-        el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']),
+        trocarLogo,
       ]);
       function atualizar() {
         var srcCapa = imgDe(f.capa);
@@ -1478,9 +1481,9 @@
         var frase = f.descricao ? f.descricao.input.value.trim() : (l.descricao || '');
         texto.textContent = frase || (R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : ''));
         fraseBotao.textContent = l.aceitaEntrega === false ? 'retirar no balcão' : (R.descreverFrete(l) === 'Entrega grátis' ? 'entrega grátis' : 'entrega') + ' em ~' + (l.tempoEntrega || 40) + ' min';
-        tirarCapa.hidden = !srcCapa;
+        tirarCapa.hidden = !srcCapa || !!exclusiva;
         tirarLogo.hidden = !srcLogo;
-        tirar.hidden = !srcCapa && !srcLogo;
+        tirar.hidden = !!exclusiva || (!srcCapa && !srcLogo);
         var cor = f.cor ? f.cor.valor() : l.cor;
         var estilo = f.estilo ? f.estilo.valor() : l.estilo;
         UI.aplicarTemaEm(tela, cor, estilo);
@@ -1493,7 +1496,7 @@
       obs.observe(f.capa, { subtree: true, attributes: true, childList: true });
       var bloco = el('div', { class: 'campo largo previa-bloco' }, [
         el('label', { text: 'A cara da sua loja' }),
-        el('p', { class: 'ajuda', text: 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
+        el('p', { class: 'ajuda', text: exclusiva ? 'É assim que o cliente vê no celular. A logo você troca no botão embaixo; o resto é do seu design exclusivo.' : 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
         aparelho,
         acoes,
         tirar,
@@ -2102,7 +2105,10 @@
       f.logo = UI.campoFoto('Logo', D.logoSrc(l), { quadrado: true, lado: 200, qualidade: 0.82, vazio: l.emoji || '🍽️' });
       f.capa = UI.campoFoto('Capa', l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null), { lado: 1080, qualidade: 0.72, larga: true, vazio: 'imagem' });
       f.logo.hidden = true; f.capa.hidden = true; /* quem mostra e a previa; eles so guardam a foto */
-      f.previa = previaDaLoja(l, f);
+      /* loja com design exclusivo (feito pelo Ligeiro): cores, estilo e capa sao do design e ficam travados, para o dono
+         nao quebrar o visual sem querer (e o tema passaria por cima do que ele mudasse). So a logo continua livre */
+      var exclusiva = !!UI.lojaOficial(slug);
+      f.previa = previaDaLoja(l, f, exclusiva);
       f.cor = campoCor('Cor da sua loja', l.cor, function () { f.previa.atualizar(); });
       f.estilo = campoEstilo('Estilo do site', l.estilo, function () { f.previa.atualizar(); });
       f.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
@@ -2134,7 +2140,18 @@
         el('a', { href: R.linkWhatsapp(cfgEx.whatsappLigeiro, 'Oi! Quero um orçamento de design exclusivo para ' + l.nome + ' no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'Peça um orçamento de design exclusivo' }),
         '.',
       ]) : null;
-      var controles = el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas, exclusivo]);
+      var controles = exclusiva ? el('div', { class: 'aparencia-controles' }, [
+        el('div', { class: 'design-exclusivo' }, [
+          el('div', { class: 'design-exclusivo-topo' }, [
+            el('span', { class: 'design-exclusivo-ico' }, [UI.iconeLinha('cadeado')]),
+            el('div', { class: 'design-exclusivo-texto' }, [
+              el('b', { text: 'Design exclusivo' }),
+              el('span', { text: 'Sua loja tem um visual feito sob medida pelo Ligeiro. Cores, estilo e capa ficam travados para nada sair do lugar. A logo você troca quando quiser.' }),
+            ]),
+          ]),
+        ]),
+        f.medidas,
+      ]) : el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas, exclusivo]);
       aparencia.appendChild(el('div', { class: 'aparencia' }, [f.previa, controles]));
       aparencia.appendChild(f.logo);
       aparencia.appendChild(f.capa);
@@ -2387,10 +2404,18 @@
       var listaCupons = el('div', { class: 'pilha' });
       /* a lista mora na parte privada da loja (o cliente nao ve os codigos): carrega na primeira vez que os Ajustes abrem,
          e so a lista se redesenha (o resto dos Ajustes, talvez com algo digitado, fica como esta) */
-      if (!estado.cupons) {
+      function buscarCupons() {
+        UI.limpar(listaCupons);
         listaCupons.appendChild(el('small', { class: 'muted', text: 'Carregando os cupons…' }));
-        carregarCupons().then(function () { if (vivo && listaCupons.isConnected) pintarCupons(); }, function () { /* fica o aviso */ });
-      } else pintarCupons();
+        carregarCupons().then(function () { if (vivo && listaCupons.isConnected) pintarCupons(); }, function () {
+          if (!vivo || !listaCupons.isConnected) return;
+          UI.limpar(listaCupons);
+          listaCupons.appendChild(el('div', { class: 'aviso' }, [UI.iconeLinha('alerta'), el('span', { text: 'Não deu para carregar os cupons agora.' })]));
+          listaCupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: buscarCupons }));
+        });
+      }
+      if (!estado.cupons) buscarCupons();
+      else pintarCupons();
       function pintarCupons() {
         UI.limpar(listaCupons);
         (estado.cupons || []).forEach(function (c, i) {
@@ -2675,6 +2700,7 @@
     }
 
     function novoCupom() {
+      if (!estado.cupons) { UI.avisar('Espere os cupons carregarem para criar outro.'); return; }
       var codigo = campoTexto('Código', '', { max: 20, placeholder: 'Ex: BEMVINDO' });
       var percentual = campoTexto('Desconto em %', '10', { tipo: 'number' });
       var minimo = campoDinheiro('Vale a partir de', 0, 'Vazio = qualquer valor');
@@ -2697,16 +2723,13 @@
     /* Cupons na parte privada da loja (lojas/{slug}/privado/cupons): o cliente nao le a lista (antes qualquer um via os
        codigos, ate um cupom secreto de 100%). A loja publica guarda so "temCupom", para o site mostrar o campo.
        Loja antiga, com a lista no documento: passa para a parte privada aqui, uma vez */
+    /* a lista mora na parte privada da loja. Leitura que falha (internet, banco) NAO vira lista vazia: salvar em cima
+       apagaria os cupons de verdade. Loja antiga, com a lista ainda no documento publico: passa para a parte privada */
     function carregarCupons() {
       if (estado.cupons) return Promise.resolve(estado.cupons);
       var antigos = D.clonar(estado.loja.cupons || []);
-      return mensageiroConfereCupom().then(function (novo) {
-        /* mensageiro antigo (sem /cupom): o site do cliente ainda confere o codigo pela lista da loja, entao ela fica la */
-        if (!novo) { estado.cuponsNaLoja = true; estado.cupons = antigos; return null; }
-        return store.lerSegredo ? store.lerSegredo(slug, 'cupons').catch(function () { return undefined; }) : null;
-      }).then(function (seg) {
-        if (estado.cuponsNaLoja) return estado.cupons;
-        if (seg === undefined) { estado.cuponsNaLoja = true; estado.cupons = antigos; return estado.cupons; } /* leitura falhou: mostra o que tem, sem mudar nada */
+      if (!store.lerSegredo) { estado.cupons = antigos; return Promise.resolve(estado.cupons); }
+      return store.lerSegredo(slug, 'cupons', true).then(function (seg) {
         var lista = seg && Array.isArray(seg.lista) ? seg.lista : [];
         antigos.forEach(function (c) { if (!lista.some(function (x) { return x.codigo === c.codigo; })) lista.push(c); });
         estado.cupons = lista;
@@ -2714,18 +2737,8 @@
         return estado.cupons;
       });
     }
-    /* O mensageiro ja confere cupom (/cupom)? O antigo responde 404 a rota que nao conhece. Pergunta uma vez por abertura */
-    function mensageiroConfereCupom() {
-      if (D.modoDemo) return Promise.resolve(true);
-      var cfg = window.LIGEIRO_CONFIG || {};
-      if (!cfg.proxyMercadoPago || !window.fetch) return Promise.resolve(false);
-      if (estado.cupomNoMensageiro != null) return Promise.resolve(estado.cupomNoMensageiro);
-      return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/cupom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-        .then(function (r) { estado.cupomNoMensageiro = r.status !== 404; return estado.cupomNoMensageiro; }, function () { return false; });
-    }
     function salvarCupons(lista, msg) {
       estado.cupons = lista;
-      if (estado.cuponsNaLoja) return salvarLoja({ cupons: lista }, msg);
       return store.guardarSegredo(slug, 'cupons', { lista: D.clonar(lista), atualizadoEm: new Date().toISOString() })
         .then(function () { return salvarLoja({ cupons: [], temCupom: lista.some(function (c) { return c.ativo !== false; }) }, msg); });
     }

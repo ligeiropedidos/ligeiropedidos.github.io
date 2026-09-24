@@ -400,7 +400,7 @@
       }).then(function () { return store.criarLoja(dados); }).then(function (loja) {
         try { sessionStorage.setItem('ligeiro:painel:' + loja.slug, '1'); } catch (_) { /* ignora */ }
         criada = loja;
-        fim.then(function () { UI.soar('sucesso'); mostrarPronto(loja); });
+        fim.then(function () { UI.soar('festa'); UI.vibrar([30, 40, 30, 40, 70]); mostrarPronto(loja); });
       }).catch(function (e) {
         fim.cancelar();
         criando = false;
@@ -432,32 +432,116 @@
       return pronto;
     }
 
+    /* a loja acabou de nascer: comemora, mostra o link de um jeito que se le de relance, leva ao painel (o cardapio
+       ainda e o de exemplo) e deixa a divulgacao pronta para quando ele quiser, com o QR para imprimir */
     function mostrarPronto(loja) {
       UI.limpar(corpo);
       rotuloPasso.textContent = 'Pronto';
       var link = UI.linkDaLoja(loja);
-      var qr = el('div', { class: 'qr-caixa', style: { width: '200px', margin: '0 auto' } });
+      var cat = R.catalogo(loja);
       var textoZap = 'Agora você pode pedir na ' + loja.nome + ' pelo nosso link: ' + link;
-      corpo.appendChild(el('div', { class: 'cartao destaque centro', style: { padding: '26px 18px' } }, [
-        el('img', { class: 'pronto-mascote', src: 'img/mascote-192.webp', alt: '', width: '96', height: '96' }),
-        el('h2', { text: loja.nome + ' está no ar' }),
-        el('p', { class: 'muted', text: 'Sua loja já tem itens de exemplo. Ajuste nomes e preços no painel e comece a divulgar.' }),
-        el('p', { class: 'muted pequeno', text: 'Grátis até ' + new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR') + '. Depois, ' + R.dinheiro(precoPlanoAgora()).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês') + ', no cartão, boleto ou Pix, em Minha conta.' }),
-      ]));
-      corpo.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Seu link (para bio e para o WhatsApp)' }),
-        el('div', { class: 'caixa-link', text: link }),
-        el('a', { class: 'btn btn-whats btn-largo', href: 'https://wa.me/?text=' + encodeURIComponent(textoZap), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar no WhatsApp']),
-        el('div', { class: 'linha-botoes' }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar link']),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: 'Ver minha loja' }),
+      var copiarLink = function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); };
+      /* o link em duas partes: o endereco do Ligeiro mais apagado e o da loja em destaque */
+      var corte = link.lastIndexOf('/') + 1;
+      var fimGratis = new Date(Date.now() + precos.diasGratis * 864e5).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      var depois = R.dinheiro(precoPlanoAgora()).replace(/,00$/, '') + (planoTipo === 'anual' ? ' por ano' : ' por mês');
+      var formas = ['bola lime', 'fita deep2', 'tri lemon', 'fita orange', 'bola deep2', 'fita lime', 'tri orange', 'fita lemon', 'bola lime', 'fita deep2', 'bola orange', 'bola lemon', 'fita lime', 'tri deep2'];
+      var confetes = formas.map(function (f, i) { return el('span', { class: 'pronto-confete c' + (i + 1) + ' ' + f }); });
+
+      corpo.appendChild(el('div', { class: 'pronto-card' }, [
+        el('div', { class: 'pronto-palco', 'aria-hidden': 'true' }, confetes.concat([
+          el('span', { class: 'pronto-sombra' }),
+          el('img', { class: 'pronto-dancando', src: 'img/mascote-192.webp', alt: '', width: '96', height: '96' }),
+        ])),
+        el('span', { class: 'pronto-selo' }, [el('span', { class: 'pronto-ponto', 'aria-hidden': 'true' }), 'Loja no ar']),
+        el('h2', { class: 'pronto-titulo', text: loja.nome + ' está no ar!' }),
+        el('p', { class: 'pronto-sub', text: 'O link já abre com um ' + cat.nome + ' de exemplo. No painel, você troca pelos seus itens e preços.' }),
+        el('button', { type: 'button', class: 'pronto-link', 'aria-label': 'Copiar o link da loja', onclick: copiarLink }, [
+          el('span', { class: 'pronto-link-texto' }, [el('span', { class: 'pronto-link-base', text: link.slice(0, corte) }), el('b', { text: link.slice(corte) })]),
+          el('span', { class: 'pronto-link-copiar', 'aria-hidden': 'true' }, [UI.iconeLinha('copiar')]),
         ]),
-        qr,
+        el('p', { class: 'pronto-gratis' }, [UI.iconeLinha('presente'), el('span', {}, [el('b', { text: 'Grátis até ' + fimGratis + '.' }), ' Depois, ' + depois + '.'])]),
+      ]));
+
+      corpo.appendChild(el('button', { class: 'btn btn-principal btn-gigante btn-largo', text: 'Abrir meu painel', onclick: function () { window.LigeiroApp.ir('painel/' + loja.slug); } }));
+
+      var qr = el('div', { class: 'pronto-qr-caixa' });
+      corpo.appendChild(el('div', { class: 'bloco-form pronto-divulgar' }, [
+        el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Divulgue seu link']),
+        el('p', { class: 'muted pequeno', text: 'Mande para os clientes quando o ' + cat.nome + ' estiver do seu jeito. Ele também fica no painel, na aba Minha loja.' }),
+        el('a', { class: 'btn btn-whats btn-largo', href: 'https://wa.me/?text=' + encodeURIComponent(textoZap), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar no WhatsApp']),
+        el('div', { class: 'linha-botoes dupla' }, [
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiarLink }, [UI.iconeLinha('copiar'), 'Copiar link']),
+          el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ver minha loja']),
+        ]),
+        el('div', { class: 'pronto-qr' }, [
+          qr,
+          el('div', { class: 'pronto-qr-texto' }, [
+            el('b', { text: 'QR Code do balcão' }),
+            el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre o ' + cat.nome + '.' }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+              Pix.baixarQr(qr, { nome: loja.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + loja.slug + '.png' })
+                .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
+            } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
+          ]),
+        ]),
       ]));
       Pix.desenharQr(qr, link, 200);
-      corpo.appendChild(el('button', { class: 'btn btn-principal btn-gigante btn-largo', text: 'Abrir meu painel', onclick: function () { window.LigeiroApp.ir('painel/' + loja.slug); } }));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'No painel, o cartão "Primeiros passos" leva você a cada coisa que falta: Mercado Pago (Pix e cartão), logo, horários e fotos.' }));
       window.scrollTo(0, 0);
+      var palco = corpo.querySelector('.pronto-palco');
+      setTimeout(function () { if (palco && palco.isConnected) festejar(palco); }, 150);
+    }
+
+    /* estouro de confete saindo do mascote (uma vez, 2,5 s). Quem pediu menos movimento no celular nao ve: fica so a
+       coroa parada. Um canvas por cima da tela, sem tocar em nada da pagina, que some sozinho no fim */
+    function festejar(alvo) {
+      try { if (!window.requestAnimationFrame || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return; } catch (_) { return; }
+      var r = alvo.getBoundingClientRect();
+      var w = window.innerWidth, h = window.innerHeight;
+      var dpr = Math.min(2, window.devicePixelRatio || 1);
+      var tela = el('canvas', { class: 'pronto-festa', 'aria-hidden': 'true' });
+      tela.width = Math.round(w * dpr); tela.height = Math.round(h * dpr);
+      document.body.appendChild(tela);
+      var g = tela.getContext('2d');
+      if (!g) { tela.remove(); return; }
+      g.scale(dpr, dpr);
+      var cores = ['#84CC16', '#1B6B4A', '#FDE047', '#FF8A3D', '#A3E635'];
+      var x0 = r.left + r.width / 2, y0 = r.top + r.height * 0.45;
+      var pecas = [];
+      for (var i = 0; i < 80; i++) {
+        var ang = (-90 + (Math.random() - 0.5) * 160) * Math.PI / 180;
+        var vel = 5 + Math.random() * 8;
+        pecas.push({ x: x0, y: y0, vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel, giro: Math.random() * 6.28, vGiro: (Math.random() - 0.5) * 0.35,
+          larg: 6 + Math.random() * 5, alt: 4 + Math.random() * 5, cor: cores[i % cores.length], bola: i % 4 === 0, balanco: Math.random() * 6.28 });
+      }
+      var DURA = 2500, inicio = 0, antes = 0;
+      function quadro(t) {
+        if (!inicio) { inicio = t; antes = t; }
+        var passou = t - inicio;
+        /* o mesmo ritmo em tela de 60 ou de 120 quadros por segundo */
+        var k = Math.min(3, (t - antes) / 16.7 || 1);
+        antes = t;
+        g.clearRect(0, 0, w, h);
+        g.globalAlpha = passou > DURA - 700 ? Math.max(0, (DURA - passou) / 700) : 1;
+        for (var j = 0; j < pecas.length; j++) {
+          var p = pecas[j];
+          p.vy += 0.24 * k;
+          p.vx *= Math.pow(0.985, k); p.vy *= Math.pow(0.985, k);
+          p.balanco += 0.12 * k;
+          p.x += (p.vx + Math.sin(p.balanco) * 0.7) * k; p.y += p.vy * k;
+          p.giro += p.vGiro * k;
+          g.save();
+          g.translate(p.x, p.y);
+          g.rotate(p.giro);
+          g.fillStyle = p.cor;
+          if (p.bola) { g.beginPath(); g.arc(0, 0, p.larg / 2.4, 0, 6.2832); g.fill(); }
+          else { g.scale(1, Math.cos(p.balanco)); g.fillRect(-p.larg / 2, -p.alt / 2, p.larg, p.alt); }
+          g.restore();
+        }
+        if (passou < DURA && tela.isConnected) window.requestAnimationFrame(quadro);
+        else tela.remove();
+      }
+      window.requestAnimationFrame(quadro);
     }
 
     desenhar();

@@ -1661,7 +1661,9 @@
       if (!u || !u.getIdTokenResult) return false;
       return u.getIdTokenResult().then(function (res) {
         var lojas = (res && res.claims && res.claims.lojas) || [];
-        if (Array.isArray(lojas) && lojas.indexOf(slug) >= 0) return false;
+        var ate = Number(res && res.claims && res.claims.lojasAte) || 0;
+        /* a marca vale 3 dias: com mais de 1 dia de folga, nada a fazer */
+        if (Array.isArray(lojas) && lojas.indexOf(slug) >= 0 && ate - Date.now() / 1000 > 86400) return false;
         return fetch(base + '/dono', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + res.token }, body: JSON.stringify({ loja: slug }) })
           .then(function (r) { return r.json().catch(function () { return {}; }); })
           /* marca nova: token novo, e o banco passa a usar ele sozinho (as escutas abertas seguem) */
@@ -1680,11 +1682,12 @@
   };
 
   /* Segredos da loja: documento privado lojas/<slug>/privado/<nome>, que as regras so deixam o dono ler. */
-  FirebaseStore.prototype.lerSegredo = function (slug, nome) {
+  /* falhar = true: a leitura que nao deu devolve erro (quem vai salvar em cima precisa saber que nao leu) */
+  FirebaseStore.prototype.lerSegredo = function (slug, nome, falhar) {
     return this._pronto.then(function () {
       return this.db.collection('lojas').doc(slug).collection('privado').doc(nome).get()
         .then(function (d) { return d.exists ? d.data() : null; })
-        .catch(function () { return null; });
+        .catch(function (e) { if (falhar) throw e; return null; });
     }.bind(this));
   };
   FirebaseStore.prototype.guardarSegredo = function (slug, nome, dados) {

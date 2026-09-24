@@ -43,6 +43,7 @@ const resposta = (obj, status) => new Response(typeof obj === 'string' ? obj : J
 
 /* ---------- Mercado Pago e usuarios de mentira ---------- */
 const ordens = new Map();
+const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
 const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiro.app.br' };
@@ -75,24 +76,50 @@ globalThis.fetch = async (url, op) => {
   if (url.indexOf('https://api.mercadopago.com') === 0) {
     conta.mp += 1;
     const dv = /\/v1\/orders\/([^/?]+)\/refund$/.exec(url);
-    if (dv && metodo === 'POST') { devolucoes.push({ id: decodeURIComponent(dv[1]), chave: (o.headers || {})['X-Idempotency-Key'] }); return resposta({ id: decodeURIComponent(dv[1]), status: 'refunded' }, 201); }
+    if (dv && metodo === 'POST') {
+      const idDv = decodeURIComponent(dv[1]);
+      if (ordens.get(idDv) && ordens.get(idDv).status === 'refunded') return resposta({ errors: [{ code: 'order_already_refunded' }] }, 409);
+      devolucoes.push({ id: idDv, chave: (o.headers || {})['X-Idempotency-Key'] });
+      return resposta({ id: idDv, status: 'refunded' }, 201);
+    }
     const m = /\/v1\/orders\/([^/?]+)$/.exec(url);
     if (m && metodo === 'GET') { const ord = ordens.get(decodeURIComponent(m[1])); return ord ? resposta(ord) : resposta({ message: 'not found' }, 404); }
     if (/\/v1\/orders$/.test(url) && metodo === 'POST') {
       const corpo = JSON.parse(o.body);
+      /* como o de verdade: a mesma chave de repeticao devolve a mesma order (nada de cobrar ou criar duas vezes) */
+      const chaveRep = (o.headers || {})['X-Idempotency-Key'];
+      if (chaveRep && repeticoes.has(chaveRep)) return resposta(repeticoes.get(chaveRep));
+      const guardar = (r) => { if (chaveRep) repeticoes.set(chaveRep, r); return resposta(r); };
       const pm = corpo.transactions.payments[0].payment_method;
       if (pm.type === 'credit_card') {
         cartoes.push({ corpo, chave: (o.headers || {})['X-Idempotency-Key'] });
-        if (/^RECUSA/.test(pm.token)) return resposta({ errors: [{ code: 'failed' }], transactions: { payments: [{ status: 'failed', status_detail: 'insufficient_amount' }] } }, 402);
+        if (/^RECUSA/.test(pm.token)) {
+          const motivo = ((/^RECUSA-([a-z-]+)/.exec(pm.token) || [])[1] || 'insufficient-amount').replace(/-/g, '_');
+          return resposta({ errors: [{ code: 'failed' }], transactions: { payments: [{ status: 'failed', status_detail: motivo }] } }, 402);
+        }
+        if (/^ANALISE/.test(pm.token)) {
+          const ida = 'ORD' + String(ordens.size + 1).padStart(6, '0');
+          const orda = { id: ida, status: 'processing', status_detail: 'in_process', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + ida, status: 'processing', status_detail: 'in_process' }] } };
+          ordens.set(ida, orda);
+          return guardar(orda);
+        }
+        if (/^CONFIRMA/.test(pm.token)) {
+          const idq = 'ORD' + String(ordens.size + 1).padStart(6, '0');
+          const ordq = { id: idq, status: 'action_required', status_detail: 'pending_challenge', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + idq, status: 'action_required', status_detail: 'pending_challenge' }] } };
+          ordens.set(idq, ordq);
+          return guardar(ordq);
+        }
         const idc = 'ORD' + String(ordens.size + 1).padStart(6, '0');
         const ordc = { id: idc, status: 'processed', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + idc, status: 'processed', status_detail: 'accredited' }] } };
         ordens.set(idc, ordc);
-        return resposta(ordc);
+        return guardar(ordc);
       }
       const id = 'ORD' + String(ordens.size + 1).padStart(6, '0');
       const ord = { id, status: 'action_required', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + id, payment_method: { qr_code: 'PIXCOPIAECOLA' + id } }] } };
       ordens.set(id, ord);
-      return resposta(ord);
+      /* como a doc avisa: a order pode nascer "processing", sem o codigo, que aparece na consulta seguinte */
+      if (globalThis.__pixDemora > 0) { globalThis.__pixDemora--; if (chaveRep) repeticoes.set(chaveRep, ord); return resposta({ id, status: 'processing', external_reference: corpo.external_reference, total_amount: corpo.total_amount, transactions: { payments: [{ id: 'PAY' + id, payment_method: { id: 'pix' } }] } }); }
+      return guardar(ord);
     }
     return resposta({ message: 'rota mp' }, 404);
   }
@@ -185,7 +212,7 @@ function kvNovo() {
       kv.gravacoes += 1;
       mapa.set(chave, { valor: valor instanceof ReadableStream ? await new Response(valor).text() : valor, metadata: (op && op.metadata) || null });
     },
-    async delete(chave) { kv.gravacoes += 1; mapa.delete(chave); },
+    async delete(chave) { kv.gravacoes += 1; kv.apagadas = (kv.apagadas || 0) + 1; mapa.delete(chave); },
   };
   return kv;
 }
@@ -615,6 +642,203 @@ console.log('Pedido criado pelo servidor');
   await recarregar();
 }
 
+console.log('Mercado Pago: quando algo da errado');
+{
+  w = await workerNovo();
+  const fetchBom = globalThis.fetch;
+  /* faz o proximo pedido (ou os proximos n) que casar com o teste falhar com 500 */
+  const comFalha = (teste, n) => { let vezes = n || 1; globalThis.fetch = async (u, o) => { if (vezes > 0 && teste(String(u), o || {})) { vezes--; return new Response(JSON.stringify({ message: 'falha de mentira' }), { status: 500 }); } return fetchBom(u, o); }; };
+  const semFalha = () => { globalThis.fetch = fetchBom; };
+  const caminhoDe = (id) => 'lojas/dom-conizza/pedidos/' + id;
+  const novo = (id, forma, senha) => db.set(caminhoDe(id), pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: forma, senha, cliente: { nome: 'Rui Teste' } }));
+  const criarPix = (id) => chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: id } });
+  const cobrar = (id, token) => chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: id, token, metodo: 'master' }, headers: { 'CF-Connecting-IP': '10.7.' + Math.floor(Math.random() * 250) + '.1' } });
+  const aviso = (idMp, pedido) => chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: idMp, external_reference: 'dom-conizza__' + pedido } }, headers: { Origin: '' } });
+  const orderPaga = (idMp, pedido, status) => ordens.set(idMp, { id: idMp, status: status || 'processed', external_reference: 'dom-conizza__' + pedido, total_amount: (precoP1() / 100).toFixed(2), transactions: { payments: [{ id: 'PAY' + idMp, status: status || 'processed', status_detail: status ? 'waiting_transfer' : 'accredited' }] } });
+
+  /* 1. Mercado Pago fora do ar na hora de gerar o Pix */
+  const P1 = 'mpfalhapix0000000001'; novo(P1, 'pix', 70);
+  comFalha((u, o) => u.indexOf('api.mercadopago.com/v1/orders') >= 0 && o.method === 'POST', 2);
+  r = await criarPix(P1); semFalha();
+  ok(r.status >= 500 && !db.get(caminhoDe(P1)).pixCodigo, 'Pix: Mercado Pago fora do ar, erro claro e nada pela metade no pedido');
+  const P1b = 'mpfalhapix000000001b'; novo(P1b, 'pix', 69);
+  comFalha((u, o) => u.indexOf('api.mercadopago.com/v1/orders') >= 0 && o.method === 'POST', 1);
+  r = await criarPix(P1b); j = await r.json(); semFalha();
+  ok(r.status === 200 && j.codigo, 'Pix: um tropeco so do Mercado Pago, o worker repete sozinho e o codigo sai');
+  r = await criarPix(P1); j = await r.json();
+  ok(r.status === 200 && j.codigo && db.get(caminhoDe(P1)).pixCodigo === j.codigo, 'Pix: tentando de novo, o codigo sai normal');
+
+  /* 2. dois toques ao mesmo tempo em gerar o Pix */
+  const P2 = 'mpfalhapix0000000002'; novo(P2, 'pix', 71);
+  let antes = ordens.size;
+  const [ra, rb] = await Promise.all([criarPix(P2), criarPix(P2)]);
+  const ja = await ra.json(), jb = await rb.json();
+  ok(ja.codigo && ja.codigo === jb.codigo && ordens.size === antes + 1, 'Pix: dois toques juntos, um Pix so e o mesmo codigo');
+
+  /* 3. o Mercado Pago criou o Pix, mas o banco falhou ao guardar o codigo */
+  const P3 = 'mpfalhapix0000000003'; novo(P3, 'pix', 72);
+  antes = ordens.size;
+  comFalha((u, o) => u.indexOf(BASE + caminhoDe(P3)) === 0 && o.method === 'PATCH');
+  r = await criarPix(P3); semFalha();
+  ok(r.status >= 500, 'Pix: banco falhou depois do Mercado Pago, o cliente ve o erro');
+  r = await criarPix(P3); j = await r.json();
+  ok(r.status === 200 && ordens.size === antes + 1 && db.get(caminhoDe(P3)).pixCodigo === j.codigo, 'Pix: na nova tentativa, o mesmo Pix de antes (o Mercado Pago nao cria outro)');
+
+  /* 4. o aviso de pago chega antes do codigo ser gravado (corrida) */
+  const P4 = 'mpfalhapix0000000004'; novo(P4, 'pix', 73);
+  orderPaga('ORD990004', P4);
+  r = await aviso('ORD990004', P4);
+  ok(r.status === 200 && db.get(caminhoDe(P4)).status === 'pago', 'Pix: aviso de pago antes do codigo gravado, o pedido vira pago do mesmo jeito');
+
+  /* 5. aviso de uma order que nao existe no Mercado Pago */
+  r = await aviso('ORD990404', P1);
+  ok(r.status === 200 && db.get(caminhoDe(P1)).status === 'aguardando_pagamento', 'aviso de order que o Mercado Pago nao conhece: responde ok (sem repetir para sempre) e nada muda');
+
+  /* 6. aviso com o Pix ainda esperando */
+  const P6 = 'mpfalhapix0000000006'; novo(P6, 'pix', 75);
+  orderPaga('ORD990006', P6, 'action_required');
+  r = await aviso('ORD990006', P6);
+  ok(r.status === 200 && db.get(caminhoDe(P6)).status === 'aguardando_pagamento', 'aviso com o Pix ainda esperando: o pedido continua esperando');
+
+  /* 7. o mesmo aviso tres vezes */
+  zerar();
+  await aviso('ORD990004', P4); await aviso('ORD990004', P4); await aviso('ORD990004', P4);
+  ok(conta.gravacoes === 0 && db.get(caminhoDe(P4)).status === 'pago', 'aviso repetido 3 vezes com o pedido ja pago: nenhuma gravacao a mais');
+
+  /* 8. aviso com valor diferente do pedido (Pix de outro valor) */
+  const P8 = 'mpfalhapix0000000008'; novo(P8, 'pix', 76);
+  ordens.set('ORD990008', { id: 'ORD990008', status: 'processed', external_reference: 'dom-conizza__' + P8, total_amount: '0.50', transactions: { payments: [{ id: 'PAYx', status: 'processed', status_detail: 'accredited' }] } });
+  r = await aviso('ORD990008', P8);
+  ok(db.get(caminhoDe(P8)).status === 'aguardando_pagamento', 'aviso de um pagamento de valor diferente: nao libera o pedido');
+
+  /* 9. aviso de uma order de outra loja apontando para este pedido */
+  const P9 = 'mpfalhapix0000000009'; novo(P9, 'pix', 77);
+  ordens.set('ORD990009', { id: 'ORD990009', status: 'processed', external_reference: 'outra-loja__' + P9, total_amount: (precoP1() / 100).toFixed(2), transactions: { payments: [{ id: 'PAYy', status: 'processed' }] } });
+  r = await aviso('ORD990009', P9);
+  ok(db.get(caminhoDe(P9)).status === 'aguardando_pagamento', 'aviso com a referencia de outra loja: nao libera este pedido');
+
+  /* 10. cartao com o Mercado Pago fora do ar */
+  const C1 = 'mpfalhacartao0000001'; novo(C1, 'cartao_online', 78);
+  let cobradas = cartoes.length;
+  comFalha((u, o) => u.indexOf('api.mercadopago.com/v1/orders') >= 0 && o.method === 'POST', 2);
+  r = await cobrar(C1, 'APROVA9000000001'); j = await r.json(); semFalha();
+  let pc = db.get(caminhoDe(C1));
+  ok(j.status === 'conferindo' && pc.status === 'aguardando_pagamento' && pc.cobrandoEm && pc.cobrancaIncerta, 'cartao sem resposta do Mercado Pago: "conferindo", nao marca pago e a trava fica');
+  r = await cobrar(C1, 'APROVA9000000002'); j = await r.json();
+  ok(j.status === 'recusado' && /confirmando/.test(j.motivo || '') && cartoes.length === cobradas, 'e um novo toque logo em seguida nao cobra (pode ter passado)');
+  pc.cobrandoEm = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+  r = await cobrar(C1, 'APROVA9000000003'); j = await r.json();
+  ok(j.status === 'aprovado' && db.get(caminhoDe(C1)).status === 'pago' && !db.get(caminhoDe(C1)).cobrancaIncerta, 'passados 5 minutos sem nada cobrado: a nova tentativa aprova');
+  const C1b = 'mpfalhacartao000001b'; novo(C1b, 'cartao_online', 68);
+  cobradas = cartoes.length;
+  comFalha((u, o) => u.indexOf('api.mercadopago.com/v1/orders') >= 0 && o.method === 'POST', 1);
+  r = await cobrar(C1b, 'APROVA9000000011'); j = await r.json(); semFalha();
+  ok(j.status === 'aprovado' && db.get(caminhoDe(C1b)).status === 'pago' && cartoes.length === cobradas + 1 && cartoes[cartoes.length - 1].chave === C1b + '-cAPROVA9000000011', 'um tropeco so: repete com a mesma chave, aprova e cobra uma vez');
+
+  /* 11. cartao aprovado, mas o banco falhou ao marcar pago: o cliente nao ouve "recusado" e o aviso do Mercado Pago conserta */
+  const C2 = 'mpfalhacartao0000002'; novo(C2, 'cartao_online', 79);
+  const cobradosAntes = cartoes.length;
+  comFalha((u, o) => u.indexOf(BASE + caminhoDe(C2)) === 0 && o.method === 'PATCH' && /pagamentoStatus/.test(String(o.body || '')));
+  r = await cobrar(C2, 'APROVA9000000003'); j = await r.json().catch(() => ({})); semFalha();
+  ok(j.status === 'aprovado', 'cartao aprovado com o banco falhando: o cliente ve "aprovado" (o dinheiro foi cobrado)');
+  r = await cobrar(C2, 'APROVA9000000004'); j = await r.json();
+  ok(cartoes.length === cobradosAntes + 1, 'e um novo toque logo depois nao cobra de novo');
+  const ordC2 = [...ordens.values()].filter((o) => o.external_reference === 'dom-conizza__' + C2)[0];
+  r = await aviso(ordC2.id, C2);
+  ok(db.get(caminhoDe(C2)).status === 'pago', 'o aviso do Mercado Pago marca o pedido pago');
+
+  /* 12. cada motivo de recusa vira uma frase de cliente */
+  const frases = {
+    insufficient_amount: /sem limite/, bad_filled_security_code: /código de segurança/, bad_filled_date: /validade/,
+    call_for_authorize: /autorizar/, card_disabled: /bloqueado/, max_attempts: /Tentativas demais/, duplicated_payment: /repetido/,
+    high_risk: /análise de segurança/, bad_filled_other: /não confere/, rejected_by_issuer: /banco recusou/,
+  };
+  let certas = 0, total = 0;
+  for (const motivo of Object.keys(frases)) {
+    total++;
+    const id = ('mpfrase' + motivo.replace(/_/g, '')).slice(0, 20).padEnd(20, '0');
+    novo(id, 'cartao_online', 80);
+    r = await cobrar(id, 'RECUSA-' + motivo.replace(/_/g, '-')); j = await r.json();
+    if (j.status === 'recusado' && frases[motivo].test(j.motivo || '') && db.get(caminhoDe(id)).status === 'aguardando_pagamento' && !db.get(caminhoDe(id)).cobrandoEm) certas++;
+    else console.log('    motivo ' + motivo + ': ' + JSON.stringify(j));
+  }
+  ok(certas === total, 'cartao recusado: ' + certas + ' de ' + total + ' motivos com a frase certa, pedido esperando e trava solta');
+
+  /* 13. o banco pede confirmacao (3D Secure): nao cobra, avisa e deixa tentar de novo */
+  const C3 = 'mpfalhacartao0000003'; novo(C3, 'cartao_online', 81);
+  r = await cobrar(C3, 'CONFIRMA90000001'); j = await r.json();
+  pc = db.get(caminhoDe(C3));
+  ok(j.status === 'recusado' && /confirmação/.test(j.motivo || '') && pc.status === 'aguardando_pagamento' && !pc.cobrandoEm, 'cartao que pede confirmacao do banco: nao marca pago, explica e solta a trava');
+
+  /* 14. devolucao com o Mercado Pago fora do ar, e de novo */
+  const D1 = 'mpfalhadevolve000001';
+  db.set(caminhoDe(D1), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 82, mp: { id: 'ORD990014' }, cliente: { nome: 'Rui' } }));
+  const devAntes = devolucoes.length;
+  comFalha((u, o) => /\/refund$/.test(u) && o.method === 'POST');
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json(); semFalha();
+  ok(!j.ok && !db.get(caminhoDe(D1)).devolvidoEm, 'devolucao com o Mercado Pago fora do ar: avisa e nao marca devolvido');
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  ok(j.ok && db.get(caminhoDe(D1)).devolvidoEm && devolucoes.length === devAntes + 1 && devolucoes[devolucoes.length - 1].chave === 'devolver-' + D1, 'de novo: devolve uma vez, com a mesma chave (o Mercado Pago nunca devolve em dobro)');
+
+  /* 15. cartao em analise pelo banco: "em analise", trava firme, e nada de cobrar de novo */
+  const C5 = 'mpfalhacartao0000005'; novo(C5, 'cartao_online', 83);
+  r = await cobrar(C5, 'ANALISE900000001'); j = await r.json();
+  pc = db.get(caminhoDe(C5));
+  ok(j.status === 'analise' && pc.status === 'aguardando_pagamento' && pc.cobrandoEm && pc.mp && pc.mp.id, 'cartao em analise: responde "analise" (nao "recusado") e guarda a cobranca');
+  cobradas = cartoes.length;
+  pc.cobrandoEm = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  r = await cobrar(C5, 'APROVA9000000005'); j = await r.json();
+  ok(j.status === 'analise' && cartoes.length === cobradas, 'outro cartao com a primeira ainda em analise: confere no Mercado Pago e nao cobra de novo');
+  const ordC5 = ordens.get(String(pc.mp.id));
+  ordC5.status = 'processed'; ordC5.transactions.payments[0].status = 'processed';
+  r = await aviso(ordC5.id, C5);
+  ok(db.get(caminhoDe(C5)).status === 'pago', 'o banco aprovou depois: o aviso do Mercado Pago marca pago');
+
+  /* 16. em analise e depois recusado: a trava solta e outro cartao passa */
+  const C6 = 'mpfalhacartao0000006'; novo(C6, 'cartao_online', 84);
+  r = await cobrar(C6, 'ANALISE900000002'); j = await r.json();
+  const ordC6 = ordens.get(String(db.get(caminhoDe(C6)).mp.id));
+  ordC6.status = 'failed'; ordC6.transactions.payments[0].status = 'failed';
+  r = await aviso(ordC6.id, C6);
+  ok(!db.get(caminhoDe(C6)).cobrandoEm, 'analise recusada pelo banco: o aviso solta a trava');
+  r = await cobrar(C6, 'APROVA9000000006'); j = await r.json();
+  ok(j.status === 'aprovado' && db.get(caminhoDe(C6)).status === 'pago', 'e outro cartao aprova na hora');
+
+  /* 17. a cobranca anterior passou, mas o pedido nao ficou pago (o banco falhou): a nova tentativa acha e nao cobra */
+  const C7 = 'mpfalhacartao0000007'; novo(C7, 'cartao_online', 85);
+  orderPaga('ORD990017', C7);
+  Object.assign(db.get(caminhoDe(C7)), { mp: { id: 'ORD990017', cartao: true } });
+  cobradas = cartoes.length;
+  r = await cobrar(C7, 'APROVA9000000007'); j = await r.json();
+  ok(j.status === 'aprovado' && db.get(caminhoDe(C7)).status === 'pago' && cartoes.length === cobradas, 'cobranca anterior aprovada: marca pago sem cobrar o cartao de novo');
+
+  /* 18. devolucao alcanca toda cobranca aprovada do pedido, e "ja devolvido" nao e erro */
+  const D2 = 'mpfalhadevolve000002';
+  orderPaga('ORD990181', D2); orderPaga('ORD990182', D2);
+  db.set(caminhoDe(D2), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'cartao_online', pagamentoStatus: 'pago', senha: 86, mp: { id: 'ORD990182', cartao: true }, cobrancas: ['ORD990181', 'ORD990182'], cliente: { nome: 'Rui' } }));
+  let dv0 = devolucoes.length;
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D2 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  const idsDevolvidos = devolucoes.slice(dv0).map((d) => d.id).sort().join(',');
+  ok(j.ok && idsDevolvidos === 'ORD990181,ORD990182', 'duas cobrancas aprovadas no mesmo pedido: as duas voltam (' + idsDevolvidos + ')');
+  const D3 = 'mpfalhadevolve000003';
+  ordens.set('ORD990183', { id: 'ORD990183', status: 'refunded', status_detail: 'refunded', external_reference: 'dom-conizza__' + D3 });
+  db.set(caminhoDe(D3), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 87, mp: { id: 'ORD990183' }, cliente: { nome: 'Rui' } }));
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D3 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  ok(j.ok && db.get(caminhoDe(D3)).devolvidoEm, 'o Mercado Pago diz que ja devolveu (toque anterior sem resposta): marca devolvido, sem erro');
+
+  /* 19. o numero do pedido tem maiusculas (como os de verdade): o aviso acha a loja pela referencia */
+  const PM = 'PedidoComMaiusc12345'; novo(PM, 'pix', 88);
+  orderPaga('ORD990019', PM);
+  r = await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD990019', external_reference: 'dom-conizza__' + PM } }, headers: { Origin: '' } });
+  ok(db.get(caminhoDe(PM)).status === 'pago', 'aviso de um pedido com maiusculas no numero: marca pago');
+
+  /* 20. Pix que nasce sem o codigo (order "processing"): o worker pergunta de novo e entrega */
+  const PD = 'mpfalhapix0000000020'; novo(PD, 'pix', 89);
+  globalThis.__pixDemora = 1;
+  r = await criarPix(PD); j = await r.json();
+  ok(r.status === 200 && j.codigo && db.get(caminhoDe(PD)).pixCodigo === j.codigo, 'Pix que demora a trazer o codigo: o worker pergunta de novo e o codigo sai');
+}
+
 console.log('Token do Mercado Pago guardado na borda');
 {
   kv.mapa.delete('mptoken:dom-conizza');
@@ -629,16 +853,24 @@ console.log('Token do Mercado Pago guardado na borda');
   zerar();
   r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK2 } });
   ok(r.status === 200 && conta.leituras === 1, 'outra copia do worker: token da borda, so o pedido lido no banco (' + conta.leituras + ')');
+  const deletesAntes = kv.apagadas || 0;
   await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
-  ok(!kv.mapa.has('mptoken:dom-conizza'), 'o dono salvou (pode ter trocado de conta): a copia do token sai na hora');
+  w = await workerNovo();
+  const PTK2b = 'tokenborda000000002b';
+  db.set('lojas/dom-conizza/pedidos/' + PTK2b, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 63, cliente: { nome: 'Gil' } }));
+  zerar();
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK2b } });
+  ok(r.status === 200 && conta.leituras === 2 && (kv.apagadas || 0) === deletesAntes, 'o dono salvou (pode ter trocado de conta): o token volta a ser lido no banco, sem apagar chave do KV');
   const privado = db.get('lojas/dom-conizza/privado/mercadopago');
   const tokenAntes = privado.token;
   privado.token = '';
+  /* o painel publica depois de guardar o token (guardarSegredo): a copia da loja muda de versao */
+  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
   w = await workerNovo();
   const PTK3 = 'tokenborda0000000003';
   db.set('lojas/dom-conizza/pedidos/' + PTK3, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 62, cliente: { nome: 'Gil' } }));
   r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK3 } });
-  ok(r.status !== 200 && !kv.mapa.has('mptoken:dom-conizza'), 'loja desconectada: nao cria Pix e nao guarda token vazio');
+  ok(r.status !== 200 && (kv.mapa.get('mptoken:dom-conizza') || {}).valor !== '', 'loja desconectada: nao cria Pix e nao guarda token vazio');
   privado.token = tokenAntes;
   w = await workerNovo();
 }
@@ -655,7 +887,9 @@ console.log('Marca do dono no login');
   r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-equipe' } });
   ok(r.status === 403, 'login da equipe nao vira dono');
   r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
-  ok(dono === 'dono@x.com' && r.status === 200 && j.marca === true && JSON.stringify(marcaDe('dono@x.com').lojas) === '["dom-conizza"]', 'dono de verdade: marca "lojas" gravada no login');
+  ok(dono === 'dono@x.com' && r.status === 200 && j.marca === true && JSON.stringify(marcaDe('dono@x.com').lojas.slice().sort()) === '["dom-conizza","poucas"]', 'dono de verdade: marca "lojas" gravada no login (todas as lojas dele hoje)');
+  const ate = marcaDe('dono@x.com').lojasAte;
+  ok(ate > Date.now() / 1000 + 2.9 * 86400 && ate < Date.now() / 1000 + 3.1 * 86400, 'a marca vale 3 dias');
   const leiturasAntes = conta.leituras;
   r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
   ok(j.ok === true && j.marca === false && conta.leituras === leiturasAntes, 'ja tem a marca: nao le o banco nem grava de novo');
@@ -669,6 +903,14 @@ console.log('Marca do dono no login');
   ok(JSON.stringify((marcaDe('dono@x.com').lojas || []).sort()) === '["dom-conizza","poucas"]' && JSON.stringify(j.lojas.sort()) === '["dom-conizza","poucas"]', 'e refaz a de quem e dono de verdade (todas as lojas dele)');
   r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: '../contas/x' }, headers: { Authorization: 'Bearer tok-dono' } });
   ok(r.status === 400, '/dono com loja inventada: 400');
+  /* marca perto de vencer: o painel pede de novo e ela renova conferindo no banco */
+  marcas['dono@x.com'] = JSON.stringify({ lojas: ['dom-conizza', 'poucas'], lojasAte: Math.floor(Date.now() / 1000) + 3600 });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  ok(j.marca === true && marcaDe('dono@x.com').lojasAte > Date.now() / 1000 + 2 * 86400, 'marca perto de vencer: renova por mais 3 dias');
+  /* dono trocado na mao e ninguem refez a marca: na renovacao ela perde a loja sozinha */
+  marcas['outro@x.com'] = JSON.stringify({ lojas: ['dom-conizza'], lojasAte: Math.floor(Date.now() / 1000) + 3600 });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-outro' } });
+  ok(r.status === 403 && !marcaDe('outro@x.com').lojas, 'dono antigo pedindo a marca de novo: 403 e a loja sai da marca dele');
 }
 
 console.log('Avisos no celular');

@@ -184,6 +184,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .painel-senha .instrucao, .tema-conizza .painel-senha .rotulo { color: var(--cz-creme); }
 .tema-conizza .cartao-recusado { border: 3px solid var(--cz-vermelho); border-radius: 14px; background: #fdebd3; color: var(--cz-tinta); }
 .tema-conizza .cartao-recusado .ico-traco { color: var(--cz-vermelho); }
+.tema-conizza .cartao-recusado.cartao-esperando { border-color: var(--cz-tinta); background: var(--cz-creme); }
+.tema-conizza .cartao-recusado.cartao-esperando .ico-traco { color: var(--cz-verde); }
 .tema-conizza .cartao-teste { background: linear-gradient(135deg, var(--cz-vermelho), var(--cz-vermelho-escuro)); border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); }
 .tema-conizza .garantias li { color: var(--cz-tinta-suave); }
 .tema-conizza .garantias .ico-traco { color: var(--cz-verde); }
@@ -383,3 +385,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aviso, .tema-conizza .a-cobrar { border: 3px solid var(--cz-tinta); border-radius: 18px; color: var(--cz-tinta); }
 .tema-conizza .aviso > .ico-traco { color: var(--cz-verde); }
 .tema-conizza .a-cobrar .ico-traco { color: var(--cz-vermelho); }
+.tema-conizza .design-exclusivo { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; }
+.tema-conizza .design-exclusivo-ico { background: var(--cz-vermelho); color: var(--cz-creme); }
+.tema-conizza .design-exclusivo-texto { color: var(--cz-tinta-suave); }
+.tema-conizza .design-exclusivo-texto b { font-family: var(--cz-display); color: var(--cz-tinta); }

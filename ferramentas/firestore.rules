@@ -18,9 +18,14 @@ service cloud.firestore {
     /* dono: primeiro pela marca "lojas" do login (o mensageiro grava em /dono depois de conferir no banco que a loja e
        dele). Com a marca, a regra nao le a loja: antes cada pedido que andava custava 2 leituras no painel do dono (o
        pedido e a loja). Sem a marca (dono novo, ate o painel abrir), confere lendo a loja, como sempre.
-       Trocar o dono de uma loja na mao: o admin chama /dono com o e-mail antigo (a marca vira as lojas de hoje). */
-    function isDonoPorMarca(loja) { return conferido() && request.auth.token.get('lojas', []) is list && loja in request.auth.token.get('lojas', []); }
-    function isDonoDaLoja(loja) { return isDonoPorMarca(loja) || (conferido() && request.auth.token.email == donoDaLoja(loja)); }
+       A marca vence em 3 dias (lojasAte, em segundos) e o painel renova conferindo no banco: dono trocado na mao perde
+       a marca sozinho. Para tirar na hora: o admin chama /dono com o e-mail antigo (a marca vira as lojas de hoje). */
+    function marcaValendo() { return request.auth.token.get('lojasAte', 0) is number && request.auth.token.get('lojasAte', 0) > request.time.toMillis() / 1000; }
+    function isDonoPorMarca(loja) { return conferido() && marcaValendo() && request.auth.token.get('lojas', []) is list && loja in request.auth.token.get('lojas', []); }
+    function isDonoDaLoja(loja) { return isDonoPorMarca(loja) || isDonoFirme(loja); }
+    /* o que e sensivel (token do Mercado Pago, cupons, vitrine, fotos, relatorios, criar e apagar pedido) confere sempre
+       no banco: sao acoes raras, e ali nem uma marca de 3 dias atras vale */
+    function isDonoFirme(loja) { return conferido() && request.auth.token.email == donoDaLoja(loja); }
     /* usuario de equipe da loja (cozinha, entregador, balcao): o mensageiro grava a marca {equipe: <loja>} no login
        quando o dono define a senha da equipe. Quem se cadastra sozinho nao consegue essa marca.
        Publique o mensageiro novo ANTES destas regras; depois, cada dono salva a senha da equipe de novo
@@ -122,7 +127,7 @@ service cloud.firestore {
        O dono grava DEPOIS da loja (nunca no mesmo lote) e o plano/ativa tem que ser copia do que esta na loja. */
     match /vitrine/{loja} {
       allow read: if true;
-      allow create, update: if isAdmin() || (isDonoDaLoja(loja)
+      allow create, update: if isAdmin() || (isDonoFirme(loja)
         /* resumo sem e-mail: o e-mail do Ligeiro aqui daria cortesia no hub */
         && !request.resource.data.keys().hasAny(['email', 'donoEmail'])
         /* o resumo e da propria loja e com os tipos que o site le (um horario torto derrubava a pagina das cidades) */
@@ -180,9 +185,8 @@ service cloud.firestore {
     match /lojas/{loja} {
       /* cada loja e publica pelo endereco (o site do cliente le); a lista inteira nao:
          so o admin, e o dono listando as proprias (listarMinhasLojas filtra por donoEmail) */
-      /* PENDENTE (achado 17): os cupons ainda ficam em loja.cupons, que qualquer um le, e o pedido de total 0
-         nasce pago. So a regra nao resolve: falta o site e o painel (dados.js, painel.js, cliente.js) passarem
-         a usar lojas/{loja}/cupons/{CODIGO}, com get publico e list e write so do dono e do admin */
+      /* os cupons ficam na parte privada (privado/cupons); o documento publico so diz "temCupom". A regra do update
+         nao deixa uma lista de cupons voltar para ca (qualquer um le este documento) */
       allow get: if true;
       allow list: if isAdmin() || (conferido() && resource.data.donoEmail == request.auth.token.email);
       /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
@@ -201,6 +205,8 @@ service cloud.firestore {
         /* o slug e o endereco: uma loja nao se passa por outra (trocar o slug abria a pagina com o tema e o selo da outra) */
         && request.resource.data.get('slug', loja) == loja
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+        /* cupom nunca no documento publico: so apagar a lista antiga (vazia ou sem o campo) */
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cupons']) || !(request.resource.data.get('cupons', []) is list) || request.resource.data.get('cupons', []).size() == 0)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos']) || cardapioNoLimite()));
       allow delete: if isAdmin();
 
@@ -209,26 +215,26 @@ service cloud.firestore {
          (dava para queimar o cupom da loja, repetir senha ou travar os pedidos gravando sem parar) */
       match /contadores/{c} {
         allow get: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
-        allow list, write: if isDonoDaLoja(loja) || isAdmin();
+        allow list, write: if isDonoFirme(loja) || isAdmin();
       }
       /* vendas de cada dia que ja fechou (o relatorio de 30 dias le 30 resumos, nao os pedidos do mes): so o dono e o admin */
       match /resumos/{dia} {
-        allow read, write: if isDonoDaLoja(loja) || isAdmin();
+        allow read, write: if isDonoFirme(loja) || isAdmin();
       }
       match /fotos/{foto} {
         allow read: if true;
-        allow write: if isDonoDaLoja(loja) || isAdmin();
+        allow write: if isDonoFirme(loja) || isAdmin();
       }
       /* token do Mercado Pago e outros segredos: so o dono (e o admin, pra suporte) */
       match /privado/{doc} {
-        allow read, write: if isDonoDaLoja(loja) || isAdmin();
+        allow read, write: if isDonoFirme(loja) || isAdmin();
       }
       match /pedidos/{pedido} {
         /* O PEDIDO NASCE NO MENSAGEIRO (rota /pedido, conta de servico, que passa por cima destas regras): ele monta o
            pedido com as regras do site e o cardapio, da a senha e conta o cupom. Gravado direto pelo celular, nao:
            era por aqui que dava para criar pedido de graca, com cupom inventado, com o nome de uma pizza e o preco de uma
            agua, em loja fechada ou com forma de pagamento desligada. So o dono (na propria loja) e o admin gravam direto */
-        allow create: if isAdmin() || isDonoDaLoja(loja);
+        allow create: if isAdmin() || isDonoFirme(loja);
         /* o cliente acompanha pelo id (ninguem adivinha). Nome, telefone e endereco ficam abertos so por 3 dias: link
            vazado depois disso nao mostra mais nada */
         allow get: if resource.data.get('criadoEm', '') >= dataISO(request.time - duration.value(3, 'd'))
@@ -256,7 +262,7 @@ service cloud.firestore {
               && resource.data.status == 'aguardando_pagamento'
               && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30);
         /* o dono apaga pedido cancelado (lixo gravado por fora, teste); o resto, so o admin */
-        allow delete: if isAdmin() || (isDonoDaLoja(loja) && resource.data.status == 'cancelado');
+        allow delete: if isAdmin() || (isDonoFirme(loja) && resource.data.status == 'cancelado');
       }
     }
   }

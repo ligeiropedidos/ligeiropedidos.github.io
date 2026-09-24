@@ -1379,8 +1379,8 @@ button.plano-card { cursor: pointer; }
 .btn-google::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(#EA4335 0 25%, #FBBC05 0 50%, #34A853 0 75%, #4285F4 0); mask: radial-gradient(circle, transparent 42%, #000 44%); -webkit-mask: radial-gradient(circle, transparent 42%, #000 44%); }
 .login-caixa { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
 @media (max-width: 360px) { .login-caixa { padding: 16px; } } /* sobra espaco pro "Entrar com o Google" */
-.login-caixa .ou { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.login-caixa .ou::before, .login-caixa .ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.login-caixa .ou, .contato-ou { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.login-caixa .ou::before, .login-caixa .ou::after, .contato-ou::before, .contato-ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .login-caixa .linha-botoes { justify-content: space-between; }
 .login-caixa .linha-botoes .btn { flex: none; }
 .conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
@@ -1940,11 +1940,13 @@ button.plano-card { cursor: pointer; }
   .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child .rot-curto { display: none; }
 }
 
-/* abas do painel: no PC o nome inteiro; no celular as cinco numa linha, icone em cima e nome curto embaixo */
+/* abas do painel: no PC o nome inteiro; no celular as cinco numa linha, icone em cima e nome curto embaixo.
+   As cinco do mesmo tamanho; a aba nunca fica menor que o proprio nome (sem o "min-width: 0"): se a letra do celular for
+   mais larga e "Cardapio" nao couber, so ela cresce os pixels que faltam, em vez de virar "Carda..." (era o iPhone) */
 .abas-principais .aba-painel .rot-curto { display: none; }
 @media (max-width: 640px) {
-  .abas-principais { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; overflow: visible; }
-  .abas-principais .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; min-width: 0; padding: 9px 2px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
+  .abas-principais { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; overflow: visible; }
+  .abas-principais .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; padding: 9px 2px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
   .abas-principais .aba-painel .rot-longo { display: none; }
   .abas-principais .aba-painel .rot-curto { display: inline; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .abas-principais .aba-painel .ico-traco svg { width: 20px; height: 20px; }
@@ -1990,7 +1992,93 @@ button.plano-card { cursor: pointer; }
 .conta-ladrilho-icone .ico-traco svg { width: 22px; height: 22px; }
 .escolha-grande .icone { display: flex; align-items: center; justify-content: center; color: var(--deep2); }
 .escolha-grande .icone .ico-traco svg { width: 30px; height: 30px; }
-.pronto-mascote { display: block; width: 96px; height: 96px; margin: 0 auto 4px; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
+/* ---------- loja pronta: a comemoracao ---------- */
+.pronto-card { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 16px 16px; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 1px 2px rgba(14, 31, 20, 0.05); }
+.pronto-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 132px; background: radial-gradient(120% 100% at 50% 0%, var(--lime-suave) 0%, rgba(238, 249, 220, 0) 100%); pointer-events: none; }
+.pronto-card > * { position: relative; margin: 0; }
+/* o palco: o mascote dancando no circulo, com a coroa de confetes em volta (cada peca no seu angulo, a partir do centro
+   do circulo). Com menos movimento pedido no celular, tudo fica parado, e a coroa ja faz a festa */
+.pronto-palco { position: relative; width: 200px; height: 152px; }
+.pronto-palco::before { content: ""; position: absolute; left: 50%; top: 80px; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: var(--lime-suave); border: 2px solid #C9E7A1; }
+.pronto-dancando { position: absolute; left: 50%; top: 30px; width: 96px; height: 96px; margin-left: -48px; transform-origin: 50% 100%; }
+.pronto-sombra { position: absolute; left: 50%; top: 122px; width: 56px; height: 8px; margin-left: -28px; border-radius: 50%; background: rgba(14, 31, 20, 0.12); }
+.pronto-confete { position: absolute; left: 50%; top: 80px; display: block; transform: rotate(var(--a)) translateX(var(--d)) rotate(var(--g)); }
+.pronto-confete.bola { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; }
+.pronto-confete.fita { width: 13px; height: 6px; margin: -3px 0 0 -6.5px; border-radius: 2px; }
+.pronto-confete.tri { width: 11px; height: 10px; margin: -5px 0 0 -5.5px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.pronto-confete.lime { background: var(--lime); }
+.pronto-confete.deep2 { background: var(--deep2); }
+.pronto-confete.lemon { background: var(--lemon); }
+.pronto-confete.orange { background: var(--orange); }
+.pronto-confete.c1 { --a: -168deg; --d: 78px; --g: 20deg; --atraso: 40ms; }
+.pronto-confete.c2 { --a: -146deg; --d: 86px; --g: 35deg; --atraso: 80ms; }
+.pronto-confete.c3 { --a: -124deg; --d: 78px; --g: -15deg; --atraso: 120ms; }
+.pronto-confete.c4 { --a: -104deg; --d: 88px; --g: 60deg; --atraso: 160ms; }
+.pronto-confete.c5 { --a: -86deg; --d: 80px; --g: 0deg; --atraso: 200ms; }
+.pronto-confete.c6 { --a: -66deg; --d: 88px; --g: -40deg; --atraso: 240ms; }
+.pronto-confete.c7 { --a: -46deg; --d: 78px; --g: 25deg; --atraso: 280ms; }
+.pronto-confete.c8 { --a: -26deg; --d: 86px; --g: 70deg; --atraso: 320ms; }
+.pronto-confete.c9 { --a: -6deg; --d: 78px; --g: 0deg; --atraso: 360ms; }
+.pronto-confete.c10 { --a: 16deg; --d: 84px; --g: -30deg; --atraso: 400ms; }
+.pronto-confete.c11 { --a: 38deg; --d: 76px; --g: 15deg; --atraso: 440ms; }
+.pronto-confete.c12 { --a: 142deg; --d: 76px; --g: -20deg; --atraso: 480ms; }
+.pronto-confete.c13 { --a: 164deg; --d: 84px; --g: 40deg; --atraso: 520ms; }
+.pronto-confete.c14 { --a: 186deg; --d: 78px; --g: 10deg; --atraso: 560ms; }
+@media (prefers-reduced-motion: no-preference) {
+  /* a coroa estoura do centro, peca por peca; o mascote danca: passinho para cada lado, com pulinho e a sombra junto */
+  .pronto-confete { animation: pronto-estouro 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) var(--atraso) both; }
+  .pronto-dancando { animation: pronto-danca 1.6s ease-in-out infinite; }
+  .pronto-sombra { animation: pronto-sombra 1.6s ease-in-out infinite; }
+}
+@keyframes pronto-estouro { from { transform: rotate(var(--a)) translateX(0) rotate(var(--g)) scale(0); opacity: 0; } to { transform: rotate(var(--a)) translateX(var(--d)) rotate(var(--g)) scale(1); opacity: 1; } }
+@keyframes pronto-danca {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1, 1); }
+  12% { transform: translateY(0) rotate(-9deg) scale(1.06, 0.94); }
+  25% { transform: translateY(-12px) rotate(-5deg) scale(0.97, 1.04); }
+  37% { transform: translateY(0) rotate(0) scale(1.05, 0.95); }
+  50% { transform: translateY(0) rotate(9deg) scale(1.06, 0.94); }
+  62% { transform: translateY(-12px) rotate(5deg) scale(0.97, 1.04); }
+  75% { transform: translateY(0) rotate(0) scale(1.05, 0.95); }
+  87% { transform: translateY(-5px) rotate(0) scale(1, 1); }
+}
+@keyframes pronto-sombra {
+  0%, 12%, 37%, 50%, 75%, 100% { transform: scaleX(1); opacity: 1; }
+  25%, 62% { transform: scaleX(0.7); opacity: 0.6; }
+  87% { transform: scaleX(0.88); opacity: 0.85; }
+}
+.pronto-festa { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+/* menos movimento pedido no celular: como a flutuacao dos outros mascotes (a cara da marca), ele continua, so que num
+   balancinho curto, sem pulo; o estouro de confete nao aparece */
+@keyframes pronto-balanco { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .pronto-dancando { animation: pronto-balanco 1.6s ease-in-out infinite !important; } }
+.pronto-selo { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 4px 12px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.pronto-ponto { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--lime2); }
+.pronto-ponto::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--lime2); animation: pronto-sinal 1.8s ease-out infinite; }
+@keyframes pronto-sinal { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.6); opacity: 0; } }
+.pronto-titulo { font-family: var(--display); font-size: 26px; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
+.pronto-sub { max-width: 360px; font-size: 16px; line-height: 1.45; color: var(--body); text-wrap: balance; }
+.pronto-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 8px 8px 16px; background: var(--bg); border: 1.5px dashed var(--line-forte); border-radius: var(--raio-p); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.pronto-link:focus-visible { outline: 3px solid var(--deep); outline-offset: 2px; }
+@media (hover: hover) { .pronto-link:hover { border-color: var(--lime-escuro); } }
+.pronto-link:active { transform: scale(0.99); }
+.pronto-link-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+/* o endereco do Ligeiro numa linha, pequeno; o da loja embaixo, grande, sem quebrar no meio do nome se couber */
+.pronto-link-base { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.pronto-link-texto b { font-size: 17px; color: var(--ink); font-weight: 800; overflow-wrap: anywhere; }
+.pronto-link-copiar { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--lime); color: var(--texto-no-destaque); display: inline-flex; align-items: center; justify-content: center; }
+.pronto-link-copiar .ico-traco svg { width: 20px; height: 20px; }
+.pronto-gratis { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
+.pronto-gratis b { color: var(--ink); }
+.pronto-gratis .ico-traco { flex: none; color: var(--deep2); }
+.pronto-gratis .ico-traco svg { width: 18px; height: 18px; }
+.pronto-qr { display: flex; align-items: center; gap: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.pronto-qr-caixa { flex: none; width: 112px; height: 112px; padding: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; }
+.pronto-qr-caixa svg { display: block; width: 100%; height: 100%; }
+.pronto-qr-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 14px; line-height: 1.4; color: var(--muted); text-align: left; }
+.pronto-qr-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
+.pronto-qr-texto .btn { margin-top: 8px; }
+@media (max-width: 359px) { .pronto-qr { flex-direction: column; text-align: center; } .pronto-qr-texto { align-items: center; text-align: center; } }
+@media (prefers-reduced-motion: reduce) { .pronto-ponto::after { animation: none; opacity: 0; } }
 /* busca: a lupa desenhada no campo (no lugar do emoji no texto de exemplo) */
 .busca { padding-left: 42px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236F7D72' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M20 20l-4.3-4.3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 14px center; background-size: 18px 18px; }
 .hub-conteudo .busca { padding-left: 50px; background-position: 18px center; background-size: 20px 20px; }
@@ -2158,6 +2246,8 @@ button.plano-card { cursor: pointer; }
 .cartao-recusado { display: flex; align-items: flex-start; gap: 10px; width: 100%; max-width: 440px; padding: 12px 16px; border: 1px solid var(--erro); border-radius: var(--raio-p); background: var(--erro-suave); color: var(--ink); font-weight: 700; font-size: 14.5px; text-align: left; }
 .cartao-recusado .ico-traco { color: var(--erro); margin-top: 1px; flex: none; }
 .cartao-recusado .ico-traco svg { width: 20px; height: 20px; }
+.cartao-recusado.cartao-esperando { border-color: #C9E7A1; background: var(--lime-suave); }
+.cartao-recusado.cartao-esperando .ico-traco { color: var(--lime-escuro); }
 /* demonstracao: cartao de mentira para mostrar o fluxo sem cobrar nada */
 .cartao-teste { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; aspect-ratio: 1.586; max-width: 320px; margin: 0 auto 12px; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, var(--deep), var(--deep2, #1c5a44)); color: #fff; box-shadow: var(--sombra); }
 .cartao-teste-numero { font-family: var(--display); font-size: 20px; letter-spacing: 0.08em; }
@@ -2309,3 +2399,27 @@ button.plano-card { cursor: pointer; }
 .termos-links a { color: var(--deep2); font-weight: 700; }
 .nota-termos { text-align: center; }
 .nota-termos a { color: inherit; text-decoration: underline; }
+
+/* ---------- design exclusivo: a aparencia travada (so a logo troca) ---------- */
+.design-exclusivo { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid #C9E7A1; border-radius: var(--raio-p); background: var(--lime-suave); }
+.design-exclusivo-topo { display: flex; align-items: flex-start; gap: 12px; }
+.design-exclusivo-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--deep); color: var(--lime2); display: inline-flex; align-items: center; justify-content: center; }
+.design-exclusivo-ico .ico-traco svg { width: 20px; height: 20px; }
+.design-exclusivo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.4; color: var(--body); }
+.design-exclusivo-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
+
+/* ---------- fale com a gente ---------- */
+.contato-topo { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--lime-suave); border: 1px solid #C9E7A1; border-radius: var(--raio-p); text-align: left; }
+.contato-avatar { position: relative; flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--card); border: 2px solid #C9E7A1; display: inline-flex; align-items: center; justify-content: center; }
+.contato-avatar img { width: 44px; height: 44px; object-fit: contain; }
+.contato-online { position: absolute; right: 0; bottom: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--whats); border: 2px solid var(--card); }
+.contato-topo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.4; color: var(--body); }
+.contato-topo-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
+.campo label .opcional { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: lowercase; }
+.contato-seguro { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+.contato-seguro .ico-traco { flex: none; color: var(--deep2); }
+.contato-seguro .ico-traco svg { width: 16px; height: 16px; }
+.contato-ok { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0 8px; text-align: center; font-size: 15px; line-height: 1.45; color: var(--body); text-wrap: balance; }
+.contato-ok b { font-family: var(--display); font-size: 22px; color: var(--ink); }
+.contato-ok-marca { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 50%; background: var(--lime); color: var(--texto-no-destaque); display: inline-flex; align-items: center; justify-content: center; }
+.contato-ok-marca .ico-traco svg { width: 32px; height: 32px; }

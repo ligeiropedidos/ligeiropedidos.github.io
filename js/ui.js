@@ -106,12 +106,59 @@
     } catch (_) { /* som nunca derruba a tela */ }
   }
 
+  /* estalo de lanca-confete: um chiado curto (ruido num filtro) que some rapido */
+  function estalo(atraso, dura, vol, corte) {
+    if (!som.ligado || !som.contexto) return;
+    try {
+      var ctx = som.contexto, inicio = ctx.currentTime + atraso;
+      var n = Math.max(1, Math.floor(ctx.sampleRate * dura));
+      var buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      var fonte = ctx.createBufferSource();
+      fonte.buffer = buf;
+      var filtro = ctx.createBiquadFilter();
+      filtro.type = 'highpass';
+      filtro.frequency.value = corte;
+      var ganho = ctx.createGain();
+      ganho.gain.setValueAtTime(vol, inicio);
+      ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + dura);
+      fonte.connect(filtro).connect(ganho).connect(ctx.destination);
+      fonte.start(inicio);
+      fonte.stop(inicio + dura + 0.02);
+    } catch (_) { /* som nunca derruba a tela */ }
+  }
+  /* nota que escorrega (o "tum" grave do estouro) */
+  function deslizar(de, para, dura, vol, atraso) {
+    if (!som.ligado || !som.contexto) return;
+    try {
+      var ctx = som.contexto, inicio = ctx.currentTime + atraso;
+      var osc = ctx.createOscillator(), ganho = ctx.createGain();
+      osc.frequency.setValueAtTime(de, inicio);
+      osc.frequency.exponentialRampToValueAtTime(para, inicio + dura);
+      ganho.gain.setValueAtTime(0.0001, inicio);
+      ganho.gain.exponentialRampToValueAtTime(vol, inicio + 0.008);
+      ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + dura);
+      osc.connect(ganho).connect(ctx.destination);
+      osc.start(inicio);
+      osc.stop(inicio + dura + 0.02);
+    } catch (_) { /* som nunca derruba a tela */ }
+  }
+
   var SONS = {
     toque: function () { tocar([[520, 0.06, 0.05, 0]]); },
     adicionar: function () { tocar([[660, 0.07, 0.09, 0], [880, 0.09, 0.07, 0.06]]); },
     remover: function () { tocar([[420, 0.07, 0.07, 0], [300, 0.09, 0.05, 0.06]]); },
     erro: function () { tocar([[240, 0.14, 0.08, 0, 'square']]); },
     sucesso: function () { tocar([[660, 0.1, 0.09, 0], [880, 0.1, 0.09, 0.09], [1175, 0.22, 0.1, 0.18]]); },
+    /* Loja criada: o estouro do lanca-confete, quatro notas subindo e o brilhinho dos confetes caindo. */
+    festa: function () {
+      estalo(0, 0.09, 0.35, 1200);
+      deslizar(180, 55, 0.14, 0.3, 0);
+      tocar([[1047, 0.12, 0.12, 0.12, 'triangle'], [1319, 0.12, 0.12, 0.2, 'triangle'], [1568, 0.12, 0.12, 0.28, 'triangle'], [2093, 0.42, 0.13, 0.36, 'triangle']]);
+      var brilhos = [];
+      for (var i = 0; i < 9; i++) brilhos.push([2400 + Math.random() * 1800, 0.06, 0.035, 0.52 + i * 0.11 + Math.random() * 0.05]);
+      tocar(brilhos);
+    },
     /* Pix caiu: duas notas de "moeda", alegres e curtas. */
     pago: function () { tocar([[988, 0.09, 0.2, 0, 'square'], [1319, 0.38, 0.2, 0.09, 'square']]); },
     /* Pedido cancelado: tres notas descendo, sem susto. */

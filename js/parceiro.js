@@ -109,7 +109,7 @@
   function campoSimples(rotulo, opcoes) {
     var o = opcoes || {};
     var input = el('input', { type: o.tipo || 'text', maxlength: o.max || 80, placeholder: o.placeholder || '', inputmode: o.inputmode || null, autocomplete: o.autocomplete || null });
-    var b = el('div', { class: 'campo' + (o.largo ? ' largo' : '') }, [el('label', { text: rotulo }), input]);
+    var b = el('div', { class: 'campo' + (o.largo ? ' largo' : '') }, [el('label', {}, [rotulo, o.opcional ? el('span', { class: 'opcional', text: 'opcional' }) : null]), input]);
     b.input = input;
     return b;
   }
@@ -119,19 +119,35 @@
   function abrirContato(origem) {
     var c = cfg();
     var espera = origem === 'lista-espera';
-    var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
-    if (espera) corpo.appendChild(el('p', { class: 'muted pequeno', text: ESPERA.intro }));
-    else if (c.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Chamar no WhatsApp agora']));
-    if (!espera) corpo.appendChild(el('p', { class: 'muted pequeno' + (c.whatsappLigeiro ? ' centro' : ''), text: c.whatsappLigeiro ? 'Ou deixe seu número que a gente chama você:' : 'Deixe seu número que a gente chama você no WhatsApp, sem compromisso:' }));
+    var corpo = el('div', { class: 'pilha contato', style: { paddingTop: '8px' } });
+    /* quem atende: o mascote e uma frase do que da para pedir (no lugar de um formulario seco) */
+    corpo.appendChild(el('div', { class: 'contato-topo' }, [
+      el('span', { class: 'contato-avatar', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: '48', height: '48' }), el('span', { class: 'contato-online' })]),
+      el('div', { class: 'contato-topo-texto' }, espera ? [
+        el('b', { text: 'Vagas de loja fechadas agora' }),
+        el('span', { text: ESPERA.intro }),
+      ] : [
+        el('b', { text: 'Resposta rápida pelo WhatsApp' }),
+        el('span', { text: 'Tire dúvidas, veja uma demonstração ou peça ajuda para montar sua loja.' }),
+      ]),
+    ]));
+    if (!espera && c.whatsappLigeiro) {
+      corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.'), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Chamar no WhatsApp agora']));
+      corpo.appendChild(el('div', { class: 'contato-ou', text: 'ou a gente chama você' }));
+    }
     var f = {
       nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
       whatsapp: campoSimples('Seu WhatsApp', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', autocomplete: 'tel' }),
-      loja: campoSimples('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé' }),
-      cidade: window.LigeiroCidades ? window.LigeiroCidades.campo('', '', { rotulo: 'Cidade', placeholder: 'Digite e escolha' }) : campoSimples('Cidade', { max: 60 }),
+      loja: campoSimples('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', opcional: true }),
+      cidade: window.LigeiroCidades ? window.LigeiroCidades.campo('', '', { rotulo: 'Cidade', placeholder: 'Digite e escolha' }) : campoSimples('Cidade', { max: 60, opcional: true }),
     };
+    /* a cidade tambem e opcional (o contato nunca trava por ela) */
+    var rotuloCidade = f.cidade.querySelector && f.cidade.querySelector('label');
+    if (window.LigeiroCidades && rotuloCidade) rotuloCidade.appendChild(el('span', { class: 'opcional', text: 'opcional' }));
     UI.mascaraTelefone(f.whatsapp.input);
     corpo.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja, f.cidade]));
-    var btn = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: espera ? ESPERA.botao : 'Pode me chamar', onclick: function () {
+    corpo.appendChild(el('p', { class: 'contato-seguro' }, [UI.iconeLinha('cadeado'), 'Seu número só é usado para a gente falar com você.']));
+    var btn = el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () {
       var nome = f.nome.input.value.trim();
       var whatsapp = f.whatsapp.input.value.replace(/\D/g, '');
       if (whatsapp.length > 11 && whatsapp.indexOf('55') === 0) whatsapp = whatsapp.slice(2);
@@ -141,12 +157,29 @@
       var cid = (f.cidade.valor && f.cidade.valor()) || { nome: f.cidade.input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };
       btn.disabled = true;
       D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: location.hash })
-        .then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar(espera ? ESPERA.sucesso : 'Recebemos! A gente chama você no WhatsApp.'); })
+        .then(function () { UI.soar('sucesso'); contatoRecebido(nome, f.whatsapp.input.value, espera); })
         .catch(function (e) { btn.disabled = false; UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.')); });
-    } });
+    } }, [UI.iconeLinha('check'), espera ? ESPERA.botao : 'Pode me chamar']);
     [f.nome, f.whatsapp, f.loja].forEach(function (c) { c.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } }); });
-    UI.abrirModal({ titulo: espera ? ESPERA.titulo : 'Fale com a gente', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', text: 'Fechar', onclick: UI.fecharModal }), btn] });
-    setTimeout(function () { f.nome.input.focus(); }, 80);
+    UI.abrirModal({ titulo: espera ? ESPERA.titulo : 'Fale com a gente', corpo: corpo, rodape: [btn] });
+    /* no PC o cursor ja vai para o nome; no celular nao: o teclado subiria e cobriria o botao do WhatsApp */
+    var toque = false;
+    try { toque = window.matchMedia && window.matchMedia('(pointer: coarse)').matches; } catch (_) { toque = false; }
+    if (!toque) setTimeout(function () { f.nome.input.focus(); }, 80);
+  }
+
+  /* recebido: a janela vira a confirmacao (com o numero, para a pessoa conferir), no lugar de sumir com um aviso rapido */
+  function contatoRecebido(nome, numero, espera) {
+    var primeiro = String(nome || '').split(/\s+/)[0];
+    UI.abrirModal({
+      titulo: espera ? 'Você está na lista' : 'Recebemos',
+      corpo: el('div', { class: 'contato-ok' }, [
+        el('span', { class: 'contato-ok-marca', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]),
+        el('b', { text: 'Obrigado, ' + primeiro + '!' }),
+        el('span', { text: espera ? 'Assim que abrir vaga, a gente chama você no WhatsApp ' + numero + ', na ordem da lista.' : 'A gente chama você no WhatsApp ' + numero + ' em breve.' }),
+      ]),
+      rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Fechar', onclick: UI.fecharModal })],
+    });
   }
 
   /* Botao verde flutuante, igual ao das startups: aparece em todas as paginas de venda. */
