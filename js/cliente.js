@@ -2261,9 +2261,6 @@
           if (!vivo || !estado.pedido) return;
           J.abrir({
             cidade: estado.loja.cidade,
-            /* "Desafiar no WhatsApp" no fim da corrida leva o link desta loja (o desafio vira cliente novo para ela) */
-            loja: estado.loja.nome,
-            link: UI.linkDaLoja ? UI.linkDaLoja(estado.loja) : '',
             rotulo: 'Senha ' + estado.pedido.senha + ' · ' + R.rotuloStatusCliente(estado.pedido),
             aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
           });

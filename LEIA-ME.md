@@ -319,7 +319,7 @@ Quando mudar um arquivo, troque os dois para ninguém ficar com versão velha.
 Depois de pago, a tela do pedido convida o cliente para a **Corrida do Ligeiro** (`js/jogo.js`): o ratinho de moto
 numa rua de três faixas, em falso 3D desenhado em código (sem imagem nova). Tem moedas com combo até x5, ímã, turbo e
 capacete, vira-lata caramelo atravessando, o dia virando noite com os postes acendendo, musiquinha e efeitos feitos
-na hora pelo celular, e o botão "Desafiar no WhatsApp" com o link da loja no fim. **Zero banco**: o recorde fica no
+na hora pelo celular. **Zero banco**: o recorde fica no
 aparelho, e o arquivo só baixa quando o cliente toca em Jogar. Se o pedido anda, o jogo avisa (e pausa quando sai ou
 fica pronto). O lojista desliga em Ajustes, "No seu site" (campo `jogoDesligado`); de fábrica vem ligado.
 O teste (`testes/jogo.test.mjs`) roda 12 km de rua e confere que sempre existe um caminho.

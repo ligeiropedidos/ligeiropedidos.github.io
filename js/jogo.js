@@ -1155,11 +1155,6 @@
     var p = pontos();
     var recorde = p > J.recorde;
     if (recorde) { J.recorde = p; guardar(CHAVE_RECORDE, p); }
-    var desafio = null;
-    if (J.link) {
-      var msg = 'Fiz ' + numero(p) + ' pontos na Corrida do Ligeiro esperando meu pedido' + (J.loja ? ' da ' + J.loja : '') + '. Duvido você bater! ' + J.link;
-      desafio = el('a', { class: 'btn btn-whats btn-largo', href: 'https://wa.me/?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener' }, [UI.icone ? UI.icone('zap') : null, 'Desafiar no WhatsApp']);
-    }
     painel(el('div', { class: 'jogo-cartao' }, [
       el('h2', { text: recorde && p > 0 ? 'Novo recorde!' : 'Bateu!' }),
       el('div', { class: 'jogo-final' }, [el('b', { text: numero(p) }), el('span', { text: 'pontos' })]),
@@ -1170,7 +1165,6 @@
       ]),
       !recorde && J.recorde > 0 ? el('div', { class: 'jogo-recorde' }, [UI.iconeLinha('trofeu'), el('span', { text: 'Seu recorde: ' + numero(J.recorde) })]) : null,
       el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { comecar(false); } }, [UI.iconeLinha('tocar'), 'Jogar de novo']),
-      desafio,
       el('button', { class: 'btn btn-fantasma btn-largo', type: 'button', onclick: function () { fechar(); } }, 'Voltar ao pedido'),
     ]));
   }
@@ -1245,7 +1239,7 @@
     estilos();
     J = {
       vivo: true, fase: 'inicio', som: ler(CHAVE_SOM, '1') !== '0', comMusica: ler(CHAVE_MUSICA, '1') !== '0', recorde: Number(ler(CHAVE_RECORDE, 0)) || 0, musica: null,
-      aoFechar: op.aoFechar, link: op.link || '', loja: op.loja || '',
+      aoFechar: op.aoFechar,
       raf: 0, ult: 0, camX: 0, pontosVistos: -1, moedasVistas: -1, multVisto: -1, jaJogou: Number(ler(CHAVE_RECORDE, 0)) > 0,
       noite: 0, tarde: 0, ceuA: 'dia', ceuB: 'dia', ceuT: 0, baixoSeguro: 0,
     };
@@ -1373,7 +1367,7 @@
       '.jogo-numeros b{font-family:var(--display);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}' +
       '.jogo-numeros span{font-size:12px;color:var(--muted)}' +
       '.jogo-cartao .btn{width:100%;margin:0}' +
-      '.jogo-cartao .btn .ico-traco,.jogo-cartao .btn .icone-zap{margin-right:8px}' +
+      '.jogo-cartao .btn .ico-traco{margin-right:8px}' +
       '.jogo-dica-rapida{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(15,61,46,.85);color:#fff;font-size:15px;font-weight:600;white-space:nowrap;pointer-events:none;animation:jogo-aparece .3s ease-out both!important}' +
       '.jogo-dica-rapida.sai{animation:jogo-some .5s ease-in both!important}' +
       '@keyframes jogo-pop{0%{opacity:0;transform:scale(.86) translateY(12px)}100%{opacity:1;transform:none}}' +
