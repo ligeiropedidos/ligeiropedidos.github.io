@@ -546,12 +546,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .senha-gigante { font-family: var(--display); font-size: 104px; line-height: 1; font-weight: 700; color: var(--senha, var(--lime)); margin: 6px 0; }
 .painel-senha .instrucao { font-size: 16.5px; color: rgba(255, 255, 255, 0.9); }
 .a-cobrar { width: 100%; max-width: 420px; background: var(--orange-suave); border: 1px solid #F7D2B8; color: #7A3B10; border-radius: var(--raio-p); padding: 12px 14px; font-weight: 600; }
-.linha-do-tempo { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 0; text-align: left; }
-.etapa { display: flex; align-items: center; gap: 14px; padding: 10px 0; color: var(--muted); }
-.etapa .bolha { width: 40px; height: 40px; border-radius: 50%; background: var(--card); border: 2px solid var(--line-forte); display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }
+/* linha do tempo do pedido num cartao, como os outros da tela: um traco liga as bolinhas (na cor da loja ate onde o
+   pedido ja chegou) e a etapa de agora ganha o fundo de destaque. Cada etapa com 56 de altura e a bolinha de 40 */
+.linha-do-tempo { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 0; padding: 8px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; text-align: left; }
+.linha-do-tempo:empty { display: none; }
+.etapa { position: relative; display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 8px; border-radius: 12px; color: var(--muted); }
+.etapa + .etapa::before { content: ""; position: absolute; left: 27px; top: -8px; width: 2px; height: 16px; border-radius: 2px; background: var(--line-forte); }
+.etapa.feita + .etapa::before { background: var(--lime-escuro); }
+.etapa .bolha { position: relative; width: 40px; height: 40px; border-radius: 50%; background: var(--card); border: 2px solid var(--line-forte); display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }
 .etapa.feita .bolha { background: var(--lime); border-color: var(--lime-escuro); color: var(--ink); }
-.etapa.atual { color: var(--ink); font-weight: 700; }
-.etapa.atual .bolha { border-color: var(--lime-escuro); box-shadow: 0 0 0 5px var(--lime-suave); }
+.etapa.atual { background: var(--lime-suave); color: var(--ink); font-weight: 700; }
+.etapa.atual .bolha { border-color: var(--lime-escuro); box-shadow: 0 0 0 4px var(--card); }
 
 /* ---------- Painel do dono ---------- */
 
@@ -2036,10 +2041,18 @@ button.plano-card { cursor: pointer; }
 .aviso-cel-pedido .aviso-cel-ico { width: 40px; height: 40px; }
 .aviso-cel-pedido-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14.5px; line-height: 1.35; color: var(--body); }
 .aviso-cel-pedido-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
-.aviso-cel-pedido .btn { flex: none; min-height: 44px; padding: 0 18px; }
+.aviso-cel-pedido .btn { flex: none; min-height: 44px; min-width: 96px; padding: 0 18px; } /* Avisar e Jogar com a mesma largura: um cartao embaixo do outro, os botoes alinham */
 .aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: #C9E7A1; }
 .aviso-cel-pedido.ligado .aviso-cel-ico { background: #fff; }
 .aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--deep); font-weight: 600; }
+/* convite da Corrida do Ligeiro: o mesmo cartao do "Quer saber quando sair?", com o mascote no lugar do icone */
+/* em destaque: o mesmo cartao, com o fundo verde-limao e a borda do botao principal */
+.jogo-convite { background: linear-gradient(135deg, var(--lime-suave) 0%, #FFFFFF 85%); border-color: #C9E7A1; }
+.jogo-convite-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 0 2px var(--lime); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+.jogo-convite-ico img { width: 34px; height: 34px; object-fit: contain; }
+.jogo-recorde-selo { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--deep); color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.jogo-recorde-selo .ico-traco { color: var(--lime2); }
+.jogo-recorde-selo .ico-traco svg { width: 14px; height: 14px; }
 /* iPhone: os 3 passos */
 .passos-iphone { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .passo-iphone { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); font-size: 15.5px; line-height: 1.4; }

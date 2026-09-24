@@ -2193,6 +2193,7 @@
       voltarPix.textContent = pedido.formaPagamento === 'cartao_online' ? 'Voltar para o pagamento' : 'Ver o código Pix de novo';
       desenharAvisoCelPedido(pedido, balcao || deFora);
       desenharAvaliarGoogle(pedido, balcao || deFora);
+      desenharConviteJogo(pedido, balcao);
 
       irPara('tela-senha');
       if (pedido.status !== R.STATUS.CANCELADO) { UI.vibrar(); UI.soar('sucesso'); }
@@ -2234,6 +2235,56 @@
     }
 
     /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
+    /* Corrida do Ligeiro: o joguinho enquanto o pedido fica pronto. So depois de pago (antes, o certo e pagar) e ate
+       sair ou ficar pronto. Zero banco: roda no aparelho, e o codigo so baixa quando a pessoa toca em Jogar */
+    function desenharConviteJogo(pedido, esconder) {
+      var caixa = $('jogoConvite');
+      if (!caixa) return;
+      UI.limpar(caixa);
+      var andando = pedido.status === R.STATUS.PAGO || pedido.status === R.STATUS.PRODUCAO || (pedido.status === R.STATUS.PRONTO && pedido.tipoEntrega === 'entrega');
+      if (esconder || !andando || estado.loja.jogoDesligado === true) { caixa.hidden = true; return; }
+      caixa.hidden = false;
+      var recorde = Number(UI.lerLocal('ligeiro:jogo:recorde')) || 0;
+      caixa.appendChild(el('span', { class: 'jogo-convite-ico', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 })]));
+      /* textos curtos: cada um numa linha so, ate no celular estreito (o do lado, "Quer saber quando sair?", tambem) */
+      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [
+        el('b', { text: 'Corrida do Ligeiro' }),
+        /* o recorde numa etiqueta com o trofeu (e o que chama para jogar de novo) */
+        recorde > 0
+          ? el('span', { class: 'jogo-recorde-selo' }, [UI.iconeLinha('trofeu'), 'Recorde ' + recorde.toLocaleString('pt-BR')])
+          : el('span', { text: 'Jogue enquanto espera' }),
+      ]));
+      var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function () {
+        btn.disabled = true;
+        carregarJogo().then(function (J) {
+          btn.disabled = false;
+          if (!vivo || !estado.pedido) return;
+          J.abrir({
+            cidade: estado.loja.cidade,
+            /* "Desafiar no WhatsApp" no fim da corrida leva o link desta loja (o desafio vira cliente novo para ela) */
+            loja: estado.loja.nome,
+            link: UI.linkDaLoja ? UI.linkDaLoja(estado.loja) : '',
+            rotulo: 'Senha ' + estado.pedido.senha + ' · ' + R.rotuloStatusCliente(estado.pedido),
+            aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
+          });
+        }, function () { btn.disabled = false; UI.avisar('Não deu para abrir o jogo agora. Confira a internet.'); });
+      } }, 'Jogar');
+      caixa.appendChild(btn);
+    }
+    function carregarJogo() {
+      if (window.LigeiroJogo) return Promise.resolve(window.LigeiroJogo);
+      if (estado.jogoBaixando) return estado.jogoBaixando;
+      var tag = (((document.querySelector('script[src*="js/cliente.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+      estado.jogoBaixando = new Promise(function (ok, falhou) {
+        var s = document.createElement('script');
+        s.src = 'js/jogo.js?v=' + tag;
+        s.onload = function () { if (window.LigeiroJogo) ok(window.LigeiroJogo); else falhou(new Error('jogo')); };
+        s.onerror = function () { estado.jogoBaixando = null; if (s.parentNode) s.parentNode.removeChild(s); falhou(new Error('jogo')); };
+        document.body.appendChild(s);
+      });
+      return estado.jogoBaixando;
+    }
+
     function desenharAvisoCelPedido(pedido, esconder) {
       var A = window.LigeiroAvisos;
       var caixa = $('avisoCelPedido');
@@ -2300,6 +2351,9 @@
         atualizarMeuPedido(novo);
         if (codigoNovo && !mudou && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
         if (!mudou) return;
+        /* jogando: a etiqueta do jogo muda; saiu, ficou pronto, chegou ou foi cancelado, o jogo pausa e pergunta */
+        var J = window.LigeiroJogo;
+        if (J && J.aberto()) J.pedidoMudou(novo, 'Senha ' + novo.senha + ' · ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0);
         if ($('tela-cartao').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { desmontarCartao(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
         if ($('tela-pagamento').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { pararVigia(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
         if ($('tela-senha').classList.contains('ativa')) {
@@ -2308,6 +2362,7 @@
           var deFora = estado.pedidoDeFora === novo.id;
           desenharAvisoCelPedido(novo, balcao || deFora);
           desenharAvaliarGoogle(novo, balcao || deFora);
+          desenharConviteJogo(novo, balcao);
           desenharACobrar(novo);
           if (novo.status === R.STATUS.PAGO) rotuloConfirmado('feito', 'Pagamento confirmado');
           if (novo.status === R.STATUS.CANCELADO) rotuloConfirmado('fechar', 'Pedido cancelado');
@@ -2417,6 +2472,7 @@
 
     return function () {
       vivo = false;
+      if (window.LigeiroJogo && window.LigeiroJogo.aberto()) window.LigeiroJogo.fechar();
       tirarSplash();
       UI.limparTemaOficial(raiz); /* a mesma limpeza das outras telas (tira o tema das janelas tambem) */
       UI.limparTema();
@@ -2617,6 +2673,7 @@
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
         '<div class="avaliar-google" id="avaliarGoogle" hidden></div>' +
         '<div class="aviso-cel-pedido" id="avisoCelPedido" hidden></div>' +
+        '<div class="aviso-cel-pedido jogo-convite" id="jogoConvite" hidden></div>' +
         '<button class="btn btn-fantasma btn-largo" id="btnVoltarPix" style="max-width:420px" hidden>Ver o código Pix de novo</button>' +
         '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener"><span class="icone-zap" aria-hidden="true"></span>Falar com a loja</a>' +
         '<button class="btn btn-fantasma btn-largo" id="btnNovoPedido" style="max-width:420px">' + (balcao ? 'Próximo cliente' : 'Fazer outro pedido') + '</button>' +

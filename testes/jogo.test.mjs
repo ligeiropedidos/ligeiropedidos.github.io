@@ -1,0 +1,249 @@
+/*
+ * Teste da Corrida do Ligeiro (js/jogo.js), sem navegador: a tela e o desenho sao de mentira.
+ * Confere que a rua nunca fecha as 3 faixas, que da tempo de trocar de faixa, que bater, pular e pegar moeda
+ * funcionam, que a memoria nao cresce numa corrida longa e quanto desenho cada quadro faz.
+ * Rodar com:  node testes/jogo.test.mjs
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import url from 'node:url';
+import vm from 'node:vm';
+
+const aqui = path.dirname(url.fileURLToPath(import.meta.url));
+const codigo = fs.readFileSync(path.join(aqui, '..', 'js', 'jogo.js'), 'utf8');
+
+/* ---- navegador de mentira ---- */
+let chamadasDesenho = 0;
+const ctx2d = new Proxy({}, {
+  get(alvo, nome) {
+    if (nome in alvo) return alvo[nome];
+    if (nome === 'createLinearGradient' || nome === 'createRadialGradient') return () => ({ addColorStop() {} });
+    return () => { chamadasDesenho++; };
+  },
+  set(alvo, nome, valor) { alvo[nome] = valor; return true; },
+});
+function elemento(tag) {
+  const e = {
+    tagName: String(tag).toUpperCase(), style: {}, children: [], hidden: false, textContent: '', parentNode: null,
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    setAttribute() {}, getAttribute() { return null; }, addEventListener() {}, removeEventListener() {},
+    appendChild(f) { if (f) { f.parentNode = e; e.children.push(f); } return f; },
+    removeChild(f) { e.children = e.children.filter((x) => x !== f); return f; },
+    getBoundingClientRect() { return { width: 375, height: 812, left: 0, top: 0 }; },
+    getContext() { return ctx2d; },
+    width: 0, height: 0,
+  };
+  return e;
+}
+const documento = {
+  hidden: false,
+  body: elemento('body'), head: elemento('head'), documentElement: elemento('html'),
+  createElement: elemento, getElementById() { return null; },
+  addEventListener() {}, removeEventListener() {},
+};
+let quadros = [];
+const janela = {
+  document: documento,
+  devicePixelRatio: 2,
+  matchMedia() { return { matches: false }; },
+  addEventListener() {}, removeEventListener() {},
+  requestAnimationFrame(f) { quadros.push(f); return quadros.length; },
+  cancelAnimationFrame() {},
+  history: { pushState() {}, back() {}, state: null },
+  navigator: { maxTouchPoints: 5 },
+  Image: function () { const img = { complete: true, naturalWidth: 192 }; setTimeout(() => img.onload && img.onload(), 0); return img; },
+  setTimeout, clearTimeout,
+};
+janela.window = janela;
+const guardado = {};
+janela.LigeiroUI = {
+  el(tag, atr, filhos) { const e = elemento(tag); Object.assign(e, atr || {}); if (atr && atr.text) e.textContent = atr.text; return e; },
+  iconeLinha() { return elemento('span'); },
+  limpar(e) { e.children = []; },
+  lerLocal(k) { return k in guardado ? guardado[k] : null; },
+  guardarLocal(k, v) { guardado[k] = v; },
+};
+const contexto = vm.createContext(Object.assign(janela, { console, Math, Date, JSON, Number, String, Array, Object, Promise, Error }));
+vm.runInContext(codigo, contexto);
+const LJ = janela.LigeiroJogo;
+const T = LJ._teste;
+
+let falhas = 0, total = 0;
+function ok(cond, nome) { total++; if (cond) console.log('  ok  ' + nome); else { falhas++; console.log('  FALHOU  ' + nome); } }
+
+LJ.abrir({ cidade: 'Juquiá', rotulo: 'Senha 12 · Preparando' });
+await new Promise((r) => setTimeout(r, 10));
+const J = () => T.estado();
+ok(J() && J().fase === 'inicio', 'abre na tela de inicio');
+
+/* ---- 1. a rua gerada: nunca fecha as 3 faixas e da tempo de trocar ---- */
+console.log('Rua gerada');
+T.comecar();
+const vistos = new Set();
+const bloqueios = []; /* {faixa, de, ate, pula} em metros desde a largada */
+const dt = 1 / 60;
+let seguro = 0;
+/* a moto fica fora da rua (faixa 9): nada bate, e da para ver tudo o que o jogo gera */
+while (J().dist < 12000 && seguro++ < 200000) {
+  J().x = 9; J().alvo = 9; J().tPulo = -1; J().alt = 3; /* fora da rua e sempre no alto: nada bate (nem a lombada) */
+  T.passo(dt);
+  for (const o of J().obj) {
+    if (vistos.has(o)) continue;
+    vistos.add(o);
+    const tipo = { cone: [true, 0.5], buraco: [true, 1.4], lombada: [true, 0.9], carro: [false, 3.8], caminhao: [false, 6.5] }[o.tipo];
+    if (!tipo) continue;
+    const de = o.z + J().dist;
+    const faixas = o.tipo === 'lombada' ? [-1, 0, 1] : [o.faixa];
+    faixas.forEach((f) => bloqueios.push({ faixa: f, de, ate: de + tipo[1], pula: tipo[0] }));
+  }
+}
+ok(J().fase === 'jogando' && J().dist >= 12000, 'corrida de 12 km simulada (' + Math.round(J().dist) + ' m, ' + bloqueios.length + ' obstaculos)');
+const velEm = (d) => 12 + 19 * (1 - Math.exp(-d / 1500));
+let fechou = 0;
+for (let z = 50; z < 11800; z += 0.25) {
+  const presos = new Set(bloqueios.filter((b) => !b.pula && z >= b.de - 0.6 && z <= b.ate + 0.2).map((b) => b.faixa));
+  if (presos.size >= 3) fechou++;
+}
+ok(fechou === 0, 'nenhum ponto da rua com as 3 faixas fechadas por carro ou caminhao');
+/* planejamento: de faixa em faixa, cada troca leva 0,22 s (a moto passa pelas duas faixas nesse tempo) */
+const passo = 0.5;
+let alcanca = new Set([-1, 0, 1]);
+let travou = -1;
+const livre = (f, z) => !bloqueios.some((b) => b.faixa === f && z >= b.de - 0.6 && z <= b.ate + 0.2 && !b.pula);
+for (let z = 40; z < 11800 && travou < 0; z += passo) {
+  const troca = Math.ceil((velEm(z) * 0.22) / passo);
+  const prox = new Set();
+  alcanca.forEach((f) => {
+    if (livre(f, z + passo)) prox.add(f);
+    [-1, 1].forEach((d) => {
+      const g = f + d;
+      if (g < -1 || g > 1) return;
+      let cabe = true;
+      for (let i = 1; i <= troca && cabe; i++) cabe = livre(f, z + i * passo) && livre(g, z + i * passo);
+      if (cabe) prox.add(g);
+    });
+  });
+  /* quem ainda nao trocou continua podendo seguir na faixa dele enquanto ela esta livre */
+  alcanca = prox;
+  if (!alcanca.size) travou = z;
+}
+ok(travou < 0, 'sempre existe um caminho possivel com trocas de faixa de 0,22 s' + (travou >= 0 ? ' (travou em ' + travou + ' m)' : ''));
+const pulosSeguidos = bloqueios.filter((b) => b.pula).sort((a, b) => a.de - b.de);
+let pertoDemais = 0;
+for (let i = 1; i < pulosSeguidos.length; i++) {
+  const a = pulosSeguidos[i - 1], b = pulosSeguidos[i];
+  if (a.faixa === b.faixa && b.de - a.ate < velEm(a.de) * 0.8 && b.de - a.ate > 0.1) pertoDemais++;
+}
+ok(pertoDemais === 0, 'nada para pular colado no pouso de outro pulo na mesma faixa (' + pertoDemais + ')');
+
+/* ---- 2. memoria e desenho ---- */
+console.log('Memoria e desenho');
+ok(J().obj.length < 150 && J().cena.length < 120 && J().part.length < 60, 'depois de 12 km, poucas coisas na memoria (' + J().obj.length + ' objetos, ' + J().cena.length + ' de cenario)');
+chamadasDesenho = 0;
+T.desenhar();
+ok(chamadasDesenho < 2500, 'um quadro inteiro faz ' + chamadasDesenho + ' chamadas de desenho (limite 2.500)');
+
+/* ---- 3. bater, pular e pegar moeda ---- */
+console.log('Bater, pular e moeda');
+function corridaLimpa() {
+  T.comecar();
+  const j = J();
+  j.obj.length = 0; j.proxPadrao = 1e9; j.x = 0; j.alvo = 0;
+  return j;
+}
+let j = corridaLimpa();
+j.obj.push({ tipo: 'cone', faixa: 0, z: 4, alt: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'batendo', 'cone na faixa, sem pular: bate');
+j = corridaLimpa();
+j.obj.push({ tipo: 'cone', faixa: 0, z: j.vel * 0.3, alt: 0 });
+T.pular();
+for (let i = 0; i < 90 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando', 'pulando na hora: passa por cima do cone');
+j = corridaLimpa();
+j.obj.push({ tipo: 'carro', faixa: 0, z: j.vel * 0.3, alt: 0, cor: 0 });
+T.pular();
+for (let i = 0; i < 90 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'batendo', 'carro nao da para pular');
+j = corridaLimpa();
+j.obj.push({ tipo: 'carro', faixa: 0, z: 8, alt: 0, cor: 0 });
+T.faixa(1);
+for (let i = 0; i < 90 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando' && j.alvo === 1, 'trocando de faixa: desvia do carro');
+j = corridaLimpa();
+j.obj.push({ tipo: 'lombada', faixa: 0, z: 5, alt: 0 });
+T.faixa(-1);
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'batendo', 'lombada pega a rua inteira: trocar de faixa nao adianta');
+j = corridaLimpa();
+j.obj.push({ tipo: 'moeda', faixa: 0, z: 3, alt: 0.7 }, { tipo: 'moeda', faixa: 1, z: 3, alt: 0.7 });
+for (let i = 0; i < 40; i++) T.passo(dt);
+ok(j.moedas === 1, 'pega a moeda da faixa, nao a da faixa do lado');
+j = corridaLimpa();
+j.ima = 8;
+j.obj.push({ tipo: 'moeda', faixa: 1, z: 10, alt: 0.7 }, { tipo: 'moeda', faixa: -1, z: 12, alt: 0.7 });
+for (let i = 0; i < 90; i++) T.passo(dt);
+ok(j.moedas === 2, 'com o ima, as moedas das outras faixas vem sozinhas');
+T.faixa(1); T.faixa(1); T.faixa(1);
+ok(j.alvo === 1, 'nao sai da rua (para na ultima faixa)');
+
+/* ---- 3b. poderes, vira-lata, combo e a noite ---- */
+console.log('Poderes, vira-lata, combo e noite');
+j = corridaLimpa();
+j.turbo = 5;
+j.obj.push({ tipo: 'carro', faixa: 0, z: 6, alt: 0, cor: 1 }, { tipo: 'caminhao', faixa: 0, z: 30, alt: 0 });
+for (let i = 0; i < 120 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando' && j.bonus >= 30, 'turbo: passa por carro e caminhao e ganha bonus (' + j.bonus + ')');
+j = corridaLimpa();
+j.escudo = true;
+j.obj.push({ tipo: 'carro', faixa: 0, z: 5, alt: 0, cor: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando' && j.escudo === false, 'capacete: aguenta uma batida e acaba');
+j.imune = 0;
+j.obj.push({ tipo: 'carro', faixa: 0, z: 5, alt: 0, cor: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'batendo', 'sem capacete, a segunda batida acaba a corrida');
+j = corridaLimpa();
+j.obj.push({ tipo: 'cachorro', faixa: -1.9, z: j.vel * 2.3 + 3, alt: 0, vx: 1.55 });
+let cruzou = false;
+for (let i = 0; i < 400 && j.fase === 'jogando'; i++) { T.passo(dt); const c = j.obj.find((o) => o.tipo === 'cachorro'); if (c && Math.abs(c.faixa) < 0.5 && c.z > 0) cruzou = true; }
+ok(cruzou, 'o vira-lata atravessa a rua na frente da moto');
+j = corridaLimpa();
+j.obj.push({ tipo: 'cachorro', faixa: 0, z: j.vel * 0.3, alt: 0, vx: 0, anda: true });
+T.pular();
+for (let i = 0; i < 90 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando', 'da para pular o vira-lata');
+j = corridaLimpa();
+for (let k = 0; k < 17; k++) j.obj.push({ tipo: 'moeda', faixa: 0, z: 2 + k * 1.5, alt: 0.7 });
+for (let i = 0; i < 200; i++) T.passo(dt);
+ok(j.moedas === 17 && j.mult === 3 && j.bonus === 7 * 10 + 8 * 20 + 2 * 30, 'combo: a 8a moeda seguida ja vale x2 e a 16a ja vale x3 (' + j.bonus + ' de bonus)');
+for (let i = 0; i < 200; i++) T.passo(dt);
+ok(j.mult === 1, 'sem pegar moeda por 3 segundos, o combo volta a x1');
+j = corridaLimpa();
+j.obj.push({ tipo: 'carro', faixa: 0, z: 4, alt: 0, cor: 0 });
+for (let i = 0; i < 8; i++) T.passo(dt);
+T.faixa(1);
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+ok(j.fase === 'jogando' && j.bonus === 25, 'desviou em cima da hora: "Por um triz" +25');
+j = corridaLimpa();
+j.dist = 2800; /* noite */
+for (let i = 0; i < 30; i++) T.passo(dt);
+chamadasDesenho = 0;
+T.desenhar();
+ok(j.noite > 0.9 && j.luzes.length > 0 && chamadasDesenho < 2500, 'de noite: postes e lanternas acesos, ' + (j.luzes.length / 4) + ' luzes e ' + chamadasDesenho + ' chamadas de desenho');
+
+/* ---- 4. recorde no aparelho, nada no banco ---- */
+console.log('Recorde');
+j = corridaLimpa();
+j.dist = 500; j.moedas = 7; j.bonus = 70;
+j.obj.push({ tipo: 'cone', faixa: 0, z: 2, alt: 0 });
+for (let i = 0; i < 30 && j.fase === 'jogando'; i++) T.passo(dt);
+await new Promise((r) => setTimeout(r, 900));
+ok(J().fase === 'fim' && Number(guardado['ligeiro:jogo:recorde']) >= 570, 'fim da corrida: recorde guardado no aparelho (' + guardado['ligeiro:jogo:recorde'] + ')');
+ok(!/firestore|fetch\(|firebase|XMLHttpRequest/i.test(codigo.replace(/\/\*[\s\S]*?\*\//g, '')), 'o jogo nao chama banco nem internet');
+
+LJ.fechar();
+ok(!LJ.aberto(), 'fecha e solta tudo');
+
+console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
+if (falhas) process.exit(1);

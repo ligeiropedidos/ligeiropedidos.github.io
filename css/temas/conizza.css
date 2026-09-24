@@ -322,6 +322,11 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .zap-status.feito .icone-zap { color: var(--cz-tinta-suave); }
 /* cliente: tela da senha e fechamento */
 .tema-conizza .aviso-cel-pedido { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; }
+.tema-conizza .linha-do-tempo { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; } /* o mesmo cartao da casa */
+.tema-conizza .jogo-convite { background: linear-gradient(135deg, #FDEDBF 0%, var(--cz-branco) 85%); }
+.tema-conizza .jogo-convite-ico { background: var(--cz-branco); box-shadow: 0 0 0 2px var(--cz-ouro); }
+.tema-conizza .jogo-recorde-selo { background: var(--cz-vermelho); color: var(--cz-creme); }
+.tema-conizza .jogo-recorde-selo .ico-traco { color: var(--cz-ouro-claro); }
 .tema-conizza .aviso-cel-pedido.ligado { background: var(--cz-verde-claro); border-color: var(--cz-verde); }
 .tema-conizza .aviso-cel-pedido.ligado .aviso-cel-ico { background: var(--cz-branco); color: var(--cz-verde); }
 .tema-conizza .aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--cz-verde); font-weight: 800; }

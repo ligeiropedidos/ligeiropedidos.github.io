@@ -2378,6 +2378,9 @@
       f.mostrarOutras = interruptorCampo('Mostrar "outros estabelecimentos da cidade" no meu site', 'Desligado, o seu link é só seu: o cliente não vê concorrente. Ligado, sua loja vira parte da vitrine da cidade e ganha o link de volta.', l.mostrarOutras === true);
       noSite.appendChild(f.permitePersonalizar);
       noSite.appendChild(f.mostrarOutras);
+      /* o jogo vem ligado em toda loja; so some se o dono desligar aqui (campo jogoDesligado) */
+      f.jogo = interruptorCampo('Joguinho enquanto o cliente espera', 'Depois de pago, a tela do pedido convida para a Corrida do Ligeiro. Roda no celular do cliente e não gasta nada do banco.', l.jogoDesligado !== true);
+      noSite.appendChild(f.jogo);
       s.appendChild(noSite);
 
       var cupons = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
@@ -2618,6 +2621,7 @@
         aceitaPagarNoBalcao: f.aceitaPagarNoBalcao.chave.ligado,
         permitePersonalizar: f.permitePersonalizar.chave.ligado,
         mostrarOutras: f.mostrarOutras.chave.ligado,
+        jogoDesligado: !f.jogo.chave.ligado,
       };
       var logo = f.logo.valor();
       if (logo.dados) { mudancas.logoDados = logo.dados; mudancas.logoUrl = ''; }

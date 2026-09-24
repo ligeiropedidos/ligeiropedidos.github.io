@@ -695,6 +695,7 @@
     presente: '<rect x="4" y="9" width="16" height="4" rx="1"/><path d="M5.5 13v7.5h13V13"/><path d="M12 9v11.5"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.8S9.5 3.8 12 9c2.5-5.2 4.5-4.6 4.5-2.8S14.5 9 12 9z"/>',
     olho: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
     estrela: '<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.6l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"/>',
+    trofeu: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4"/><path d="M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4"/><path d="M8.5 20h7"/><path d="M10 17h4"/>',
     subir: '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
     descer: '<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>',
     tocar: '<path d="M8 5.5v13l10.5-6.5z"/>',
