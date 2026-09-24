@@ -191,6 +191,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .passos-conectar .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 2px solid var(--cz-tinta); }
 .tema-conizza .mp-caixa { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); }
 .tema-conizza .mp-caixa .interruptor { border-top-color: var(--cz-creme-borda); }
+.tema-conizza .tour-escuro { background: rgba(36, 23, 8, 0.55); }
+.tema-conizza .tour-foco { box-shadow: 0 0 0 4px var(--cz-ouro-claro); }
+.tema-conizza .tour-balao { border: 3px solid var(--cz-tinta); background: var(--cz-branco); box-shadow: 0 6px 0 var(--cz-tinta); }
+.tema-conizza .tour-balao::before { background: var(--cz-branco); border-color: var(--cz-tinta); border-width: 3px; }
+.tema-conizza .tour-nome { background: var(--cz-vermelho); color: var(--cz-creme); font-family: var(--cz-display); border: 2px solid var(--cz-tinta); }
+.tema-conizza .tour-titulo { font-family: var(--cz-display); font-weight: 800; color: var(--cz-vermelho); }
+.tema-conizza .tour.abertura { background: rgba(36, 23, 8, 0.6); }
 .tema-conizza .taxa-exemplo { background: var(--cz-creme); color: var(--cz-tinta); }
 .tema-conizza .taxa-exemplo .ico-traco { color: var(--cz-vermelho); }
 .tema-conizza .progresso-passos { background: var(--cz-creme-fundo); }

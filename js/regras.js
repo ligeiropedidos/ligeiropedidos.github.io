@@ -419,6 +419,9 @@
      cobrar diferente por forma de pagamento, desde que o cliente veja antes de pagar (o site mostra na opcao e no total).
      Teto de 6%: cobre a taxa do Mercado Pago (cerca de 5%) sem virar lucro em cima do cliente */
   var TAXA_CARTAO_MAX = 6;
+  /* a chave "Cliente paga a taxa do cartao" usa esta: soma o bastante para a loja receber o valor cheio depois dos
+     cerca de 4,98% do Mercado Pago (50,00 vira 52,65; o Mercado Pago fica com 2,62; a loja recebe 50,03) */
+  var TAXA_CARTAO_PADRAO = 5.3;
   function taxaCartaoRepassada(loja) {
     var t = Number((loja || {}).taxaCartao) || 0;
     return t > 0 ? Math.min(TAXA_CARTAO_MAX, Math.round(t * 10) / 10) : 0;
@@ -1278,6 +1281,7 @@
     cartaoPeloSite: cartaoPeloSite,
     taxaCartaoRepassada: taxaCartaoRepassada,
     TAXA_CARTAO_MAX: TAXA_CARTAO_MAX,
+    TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
     nomeDoPagamento: nomeDoPagamento,
     STATUS: STATUS,

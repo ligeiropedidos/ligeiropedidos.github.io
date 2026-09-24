@@ -406,6 +406,9 @@
       estado.parar.push(function () { clearInterval(relogio); });
 
       trocarAba(estado.aba);
+      if (!estado.equipe && !mpVolta && estado.loja && estado.loja.configurada === false && !UI.lerLocal(CHAVE_TOUR)) {
+        setTimeout(function () { if (raiz.isConnected) abrirTour(); }, 900);
+      }
     }
 
     /* Pix vencido que ficou pra tras (cliente fechou a aba): sai da fila sozinho.
@@ -696,19 +699,141 @@
       var lista = el('div', { class: 'lista-simples' }, itens.map(function (i) {
         return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { irPara(i[2], i[3]); } }, [
           el('span', { class: 'passo-texto' }, [UI.iconeLinha(i[0] ? 'feito' : 'pendente'), i[1]]),
-          el('b', { text: i[0] ? '' : 'Ir →' }),
+          el('b', { class: 'passo-ir' }, i[0] ? [] : ['Ir', UI.iconeLinha('avancar')]),
         ]);
       }));
-      return el('div', { class: 'cartao destaque' }, [
+      return el('div', { class: 'cartao destaque', id: 'primeirosPassosCartao' }, [
         el('h3', { text: 'Primeiros passos · ' + feitos + ' de ' + itens.length }),
         el('div', { class: 'progresso-passos', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(itens.length), 'aria-valuenow': String(feitos) }, [el('span', { style: { width: Math.round(feitos / itens.length * 100) + '%' } })]),
         el('p', { class: 'muted pequeno', text: 'Com o Mercado Pago conectado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
         lista,
-        el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }, [UI.iconeLinha('link'), 'Pegar meu link']),
+        /* dois atalhos lado a lado (nome curto, uma linha) e o "Pronto" embaixo com a largura toda */
+        el('div', { class: 'linha-botoes passos-botoes' }, [
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }, [UI.iconeLinha('link'), 'Meu link']),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { abrirTour(); } }, [UI.iconeLinha('tocar'), 'Tutorial']),
           el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Pronto, esconder', onclick: function () { salvarLoja({ configurada: true }, 'Boa! Agora é vender.').then(desenharCabecaPedidos).catch(function () { /* ja avisou */ }); } }),
         ]),
       ]);
+    }
+
+    /* ---------------------------------------------------------- tutorial com o mascote */
+    /* O Ligeiro (o ratinho chef) guia o dono pelo painel num balao de fala, como um personagem de jogo: a abertura de
+       boas-vindas e depois um lugar por vez, com o resto da tela escurecido. Nao bloqueia nada (o escuro nao pega toque):
+       da para ir preenchendo enquanto le. Tudo no aparelho, nada no banco. */
+    var CHAVE_TOUR = 'ligeiro:tutorial:' + slug;
+    var tour = null;
+    function passosDoTour() {
+      var l = estado.loja || {};
+      var cat = R.catalogo(l);
+      return [
+        { abertura: true, titulo: 'Bem-vindo à sua loja no Ligeiro!', texto: 'Eu sou o Ligeiro, o ajudante da ' + (l.nome || 'sua loja') + '. Em um minutinho eu te mostro onde fica cada coisa para você começar a vender.' },
+        { aba: 'cardapio', alvo: '.aba-painel[data-aba=cardapio]', texto: 'Aqui mora o seu ' + cat.nome + '. Crie as categorias, os itens e os preços. Foto é opcional, mas vende mais!' },
+        { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago. O pedido já chega pago na cozinha, sem ninguém conferir comprovante.' },
+        { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
+        { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
+        { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
+        { aba: 'pedidos', alvo: '.cartao-avisos', texto: 'Os pedidos chegam aqui, apitando. Ligue os avisos para ouvir até com a tela apagada.' },
+        { aba: 'pedidos', alvo: '#primeirosPassosCartao', texto: 'Pronto! Esta lista mostra o que ainda falta. Faça um pedido de teste pelo seu link e veja ele chegar aqui. Boas vendas!' },
+      ];
+    }
+    function fecharTour(concluido) {
+      if (!tour) return;
+      window.removeEventListener('scroll', tour.reposicionar);
+      window.removeEventListener('resize', tour.reposicionar);
+      document.removeEventListener('keydown', tour.tecla);
+      if (tour.caixa.parentNode) tour.caixa.parentNode.removeChild(tour.caixa);
+      if (tour.foco.parentNode) tour.foco.parentNode.removeChild(tour.foco);
+      if (tour.escuro.parentNode) tour.escuro.parentNode.removeChild(tour.escuro);
+      tour = null;
+      UI.guardarLocal(CHAVE_TOUR, true);
+      if (concluido) UI.soar('sucesso');
+    }
+    function abrirTour() {
+      if (tour || estado.equipe) return;
+      var passos = passosDoTour();
+      /* anima sempre, tambem com "Reduzir movimento" (o dono pediu): so transform e opacity, que o celular faz de graca */
+      var foco = el('div', { class: 'tour-foco', 'aria-hidden': 'true', hidden: true });
+      /* o escuro e uma camada com um recorte no lugar certo (sombra gigante nao aparece em todo celular) */
+      var escuro = el('div', { class: 'tour-escuro', 'aria-hidden': 'true', hidden: true });
+      var titulo = el('div', { class: 'tour-titulo' });
+      var texto = el('p', { class: 'tour-texto' });
+      var conta = el('span', { class: 'tour-conta' });
+      var pular = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Pular' });
+      var proximo = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button' });
+      var balao = el('div', { class: 'tour-balao' }, [el('span', { class: 'tour-nome', text: 'Ligeiro' }), titulo, texto, el('div', { class: 'tour-rodape' }, [conta, pular, proximo])]);
+      var mascote = el('img', { class: 'tour-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 });
+      /* a caixa flutua devagar; a imagem dentro dela pula a cada passo (dois movimentos que nao brigam) */
+      var caixa = el('div', { class: 'tour', role: 'dialog', 'aria-label': 'Tutorial do painel', 'aria-live': 'polite', tabindex: '-1' }, [
+        el('span', { class: 'tour-mascote-caixa' }, [mascote]),
+        balao,
+      ]);
+      tour = { caixa: caixa, foco: foco, escuro: escuro, i: 0, alvo: '' };
+      /* o escuro com o buraco em volta do lugar certo acompanha a rolagem */
+      var pedido = 0;
+      tour.reposicionar = function () {
+        if (pedido) return;
+        pedido = requestAnimationFrame(function () {
+          pedido = 0;
+          if (!tour) return;
+          var alvo = tour.alvo && raiz.querySelector(tour.alvo);
+          var r = alvo && alvo.getBoundingClientRect();
+          if (!r || !r.height) { foco.hidden = true; escuro.hidden = true; return; }
+          var m = 6;
+          foco.hidden = false;
+          escuro.hidden = false;
+          var x1 = r.left - m, y1 = r.top - m, x2 = r.right + m, y2 = r.bottom + m;
+          escuro.style.clipPath = 'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' + x1 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y2 + 'px, ' + x2 + 'px ' + y2 + 'px, ' + x2 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y1 + 'px)';
+          foco.style.top = (r.top - m) + 'px';
+          foco.style.left = (r.left - m) + 'px';
+          foco.style.width = (r.width + m * 2) + 'px';
+          foco.style.height = (r.height + m * 2) + 'px';
+        });
+      };
+      tour.tecla = function (e) { if (e.key === 'Escape' && !$('modal').classList.contains('aberto')) fecharTour(false); };
+      function rolarAte(alvo) {
+        if (!alvo) return;
+        if (alvo.classList.contains('aba-painel')) { window.scrollTo(0, 0); return; }
+        var abas = raiz.querySelector('.abas-painel');
+        var livre = abas ? abas.getBoundingClientRect().bottom + 16 : 100;
+        var y = alvo.getBoundingClientRect().top + window.pageYOffset - livre;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      }
+      function mostrar(i) {
+        var passo = passos[i];
+        tour.i = i;
+        if (passo.aba && estado.aba !== passo.aba) trocarAba(passo.aba);
+        tour.alvo = passo.alvo || '';
+        caixa.classList.toggle('abertura', !!passo.abertura);
+        titulo.hidden = !passo.titulo;
+        titulo.textContent = passo.titulo || '';
+        texto.textContent = passo.texto;
+        conta.textContent = passo.abertura ? '' : i + ' de ' + (passos.length - 1);
+        pular.hidden = i === passos.length - 1;
+        proximo.textContent = passo.abertura ? 'Vamos lá!' : (i === passos.length - 1 ? 'Começar a vender' : 'Próximo');
+        /* reinicia a animacao do balao e o pulo do mascote a cada passo */
+        balao.classList.remove('entrando'); mascote.classList.remove('pulando'); void balao.offsetWidth;
+        balao.classList.add('entrando'); mascote.classList.add('pulando');
+        /* espera a aba desenhar para achar o lugar */
+        setTimeout(function () {
+          if (!tour) return;
+          rolarAte(tour.alvo && raiz.querySelector(tour.alvo));
+          tour.reposicionar();
+        }, 80);
+      }
+      proximo.addEventListener('click', function () { if (tour.i >= passos.length - 1) fecharTour(true); else mostrar(tour.i + 1); });
+      pular.addEventListener('click', function () { fecharTour(false); });
+      window.addEventListener('scroll', tour.reposicionar, { passive: true });
+      window.addEventListener('resize', tour.reposicionar);
+      document.addEventListener('keydown', tour.tecla);
+      raiz.appendChild(escuro);
+      raiz.appendChild(foco);
+      raiz.appendChild(caixa);
+      /* sai do painel (outra tela): o tutorial vai junto, sem marcar como visto */
+      var este = tour;
+      estado.parar.push(function () { if (tour === este) { tour = null; [este.caixa, este.foco, este.escuro].forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); }); window.removeEventListener('scroll', este.reposicionar); window.removeEventListener('resize', este.reposicionar); document.removeEventListener('keydown', este.tecla); } });
+      mostrar(0);
+      /* o foco vai para o balao (leitor de tela le o texto), sem acender o anel de teclado no botao */
+      try { caixa.focus({ preventScroll: true }); } catch (_) { caixa.focus(); }
     }
 
     function desenharPedidos() {
@@ -1925,30 +2050,25 @@
         } }, [UI.iconeLinha('cartao'), 'Liberar o cartão']),
       ]);
       /* os interruptores do site: so aparecem com o Mercado Pago conectado */
-      /* Taxa do cartao: quem paga. Explicada com um exemplo em reais (percentual solto ninguem entende). Repassar e a
-         escolha da loja: a lei deixa, desde que o cliente veja antes de pagar, e o site mostra na opcao e no total */
+      /* Taxa do cartao: uma chave so, sem porcentagem (o dono nao faz conta). Ligada, o site soma o bastante para a loja
+         receber o valor cheio (R.TAXA_CARTAO_PADRAO); o cliente ve em reais antes de pagar, como a lei 13.455/2017 pede.
+         Loja com outra % ja gravada mantem a dela. O exemplo em reais diz o que acontece nos dois jeitos */
       var taxaAtual = R.taxaCartaoRepassada(l);
-      f.repassarTaxa = interruptorCampo('Repassar a taxa ao cliente', 'Quem paga no cartão vê a taxa antes de pagar. No Pix não muda nada.', taxaAtual > 0);
-      f.taxaCartao = campoTexto('Quanto repassar (%)', String(taxaAtual || 5).replace('.', ','), { inputmode: 'decimal', max: 4, ajuda: 'De 1 a ' + R.TAXA_CARTAO_MAX + '%. A taxa do Mercado Pago é de cerca de 5%.' });
+      f.repassarTaxa = interruptorCampo('Cliente paga a taxa do cartão', 'Ele vê o valor antes de pagar. No Pix não muda nada.', taxaAtual > 0);
+      f.repassarTaxa.valor = function () { return f.repassarTaxa.chave.ligado ? (taxaAtual || R.TAXA_CARTAO_PADRAO) : 0; };
       var exemploTaxa = el('p', { class: 'taxa-exemplo' });
-      function lerTaxa() { var n = parseFloat(String(f.taxaCartao.input.value).replace(',', '.')); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
       function pintarTaxa() {
-        var repassa = f.repassarTaxa.chave.ligado;
-        f.taxaCartao.hidden = !repassa;
-        var venda = 5000, mp = Math.round(venda * 0.0498);
+        var venda = 5000, t = f.repassarTaxa.valor();
+        var cliente = venda + Math.round(venda * t / 100);
+        var recebe = cliente - Math.round(cliente * 0.0498);
         UI.limpar(exemploTaxa);
         exemploTaxa.appendChild(UI.iconeLinha('cartao'));
-        if (!repassa) {
-          exemploTaxa.appendChild(el('span', { text: 'Exemplo: numa venda de ' + dinheiro(venda) + ', o cliente paga ' + dinheiro(venda) + ' e você recebe cerca de ' + dinheiro(venda - mp) + ' (o Mercado Pago fica com ' + dinheiro(mp) + ').' }));
-          return;
-        }
-        var t = Math.min(R.TAXA_CARTAO_MAX, Math.max(0, lerTaxa()));
-        var extra = Math.round(venda * t / 100);
-        exemploTaxa.appendChild(el('span', { text: 'Exemplo: numa venda de ' + dinheiro(venda) + ', o cliente paga ' + dinheiro(venda + extra) + ' no cartão e você recebe cerca de ' + dinheiro(venda + extra - Math.round((venda + extra) * 0.0498)) + '.' }));
+        exemploTaxa.appendChild(el('span', { text: t
+          ? 'Numa venda de ' + dinheiro(venda) + ', o cliente paga ' + dinheiro(cliente) + ' no cartão e você recebe ' + (recebe >= venda ? 'os ' + dinheiro(venda) + ' inteiros.' : 'cerca de ' + dinheiro(recebe) + '.')
+          : 'Numa venda de ' + dinheiro(venda) + ' no cartão, o Mercado Pago desconta cerca de ' + dinheiro(venda - recebe) + ' de você.' }));
       }
       f.repassarTaxa.chave.addEventListener('click', pintarTaxa);
-      f.taxaCartao.input.addEventListener('input', pintarTaxa);
-      var taxaDoCartao = el('div', { class: 'mp-taxa' }, [f.repassarTaxa, f.taxaCartao, exemploTaxa]);
+      var taxaDoCartao = el('div', { class: 'mp-taxa' }, [f.repassarTaxa, exemploTaxa]);
       pintarTaxa();
       var formasDoSite = el('div', { class: 'mp-formas', hidden: true }, [f.mpAtivo, f.aceitaCartaoOnline, taxaDoCartao, liberarCartao]);
       var conexao = el('div', { class: 'mp-conexao' });
@@ -2283,13 +2403,8 @@
       var tokenDigitado = f.mpToken.input.value.trim();
       var aceitaPix = f.mpAtivo.chave.ligado;
       var cartaoLigado = f.mpToken.erro ? estado.loja.aceitaCartaoOnline === true : (!f.aceitaCartaoOnline.hidden && !f.aceitaCartaoOnline.chave.hidden && f.aceitaCartaoOnline.chave.ligado);
-      /* taxa do cartao repassada ao cliente: de 1 ao teto; desligada grava 0 (a loja paga) */
-      var taxaCartao = 0;
-      if (f.repassarTaxa && f.repassarTaxa.chave.ligado) {
-        taxaCartao = Math.round((parseFloat(String(f.taxaCartao.input.value).replace(',', '.')) || 0) * 10) / 10;
-        if (cartaoLigado && (taxaCartao < 1 || taxaCartao > R.TAXA_CARTAO_MAX)) { f.taxaCartao.input.focus(); return UI.avisar('A taxa repassada vai de 1 a ' + R.TAXA_CARTAO_MAX + '%. Ou desligue "Repassar a taxa ao cliente".'); }
-        taxaCartao = Math.max(0, Math.min(R.TAXA_CARTAO_MAX, taxaCartao));
-      }
+      /* taxa do cartao: desligada grava 0 (a loja paga); ligada, a padrao (ou a que a loja ja tinha) */
+      var taxaCartao = f.repassarTaxa ? f.repassarTaxa.valor() : 0;
       /* Pix que ja estava ligado so passa sem token enquanto a leitura da conexao nao respondeu (ela pode atrasar).
          Depois que respondeu sem token, trava: loja com Pix ligado e sem token nao recebe Pix nenhum. */
       var aindaLendo = estado.loja.mpAtivo === true && !f.mpToken.lido;
