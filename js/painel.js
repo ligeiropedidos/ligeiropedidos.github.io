@@ -683,37 +683,54 @@
       var comPreco = (l.produtos || []).filter(function (p) { return p.ativo !== false && p.preco > 0; }).length;
       /* ja entrou pedido neste aparelho alguma vez (a fila e so do dia: sem guardar, o item voltava a ficar pendente) */
       function teveVenda() { var k = 'ligeiro:teve-pedido:' + slug; if ((estado.pedidos || []).length) { UI.guardarLocal(k, true); return true; } return !!UI.lerLocal(k); }
-      /* na ordem do que mais importa para vender; cada item leva direto ao bloco certo (e acende ele) */
+      /* na ordem do que mais importa para vender; cada item leva direto ao bloco certo (e acende ele).
+         [feito, titulo, dica, icone, aba, bloco] */
+      var cat = R.catalogo(l);
       var itens = [
-        [!!l.mpAtivo, l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : 'Conectar o Mercado Pago (Pix e cartão pelo site)', 'ajustes', 'aj-pagamento'],
-        [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no ' + R.catalogo(l).nome + ' (confira os valores)' : R.catalogo(l).Nome + ' com preços', 'cardapio', ''],
-        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'ajustes', 'aj-entrega'],
-        [!!l.whatsapp, 'WhatsApp da loja', 'ajustes', 'aj-dados'],
-        [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários de funcionamento)', 'ajustes', 'aj-funcionamento'],
-        [!!D.logoSrc(l), 'Logo da loja', 'ajustes', 'aj-aparencia'],
-        [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens que mais saem', 'cardapio', ''],
+        [!!l.mpAtivo, l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos na cozinha', 'dinheiro', 'ajustes', 'aj-pagamento'],
+        [comPreco > 0, comPreco > 0 ? comPreco + (comPreco === 1 ? ' item' : ' itens') + ' com preço' : 'Montar o ' + cat.nome, comPreco > 0 ? 'Confira os valores antes de divulgar' : 'Categorias, itens e preços', 'cardapio', 'cardapio', ''],
+        [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
+        [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
+        [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Horários de funcionamento', 'A loja abre e fecha sozinha', 'relogio', 'ajustes', 'aj-funcionamento'],
+        [!!D.logoSrc(l), 'Logo da loja', 'Aparece no topo do seu site', 'imagem', 'ajustes', 'aj-aparencia'],
+        [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens', 'Item com foto vende mais', 'camera', 'cardapio', ''],
         /* o teste que tira o medo: um pedido de verdade pelo proprio link (de R$ 1 no Pix, se quiser), visto chegando aqui */
-        [teveVenda(), 'Fazer um pedido de teste pelo seu link', 'links', ''],
+        [teveVenda(), 'Pedido de teste pelo seu link', 'Peça e veja o pedido chegar aqui', 'link', 'links', ''],
       ];
       var feitos = itens.filter(function (i) { return i[0]; }).length;
-      /* o que falta em cima (cartao branco com "Ir"); o que ja foi desce, mais apagado, na mesma ordem de importancia */
-      var ordem = itens.filter(function (i) { return !i[0]; }).concat(itens.filter(function (i) { return i[0]; }));
-      var lista = el('div', { class: 'lista-simples passos-lista' }, ordem.map(function (i) {
-        return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { irPara(i[2], i[3]); } }, [
-          el('span', { class: 'passo-texto' }, [UI.iconeLinha(i[0] ? 'feito' : 'pendente'), i[1]]),
-          el('b', { class: 'passo-ir' }, i[0] ? [] : ['Ir', UI.iconeLinha('avancar')]),
+      var faltam = itens.length - feitos;
+      /* o que falta: um cartao por passo, com icone, titulo, dica e a setinha */
+      var pendentes = el('div', { class: 'passos-lista' }, itens.filter(function (i) { return !i[0]; }).map(function (i) {
+        return el('button', { class: 'passo-item', type: 'button', onclick: function () { irPara(i[4], i[5]); } }, [
+          el('span', { class: 'passo-ico' }, [UI.iconeLinha(i[3])]),
+          el('span', { class: 'passo-textos' }, [el('b', { text: i[1] }), el('small', { text: i[2] })]),
+          el('span', { class: 'passo-seta' }, [UI.iconeLinha('avancar')]),
         ]);
       }));
-      return el('div', { class: 'cartao destaque passos-card', id: 'primeirosPassosCartao' }, [
-        el('div', { class: 'passos-topo' }, [el('h3', { text: 'Primeiros passos' }), el('span', { class: 'passos-conta', text: feitos + ' de ' + itens.length })]),
-        el('div', { class: 'progresso-passos', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(itens.length), 'aria-valuenow': String(feitos) }, [el('span', { style: { width: Math.round(feitos / itens.length * 100) + '%' } })]),
-        el('p', { class: 'muted pequeno', text: 'Com o Mercado Pago conectado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
-        lista,
+      /* o que ja foi: recolhido numa linha que abre (a lista nao vira um rolo) */
+      var prontos = feitos ? el('details', { class: 'passos-feitos' }, [
+        el('summary', {}, [UI.iconeLinha('feito'), el('span', { text: feitos === 1 ? '1 já pronto' : feitos + ' já prontos' }), el('span', { class: 'passos-abre' }, [UI.iconeLinha('avancar')])]),
+        el('div', { class: 'passos-feitos-lista' }, itens.filter(function (i) { return i[0]; }).map(function (i) {
+          return el('button', { class: 'passo-feito', type: 'button', onclick: function () { irPara(i[4], i[5]); } }, [UI.iconeLinha('feito'), el('span', { text: i[1] })]);
+        })),
+      ]) : null;
+      return el('div', { class: 'cartao destaque passos-card' + (faltam ? '' : ' completo'), id: 'primeirosPassosCartao' }, [
+        el('div', { class: 'passos-topo' }, [
+          el('img', { class: 'passos-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 }),
+          el('div', { class: 'passos-titulos' }, [
+            el('h3', { text: faltam ? 'Primeiros passos' : 'Tudo pronto!' }),
+            el('span', { text: faltam ? (faltam === 1 ? 'Falta 1 para a sua loja ficar completa' : 'Faltam ' + faltam + ' para a sua loja ficar completa') : 'Sua loja está completa. Agora é vender!' }),
+          ]),
+          el('span', { class: 'passos-conta', text: feitos + ' de ' + itens.length }),
+        ]),
+        el('div', { class: 'progresso-passos', role: 'progressbar', 'aria-label': 'Primeiros passos', 'aria-valuemin': '0', 'aria-valuemax': String(itens.length), 'aria-valuenow': String(feitos) }, [el('span', { style: { width: Math.round(feitos / itens.length * 100) + '%' } })]),
+        faltam ? pendentes : null,
+        prontos,
         /* dois atalhos lado a lado (nome curto, uma linha) e o "Pronto" embaixo com a largura toda */
         el('div', { class: 'linha-botoes passos-botoes' }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }, [UI.iconeLinha('link'), 'Meu link']),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { abrirTour(); } }, [UI.iconeLinha('tocar'), 'Tutorial']),
-          el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Pronto, esconder', onclick: function () { salvarLoja({ configurada: true }, 'Boa! Agora é vender.').then(desenharCabecaPedidos).catch(function () { /* ja avisou */ }); } }),
+          el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: faltam ? 'Pronto, esconder' : 'Esconder esta lista', onclick: function () { salvarLoja({ configurada: true }, 'Boa! Agora é vender.').then(desenharCabecaPedidos).catch(function () { /* ja avisou */ }); } }),
         ]),
       ]);
     }

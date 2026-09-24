@@ -2234,14 +2234,35 @@ button.plano-card { cursor: pointer; }
 .passos-botoes .btn-principal { grid-column: 1 / -1; }
 .passo-ir { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .passo-ir .ico-traco svg { width: 16px; height: 16px; }
-/* ---------- Primeiros passos: titulo com a conta, barra com trilho, o que falta em cima ---------- */
+/* ---------- Primeiros passos: mascote no topo, um cartao por passo que falta, os prontos recolhidos ---------- */
 .passos-card { display: flex; flex-direction: column; gap: 12px; }
 .passos-card > * { margin: 0; }
-.passos-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.passos-topo h3 { margin: 0; }
-.passos-conta { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.2; }
-.passos-card .progresso-passos { margin: -4px 0 0; background: rgba(14, 31, 20, 0.12); } /* 8 do titulo ate a barra; o trilho aparece no fundo verde */
-.passos-lista { gap: 8px; }
-.passos-lista .passo-config { padding: 10px 14px; }
-.passos-lista .passo-config.feito { opacity: 1; background: transparent; border-color: transparent; color: var(--muted); min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
+.passos-topo { display: flex; align-items: center; gap: 12px; }
+.passos-mascote { width: 52px; height: 52px; flex: none; object-fit: contain; margin: -4px 0; }
+.passos-titulos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.passos-titulos h3 { margin: 0; font-size: 19px; line-height: 1.2; }
+.passos-titulos span { font-size: 14px; color: var(--body); line-height: 1.35; }
+.passos-conta { flex: none; align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.2; }
+.passos-card .progresso-passos { background: rgba(14, 31, 20, 0.12); }
+.passos-lista { display: flex; flex-direction: column; gap: 8px; }
+.passo-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; text-align: left; color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgba(14, 31, 20, 0.05); }
+@media (hover: hover) { .passo-item:hover { border-color: var(--lime-escuro); } }
+.passo-item:active { transform: scale(0.99); }
+.passo-ico { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--lime-suave); color: var(--deep2); }
+.passo-ico .ico-traco svg { width: 22px; height: 22px; }
+.passo-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.passo-textos b { font-size: 15.5px; line-height: 1.3; }
+.passo-textos small { font-size: 13.5px; color: var(--muted); line-height: 1.3; }
+.passo-seta { flex: none; color: var(--muted); display: inline-flex; }
+.passo-seta .ico-traco svg { width: 18px; height: 18px; }
+.passos-feitos summary { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px; list-style: none; cursor: pointer; font-size: 14.5px; font-weight: 700; color: var(--deep2); }
+.passos-feitos summary::-webkit-details-marker { display: none; }
+.passos-feitos summary .ico-traco { color: var(--lime-escuro); }
+.passos-feitos .passos-abre { margin-left: auto; display: inline-flex; color: var(--muted); transform: rotate(90deg); transition: transform 0.2s; }
+.passos-feitos .passos-abre .ico-traco svg { width: 18px; height: 18px; }
+.passos-feitos[open] .passos-abre { transform: rotate(-90deg); }
+.passos-feitos-lista { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0; }
+.passo-feito { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 4px; background: none; border: 0; text-align: left; font-size: 14.5px; color: var(--muted); cursor: pointer; }
+.passo-feito .ico-traco { color: var(--lime-escuro); flex: none; }
+.passos-card.completo .passos-titulos h3 { color: var(--deep2); }
 .passos-card > .passos-botoes { margin-top: 4px; } /* 12 do card + 4 = 16 da lista (a regra geral dos cards somava mais 12) */
