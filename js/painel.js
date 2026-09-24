@@ -276,7 +276,8 @@
       var abas = el('nav', { class: 'abas-painel abas-principais' });
       /* abas com icone de traco (o desenho do topo), no lugar dos emojis */
       /* no celular as cinco cabem numa linha (icone em cima, nome curto embaixo), como o topo: antes Ajustes e Minha loja ficavam fora da tela */
-      var defs = [['pedidos', 'Pedidos', 'lista'], ['cardapio', R.catalogo(estado.loja).Nome, 'cardapio'], ['vendas', 'Vendas', 'vendas'], ['ajustes', 'Ajustes', 'ajustes'], ['links', 'Minha loja', 'loja', 'Loja']];
+      /* no celular o nome curto: "Menu" (comida) ou "Itens" (outras lojas); no PC continua Cardapio ou Catalogo */
+      var defs = [['pedidos', 'Pedidos', 'lista'], ['cardapio', R.catalogo(estado.loja).Nome, 'cardapio', R.catalogo(estado.loja).comida ? 'Menu' : 'Itens'], ['vendas', 'Vendas', 'vendas'], ['ajustes', 'Ajustes', 'ajustes'], ['links', 'Minha loja', 'loja', 'Loja']];
       /* equipe: so a fila (sem as abas) */
       if (estado.equipe) { defs = defs.slice(0, 1); abas.hidden = true; }
       defs.forEach(function (d) {
