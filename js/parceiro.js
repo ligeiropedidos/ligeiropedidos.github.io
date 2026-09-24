@@ -310,7 +310,7 @@
         /* nome de marca nunca parte no meio ("Anota" numa linha e "AI" na outra) */
         el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
-        el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,5%' }), ' de cada pedido para o iFood.']),
+        el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
         el('p', { class: 'vender-sub', text: 'Cardápio num link, o pedido caindo no seu celular e o pagamento confirmado sozinho pelo Mercado Pago, no Pix ou no cartão: comprovante falso não passa. Sem app para instalar.' }),
         botoesChamada(true),
@@ -346,7 +346,7 @@
       var c = R.compararCustos(v, n);
       UI.limpar(resultado);
       [
-        ['iFood, plano Entrega', c.ifoodEntrega, 'comissão de 26,5%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
+        ['iFood, plano Entrega', c.ifoodEntrega, 'comissão de 26,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['iFood, plano Básico', c.ifoodBasico, 'comissão de 15,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['Anota AI', c.anotaAi, c.anotaFaixa],
         ['Ligeiro', c.ligeiro, 'fixo, em qualquer volume'],
@@ -449,7 +449,7 @@
         duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago (grátis, abre em 5 minutos no app), que você conecta no painel com um clique, sem copiar nada. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
         duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão com o Mercado Pago: você liga com um toque em Ajustes. O cliente digita o cartão no formulário seguro do próprio Mercado Pago (os números não passam pelo Ligeiro nem pela loja), paga à vista e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, com o dinheiro na hora. Se preferir, repasse a taxa ao cliente (a lei permite): ele vê o valor antes de pagar, e no Pix não muda nada. Cancelou um pedido pago? O dinheiro volta sozinho para o cliente.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
-        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI é um robô que atende no WhatsApp e custa de R$ 99,99 a R$ 299,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago. Cardápio, painel, cozinha e entregador em qualquer plano.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 a R$ 299,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago. Cardápio, painel, cozinha e entregador em qualquer plano.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
         duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
@@ -809,7 +809,7 @@
     var linhas = [
       /* os dois concorrentes de verdade logo abaixo do Ligeiro; a comissao do iFood e a mesma da calculadora e do titulo */
       ['Ligeiro', reais(pr.mensal) + ' fixo', 'Nenhuma', true],
-      ['iFood', 'R$ 110 a R$ 150', '15,2% a 26,5% de cada venda'],
+      ['iFood', 'R$ 110 a R$ 150', '15,2% a 26,2% de cada venda'],
       ['Anota AI', 'R$ 99,99 a R$ 299,99', 'Nenhuma'],
       ['Goomer', 'R$ 99,90 a R$ 299,90', 'Nenhuma'],
       ['Cardápio Web', 'R$ 169,99 a R$ 269,99', 'Nenhuma'],
@@ -824,7 +824,7 @@
           return el('tr', { class: l[3] ? 'destaque' : '' }, [el('td', {}, el('b', { text: l[0] })), el('td', { text: l[1] }), el('td', { text: l[2] })]);
         })),
       ])),
-      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos.' }),
+      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos. iFood, Anota AI e os outros nomes são marcas dos seus donos; o Ligeiro não tem ligação com eles.' }),
     ]);
   }
 

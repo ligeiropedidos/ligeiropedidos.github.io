@@ -913,7 +913,7 @@
   /*
    * Quanto o dono paga por mes em cada opcao, em centavos. Numeros de set/2026:
    * iFood Basico 15,2% (+ R$ 110 de mensalidade acima de R$ 1.800 em vendas),
-   * iFood Entrega 26,5% (+ R$ 150), Anota AI por faixa de pedidos, Ligeiro fixo.
+   * iFood Entrega 26,2% (23% de comissao + 3,2% do pagamento online, blog de parceiros do iFood, jun/2026) (+ R$ 150), Anota AI por faixa de pedidos, Ligeiro fixo.
    */
   /*
    * Assinatura da loja. plano = { status, tipo, desde, pagoAte, avisoPagamentoEm }.
@@ -1153,7 +1153,7 @@
     var anota = n <= 150 ? 9999 : (n <= 250 ? 19999 : 29999);
     return {
       ifoodBasico: Math.round(v * 0.152) + (mensalidade ? 11000 : 0),
-      ifoodEntrega: Math.round(v * 0.265) + (mensalidade ? 15000 : 0),
+      ifoodEntrega: Math.round(v * 0.262) + (mensalidade ? 15000 : 0),
       ifoodMensalidade: mensalidade,
       anotaAi: anota,
       anotaFaixa: faixa,

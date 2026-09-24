@@ -337,7 +337,7 @@ test('cardápio em texto lista só itens ativos, por categoria, com link no fim'
 test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro fixo', () => {
   const c = R.compararCustos(500000, 200);
   assert.equal(c.ifoodBasico, 76000 + 11000);
-  assert.equal(c.ifoodEntrega, 132500 + 15000);
+  assert.equal(c.ifoodEntrega, 131000 + 15000); // 26,2% (23% + 3,2% do pagamento online)
   assert.equal(c.anotaAi, 19999);
   assert.equal(c.ligeiro, 7900);
   const pequena = R.compararCustos(150000, 40);
