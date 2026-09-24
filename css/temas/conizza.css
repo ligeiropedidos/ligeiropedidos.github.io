@@ -325,3 +325,5 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .avaliar-google { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); }
 .tema-conizza .avaliar-titulo { font-family: var(--cz-display); color: var(--cz-tinta); }
 .tema-conizza .avaliar-estrelas { color: var(--cz-ouro); }
+.tema-conizza .passos-feitos summary { padding: 0 14px; } /* 12 + 2 da borda grossa dos cartoes da casa */
+.tema-conizza .passo-feito { padding-left: 14px; padding-right: 14px; }

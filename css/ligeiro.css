@@ -2266,3 +2266,9 @@ button.plano-card { cursor: pointer; }
 .passo-feito .ico-traco { color: var(--lime-escuro); flex: none; }
 .passos-card.completo .passos-titulos h3 { color: var(--deep2); }
 .passos-card > .passos-botoes { margin-top: 4px; } /* 12 do card + 4 = 16 da lista (a regra geral dos cards somava mais 12) */
+/* "6 ja prontos" na grade dos cartoes: o check numa coluna de 40 (a do icone), o texto onde comecam os titulos e a
+   setinha na coluna das setas; vao igual em cima e embaixo */
+.passos-feitos summary { padding: 0 13px; gap: 12px; } /* 12 + 1 da borda dos cartoes */
+.passos-feitos summary > .ico-traco, .passo-feito > .ico-traco { width: 40px; flex: none; display: inline-flex; justify-content: center; }
+.passo-feito { padding: 6px 13px; gap: 12px; }
+.passos-card > .passos-feitos + .passos-botoes { margin-top: 0; }
