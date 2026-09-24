@@ -200,13 +200,31 @@
     caixa.appendChild(corpo);
     if (opcoes.rodape) caixa.appendChild(el('div', { class: 'modal-rodape' }, opcoes.rodape));
     modal.classList.add('aberto');
-    document.body.style.overflow = 'hidden';
+    travarRolagem('modal', true);
     medirBarraDoModal();
     /* leitor de tela: a janela tem nome e o foco entra nela (antes ficava na pagina de tras) */
     caixa.setAttribute('aria-label', opcoes.titulo || 'Janela');
     caixa.tabIndex = -1;
     setTimeout(function () { if (modal.classList.contains('aberto') && !caixa.contains(document.activeElement)) { try { caixa.focus({ preventScroll: true }); } catch (_) { caixa.focus(); } } }, 60);
     return { corpo: corpo };
+  }
+  /* Trava a rolagem da pagina (janela, video) sem ela andar para o lado: no PC a barra de rolagem sumia e tudo andava
+     uns 8 px, e voltava ao fechar. O lugar da barra vira espaco (--trava) enquanto trava; o que e fixo na direita
+     (WhatsApp, barras de baixo) desconta o mesmo. Cada dono ('modal', 'video') trava e solta o seu. */
+  var travas = {};
+  function travarRolagem(dono, sim) {
+    var raiz = document.documentElement;
+    var antes = Object.keys(travas).length > 0;
+    if (sim) travas[dono] = true; else delete travas[dono];
+    var agora = Object.keys(travas).length > 0;
+    if (agora === antes) return;
+    if (agora) {
+      raiz.style.setProperty('--trava', Math.max(0, window.innerWidth - raiz.clientWidth) + 'px');
+      raiz.classList.add('rolagem-travada');
+    } else {
+      raiz.classList.remove('rolagem-travada');
+      raiz.style.removeProperty('--trava');
+    }
   }
   /* largura da barra de rolagem do corpo (0 no celular), pro CSS descontar do padding da direita */
   function medirBarraDoModal() {
@@ -221,7 +239,7 @@
     var modal = $('modal');
     if (!modal) return;
     modal.classList.remove('aberto');
-    document.body.style.overflow = '';
+    travarRolagem('modal', false);
     if (focoAntesDoModal && focoAntesDoModal.focus && document.body.contains(focoAntesDoModal)) { try { focoAntesDoModal.focus(); } catch (_) { /* ignora */ } }
     focoAntesDoModal = null;
   }
@@ -830,7 +848,7 @@
     $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
-    abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar,
+    abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem,
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,

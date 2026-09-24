@@ -49,6 +49,8 @@
 [hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
+/* janela ou video aberto: a pagina para de rolar e o lugar da barra de rolagem vira espaco (nada anda para o lado) */
+html.rolagem-travada { overflow: hidden; padding-right: var(--trava, 0px); }
 body {
   font-family: var(--corpo);
   font-size: 17px;
@@ -378,7 +380,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* ---------- Barra do carrinho ---------- */
 
 .barra-carrinho {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 50;
   transform: translateY(110%); transition: transform 0.2s ease-out;
   background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.08);
   padding: 12px var(--margem) calc(12px + env(safe-area-inset-bottom));
@@ -741,7 +743,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .aparencia .previa-bloco { align-self: start; } /* parada no lugar: acompanhar a rolagem fazia ela entrar embaixo das abas */
 }
 /* barra fixa de salvar (aba Ajustes) */
-.salvar-fixo { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); }
+.salvar-fixo { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); }
 .salvar-fixo .salvar-estado { font-size: 14.5px; font-weight: 600; color: var(--muted); min-width: 0; }
 .salvar-fixo .btn { flex: none; white-space: nowrap; }
 @media (max-width: 480px) { .salvar-fixo .salvar-estado { font-size: 13px; line-height: 1.25; } .salvar-fixo .btn { padding-left: 16px; padding-right: 16px; } }
@@ -1523,14 +1525,14 @@ button.plano-card { cursor: pointer; }
 @media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } .planos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; } }
 @media (min-width: 1000px) { .planos-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 1100px; } }
 /* botao flutuante de WhatsApp (paginas de venda) */
-.zap-flutuante { position: fixed; right: 16px; bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s; animation: entrar 0.4s ease-out 0.6s both; }
+.zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s; animation: entrar 0.4s ease-out 0.6s both; }
 .zap-flutuante .zap-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); font-size: 18px; }
 .zap-flutuante .zap-ponto { position: absolute; top: 4px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: #E53935; border: 2px solid #fff; animation: pulsarPonto 1.8s ease-in-out infinite; }
 @keyframes pulsarPonto { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 @media (hover: hover) { .zap-flutuante:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 30px rgba(37, 211, 102, 0.42); } }
 .zap-flutuante:active { transform: scale(0.97); }
 /* barra fixa de chamada no celular */
-.cta-fixa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); animation: subir 0.25s ease-out; }
+.cta-fixa { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); animation: subir 0.25s ease-out; }
 .cta-fixa b { color: var(--deep); }
 .cta-fixa > span { min-width: 0; } /* a frase quebra se precisar; o botao fica inteiro */
 .cta-fixa .btn { flex: none; }
@@ -1596,7 +1598,7 @@ button.plano-card { cursor: pointer; }
 
 /* ---------- Toast ---------- */
 
-.torrada { position: fixed; left: 50%; bottom: calc(var(--altura-barra) + 90px); transform: translate(-50%, 20px); opacity: 0; z-index: 90; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 15.5px; max-width: 92vw; text-align: center; transition: 0.2s; pointer-events: none; }
+.torrada { position: fixed; left: calc(50% - var(--trava, 0px) / 2); bottom: calc(var(--altura-barra) + 90px); transform: translate(-50%, 20px); opacity: 0; z-index: 90; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 15.5px; max-width: 92vw; text-align: center; transition: 0.2s; pointer-events: none; }
 .torrada.visivel { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- Modo balcao (tablet) ---------- */

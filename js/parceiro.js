@@ -256,7 +256,7 @@
           if (!fundo.parentNode) return;
           video.removeAttribute('src'); video.load(); /* para de baixar */
           fundo.remove();
-          document.documentElement.style.overflow = '';
+          UI.travarRolagem('video', false);
           if (antes && antes.focus) antes.focus();
         }
         if (!animar) return tirar();
@@ -270,7 +270,7 @@
       video.addEventListener('ended', function () { fim.hidden = false; });
       document.addEventListener('keydown', tecla);
       window.addEventListener('hashchange', fechar);
-      document.documentElement.style.overflow = 'hidden';
+      UI.travarRolagem('video', true);
       document.body.appendChild(fundo);
       /* entrada: o fundo escurece e o video cresce de dentro do botao ate o meio da tela */
       if (animar) {
