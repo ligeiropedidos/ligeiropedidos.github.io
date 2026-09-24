@@ -317,12 +317,14 @@ Quando mudar um arquivo, troque os dois para ninguém ficar com versão velha.
 ## Testes
 
 ```bash
-node --test testes/regras.test.js testes/pix.test.js
+node --test testes/regras.test.js testes/pix.test.js testes/temas.test.js
 ```
 
 ```bash
 node testes/worker.test.mjs
 ```
+
+Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em `TEMAS.md`.
 
 ## Publicar de graça (GitHub Pages)
 

@@ -779,7 +779,8 @@
       var conta = el('span', { class: 'tour-conta' });
       var pular = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Pular' });
       var proximo = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button' });
-      var balao = el('div', { class: 'tour-balao' }, [el('span', { class: 'tour-nome', text: 'Ligeiro' }), titulo, texto, el('div', { class: 'tour-rodape' }, [conta, pular, proximo])]);
+      /* o nome do personagem na etiqueta da esquerda e o "3 de 7" na da direita: o rodape fica so com os botoes */
+      var balao = el('div', { class: 'tour-balao' }, [el('span', { class: 'tour-nome', text: 'Ligeiro' }), conta, titulo, texto, el('div', { class: 'tour-rodape' }, [pular, proximo])]);
       var mascote = el('img', { class: 'tour-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 });
       /* a caixa flutua devagar; a imagem dentro dela pula a cada passo (dois movimentos que nao brigam) */
       var caixa = el('div', { class: 'tour', role: 'dialog', 'aria-label': 'Tutorial do painel', 'aria-live': 'polite', tabindex: '-1' }, [
@@ -809,35 +810,49 @@
         });
       };
       tour.tecla = function (e) { if (e.key === 'Escape' && !$('modal').classList.contains('aberto')) fecharTour(false); };
-      function rolarAte(alvo) {
-        if (!alvo) return;
-        if (alvo.classList.contains('aba-painel')) { window.scrollTo(0, 0); return; }
+      /* onde o lugar deveria ficar: logo abaixo das abas (que ficam presas no topo) */
+      function destinoDe(alvo) {
+        if (alvo.classList.contains('aba-painel')) return 0;
         var abas = raiz.querySelector('.abas-painel');
         var livre = abas ? abas.getBoundingClientRect().bottom + 16 : 100;
-        var y = alvo.getBoundingClientRect().top + window.pageYOffset - livre;
-        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+        return Math.max(0, Math.round(alvo.getBoundingClientRect().top + window.pageYOffset - livre));
+      }
+      function rolarAte(alvo) {
+        if (!alvo) return;
+        window.scrollTo({ top: destinoDe(alvo), behavior: 'smooth' });
       }
       function mostrar(i) {
         var passo = passos[i];
         tour.i = i;
         if (passo.aba && estado.aba !== passo.aba) trocarAba(passo.aba);
         tour.alvo = passo.alvo || '';
-        caixa.classList.toggle('abertura', !!passo.abertura);
+        caixa.classList.toggle('tour-abertura', !!passo.abertura); /* nome proprio: "abertura" ja e a capa da loja no tema da Conizza */
         titulo.hidden = !passo.titulo;
         titulo.textContent = passo.titulo || '';
         texto.textContent = passo.texto;
         conta.textContent = passo.abertura ? '' : i + ' de ' + (passos.length - 1);
+        conta.hidden = !!passo.abertura;
         pular.hidden = i === passos.length - 1;
         proximo.textContent = passo.abertura ? 'Vamos lá!' : (i === passos.length - 1 ? 'Começar a vender' : 'Próximo');
         /* reinicia a animacao do balao e o pulo do mascote a cada passo */
         balao.classList.remove('entrando'); mascote.classList.remove('pulando'); void balao.offsetWidth;
         balao.classList.add('entrando'); mascote.classList.add('pulando');
-        /* espera a aba desenhar para achar o lugar */
+        /* espera a aba desenhar para achar o lugar; e confere de novo quando a tela assenta (a caixa do Mercado Pago
+           cresce depois de conferir a conexao e empurrava o lugar para baixo do balao) */
+        var este = i;
         setTimeout(function () {
-          if (!tour) return;
+          if (!tour || tour.i !== este) return;
           rolarAte(tour.alvo && raiz.querySelector(tour.alvo));
           tour.reposicionar();
         }, 80);
+        [700, 1500].forEach(function (ms) {
+          setTimeout(function () {
+            if (!tour || tour.i !== este) return;
+            var alvo = tour.alvo && raiz.querySelector(tour.alvo);
+            if (alvo && Math.abs(destinoDe(alvo) - window.pageYOffset) > 24) rolarAte(alvo);
+            tour.reposicionar();
+          }, ms);
+        });
       }
       proximo.addEventListener('click', function () { if (tour.i >= passos.length - 1) fecharTour(true); else mostrar(tour.i + 1); });
       pular.addEventListener('click', function () { fecharTour(false); });

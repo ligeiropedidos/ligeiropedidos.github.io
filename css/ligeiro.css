@@ -2198,27 +2198,28 @@ button.plano-card { cursor: pointer; }
 .tour-titulo { margin: 0 0 8px; font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.2; color: var(--deep); text-wrap: balance; }
 .tour-titulo[hidden] { display: none; }
 .tour-texto { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; text-wrap: pretty; }
-.tour-rodape { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
-.tour-conta { margin-right: auto; font-size: 13px; font-weight: 700; color: var(--muted); }
+.tour-rodape { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.tour-conta { position: absolute; top: -13px; right: 16px; padding: 3px 10px; border-radius: 999px; background: var(--card); border: 2px solid var(--deep); color: var(--deep); font-size: 12.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.tour-conta[hidden] { display: none; }
+.tour-rodape .btn { white-space: nowrap; }
 .tour-rodape .btn { min-height: 44px; }
 /* a abertura: mascote maior, no meio da tela, com o titulo de boas-vindas */
-.tour.abertura { top: 0; align-items: center; flex-direction: column; justify-content: center; gap: 0; background: rgba(14, 31, 20, 0.55); max-width: none; padding: 16px; pointer-events: auto; }
-.tour.abertura .tour-mascote-caixa { margin: 0 0 12px; } /* 12 ate o balao: o rabinho aponta para ele e a etiqueta do nome fica livre, na esquerda */
-.tour.abertura .tour-mascote { width: 150px; height: 150px; }
-.tour.abertura .tour-balao { flex: none; width: 100%; max-width: 440px; text-align: center; }
-.tour.abertura .tour-balao::before { left: 50%; top: -9px; bottom: auto; margin-left: -8px; border: 0; border-left: 2px solid var(--deep); border-top: 2px solid var(--deep); }
-.tour.abertura .tour-titulo { font-size: 24px; }
-.tour.abertura .tour-rodape { justify-content: center; }
-.tour.abertura .tour-rodape .btn { flex: 1 1 0; } /* na abertura os dois botoes do mesmo tamanho */
-.tour.abertura .tour-conta { display: none; }
+.tour.tour-abertura { top: 0; align-items: center; flex-direction: column; justify-content: center; gap: 0; background: rgba(14, 31, 20, 0.55); max-width: none; padding: 16px; pointer-events: auto; }
+.tour.tour-abertura .tour-mascote-caixa { margin: 0 0 12px; } /* 12 ate o balao: o rabinho aponta para ele e a etiqueta do nome fica livre, na esquerda */
+.tour.tour-abertura .tour-mascote { width: 150px; height: 150px; }
+.tour.tour-abertura .tour-balao { flex: none; width: 100%; max-width: 440px; text-align: center; }
+.tour.tour-abertura .tour-balao::before { left: 50%; top: -9px; bottom: auto; margin-left: -8px; border: 0; border-left: 2px solid var(--deep); border-top: 2px solid var(--deep); }
+.tour.tour-abertura .tour-titulo { font-size: 24px; }
+.tour.tour-abertura .tour-rodape { justify-content: center; }
+.tour.tour-abertura .tour-rodape .btn { flex: 1 1 0; } /* na abertura os dois botoes do mesmo tamanho */
 /* animacoes do tutorial: rodam sempre, tambem com "Reduzir movimento" (o !important passa por cima da regra geral
    do site). So transform e opacity: o celular faz na placa de video, sem pesar */
 .tour-balao.entrando { animation: tour-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both !important; transform-origin: 30% 100%; }
-.tour.abertura .tour-balao.entrando { animation: tour-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s both !important; transform-origin: 50% 0; }
+.tour.tour-abertura .tour-balao.entrando { animation: tour-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s both !important; transform-origin: 50% 0; }
 .tour-mascote.pulando { animation: tour-pulo 0.55s ease-out both !important; }
-.tour.abertura .tour-mascote.pulando { animation: tour-mascote-entra 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both !important; }
+.tour.tour-abertura .tour-mascote.pulando { animation: tour-mascote-entra 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both !important; }
 .tour-mascote-caixa { animation: tour-flutua 2.6s ease-in-out 0.6s infinite !important; }
-.tour.abertura { animation: tour-aparece 0.25s ease-out both !important; }
+.tour.tour-abertura { animation: tour-aparece 0.25s ease-out both !important; }
 .tour-escuro { animation: tour-aparece 0.25s ease-out both !important; transition: clip-path 0.3s ease !important; }
 .tour-foco { transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease !important; }
 .tour-foco::after { content: ""; position: absolute; inset: -3px; border: 3px solid var(--lime); border-radius: inherit; animation: tour-pulso 1.5s ease-out infinite !important; }
@@ -2272,3 +2273,5 @@ button.plano-card { cursor: pointer; }
 .passos-feitos summary > .ico-traco, .passo-feito > .ico-traco { width: 40px; flex: none; display: inline-flex; justify-content: center; }
 .passo-feito { padding: 6px 13px; gap: 12px; }
 .passos-card > .passos-feitos + .passos-botoes { margin-top: 0; }
+/* as duas etiquetas do balao (nome e "3 de 7") com a mesma medida: mesma letra, borda e espaco, mesma altura */
+.tour-nome, .tour-conta { padding: 3px 12px; border: 2px solid var(--deep); font-size: 13px; line-height: 1.3; }
