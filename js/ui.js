@@ -397,8 +397,17 @@
     var o = opcoes || {};
     var estado = { dados: null, removida: false };
     var img = el('img', { alt: '' });
-    var vazio = ICONES_TRACO[o.vazio || 'camera'] ? el('span', { class: 'sem-foto' }, [iconeLinha(o.vazio || 'camera')]) : el('span', { class: 'sem-foto', text: o.vazio });
-    var previa = el('div', { class: 'foto-previa' + (o.redonda ? ' redonda' : '') + (o.larga ? ' larga' : '') }, [img, vazio]);
+    /* destaque (foto do item): quadro grande no topo do editor, clicavel, que chama para adicionar a foto quando falta */
+    var vazio = o.destaque ? el('span', { class: 'sem-foto' }, [iconeLinha('camera')])
+      : ICONES_TRACO[o.vazio || 'camera'] ? el('span', { class: 'sem-foto' }, [iconeLinha(o.vazio || 'camera')]) : el('span', { class: 'sem-foto', text: o.vazio });
+    var previa = el('div', { class: 'foto-previa' + (o.redonda ? ' redonda' : '') + (o.larga ? ' larga' : '') + (o.destaque ? ' destaque' : '') }, [img, vazio]);
+    if (o.destaque) {
+      previa.setAttribute('role', 'button');
+      previa.tabIndex = 0;
+      previa.setAttribute('aria-label', 'Escolher a foto do item');
+      previa.addEventListener('click', function () { entrada.click(); });
+      previa.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); entrada.click(); } });
+    }
     var entrada = el('input', { type: 'file', accept: 'image/*', class: 'oculto-visual', tabindex: '-1', 'aria-hidden': 'true' });
     var btnEscolher = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { entrada.click(); } });
     function rotuloEscolher(texto) { limpar(btnEscolher); btnEscolher.appendChild(iconeLinha('camera')); btnEscolher.appendChild(document.createTextNode(texto)); }
@@ -406,7 +415,13 @@
     var ajuda = el('p', { class: 'ajuda', text: o.ajuda || 'Pode ser tirada na hora com o celular. O sistema diminui a foto sozinho.' });
     function mostrar(src) {
       if (src) { img.src = src; img.hidden = false; vazio.hidden = true; btnRemover.hidden = false; rotuloEscolher('Trocar foto'); }
-      else { img.removeAttribute('src'); img.hidden = true; vazio.hidden = false; btnRemover.hidden = true; rotuloEscolher('Escolher foto'); }
+      else { img.removeAttribute('src'); img.hidden = true; vazio.hidden = false; btnRemover.hidden = true; rotuloEscolher(o.destaque ? 'Adicionar foto' : 'Escolher foto'); }
+      /* sem foto, o botao do destaque fica verde (chama para a foto); com foto, discreto */
+      if (o.destaque) {
+        previa.classList.toggle('vazia', !src);
+        btnEscolher.classList.toggle('btn-principal', !src);
+        btnEscolher.classList.toggle('btn-fantasma', !!src);
+      }
     }
     entrada.addEventListener('change', function () {
       var arquivo = entrada.files && entrada.files[0];
@@ -422,7 +437,7 @@
         .then(function () { btnEscolher.disabled = false; });
     });
     mostrar(srcAtual || null);
-    var bloco = el('div', { class: 'campo campo-foto' + (o.largo ? ' largo' : '') }, [
+    var bloco = el('div', { class: 'campo campo-foto' + (o.largo ? ' largo' : '') + (o.destaque ? ' destaque' : '') }, [
       el('label', { text: rotulo }),
       el('div', { class: 'foto-linha' }, [previa, el('div', { class: 'foto-botoes' }, [btnEscolher, btnRemover, ajuda])]),
       entrada,

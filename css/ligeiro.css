@@ -1174,6 +1174,16 @@ a.selo-google:hover { background: var(--lime-suave); }
 .foto-previa.redonda { border-radius: 28px; }
 .foto-previa.larga { width: 190px; height: 96px; }
 .foto-previa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* foto do item em destaque: quadrada como no cardapio do cliente, grande e clicavel; sem foto, quadro tracejado que chama */
+.foto-previa.destaque { width: 160px; height: 160px; border-radius: 20px; cursor: pointer; }
+.foto-previa.destaque.vazia { border: 2px dashed var(--line-forte); }
+@media (hover: hover) { .foto-previa.destaque:hover { border-color: var(--lime-escuro); } }
+.foto-previa.destaque:focus-visible { outline: 3px solid var(--deep); outline-offset: 2px; }
+.foto-previa.destaque .sem-foto { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.foto-previa.destaque .sem-foto .ico-traco { color: var(--deep2); }
+.foto-previa.destaque .sem-foto .ico-traco svg { width: 44px; height: 44px; }
+.campo-foto.destaque .foto-linha { align-items: center; gap: 16px; }
+@media (max-width: 360px) { .foto-previa.destaque { width: 128px; height: 128px; } .campo-foto.destaque .foto-linha { gap: 12px; } }
 .foto-botoes { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0; }
 .foto-botoes .ajuda { margin: 0; }
 .linha-produto .miniatura-produto { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex: none; display: block; }

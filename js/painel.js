@@ -1611,12 +1611,13 @@
         nome: campoTexto('Nome', p ? p.nome : '', { max: 60, placeholder: 'Ex: X-Bacon' }),
         descricao: campoTexto('Descrição curta', p ? p.descricao : '', { max: 140, placeholder: 'O que vem, em uma linha' }),
         preco: campoDinheiro('Preço', p ? p.preco : 0),
-        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, vazio: (p && p.emoji) || '🍽️', ajuda: 'Qualquer foto do celular serve: o sistema diminui para 640 px. Prato no centro, ocupando a foto toda; quadrada ou 4:3 fica melhor.' }),
+        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, destaque: true, ajuda: 'Item com foto vende mais. Qualquer foto do celular serve: prato no centro, ocupando a foto toda.' }),
         emoji: campoEmoji('Emoji (aparece quando não tem foto)', p ? p.emoji : '🍔'),
         categoria: campoSelect('Categoria', categoriaId, estado.loja.categorias.map(function (c) { return [c.id, c.nome]; })),
         ingredientes: campoTexto('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes.join(', ') : '', { max: 300, placeholder: 'Separe por vírgula: Cebola, Tomate, Maionese', ajuda: 'Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' }),
       };
-      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.nome, f.preco, f.foto, f.descricao, f.categoria, f.ingredientes, f.emoji]);
+      /* a foto no topo, grande: e o que mais vende, e antes ficava espremida entre o preco e a descricao */
+      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.foto, f.nome, f.preco, f.descricao, f.categoria, f.ingredientes, f.emoji]);
       if (!novo) {
         var mesmos = estado.loja.produtos.filter(function (x) { return x.categoria === p.categoria; }).map(function (x) { return x.id; });
         var posP = mesmos.indexOf(p.id);
