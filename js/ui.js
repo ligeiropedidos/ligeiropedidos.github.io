@@ -439,7 +439,9 @@
     mostrar(srcAtual || null);
     var bloco = el('div', { class: 'campo campo-foto' + (o.largo ? ' largo' : '') + (o.destaque ? ' destaque' : '') }, [
       el('label', { text: rotulo }),
-      el('div', { class: 'foto-linha' }, [previa, el('div', { class: 'foto-botoes' }, [btnEscolher, btnRemover, ajuda])]),
+      /* destaque: so os botoes ao lado da foto (centralizados nela) e a ajuda embaixo, na largura toda */
+      el('div', { class: 'foto-linha' }, [previa, el('div', { class: 'foto-botoes' }, o.destaque ? [btnEscolher, btnRemover] : [btnEscolher, btnRemover, ajuda])]),
+      o.destaque ? ajuda : null,
       entrada,
     ]);
     bloco.valor = function () { return { dados: estado.dados, removida: estado.removida }; };

@@ -1183,7 +1183,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .foto-previa.destaque .sem-foto .ico-traco { color: var(--deep2); }
 .foto-previa.destaque .sem-foto .ico-traco svg { width: 44px; height: 44px; }
 .campo-foto.destaque .foto-linha { align-items: center; gap: 16px; }
-@media (max-width: 360px) { .foto-previa.destaque { width: 128px; height: 128px; } .campo-foto.destaque .foto-linha { gap: 12px; } }
+.campo-foto.destaque .foto-botoes { flex: 1; align-items: stretch; max-width: 220px; }
+.campo-foto.destaque .foto-botoes .btn { width: 100%; padding-left: 8px; padding-right: 8px; gap: 8px; }
+.campo-foto.destaque > .ajuda { margin: 8px 0 0; }
+/* tela ampliada do iPhone (320): os botoes descem para baixo da foto, na largura toda (ao lado, "Adicionar foto" nao cabia) */
+@media (max-width: 360px) { .foto-previa.destaque { width: 128px; height: 128px; } .campo-foto.destaque .foto-linha { flex-direction: column; align-items: stretch; gap: 12px; } .campo-foto.destaque .foto-botoes { max-width: none; } }
 .foto-botoes { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0; }
 .foto-botoes .ajuda { margin: 0; }
 .linha-produto .miniatura-produto { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex: none; display: block; }

@@ -393,3 +393,4 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .foto-previa.destaque { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-creme); }
 .tema-conizza .foto-previa.destaque.vazia { border-style: dashed; }
 .tema-conizza .foto-previa.destaque .sem-foto .ico-traco { color: var(--cz-tinta); }
+.tema-conizza .campo-foto.destaque .foto-botoes > .btn:not(.btn-fantasma) { margin-bottom: 4px; }
