@@ -200,7 +200,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .tour.abertura { background: rgba(36, 23, 8, 0.6); }
 .tema-conizza .taxa-exemplo { background: var(--cz-creme); color: var(--cz-tinta); }
 .tema-conizza .taxa-exemplo .ico-traco { color: var(--cz-vermelho); }
-.tema-conizza .progresso-passos { background: var(--cz-creme-fundo); }
+.tema-conizza .progresso-passos, .tema-conizza .passos-card .progresso-passos { background: rgba(36, 23, 8, 0.15); }
+.tema-conizza .passos-conta { background: var(--cz-tinta); color: var(--cz-creme); font-family: var(--cz-display); }
+.tema-conizza .passos-lista .passo-config.feito { color: var(--cz-tinta-suave); }
 .tema-conizza .progresso-passos span { background: var(--cz-vermelho); }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }

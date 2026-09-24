@@ -696,14 +696,16 @@
         [teveVenda(), 'Fazer um pedido de teste pelo seu link', 'links', ''],
       ];
       var feitos = itens.filter(function (i) { return i[0]; }).length;
-      var lista = el('div', { class: 'lista-simples' }, itens.map(function (i) {
+      /* o que falta em cima (cartao branco com "Ir"); o que ja foi desce, mais apagado, na mesma ordem de importancia */
+      var ordem = itens.filter(function (i) { return !i[0]; }).concat(itens.filter(function (i) { return i[0]; }));
+      var lista = el('div', { class: 'lista-simples passos-lista' }, ordem.map(function (i) {
         return el('button', { class: 'linha passo-config' + (i[0] ? ' feito' : ''), type: 'button', onclick: function () { irPara(i[2], i[3]); } }, [
           el('span', { class: 'passo-texto' }, [UI.iconeLinha(i[0] ? 'feito' : 'pendente'), i[1]]),
           el('b', { class: 'passo-ir' }, i[0] ? [] : ['Ir', UI.iconeLinha('avancar')]),
         ]);
       }));
-      return el('div', { class: 'cartao destaque', id: 'primeirosPassosCartao' }, [
-        el('h3', { text: 'Primeiros passos · ' + feitos + ' de ' + itens.length }),
+      return el('div', { class: 'cartao destaque passos-card', id: 'primeirosPassosCartao' }, [
+        el('div', { class: 'passos-topo' }, [el('h3', { text: 'Primeiros passos' }), el('span', { class: 'passos-conta', text: feitos + ' de ' + itens.length })]),
         el('div', { class: 'progresso-passos', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(itens.length), 'aria-valuenow': String(feitos) }, [el('span', { style: { width: Math.round(feitos / itens.length * 100) + '%' } })]),
         el('p', { class: 'muted pequeno', text: 'Com o Mercado Pago conectado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
         lista,

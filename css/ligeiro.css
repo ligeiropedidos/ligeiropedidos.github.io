@@ -2229,8 +2229,19 @@ button.plano-card { cursor: pointer; }
 @keyframes tour-pulso { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.07); } }
 @keyframes tour-aparece { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 360px) { .tour-mascote { width: 68px; height: 68px; } .tour-texto { font-size: 15px; } }
-.passos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.passos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 0; } /* 12 do card + 4 = 16 da lista */
 .passos-botoes .btn { min-width: 0; white-space: nowrap; }
 .passos-botoes .btn-principal { grid-column: 1 / -1; }
 .passo-ir { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .passo-ir .ico-traco svg { width: 16px; height: 16px; }
+/* ---------- Primeiros passos: titulo com a conta, barra com trilho, o que falta em cima ---------- */
+.passos-card { display: flex; flex-direction: column; gap: 12px; }
+.passos-card > * { margin: 0; }
+.passos-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.passos-topo h3 { margin: 0; }
+.passos-conta { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.2; }
+.passos-card .progresso-passos { margin: -4px 0 0; background: rgba(14, 31, 20, 0.12); } /* 8 do titulo ate a barra; o trilho aparece no fundo verde */
+.passos-lista { gap: 8px; }
+.passos-lista .passo-config { padding: 10px 14px; }
+.passos-lista .passo-config.feito { opacity: 1; background: transparent; border-color: transparent; color: var(--muted); min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
+.passos-card > .passos-botoes { margin-top: 4px; } /* 12 do card + 4 = 16 da lista (a regra geral dos cards somava mais 12) */
