@@ -652,7 +652,7 @@
         var semItem = R.produtosAtivos(l).length === 0;
         if (!semPix && !semItem) return;
         var cat = R.catalogo(l).nome;
-        itens.push({ ordem: 5, peso: 0, ico: 'ferramenta', tom: '', titulo: semPix && semItem ? 'Sem Pix e ' + cat + ' vazio' : (semPix ? 'Sem Pix automático' : R.catalogo(l).Nome + ' sem itens'), detalhe: l.nome + ' · ' + cidadeUF(l), botao: 'Ver loja', acao: function () { abrirLoja(l.slug); } });
+        itens.push({ ordem: 5, peso: 0, ico: 'ferramenta', tom: '', titulo: semPix && semItem ? 'Sem Mercado Pago e ' + cat + ' vazio' : (semPix ? 'Sem Mercado Pago' : R.catalogo(l).Nome + ' sem itens'), detalhe: l.nome + ' · ' + cidadeUF(l), botao: 'Ver loja', acao: function () { abrirLoja(l.slug); } });
       });
       itens.sort(function (x, y) { return x.ordem - y.ordem || x.peso - y.peso; });
       return itens;

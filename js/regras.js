@@ -415,7 +415,26 @@
     return { codigo: codigo, desconto: desconto, percentual: percentual, erro: '' };
   }
 
+  /* Taxa do cartao pelo site repassada ao cliente, em % do pedido: 0 = a loja paga (o padrao). A lei 13.455/2017 deixa
+     cobrar diferente por forma de pagamento, desde que o cliente veja antes de pagar (o site mostra na opcao e no total).
+     Teto de 6%: cobre a taxa do Mercado Pago (cerca de 5%) sem virar lucro em cima do cliente */
+  var TAXA_CARTAO_MAX = 6;
+  function taxaCartaoRepassada(loja) {
+    var t = Number((loja || {}).taxaCartao) || 0;
+    return t > 0 ? Math.min(TAXA_CARTAO_MAX, Math.round(t * 10) / 10) : 0;
+  }
+  function acrescimoDoCartao(loja, forma, base) {
+    if (forma !== 'cartao_online' || !cartaoPeloSite(loja) || !(base > 0)) return 0;
+    var t = taxaCartaoRepassada(loja);
+    return t ? Math.round((base * t) / 100) : 0;
+  }
+
   function orcar(loja, dados) {
+    var o = orcarBase(loja, dados);
+    o.total = Math.max(0, o.subtotal - o.desconto + o.taxaEntrega) + o.acrescimoCartao;
+    return o;
+  }
+  function orcarBase(loja, dados) {
     var conta = calcularItens(loja, dados.itens, { tolerante: !!dados.tolerante });
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     var cupom = avaliarCupom(loja, dados.cupom, conta.subtotal);
@@ -430,7 +449,8 @@
       cupomErro: cupom.erro,
       cupomPercentual: cupom.percentual,
       desconto: cupom.desconto,
-      total: Math.max(0, conta.subtotal - cupom.desconto + taxaEntrega),
+      acrescimoCartao: acrescimoDoCartao(loja, dados.formaPagamento, Math.max(0, conta.subtotal - cupom.desconto + taxaEntrega)),
+      total: 0,
     };
   }
 
@@ -483,9 +503,6 @@
       };
     }
 
-    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom });
-    if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
-
     var formas = {
       pix: loja.aceitaPix !== false && !!loja.mpAtivo,
       cartao_online: cartaoPeloSite(loja),
@@ -498,6 +515,8 @@
       if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
       formaPagamento = primeira;
     }
+    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento });
+    if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
     /* pagar na porta: maquininha ou dinheiro. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
     var naPorta = formaPagamento === 'cartao_entrega' || formaPagamento === 'dinheiro_entrega';
     if (naPorta && tipoEntrega !== 'entrega' && !loja.aceitaPagarNoBalcao && !noBalcao) {
@@ -523,7 +542,7 @@
     var pagoNaHora = orcamento.total === 0;
     var quando = (agora || new Date()).toISOString();
 
-    return {
+    var pedido = {
       lojaSlug: loja.slug,
       status: (naPorta || pagoNaHora) ? STATUS.PAGO : STATUS.AGUARDANDO,
       formaPagamento: formaPagamento,
@@ -547,6 +566,9 @@
       pagoEm: (naPorta || pagoNaHora) ? quando : null,
       origem: dados.origem === 'balcao' ? 'balcao' : 'link',
     };
+    /* so aparece quando existe: o pedido comum continua com os mesmos campos de sempre */
+    if (orcamento.acrescimoCartao > 0) pedido.acrescimoCartao = orcamento.acrescimoCartao;
+    return pedido;
   }
 
   /* Itens ja calculados (tamanho e adicionais como objetos) de volta ao formato bruto. */
@@ -575,6 +597,10 @@
       var taxaSeErro = cortesia ? 0 : calcularTaxaEntrega(loja, pedido.tipoEntrega, o.subtotal);
       var total = Math.max(0, o.subtotal - desconto + (o.cupomErro ? taxaSeErro : o.taxaEntrega));
       var esperado = o.cupomErro ? total : o.total;
+      /* taxa do cartao repassada: conta a que veio no pedido, se couber no teto (a loja pode ter mudado a % depois; quem
+         mexer no pedido so consegue pagar mais, nunca menos) */
+      var acrescimo = Math.round(Number(pedido.acrescimoCartao) || 0);
+      if (pedido.formaPagamento === 'cartao_online' && acrescimo > 0 && acrescimo <= Math.ceil((total * TAXA_CARTAO_MAX) / 100)) esperado = total + acrescimo;
       return { ok: esperado === pedido.total, esperado: esperado };
     } catch (_) {
       /* item que nao existe no cardapio (ou quantidade fora do normal): nao da para refazer a conta. Antes passava como
@@ -762,6 +788,7 @@
     l.push('Subtotal: ' + dinheiro(pedido.subtotal));
     if (pedido.desconto > 0) l.push('Cupom ' + pedido.cupom + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
     if (pedido.taxaEntrega > 0) l.push('Entrega: ' + dinheiro(pedido.taxaEntrega));
+    if (pedido.acrescimoCartao > 0) l.push('Taxa do cartão: ' + dinheiro(pedido.acrescimoCartao));
     if (pedido.total === 0) {
       l.push('*CORTESIA: NADA A COBRAR*');
     } else if (pedido.pagamentoStatus === 'na_entrega') {
@@ -815,6 +842,7 @@
     l.push('');
     if (p.taxaEntrega) l.push('Entrega: ' + dinheiro(p.taxaEntrega));
     if (p.desconto) l.push('Desconto: -' + dinheiro(p.desconto));
+    if (p.acrescimoCartao) l.push('Taxa do cartão: ' + dinheiro(p.acrescimoCartao));
     l.push('Total: ' + dinheiro(p.total));
     l.push(p.tipoEntrega === 'entrega' ? 'Entregar em: ' + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
     l.push('Pagamento: ' + (formas[p.formaPagamento] || p.formaPagamento || '') + (p.trocoPara ? ' (troco para ' + dinheiro(p.trocoPara) + ')' : ''));
@@ -1248,6 +1276,8 @@
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
     frasePagamento: frasePagamento,
     cartaoPeloSite: cartaoPeloSite,
+    taxaCartaoRepassada: taxaCartaoRepassada,
+    TAXA_CARTAO_MAX: TAXA_CARTAO_MAX,
     pagaPeloSite: pagaPeloSite,
     nomeDoPagamento: nomeDoPagamento,
     STATUS: STATUS,

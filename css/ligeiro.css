@@ -317,7 +317,9 @@ a.selo-google:hover { background: var(--lime-suave); }
   padding: 14px var(--margem); background: var(--deep); color: #fff; border: 0;
   font-weight: 700; font-size: 16px;
 }
-.faixa-acompanhar .seta { margin-left: auto; }
+.faixa-acompanhar .seta { margin-left: auto; display: inline-flex; flex: none; }
+.faixa-acompanhar .faixa-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faixa-acompanhar .faixa-qtd { flex: none; padding: 3px 9px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 13.5px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
 .faixa-teste { background: repeating-linear-gradient(135deg, var(--lemon) 0 14px, #FCE36B 14px 28px); color: #4A3A00; font-size: 13px; font-weight: 700; text-align: center; padding: 6px 10px; letter-spacing: 0.04em; }
 .rodape { margin-top: auto; padding: 16px var(--margem) 30px; text-align: center; color: var(--muted); font-size: 14.5px; display: flex; flex-direction: column; gap: 16px; }
 /* as linhas de informacao (Pix seguro, endereco, verificada/CNPJ) andam juntas, 8 entre elas; dali 16 ate o WhatsApp e 16 ate o fim */
@@ -2151,3 +2153,32 @@ button.plano-card { cursor: pointer; }
 .garantias .ico-traco { flex: none; color: var(--lime-escuro); }
 .garantias .ico-traco svg { width: 18px; height: 18px; }
 .linha-produto .nome-cupom small { white-space: normal; overflow: visible; text-overflow: clip; } /* "a partir de R$ 30,00 · 0 de 100 usos" inteiro */
+/* ---------- bloco Pagamento dos Ajustes: turma do site (caixa do Mercado Pago) e turma da entrega ---------- */
+.forma-grupo.mais-longe { margin-top: 12px; } /* 12 do bloco + 12 = 24 entre as turmas */
+.mp-caixa { display: flex; flex-direction: column; gap: 12px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
+.mp-caixa .mp-formas { display: flex; flex-direction: column; gap: 12px; }
+.mp-caixa .mp-formas[hidden] { display: none; }
+.mp-caixa .interruptor { padding: 10px 0 0; min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.mp-caixa .mp-liberar { display: flex; flex-direction: column; gap: 8px; }
+.mp-caixa .mp-liberar[hidden] { display: none; }
+.mp-convite { display: flex; flex-direction: column; gap: 4px; }
+.mp-convite b { font-size: 16px; }
+.passos-conectar { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.passos-conectar li { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.35; }
+.passos-conectar .numero { width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--lime); color: var(--texto-no-destaque); font-weight: 700; font-size: 14px; }
+.mp-lendo { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-weight: 600; font-size: 14.5px; }
+.mp-lendo .girando { width: 18px; height: 18px; border: 3px solid var(--line-forte); border-top-color: var(--deep2); border-radius: 50%; animation: girar 0.9s linear infinite; flex: none; }
+/* Primeiros passos: a barra mostra quanto falta */
+.progresso-passos { height: 8px; margin: 2px 0 4px; border-radius: 999px; background: var(--lime-suave); overflow: hidden; }
+.progresso-passos span { display: block; height: 100%; border-radius: 999px; background: var(--lime); }
+/* pergunta com botoes que nao cabem lado a lado: um embaixo do outro, a acao em cima e o "voltar" embaixo */
+.modal-rodape.empilhado { flex-direction: column-reverse; align-items: stretch; }
+.modal-rodape.empilhado > .btn { flex: none !important; width: 100%; }
+/* taxa do cartao nos Ajustes: repassar ou nao, com o exemplo em reais */
+.mp-taxa { display: flex; flex-direction: column; gap: 12px; }
+.mp-taxa[hidden] { display: none; }
+.mp-taxa > .campo { margin: 0; }
+.taxa-exemplo { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border-radius: var(--raio-p); background: var(--lime-suave); color: var(--body); font-size: 14px; line-height: 1.4; }
+.taxa-exemplo .ico-traco { flex: none; color: var(--deep2); margin-top: 1px; }
+.taxa-exemplo .ico-traco svg { width: 18px; height: 18px; }
+.pix-cartao .cartao-taxa { margin-top: -8px; } /* junto do nome da loja: 4 px entre as duas linhas */

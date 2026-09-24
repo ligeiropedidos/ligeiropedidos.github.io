@@ -719,3 +719,30 @@ test('cartão pelo site: espera o pagamento como o Pix e só vale com a loja lig
   assert.match(R.fichaDoPedido(loja, Object.assign({}, p, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', senha: 3 })), /cartão pelo site/);
   assert.equal(R.frasePagamento(loja), 'paga no Pix, no cartão ou ao receber');
 });
+
+test('taxa do cartão repassada: entra só no cartão pelo site, respeita o teto e o painel confere', () => {
+  const loja = Object.assign(lojaDeTeste(), { aceitaCartaoOnline: true, mpChavePublica: 'APP_USR-chave' });
+  const dados = { nome: 'Ana Souza', telefone: '13999990000', tipoEntrega: 'retirada', itens: [{ produtoId: 'x', quantidade: 1 }], formaPagamento: 'cartao_online' };
+  /* a loja paga a taxa (padrao): nada muda e o pedido nem ganha o campo */
+  const semTaxa = R.montarPedido(loja, dados);
+  assert.equal(semTaxa.acrescimoCartao, undefined);
+  /* repassa 5%: o total sobe 5%, arredondado no centavo, e o painel confere */
+  const comTaxa = Object.assign({}, loja, { taxaCartao: 5 });
+  const p = R.montarPedido(comTaxa, dados);
+  assert.equal(p.acrescimoCartao, Math.round(semTaxa.total * 5 / 100));
+  assert.equal(p.total, semTaxa.total + p.acrescimoCartao);
+  assert.equal(R.conferirTotal(comTaxa, p).ok, true);
+  /* no Pix, na maquininha e no dinheiro nao existe taxa */
+  assert.equal(R.montarPedido(comTaxa, Object.assign({}, dados, { formaPagamento: 'pix' })).total, semTaxa.total);
+  /* teto de 6%: quem gravar 20% na loja cobra so 6% */
+  const exagero = R.montarPedido(Object.assign({}, loja, { taxaCartao: 20 }), dados);
+  assert.equal(exagero.acrescimoCartao, Math.round(semTaxa.total * R.TAXA_CARTAO_MAX / 100));
+  /* a loja mudou a % depois do pedido: a taxa que veio (dentro do teto) continua valendo na conferencia */
+  assert.equal(R.conferirTotal(Object.assign({}, loja, { taxaCartao: 3 }), p).ok, true);
+  /* pedido mexido para pagar menos que o cardapio acende o aviso */
+  assert.equal(R.conferirTotal(comTaxa, Object.assign({}, p, { total: semTaxa.total - 100, acrescimoCartao: 0 })).ok, false);
+  /* taxa acima do teto no pedido nao passa */
+  assert.equal(R.conferirTotal(comTaxa, Object.assign({}, p, { acrescimoCartao: semTaxa.total, total: semTaxa.total * 2 })).ok, false);
+  /* WhatsApp e impressao mostram a taxa */
+  assert.match(R.fichaDoPedido(comTaxa, Object.assign({}, p, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', senha: 4 })), /Taxa do cartão/);
+});

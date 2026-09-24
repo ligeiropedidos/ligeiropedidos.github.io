@@ -1079,7 +1079,8 @@
     function orcamento() {
       if (estado.carrinho.length === 0) return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '' };
       try {
-        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo });
+        /* a forma so pesa no fechamento (taxa do cartao repassada); no carrinho vale a conta sem ela */
+        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: $('tela-dados').classList.contains('ativa') ? formaEscolhida() : '' });
       } catch (e) {
         /* um item saiu do cardapio no meio do pedido: a tela mostra o motivo em vez de "GRATIS" */
         return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '', erro: e && e.message ? e.message : 'Algo mudou no cardápio.' };
@@ -1350,6 +1351,7 @@
       var orc = orcamento();
       $('blocoTroco').hidden = orc.total === 0 || formaEscolhida() !== 'dinheiro_entrega';
       /* mesmo com uma forma so o bloco fica: e nele que mora o "precisa de troco?" */
+      pintarTaxaDoCartao();
       var algumaForma = temPix || temCartaoSite || temCartao || temDinheiro;
       $('blocoPagamento').hidden = orc.total === 0 || !algumaForma;
       $('semFormaPagamento').hidden = algumaForma;
@@ -1357,6 +1359,19 @@
       $('btnPagar').disabled = !!estado.enviandoPedido || !algumaForma;
       if (!$('blocoTroco').hidden) atualizarTroco();
       renumerarPassos();
+    }
+
+    /* Taxa do cartao repassada pela loja: o cliente ve em reais antes de escolher (e o Pix aparece como "sem taxa") */
+    function pintarTaxaDoCartao() {
+      var l = estado.loja;
+      if (!l || $('opcaoCartaoOnline').hidden || !estado.carrinho.length) return;
+      try {
+        var semCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'pix' });
+        var comCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'cartao_online' });
+        var taxa = comCartao.acrescimoCartao || 0;
+        $('detalheCartaoOnline').textContent = taxa > 0 ? 'À vista, + ' + dinheiro(taxa) + ' de taxa do cartão' : 'À vista, pago agora aqui no site';
+        $('detalhePix').textContent = taxa > 0 && semCartao.total > 0 ? 'Sem taxa, direto para a loja' : 'Paga pelo celular, direto para a loja';
+      } catch (_) { /* item saiu do cardapio: a tela ja mostra o motivo */ }
     }
 
     /* Os blocos escondidos (endereco na retirada, pagamento gratis) nao contam: a numeracao fica 1, 2, 3. */
@@ -1371,7 +1386,7 @@
     }
 
     raiz.querySelectorAll('input[name="formaPagamento"]').forEach(function (r) {
-      r.addEventListener('change', function () { if (r.value === 'cartao_online' && r.checked) carregarSdkCartao().catch(function () { /* tenta de novo na tela do cartao */ }); marcarFormaEscolhida(); atualizarBotaoPagar(); $('blocoTroco').hidden = formaEscolhida() !== 'dinheiro_entrega'; if (!$('blocoTroco').hidden) atualizarTroco(); });
+      r.addEventListener('change', function () { if (r.value === 'cartao_online' && r.checked) carregarSdkCartao().catch(function () { /* tenta de novo na tela do cartao */ }); marcarFormaEscolhida(); atualizarBotaoPagar(); atualizarBarraCarrinho(); $('blocoTroco').hidden = formaEscolhida() !== 'dinheiro_entrega'; if (!$('blocoTroco').hidden) atualizarTroco(); });
     });
 
     function atualizarTroco() {
@@ -1795,6 +1810,8 @@
       }
       $('cartaoValor').textContent = dinheiro(pedido.total);
       $('cartaoNomeLoja').textContent = 'Para: ' + estado.loja.nome;
+      $('cartaoTaxa').hidden = !(pedido.acrescimoCartao > 0);
+      $('cartaoTaxa').textContent = pedido.acrescimoCartao > 0 ? 'Inclui ' + dinheiro(pedido.acrescimoCartao) + ' de taxa do cartão' : '';
       $('cartaoRecusado').hidden = true;
       $('btnOutraForma').hidden = true;
       irPara('tela-cartao');
@@ -2274,7 +2291,9 @@
       var andando = lerMeusPedidos().filter(andandoAgora);
       faixa.hidden = balcao || andando.length === 0 || !$('tela-inicio').classList.contains('ativa');
       if (andando.length) {
-        $('faixaTexto').textContent = andando.length === 1 ? 'Acompanhar meu pedido (senha ' + andando[0].senha + ')' : 'Acompanhar meus pedidos (' + andando.length + ')';
+        /* o numero numa etiqueta colada no texto: no celular estreito o "(3)" caia sozinho na linha de baixo */
+        $('faixaTexto').textContent = andando.length === 1 ? 'Meu pedido' : 'Meus pedidos';
+        $('faixaQtd').textContent = andando.length === 1 ? 'senha ' + andando[0].senha : String(andando.length);
         faixa.onclick = function () {
           if (andando.length === 1) abrirPedidoSalvo(andando[0].id);
           else abrirMeusPedidos();
@@ -2360,7 +2379,7 @@
 
   function esqueletoDaLoja(balcao) {
     return '' +
-    '<button class="faixa-acompanhar" id="faixaAcompanhar" hidden>' + UI.iconeHtml('recibo') + '<span id="faixaTexto"></span><span class="seta">→</span></button>' +
+    '<button class="faixa-acompanhar" id="faixaAcompanhar" hidden>' + UI.iconeHtml('recibo') + '<span class="faixa-texto" id="faixaTexto"></span><span class="faixa-qtd" id="faixaQtd"></span><span class="seta">' + UI.iconeHtml('avancar') + '</span></button>' +
 
     '<section class="tela ativa" id="tela-inicio">' +
       '<div class="abertura">' +
@@ -2454,8 +2473,8 @@
           '<div class="bloco-form" id="blocoPagamento">' +
             '<div class="bloco-titulo"><span class="bloco-numero">3</span> Como você quer pagar?</div>' +
             '<div class="forma-grupo" id="grupoAgora" hidden>Pague agora pelo site</div>' +
-            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome" id="nomePix">Pix agora</span><span class="forma-detalhe">Paga pelo celular, direto para a loja</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
-            '<label class="forma-pgto" for="pgtoCartaoOnline" id="opcaoCartaoOnline" hidden><input type="radio" name="formaPagamento" id="pgtoCartaoOnline" value="cartao_online"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome">Cartão de crédito</span><span class="forma-detalhe">À vista, pago agora aqui no site</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto marcada" for="pgtoPix" id="opcaoPix"><input type="radio" name="formaPagamento" id="pgtoPix" value="pix" checked><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome" id="nomePix">Pix agora</span><span class="forma-detalhe" id="detalhePix">Paga pelo celular, direto para a loja</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoCartaoOnline" id="opcaoCartaoOnline" hidden><input type="radio" name="formaPagamento" id="pgtoCartaoOnline" value="cartao_online"><span class="forma-icone">' + UI.iconeHtml('cartao') + '</span><span class="forma-texto"><span class="forma-nome">Cartão de crédito</span><span class="forma-detalhe" id="detalheCartaoOnline">À vista, pago agora aqui no site</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div class="forma-grupo" id="grupoNaPorta" hidden>Pague na entrega</div>' +
             '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('maquininha') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Cartão na maquininha</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
@@ -2509,6 +2528,7 @@
       '<div class="pix pix-cartao">' +
         '<div class="valor-grande" id="cartaoValor"></div>' +
         '<div class="muted" id="cartaoNomeLoja"></div>' +
+        '<div class="muted pequeno cartao-taxa" id="cartaoTaxa" hidden></div>' +
         '<div class="cartao-recusado" id="cartaoRecusado" role="alert" hidden></div>' +
         '<div class="pix-gerando" id="cartaoCarregando"><span class="girando"></span> Abrindo o pagamento seguro…</div>' +
         '<div class="pix-falhou" id="cartaoFalhou" hidden><p id="cartaoFalhouTexto"></p><button class="btn btn-escuro btn-pequeno" id="btnTentarCartao" type="button">Tentar de novo</button></div>' +

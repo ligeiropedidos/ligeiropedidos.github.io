@@ -154,6 +154,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .topo .voltar { width: 48px; height: 48px; border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-creme); color: var(--cz-tinta); font-weight: 800; }
 .tema-conizza .topo-titulo { font-family: var(--cz-display); font-weight: 800; color: var(--cz-creme); }
 .tema-conizza .topo-passo { color: var(--cz-creme); opacity: 0.85; }
+.tema-conizza .faixa-acompanhar .faixa-qtd { background: var(--cz-ouro-claro); color: var(--cz-tinta); font-family: var(--cz-display); }
 .tema-conizza .faixa-acompanhar { background: var(--cz-verde); border-bottom: 4px solid var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; font-size: 17px; }
 
 /* ---------- cardapio ---------- */
@@ -187,6 +188,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .garantias li { color: var(--cz-tinta-suave); }
 .tema-conizza .garantias .ico-traco { color: var(--cz-verde); }
 .tema-conizza .forma-grupo { color: var(--cz-tinta-suave); font-family: var(--cz-display); letter-spacing: 0.04em; }
+.tema-conizza .passos-conectar .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 2px solid var(--cz-tinta); }
+.tema-conizza .mp-caixa { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); }
+.tema-conizza .mp-caixa .interruptor { border-top-color: var(--cz-creme-borda); }
+.tema-conizza .taxa-exemplo { background: var(--cz-creme); color: var(--cz-tinta); }
+.tema-conizza .taxa-exemplo .ico-traco { color: var(--cz-vermelho); }
+.tema-conizza .progresso-passos { background: var(--cz-creme-fundo); }
+.tema-conizza .progresso-passos span { background: var(--cz-vermelho); }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }

@@ -118,9 +118,9 @@
       estado.token = token;
       estado.simulado = D().modoDemo && !!token; /* simulacao so existe na demonstracao, nunca no site de verdade */
       estado.ativo = !!token && (estado.simulado || !!cfg.proxyMercadoPago);
-      if (!token) return avisar('Pix automático desligado: conecte o Mercado Pago em Ajustes, Pagamento.', 'semToken');
+      if (!token) return avisar('Pix e cartão pelo site desligados: conecte o Mercado Pago em Ajustes, Pagamento.', 'semToken');
       if (!estado.ativo) return avisar('Token cadastrado, mas o Ligeiro ainda não ligou o proxy do Mercado Pago (config.proxyMercadoPago).');
-      avisar(estado.simulado ? 'Pix automático em simulação: aprova sozinho em 20 s.' : 'Pix automático ligado: o pedido vira pago sozinho quando o Pix cair.', 'ok');
+      avisar(estado.simulado ? 'Mercado Pago em simulação: o Pix aprova sozinho em 20 s.' : 'Mercado Pago ligado: o pedido vira pago sozinho quando o pagamento cair.', 'ok');
       /* com o mensageiro no ar, o aviso do Mercado Pago e o site do cliente liberam o pedido: o painel so reforca, devagar */
       estado.relogio = setInterval(conferir, estado.simulado ? 10000 : 30000);
       processar(estado.pedidos);
@@ -164,7 +164,7 @@
         return store.atualizarPedido(slug, p.id, mudancas);
       }).catch(function (e) {
         estado.ultimoErro = e.message;
-        avisar('Pix automático com problema: ' + e.message + ' Confira a conexão em Ajustes, Pagamento.');
+        avisar('Mercado Pago com problema: ' + e.message + ' Confira a conexão em Ajustes, Pagamento.');
       }).then(function () { delete estado.emAndamento[p.id]; });
     }
 

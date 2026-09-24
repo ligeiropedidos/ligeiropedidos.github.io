@@ -195,7 +195,7 @@
             UI.soar('sucesso');
             return;
           }
-          if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix automático ligado.'); }
+          if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix ligado. O cartão liga com um toque em Pagamento.'); }
           else UI.avisar('O Mercado Pago não autorizou. Tente de novo em Ajustes, Pagamento.');
         }, 400);
       }
@@ -678,15 +678,19 @@
       var l = estado.loja;
       if (l.configurada !== false) return null;
       var comPreco = (l.produtos || []).filter(function (p) { return p.ativo !== false && p.preco > 0; }).length;
+      /* ja entrou pedido neste aparelho alguma vez (a fila e so do dia: sem guardar, o item voltava a ficar pendente) */
+      function teveVenda() { var k = 'ligeiro:teve-pedido:' + slug; if ((estado.pedidos || []).length) { UI.guardarLocal(k, true); return true; } return !!UI.lerLocal(k); }
       /* na ordem do que mais importa para vender; cada item leva direto ao bloco certo (e acende ele) */
       var itens = [
-        [!!l.mpAtivo, 'Pix automático ligado (Mercado Pago)', 'ajustes', 'aj-pagamento'],
+        [!!l.mpAtivo, l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : 'Conectar o Mercado Pago (Pix e cartão pelo site)', 'ajustes', 'aj-pagamento'],
         [comPreco > 0, comPreco > 0 ? comPreco + ' itens com preço no ' + R.catalogo(l).nome + ' (confira os valores)' : R.catalogo(l).Nome + ' com preços', 'cardapio', ''],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'ajustes', 'aj-entrega'],
         [!!l.whatsapp, 'WhatsApp da loja', 'ajustes', 'aj-dados'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Loja aberta (ou horários de funcionamento)', 'ajustes', 'aj-funcionamento'],
         [!!D.logoSrc(l), 'Logo da loja', 'ajustes', 'aj-aparencia'],
         [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens que mais saem', 'cardapio', ''],
+        /* o teste que tira o medo: um pedido de verdade pelo proprio link (de R$ 1 no Pix, se quiser), visto chegando aqui */
+        [teveVenda(), 'Fazer um pedido de teste pelo seu link', 'links', ''],
       ];
       var feitos = itens.filter(function (i) { return i[0]; }).length;
       var lista = el('div', { class: 'lista-simples' }, itens.map(function (i) {
@@ -697,7 +701,8 @@
       }));
       return el('div', { class: 'cartao destaque' }, [
         el('h3', { text: 'Primeiros passos · ' + feitos + ' de ' + itens.length }),
-        el('p', { class: 'muted pequeno', text: 'Com o Pix ligado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
+        el('div', { class: 'progresso-passos', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(itens.length), 'aria-valuenow': String(feitos) }, [el('span', { style: { width: Math.round(feitos / itens.length * 100) + '%' } })]),
+        el('p', { class: 'muted pequeno', text: 'Com o Mercado Pago conectado e os preços conferidos você já vende. O resto deixa a loja mais bonita.' }),
         lista,
         el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { trocarAba('links'); window.scrollTo(0, 0); } }, [UI.iconeLinha('link'), 'Pegar meu link']),
@@ -827,7 +832,7 @@
         : 'Atenção: pelo ' + R.catalogo(estado.loja).nome + ' de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de fazer.' }));
       card.appendChild(el('div', { class: 'total' }, [
         el('span', { text: 'Total ' + dinheiro(p.total) }),
-        el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
+        el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.acrescimoCartao > 0 ? 'taxa do cartão ' + dinheiro(p.acrescimoCartao) + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
       ]));
 
       /* cliente que ligou o aviso no celular: recebe sozinho. Os outros: um toque manda a mensagem certa do status no WhatsApp */
@@ -1891,37 +1896,81 @@
       s.appendChild(entrega);
 
       var pagamento = el('div', { class: 'bloco-form', id: 'aj-pagamento' }, [el('div', { class: 'bloco-titulo', text: 'Pagamento' })]);
-      /* Uma linha por forma de pagamento. Pix e sempre automatico, pela conta Mercado Pago da loja: a linha dele leva a
-         conexao dentro e o interruptor so existe conectado (ligado sem conexao dizia "ligado" com o Pix sem funcionar).
-         No fim, o resumo do que vale hoje, que muda na hora a cada interruptor. */
+      /* Duas turmas, como o cliente ve no fechamento: "Pelo site" (Pix e cartao, pela conta Mercado Pago da loja) e "Na
+         entrega ou no balcao". A conexao e uma so para o Pix e o cartao: desconectada, a caixa ensina em 3 passos e os
+         interruptores do site nem aparecem (ligado sem conexao dizia "ligado" com nada funcionando). No fim, o resumo do
+         que vale hoje, que muda na hora a cada interruptor. */
       var cfgMP = window.LIGEIRO_CONFIG || {};
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
       var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
-      f.mpAtivo = interruptorCampo('Pix pelo site', 'O cliente paga no Pix e o pedido cai pronto na cozinha, sem ninguém conferir nada.', !!l.mpAtivo);
+      pagamento.appendChild(el('div', { class: 'forma-grupo', text: 'Pelo site · Mercado Pago' }));
+      f.mpAtivo = interruptorCampo('Pix pelo site', 'Cai na hora na sua conta. Taxa do Mercado Pago: cerca de 1%.', !!l.mpAtivo);
       f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só para trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
       f.mpToken.lido = false; /* vira true quando a leitura da conexao responde */
-      /* no lugar do interruptor enquanto nao da para ligar: "Conferindo…", "Falta conectar" */
-      var pixSituacao = el('span', { class: 'forma-situacao lendo', text: 'Conferindo…' });
-      f.mpAtivo.insertBefore(pixSituacao, f.mpAtivo.chave);
-      function situacaoPix(texto, lendo) {
-        pixSituacao.hidden = !texto;
-        pixSituacao.textContent = texto || '';
-        pixSituacao.classList.toggle('lendo', !!lendo);
-        f.mpAtivo.chave.hidden = !!texto;
-      }
+      f.mpToken.erro = false; /* a leitura falhou: salvar nao mexe no Pix nem no cartao */
       function desligarChavePix() { f.mpAtivo.chave.ligado = false; f.mpAtivo.chave.classList.remove('on'); }
-      var formaPix = el('div', { class: 'forma-pix' }, [f.mpAtivo]);
-      /* caixa da conexao: "Conectar Mercado Pago" ou "Mercado Pago conectado desde ..." */
+      /* Cartao de credito pelo site: o formulario seguro do Mercado Pago abre no celular do cliente e o pedido cai pago.
+         Vem da mesma conexao do Pix (e dela que sai a chave publica do formulario). Conexao antiga, sem a chave: um toque
+         em "Liberar o cartao" abre o Mercado Pago, a pessoa toca em Autorizar e volta com o cartao ligado */
+      f.aceitaCartaoOnline = interruptorCampo('Cartão de crédito pelo site', 'À vista, cai na hora. Taxa do Mercado Pago: cerca de 5%.', l.aceitaCartaoOnline === true);
+      var liberarCartao = el('div', { class: 'mp-liberar', hidden: true }, [
+        el('p', { class: 'muted pequeno', text: 'Falta um toque para o cartão: autorize de novo no Mercado Pago e volte. Ele já volta ligado.' }),
+        el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
+          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes: a liberação sai desta tela.'); return; }
+          if (D.modoDemo) { salvarLoja({ mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, mpAtivo: true }, 'Cartão de crédito ligado (simulado).').then(function () { desenharAjustes(); }); return; }
+          UI.guardarLocal('ligeiro:ligar-cartao:' + slug, true);
+          window.LigeiroMP.conectar(slug).catch(function (e) { UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null); UI.avisar(D.erroAmigavel(e, 'Não deu para abrir o Mercado Pago agora.')); });
+        } }, [UI.iconeLinha('cartao'), 'Liberar o cartão']),
+      ]);
+      /* os interruptores do site: so aparecem com o Mercado Pago conectado */
+      /* Taxa do cartao: quem paga. Explicada com um exemplo em reais (percentual solto ninguem entende). Repassar e a
+         escolha da loja: a lei deixa, desde que o cliente veja antes de pagar, e o site mostra na opcao e no total */
+      var taxaAtual = R.taxaCartaoRepassada(l);
+      f.repassarTaxa = interruptorCampo('Repassar a taxa ao cliente', 'Quem paga no cartão vê a taxa antes de pagar. No Pix não muda nada.', taxaAtual > 0);
+      f.taxaCartao = campoTexto('Quanto repassar (%)', String(taxaAtual || 5).replace('.', ','), { inputmode: 'decimal', max: 4, ajuda: 'De 1 a ' + R.TAXA_CARTAO_MAX + '%. A taxa do Mercado Pago é de cerca de 5%.' });
+      var exemploTaxa = el('p', { class: 'taxa-exemplo' });
+      function lerTaxa() { var n = parseFloat(String(f.taxaCartao.input.value).replace(',', '.')); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
+      function pintarTaxa() {
+        var repassa = f.repassarTaxa.chave.ligado;
+        f.taxaCartao.hidden = !repassa;
+        var venda = 5000, mp = Math.round(venda * 0.0498);
+        UI.limpar(exemploTaxa);
+        exemploTaxa.appendChild(UI.iconeLinha('cartao'));
+        if (!repassa) {
+          exemploTaxa.appendChild(el('span', { text: 'Exemplo: numa venda de ' + dinheiro(venda) + ', o cliente paga ' + dinheiro(venda) + ' e você recebe cerca de ' + dinheiro(venda - mp) + ' (o Mercado Pago fica com ' + dinheiro(mp) + ').' }));
+          return;
+        }
+        var t = Math.min(R.TAXA_CARTAO_MAX, Math.max(0, lerTaxa()));
+        var extra = Math.round(venda * t / 100);
+        exemploTaxa.appendChild(el('span', { text: 'Exemplo: numa venda de ' + dinheiro(venda) + ', o cliente paga ' + dinheiro(venda + extra) + ' no cartão e você recebe cerca de ' + dinheiro(venda + extra - Math.round((venda + extra) * 0.0498)) + '.' }));
+      }
+      f.repassarTaxa.chave.addEventListener('click', pintarTaxa);
+      f.taxaCartao.input.addEventListener('input', pintarTaxa);
+      var taxaDoCartao = el('div', { class: 'mp-taxa' }, [f.repassarTaxa, f.taxaCartao, exemploTaxa]);
+      pintarTaxa();
+      var formasDoSite = el('div', { class: 'mp-formas', hidden: true }, [f.mpAtivo, f.aceitaCartaoOnline, taxaDoCartao, liberarCartao]);
       var conexao = el('div', { class: 'mp-conexao' });
+      var caixaMP = el('div', { class: 'mp-caixa' }, [conexao, formasDoSite]);
+      function mostrarFormasDoSite(sim) { formasDoSite.hidden = !sim; f.mpAtivo.chave.hidden = !sim; }
+      function botaoConectar() {
+        return el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
+          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes de conectar: a conexão sai desta tela.'); return; }
+          window.LigeiroMP.conectar(slug).then(function (r) {
+            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true, mpChavePublica: 'TEST-demo' }, 'Mercado Pago conectado. Pix ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
+          }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para conectar agora.')); });
+        } }, [UI.iconeLinha('link'), 'Conectar Mercado Pago']);
+      }
+      /* caixa da conexao: desconectada ensina em 3 passos; conectada, o selo com a data e o Desconectar */
       function desenharConexao(c) {
         f.mpToken.lido = true;
+        f.mpToken.erro = false;
         UI.limpar(conexao);
         var conectado = !!(c && c.token);
         f.mpToken.temSalvo = conectado;
-        /* sem conexao o Pix nao funciona: o interruptor some e salvar grava desligado (o cliente para de ver um Pix quebrado) */
-        situacaoPix(conectado ? '' : 'Falta conectar');
+        /* sem conexao o Pix nao funciona: os interruptores somem e salvar grava desligado (o cliente para de ver um Pix quebrado) */
+        mostrarFormasDoSite(conectado);
         if (!conectado) desligarChavePix();
         pintarCartao();
         pintarResumo();
@@ -1936,44 +1985,47 @@
               });
             } }),
           ]));
-          conexao.appendChild(el('p', { class: 'muted pequeno', text: 'O dinheiro cai na sua conta do Mercado Pago, que cobra cerca de 1% por Pix recebido.' }));
           return;
         }
-        conexao.appendChild(el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
-          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes de conectar: a conexão sai desta tela.'); return; }
-          window.LigeiroMP.conectar(slug).then(function (r) {
-            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true, mpChavePublica: 'TEST-demo' }, 'Pix automático ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
-          }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para conectar agora.')); });
-        } }, [UI.iconeLinha('link'), 'Conectar Mercado Pago']));
-        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago, você entra na sua conta (ou cria uma, grátis) e toca em Autorizar. Volta para cá com o Pix ligado. Sem copiar nada.' }));
+        conexao.appendChild(el('div', { class: 'mp-convite' }, [
+          el('b', { text: 'Receba Pix e cartão pelo site' }),
+          el('span', { class: 'muted pequeno', text: 'O pedido chega pago na cozinha. Ninguém confere comprovante, e print falso não passa.' }),
+        ]));
+        conexao.appendChild(el('ol', { class: 'passos-conectar' }, [
+          el('li', {}, [el('span', { class: 'numero', text: '1' }), el('span', {}, ['Toque em ', el('b', { text: 'Conectar Mercado Pago' })])]),
+          el('li', {}, [el('span', { class: 'numero', text: '2' }), el('span', { text: 'Entre na sua conta do Mercado Pago (ou crie uma, grátis)' })]),
+          el('li', {}, [el('span', { class: 'numero', text: '3' }), el('span', {}, ['Toque em ', el('b', { text: 'Autorizar' }), ' e volte: o Pix já volta ligado'])]),
+        ]));
+        conexao.appendChild(botaoConectar());
+        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Taxas do Mercado Pago: cerca de 1% no Pix e 5% no cartão. O dinheiro cai na sua conta e o Ligeiro não cobra nada por venda.' }));
       }
-      /* a leitura falhou (internet caiu): diz e deixa tentar de novo. O interruptor fica como estava, salvar nao mexe no Pix */
+      /* a leitura falhou (internet caiu): diz e deixa tentar de novo. Os interruptores ficam como estavam: salvar nao mexe */
       function erroConexao() {
         UI.limpar(conexao);
-        situacaoPix('');
         f.mpToken.lido = true;
-        pintarCartao();
-        f.mpAtivo.chave.hidden = true;
+        f.mpToken.erro = true;
+        formasDoSite.hidden = true;
+        pintarResumo();
         conexao.appendChild(el('p', { class: 'aviso aviso-falta' }, [UI.iconeLinha('alerta'), el('span', { text: 'Não deu para conferir a conexão com o Mercado Pago agora.' })]));
         conexao.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: lerConexaoAgora }));
       }
       function lerConexaoAgora() {
         UI.limpar(conexao);
-        situacaoPix('Conferindo…', true);
+        formasDoSite.hidden = true;
+        conexao.appendChild(el('p', { class: 'mp-lendo' }, [el('span', { class: 'girando' }), 'Conferindo a conexão com o Mercado Pago…']));
         window.LigeiroMP.lerConexao(l.slug).then(desenharConexao, erroConexao);
       }
       if (!pixPossivel) {
-        situacaoPix('Em breve');
         desligarChavePix();
         f.mpToken.lido = true;
+        conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Pix e cartão pelo site chegam em breve.' }));
       } else if (temConexao) {
-        formaPix.appendChild(conexao);
         if (window.LigeiroMP) lerConexaoAgora(); else desenharConexao(null);
       } else {
-        /* sem o aplicativo do Ligeiro no Mercado Pago: colar o token */
-        situacaoPix('');
+        /* sem o aplicativo do Ligeiro no Mercado Pago: colar o token (so o Pix; o cartao pede a conexao pelo botao) */
         f.mpToken.lido = true;
-        formaPix.appendChild(el('details', { class: 'avancado', open: true }, [
+        mostrarFormasDoSite(true);
+        caixaMP.appendChild(el('details', { class: 'avancado', open: true }, [
           el('summary', { text: 'Colar o token do Mercado Pago' }),
           f.mpToken,
           el('ol', { class: 'passos-mp' }, [
@@ -1984,50 +2036,31 @@
         ]));
         if (window.LigeiroMP) window.LigeiroMP.lerConexao(l.slug).then(function (c) { f.mpToken.temSalvo = !!(c && c.token); pintarResumo(); }, function () { /* fica o que esta na tela */ });
       }
-      pagamento.appendChild(formaPix);
-
-      /* Cartao de credito pelo site: o formulario seguro do Mercado Pago abre no celular do cliente e o pedido cai pago.
-         Vem da mesma conexao do Pix (e dela que sai a chave publica do formulario). Conexao antiga, sem a chave: um toque
-         em "Liberar o cartao" abre o Mercado Pago, a pessoa toca em Autorizar e volta com o cartao ligado */
-      f.aceitaCartaoOnline = interruptorCampo('Cartão de crédito pelo site', 'O cliente paga à vista no site e o pedido cai pago na cozinha. O Mercado Pago cobra cerca de 5% por venda no cartão e o dinheiro cai na hora.', l.aceitaCartaoOnline === true);
-      var cartaoSituacao = el('span', { class: 'forma-situacao lendo', text: 'Conferindo…' });
-      f.aceitaCartaoOnline.insertBefore(cartaoSituacao, f.aceitaCartaoOnline.chave);
-      var liberarCartao = el('div', { class: 'mp-conexao', hidden: true }, [
-        el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
-          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes: a liberação sai desta tela.'); return; }
-          if (D.modoDemo) { salvarLoja({ mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, mpAtivo: true }, 'Cartão de crédito ligado (simulado).').then(function () { desenharAjustes(); }); return; }
-          UI.guardarLocal('ligeiro:ligar-cartao:' + slug, true);
-          window.LigeiroMP.conectar(slug).catch(function (e) { UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null); UI.avisar(D.erroAmigavel(e, 'Não deu para abrir o Mercado Pago agora.')); });
-        } }, [UI.iconeLinha('cartao'), 'Liberar o cartão']),
-        el('p', { class: 'muted pequeno', text: 'Abre o Mercado Pago: toque em Autorizar e volte. O cartão já volta ligado, sem copiar nada.' }),
-      ]);
-      var formaCartao = el('div', { class: 'forma-pix' }, [f.aceitaCartaoOnline, liberarCartao]);
+      pagamento.appendChild(caixaMP);
       /* pode ligar: Mercado Pago conectado pelo botao e com a chave publica */
       function cartaoPodeLigar() { return pixPossivel && temConexao && f.mpToken.temSalvo && !!estado.loja.mpChavePublica; }
       function pintarCartao() {
-        if (!cartaoSituacao) return; /* a conexao respondeu antes de a linha do cartao existir: ela se pinta ao nascer */
-        var texto = '', lendo = false, liberar = false;
-        if (!pixPossivel || !temConexao) texto = 'Em breve';
-        else if (!f.mpToken.lido) { texto = 'Conferindo…'; lendo = true; }
-        else if (!f.mpToken.temSalvo) texto = 'Falta conectar';
-        else if (!estado.loja.mpChavePublica) { texto = 'Falta liberar'; liberar = true; }
-        cartaoSituacao.hidden = !texto;
-        cartaoSituacao.textContent = texto;
-        cartaoSituacao.classList.toggle('lendo', lendo);
-        f.aceitaCartaoOnline.chave.hidden = !!texto;
-        liberarCartao.hidden = !liberar;
-        if (texto && !lendo) { f.aceitaCartaoOnline.chave.ligado = false; f.aceitaCartaoOnline.chave.classList.remove('on'); }
+        if (!liberarCartao) return; /* a conexao respondeu antes de a linha do cartao existir: ela se pinta ao nascer */
+        if (f.mpToken.erro) return; /* sem saber da conexao: fica como estava */
+        var pode = cartaoPodeLigar();
+        var falta = pixPossivel && temConexao && f.mpToken.temSalvo && !estado.loja.mpChavePublica;
+        f.aceitaCartaoOnline.hidden = !pode && !falta;
+        f.aceitaCartaoOnline.chave.hidden = !pode;
+        liberarCartao.hidden = !falta;
+        taxaDoCartao.hidden = !pode || !f.aceitaCartaoOnline.chave.ligado;
+        if (!pode && f.mpToken.lido) { f.aceitaCartaoOnline.chave.ligado = false; f.aceitaCartaoOnline.chave.classList.remove('on'); }
       }
-      pintarCartao(); /* ja nasce certo: "Conferindo…" sem o interruptor do lado enquanto a conexao nao responde */
-      pagamento.appendChild(formaCartao);
-      f.aceitaCartaoEntrega = interruptorCampo('Maquininha na entrega ou no balcão', 'O cliente passa o cartão quando recebe ou quando busca.', !!l.aceitaCartaoEntrega);
-      f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro na entrega ou no balcão', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
+      f.aceitaCartaoOnline.chave.addEventListener('click', pintarCartao);
+      pintarCartao();
+      f.aceitaCartaoEntrega = interruptorCampo('Cartão na maquininha', 'Crédito ou débito, quando o cliente recebe ou busca.', !!l.aceitaCartaoEntrega);
+      f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
       f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, quem retira paga pelo site.', l.aceitaPagarNoBalcao !== false);
+      pagamento.appendChild(el('div', { class: 'forma-grupo mais-longe', text: 'Na entrega ou no balcão' }));
       [f.aceitaCartaoEntrega, f.aceitaDinheiroEntrega, f.aceitaPagarNoBalcao].forEach(function (c) { pagamento.appendChild(c); });
       /* o que vale hoje, com as mesmas contas do site do cliente: sem Pix e sem "pagar no balcao", quem busca nao tem como pagar */
       var resumoPag = el('p', { class: 'aviso', hidden: true });
       function pintarResumo() {
-        if (!f.mpToken.lido) { resumoPag.hidden = true; return; }
+        if (!f.mpToken.lido || f.mpToken.erro) { resumoPag.hidden = true; return; }
         var pix = pixPossivel && f.mpAtivo.chave.ligado && (f.mpToken.temSalvo || !!f.mpToken.input.value.trim());
         var cartaoSite = cartaoPodeLigar() && f.aceitaCartaoOnline.chave.ligado;
         var cartao = f.aceitaCartaoEntrega.chave.ligado, dinheiroNaPorta = f.aceitaDinheiroEntrega.chave.ligado;
@@ -2249,7 +2282,14 @@
       if (!horarios) return;
       var tokenDigitado = f.mpToken.input.value.trim();
       var aceitaPix = f.mpAtivo.chave.ligado;
-      var cartaoLigado = !f.aceitaCartaoOnline.chave.hidden && f.aceitaCartaoOnline.chave.ligado;
+      var cartaoLigado = f.mpToken.erro ? estado.loja.aceitaCartaoOnline === true : (!f.aceitaCartaoOnline.hidden && !f.aceitaCartaoOnline.chave.hidden && f.aceitaCartaoOnline.chave.ligado);
+      /* taxa do cartao repassada ao cliente: de 1 ao teto; desligada grava 0 (a loja paga) */
+      var taxaCartao = 0;
+      if (f.repassarTaxa && f.repassarTaxa.chave.ligado) {
+        taxaCartao = Math.round((parseFloat(String(f.taxaCartao.input.value).replace(',', '.')) || 0) * 10) / 10;
+        if (cartaoLigado && (taxaCartao < 1 || taxaCartao > R.TAXA_CARTAO_MAX)) { f.taxaCartao.input.focus(); return UI.avisar('A taxa repassada vai de 1 a ' + R.TAXA_CARTAO_MAX + '%. Ou desligue "Repassar a taxa ao cliente".'); }
+        taxaCartao = Math.max(0, Math.min(R.TAXA_CARTAO_MAX, taxaCartao));
+      }
       /* Pix que ja estava ligado so passa sem token enquanto a leitura da conexao nao respondeu (ela pode atrasar).
          Depois que respondeu sem token, trava: loja com Pix ligado e sem token nao recebe Pix nenhum. */
       var aindaLendo = estado.loja.mpAtivo === true && !f.mpToken.lido;
@@ -2283,6 +2323,7 @@
         tempoEntrega: minutos(f.tempoEntrega.input.value, 40),
         aceitaPix: aceitaPix,
         aceitaCartaoOnline: cartaoLigado,
+        taxaCartao: taxaCartao,
         /* Mercado Pago em uso: Pix ou cartao (o cartao sozinho, com o Pix desligado, tambem precisa dele) */
         mpAtivo: aceitaPix || cartaoLigado,
         aceitaCartaoEntrega: f.aceitaCartaoEntrega.chave.ligado,

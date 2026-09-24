@@ -111,7 +111,12 @@ Pago da loja.
    "Cancelar e devolver" e o `POST /devolver` (só o dono) devolve o valor
    inteiro pelo Mercado Pago e grava `devolvidoEm`. Se falhar, o painel
    explica como devolver pelo app.
-5. Fora do tablet do balcão (lá tem a maquininha). Sem 3DS por enquanto: o
+5. **Taxa do cartão:** a loja escolhe pagar (padrão) ou repassar ao cliente
+   (`lojas/{slug}.taxaCartao`, de 1 a 6%; Lei 13.455/2017). A conta mora em
+   `R.orcar` (campo `acrescimoCartao` no pedido, só quando existe): o site mostra
+   "+ R$ X de taxa do cartão" na opção e no total, o Pix vira "Sem taxa", e a
+   conferência do painel aceita a taxa que veio no pedido até o teto.
+6. Fora do tablet do balcão (lá tem a maquininha). Sem 3DS por enquanto: o
    banco que pede confirmação extra recusa com o recado de usar outro cartão
    ou o Pix.
 

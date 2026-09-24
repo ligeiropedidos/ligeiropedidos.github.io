@@ -194,6 +194,14 @@
           el('button', { class: 'btn ' + (o.perigo ? 'btn-erro' : 'btn-principal'), style: { flex: '1' }, text: o.sim || 'Sim', onclick: function () { fecharModal(); resolve(true); } }),
         ],
       });
+      /* os dois botoes lado a lado, iguais; se o texto de um nao couber inteiro (celular estreito, letra grande), um embaixo
+         do outro com a largura toda, a acao em cima (antes o texto encostava na borda e cortava) */
+      var rodape = document.querySelector('#modalCaixa .modal-rodape');
+      if (rodape) {
+        rodape.classList.remove('empilhado');
+        var naoCabe = [].some.call(rodape.querySelectorAll('.btn'), function (b) { return b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 2; });
+        if (naoCabe) rodape.classList.add('empilhado');
+      }
     });
   }
 

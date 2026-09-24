@@ -433,7 +433,7 @@
       ]));
       Pix.desenharQr(qr, link, 200);
       corpo.appendChild(el('button', { class: 'btn btn-principal btn-gigante btn-largo', text: 'Abrir meu painel', onclick: function () { window.LigeiroApp.ir('painel/' + loja.slug); } }));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'No painel, o cartão "Primeiros passos" leva você a cada coisa que falta: Pix automático, logo, horários e fotos.' }));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'No painel, o cartão "Primeiros passos" leva você a cada coisa que falta: Mercado Pago (Pix e cartão), logo, horários e fotos.' }));
       window.scrollTo(0, 0);
     }
 
