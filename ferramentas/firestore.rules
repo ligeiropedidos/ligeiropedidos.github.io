@@ -227,7 +227,10 @@ service cloud.firestore {
       }
       /* token do Mercado Pago e outros segredos: so o dono (e o admin, pra suporte) */
       match /privado/{doc} {
-        allow read, write: if isDonoFirme(loja) || isAdmin();
+        allow read, delete: if isDonoFirme(loja) || isAdmin();
+        /* cupons: ate 20 por loja (o painel avisa antes; aqui ninguem passa por fora) */
+        allow create, update: if isAdmin() || (isDonoFirme(loja)
+          && (doc != 'cupons' || (request.resource.data.get('lista', []) is list && request.resource.data.get('lista', []).size() <= 20)));
       }
       match /pedidos/{pedido} {
         /* O PEDIDO NASCE NO MENSAGEIRO (rota /pedido, conta de servico, que passa por cima destas regras): ele monta o

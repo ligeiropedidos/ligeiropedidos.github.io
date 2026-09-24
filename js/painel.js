@@ -2699,8 +2699,11 @@
         .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para salvar. Tente de novo.')); });
     }
 
+    var MAX_CUPONS = 20;
     function novoCupom() {
       if (!estado.cupons) { UI.avisar('Espere os cupons carregarem para criar outro.'); return; }
+      /* ate 20 por loja: cada cupom da lista custa uma leitura (os usos) a cada vez que os Ajustes abrem */
+      if (estado.cupons.length >= MAX_CUPONS) { UI.avisar('Sua loja já tem ' + MAX_CUPONS + ' cupons, o máximo. Exclua um antigo para criar outro.'); return; }
       var codigo = campoTexto('Código', '', { max: 20, placeholder: 'Ex: BEMVINDO' });
       var percentual = campoTexto('Desconto em %', '10', { tipo: 'number' });
       var minimo = campoDinheiro('Vale a partir de', 0, 'Vazio = qualquer valor');
