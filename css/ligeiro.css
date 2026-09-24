@@ -2229,6 +2229,8 @@ button.plano-card { cursor: pointer; }
 .aviso-app-texto { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .aviso-app-texto b { font-weight: 700; }
 .aviso-app-texto .btn { margin-top: 6px; }
+.aviso-app-texto .botoes-empilhados { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.aviso-app-texto .botoes-empilhados .btn { width: 100%; margin: 0; }
 .cadastro-aviso-app { padding-bottom: 0; }
 /* botao Apito antes do primeiro toque: o navegador ainda nao liberou o som. Pontinho vermelho no canto, pulsando
    (parado com "Reduzir movimento"); some sozinho no primeiro toque em qualquer lugar da tela */

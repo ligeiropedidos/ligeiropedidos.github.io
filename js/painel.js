@@ -972,15 +972,33 @@
           el('div', { class: 'aviso-app-texto' }, [
             el('b', { text: velhos.length === 1 ? 'Um pedido ficou aberto de outro dia' : velhos.length + ' pedidos ficaram abertos de outros dias' }),
             el('span', { text: (senhas.length === 1 ? 'Senha ' : 'Senhas ') + (senhas.length > 1 ? senhas.slice(0, -1).join(', ') + ' e ' + senhas[senhas.length - 1] : senhas[0]) + '. Se já foram entregues, conclua todos de uma vez: somem da cozinha e do entregador.' }),
-            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function (e) {
-              var b = e.currentTarget; b.disabled = true; b.textContent = 'Concluindo…';
-              var lista = velhos.slice();
-              lista.reduce(function (passo, x) { return passo.then(function () { return store.atualizarPedido(slug, x.id, { status: R.STATUS.FINALIZADO }); }); }, Promise.resolve()).then(function () {
-                estado.deOutrosDias = [];
-                UI.avisar(lista.length === 1 ? 'Pedido concluído.' : lista.length + ' pedidos concluídos.');
+            /* um embaixo do outro, largura toda (lado a lado, "Concluir todos" nao cabia no celular); a acao em cima */
+            el('div', { class: 'botoes-empilhados' }, [
+              el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function (e) {
+                var b = e.currentTarget;
+                var lista = velhos.slice();
+                /* concluir mexe em varios pedidos de uma vez: pergunta antes */
+                UI.perguntar((lista.length === 1 ? 'O pedido sai' : 'Os ' + lista.length + ' pedidos saem') + ' da cozinha e do entregador e ' + (lista.length === 1 ? 'conta' : 'contam') + ' nas vendas do dia em que ' + (lista.length === 1 ? 'foi feito.' : 'foram feitos.'), {
+                  titulo: lista.length === 1 ? 'Concluir o pedido de outro dia?' : 'Concluir os ' + lista.length + ' pedidos?', sim: 'Concluir',
+                }).then(function (sim) {
+                  if (!sim) return;
+                  b.disabled = true; b.textContent = 'Concluindo…';
+                  lista.reduce(function (passo, x) { return passo.then(function () { return store.atualizarPedido(slug, x.id, { status: R.STATUS.FINALIZADO }); }); }, Promise.resolve()).then(function () {
+                    estado.deOutrosDias = [];
+                    UI.avisar(lista.length === 1 ? 'Pedido concluído.' : lista.length + ' pedidos concluídos.');
+                    desenharPedidos();
+                  }).catch(function () { b.disabled = false; b.textContent = 'Concluir todos'; UI.avisar('Não deu para concluir agora. Confira a internet e tente de novo.'); });
+                });
+              } }, [UI.iconeLinha('check'), 'Concluir todos']),
+              /* ver antes de concluir: abre a lista "De outros dias", com cada pedido */
+              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+                estado.gruposAbertos = estado.gruposAbertos || {};
+                estado.gruposAbertos['De outros dias'] = true;
                 desenharPedidos();
-              }).catch(function () { b.disabled = false; b.textContent = 'Concluir todos'; UI.avisar('Não deu para concluir agora. Confira a internet e tente de novo.'); });
-            } }, [UI.iconeLinha('check'), 'Concluir todos']),
+                var alvo = $('grupoOutrosDias');
+                if (alvo) alvo.scrollIntoView({ block: 'start' });
+              } }, [UI.iconeLinha('olho'), 'Ver pedidos']),
+            ]),
           ]),
         ]));
       }
@@ -996,6 +1014,8 @@
         { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
       ];
+      /* os de outros dias, fechados embaixo da fila (o aviso la em cima abre e conclui) */
+      if (velhos.length) grupos.push({ titulo: 'De outros dias', lista: velhos.slice().sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; }), fechado: true, id: 'grupoOutrosDias' });
       /* "hoje" e o dia de trabalho da fila (desde as 5 h): depois da meia-noite os pedidos da noite continuam aqui.
          Concluidos e cancelados so depois que o dono abre (a fila nao escuta mais o dia inteiro) */
       var encerrados = estado.encerrados ? Object.keys(estado.encerrados).map(function (id) { return estado.encerrados[id]; }).filter(function (p) { return p.criadoEm >= inicioDoDia; }) : null;
@@ -1010,7 +1030,7 @@
         var lista = g.lista || estado.pedidos.filter(g.filtro);
         if (lista.length === 0) return;
         algum = true;
-        var titulo = el('div', { class: 'fila-titulo' }, [el('span', { text: g.titulo }), el('span', { text: lista.length })]);
+        var titulo = el('div', { class: 'fila-titulo', id: g.id || null }, [el('span', { text: g.titulo }), el('span', { text: lista.length })]);
         caixa.appendChild(titulo);
         if (g.fechado) {
           var det = el('details');
