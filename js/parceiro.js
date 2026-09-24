@@ -217,7 +217,7 @@
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/comecar', text: 'Começar grátis' })];
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
-        el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '37 s' }),
+        el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '51 s' }),
       ]));
       return el('div', { class: 'pilha chamada' }, lista);
     }
@@ -227,7 +227,7 @@
       var antes = document.activeElement;
       var origem = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget : null;
       var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=3', poster: 'midia/comercial-ligeiro.jpg', controls: true, playsinline: true, preload: 'auto' });
+      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=4', poster: 'midia/comercial-ligeiro.jpg?v=4', controls: true, playsinline: true, preload: 'auto' });
       var fim = el('div', { class: 'video-fim', hidden: true }, [
         el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis', onclick: fechar }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { fechar(); abrirContato('video'); } }),
