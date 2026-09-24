@@ -2509,7 +2509,13 @@
         '<div class="pix-falhou" id="cartaoFalhou" hidden><p id="cartaoFalhouTexto"></p><button class="btn btn-escuro btn-pequeno" id="btnTentarCartao" type="button">Tentar de novo</button></div>' +
         '<div class="cartao-form" id="cartaoForm"></div>' +
         '<button class="btn btn-contorno btn-largo" id="btnOutraForma" type="button" style="max-width:440px" hidden>Pagar de outro jeito</button>' +
-        '<p class="nota">' + UI.iconeHtml('cadeado') + 'À vista, com a segurança do Mercado Pago.</p>' +
+        /* o que o cliente precisa ouvir antes de digitar o cartao num site que nao conhece (e e verdade: o site so recebe
+           um codigo de uso unico; numero, validade e codigo de seguranca ficam no Mercado Pago) */
+        '<ul class="garantias">' +
+          '<li>' + UI.iconeHtml('escudo') + '<span>Pagamento protegido pelo Mercado Pago</span></li>' +
+          '<li>' + UI.iconeHtml('cadeado') + '<span>O cartão vai direto para o Mercado Pago</span></li>' +
+          '<li>' + UI.iconeHtml('olho') + '<span>A loja não vê nem guarda o seu cartão</span></li>' +
+        '</ul>' +
       '</div>' +
     '</section>' +
 

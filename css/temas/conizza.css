@@ -184,6 +184,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .cartao-recusado { border: 3px solid var(--cz-vermelho); border-radius: 14px; background: #fdebd3; color: var(--cz-tinta); }
 .tema-conizza .cartao-recusado .ico-traco { color: var(--cz-vermelho); }
 .tema-conizza .cartao-teste { background: linear-gradient(135deg, var(--cz-vermelho), var(--cz-vermelho-escuro)); border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); }
+.tema-conizza .garantias li { color: var(--cz-tinta-suave); }
+.tema-conizza .garantias .ico-traco { color: var(--cz-verde); }
 .tema-conizza .forma-grupo { color: var(--cz-tinta-suave); font-family: var(--cz-display); letter-spacing: 0.04em; }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }

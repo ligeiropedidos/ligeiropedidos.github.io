@@ -2141,3 +2141,8 @@ button.plano-card { cursor: pointer; }
 .cartao-teste-numero { font-family: var(--display); font-size: 20px; letter-spacing: 0.08em; }
 .cartao-teste-linha { display: flex; justify-content: space-between; font-size: 13px; opacity: 0.85; }
 .pix-cartao .cartao-form .nota { margin: 0 0 12px; text-align: center; }
+/* garantias da tela do cartao: bloco centrado, itens alinhados pela esquerda (os icones numa coluna so) */
+.garantias { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: fit-content; max-width: 440px; margin: 4px 0 0; padding: 0; list-style: none; }
+.garantias li { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--muted); text-align: left; }
+.garantias .ico-traco { flex: none; color: var(--lime-escuro); }
+.garantias .ico-traco svg { width: 18px; height: 18px; }
