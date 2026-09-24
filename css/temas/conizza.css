@@ -167,7 +167,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 @media (max-width: 360px) { .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 96px; height: 96px; } } /* celular pequeno: preco e PEDIR cabem na mesma linha */
 .tema-conizza .card-produto:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .card-produto .foto { border: 3px solid var(--cz-tinta); border-radius: 14px; background: linear-gradient(160deg, var(--cz-ouro-claro), var(--cz-ouro)); }
-.tema-conizza .card-produto .nome { font-family: var(--cz-display); font-weight: 800; font-size: 20px; }
+.tema-conizza .card-produto .nome { font-family: var(--cz-display); font-weight: 800; font-size: 20px; line-height: 1.2; } /* a Baloo tem entrelinha alta: em duas linhas abria um buraco */
 .tema-conizza .card-produto .desc { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .card-produto .preco, .tema-conizza .item-carrinho .preco, .tema-conizza .destaque .preco { font-family: var(--cz-display); font-weight: 800; color: var(--cz-vermelho); }
 

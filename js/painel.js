@@ -2087,7 +2087,7 @@
         if (sabido && Date.now() - sabido.em < 2 * 60 * 1000) usosTexto.textContent = textoUsos(sabido.n);
         else if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { estado.usosCupom[c.codigo] = { n: Number(n) || 0, em: Date.now() }; usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
         listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
-          el('div', { class: 'nome' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
+          el('div', { class: 'nome nome-cupom' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
           excluir,
           chave,
         ]));

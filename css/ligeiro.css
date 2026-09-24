@@ -349,7 +349,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aba { flex: none; min-height: 46px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; }
 .aba.ativa { background: var(--deep); color: #fff; border-color: var(--deep); }
 .grade { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 4px var(--margem) 24px; } /* 12 da barra de categorias + 4 = 16 ate o primeiro cartao */
-@media (min-width: 560px) { .grade { grid-template-columns: 1fr 1fr; } }
+/* duas colunas so quando os dois cartoes cabem inteiros (o da loja oficial pede 303 px): antes, de 560 a 650 px, a
+   pagina rolava de lado e o PEDIR saia da tela */
+@media (min-width: 560px) { .grade { grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr)); } }
 .card-produto {
   display: flex; gap: 14px; align-items: stretch; text-align: left; width: 100%;
   padding: 12px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio);
@@ -360,14 +362,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .card-produto .foto { position: relative; flex: none; align-self: center; width: 108px; height: 108px; aspect-ratio: 1 / 1; border-radius: 14px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 44px; line-height: 1; overflow: hidden; }
 .card-produto .foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 .card-produto .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; }
+.card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; line-height: 1.25; } /* nome em duas linhas sem vao de paragrafo entre elas */
 .card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 2 linhas: a altura do cartao (e da foto) fica sob controle */
 .card-produto .nome { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-produto .rodape-card { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
+.card-produto .rodape-card { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; } /* preco nunca encosta no PEDIR */
+.card-produto .rodape-card .preco { white-space: nowrap; }
 .card-produto .preco { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--deep); white-space: nowrap; }
 .card-produto .mais { white-space: nowrap; }
 .card-produto .mais { font-size: 14px; font-weight: 700; color: var(--texto-no-destaque); background: var(--lime); padding: 8px 14px; border-radius: 10px; }
-@media (max-width: 360px) { .card-produto .foto { width: 96px; height: 96px; } .card-produto .preco { font-size: 17px; } .card-produto .mais { padding: 8px 10px; } .card-produto .rodape-card { gap: 8px; } } /* preco e PEDIR na mesma linha, inteiros */
+@media (max-width: 360px) { .card-produto .foto { width: 96px; height: 96px; } .card-produto .preco { font-size: 17px; } .card-produto .mais { padding: 8px 10px; } } /* preco e PEDIR na mesma linha, inteiros */
 
 /* ---------- Barra do carrinho ---------- */
 
@@ -1909,7 +1912,8 @@ button.plano-card { cursor: pointer; }
 .id-loja { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .id-loja-texto { display: flex; flex-direction: column; gap: 4px; }
 .id-loja-linha { display: flex; align-items: stretch; gap: 10px; } /* codigo com a altura do botao ao lado */
-.id-loja-valor { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--lime-suave); color: var(--deep); font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 15px; font-weight: 700; }
+/* o endereco inteiro, sempre (e para copiar): endereco comprido quebra linha em vez de sumir com reticencias */
+.id-loja-valor { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; display: flex; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--lime-suave); color: var(--deep); font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 15px; font-weight: 700; }
 
 /* icone de traco dentro de botao e de selo (Entrega, Retirada, Mapa, Entregue, relogio) */
 .ico-traco { display: inline-flex; flex: none; line-height: 1; }
@@ -2146,3 +2150,4 @@ button.plano-card { cursor: pointer; }
 .garantias li { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--muted); text-align: left; }
 .garantias .ico-traco { flex: none; color: var(--lime-escuro); }
 .garantias .ico-traco svg { width: 18px; height: 18px; }
+.linha-produto .nome-cupom small { white-space: normal; overflow: visible; text-overflow: clip; } /* "a partir de R$ 30,00 · 0 de 100 usos" inteiro */

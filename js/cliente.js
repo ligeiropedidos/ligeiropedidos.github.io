@@ -680,7 +680,7 @@
            so entra se a linha embaixo do nome nao falou dela e se o endereco (logo abaixo, com a cidade) nao vai aparecer */
         var partes = [];
         var pixSite = pixDisponivel(l), cartaoSite = cartaoDisponivel(l);
-        if (pixSite || cartaoSite) partes.push(['cadeado', pixSite && cartaoSite ? 'Pix e cartão seguros pelo Mercado Pago' : pixSite ? 'Pix seguro pelo Mercado Pago' : 'Cartão seguro pelo Mercado Pago']);
+        if (pixSite || cartaoSite) partes.push(['escudo', pixSite && cartaoSite ? 'Pix e cartão protegidos pelo Mercado Pago' : pixSite ? 'Pix protegido pelo Mercado Pago' : 'Cartão protegido pelo Mercado Pago']);
         if (l.cidade && !l.endereco && !R.mencionaCidade(textoTopo, l.cidade)) partes.push(['mapa', 'Somos de ' + l.cidade]);
         /* cada item inteiro numa linha: quebra entre itens, nunca no meio de um */
         if (partes.length) fim.appendChild(el('div', { class: 'confianca' }, partes.map(function (t) { return el('span', {}, [UI.iconeLinha(t[0]), t[1]]); })));
@@ -2496,6 +2496,11 @@
         '<div class="qr-caixa" id="pixQr"></div>' +
         '<code class="codigo-pix" id="pixCodigo"></code>' +
         '<p class="nota">O Pix vale por 30 minutos. Não precisa avisar ninguém: assim que cair, você recebe a senha do pedido.</p>' +
+        /* as mesmas garantias da tela do cartao, no mesmo lugar (fim da coluna) */
+        '<ul class="garantias">' +
+          '<li>' + UI.iconeHtml('escudo') + '<span>Pix protegido pelo Mercado Pago</span></li>' +
+          '<li>' + UI.iconeHtml('loja') + '<span>O dinheiro vai direto para a loja</span></li>' +
+        '</ul>' +
       '</div>' +
     '</section>' +
 
@@ -2512,7 +2517,7 @@
         /* o que o cliente precisa ouvir antes de digitar o cartao num site que nao conhece (e e verdade: o site so recebe
            um codigo de uso unico; numero, validade e codigo de seguranca ficam no Mercado Pago) */
         '<ul class="garantias">' +
-          '<li>' + UI.iconeHtml('escudo') + '<span>Pagamento protegido pelo Mercado Pago</span></li>' +
+          '<li>' + UI.iconeHtml('escudo') + '<span>Cartão protegido pelo Mercado Pago</span></li>' +
           '<li>' + UI.iconeHtml('cadeado') + '<span>O cartão vai direto para o Mercado Pago</span></li>' +
           '<li>' + UI.iconeHtml('olho') + '<span>A loja não vê nem guarda o seu cartão</span></li>' +
         '</ul>' +
