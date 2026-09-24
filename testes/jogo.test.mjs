@@ -57,7 +57,11 @@ const janela = {
 janela.window = janela;
 const guardado = {};
 janela.LigeiroUI = {
-  el(tag, atr, filhos) { const e = elemento(tag); Object.assign(e, atr || {}); if (atr && atr.text) e.textContent = atr.text; return e; },
+  el(tag, atr, filhos) {
+    const e = elemento(tag); Object.assign(e, atr || {}); if (atr && atr.text) e.textContent = atr.text;
+    [].concat(filhos == null ? [] : filhos).forEach((f) => { if (f == null) return; if (typeof f === 'string') { const t = elemento('#text'); t.textContent = f; e.appendChild(t); } else e.appendChild(f); });
+    return e;
+  },
   iconeLinha() { return elemento('span'); },
   limpar(e) { e.children = []; },
   lerLocal(k) { return k in guardado ? guardado[k] : null; },
@@ -244,6 +248,39 @@ ok(!/firestore|fetch\(|firebase|XMLHttpRequest/i.test(codigo.replace(/\/\*[\s\S]
 
 LJ.fechar();
 ok(!LJ.aberto(), 'fecha e solta tudo');
+
+/* ---- 5. os lanches da loja viram os poderes; no fim, "Bateu fome?" leva ao lanche (nada do banco) ---- */
+console.log('Lanches da loja');
+let visto = null;
+LJ.abrir({
+  cidade: 'Registro', nomeLoja: 'Lanchonete do Zé', aoVerProduto: (id) => { visto = id; },
+  produtos: [{ id: 'x-bacon', nome: 'X-Bacon', preco: 2400, emoji: '🍔', foto: '' }, { id: 'batata', nome: 'Batata frita', preco: 1200, emoji: '🍟', foto: '' }, { id: 'x-tudo', nome: 'X-Tudo', preco: 2800, foto: 'img/x-tudo.jpg' }],
+});
+await new Promise((r) => setTimeout(r, 20));
+ok(J() && J().fase === 'inicio', 'abre com os lanches da loja (a foto vem do celular, sem esperar o banco)');
+j = corridaLimpa();
+j.obj.push({ tipo: 'turbo', faixa: 0, z: 0.5, alt: 0.9 });
+T.passo(dt);
+ok(j.pegos['x-bacon'] === 1 && j.textos.some((t) => t.t === 'X-Bacon: turbo!'), 'pegou o poder do X-Bacon: o recado diz "X-Bacon: turbo!"');
+j.turbo = 0; j.imune = 0;
+j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+await new Promise((r) => setTimeout(r, 900));
+const acha = (e, cls) => { if (!e) return null; if (String(e.class || e.className || '').split(' ').indexOf(cls) >= 0) return e; for (const f of e.children || []) { const r = acha(f, cls); if (r) return r; } return null; };
+const fome = acha(J() && J().painel, 'jogo-fome');
+const textoFome = fome ? JSON.stringify(fome.children.map((c) => (c.children || []).map((x) => x.textContent))) : '';
+ok(J().fase === 'fim' && fome && /Bateu fome\?/.test(textoFome) && /X-Bacon por R\$ 24,00/.test(textoFome), 'fim: "Bateu fome?" com o lanche que mais pegou e o preço');
+const botaoFome = fome && fome.children.find((c) => c.tagName === 'BUTTON');
+botaoFome.onclick();
+ok(visto === 'x-bacon' && !LJ.aberto(), '"Ver no cardápio" fecha o jogo e leva ao X-Bacon');
+LJ.abrir({ cidade: 'Registro', nomeLoja: 'Lanchonete do Zé', aoVerProduto: () => {}, podePedir: () => false, produtos: [{ id: 'x-bacon', nome: 'X-Bacon', preco: 2400, emoji: '🍔', foto: '' }] });
+await new Promise((r) => setTimeout(r, 20));
+j = corridaLimpa();
+j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+await new Promise((r) => setTimeout(r, 900));
+ok(J().fase === 'fim' && !acha(J().painel, 'jogo-fome'), 'loja fechou durante a corrida: sem "Bateu fome?"');
+LJ.fechar();
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

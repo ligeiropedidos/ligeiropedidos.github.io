@@ -2289,12 +2289,28 @@
           J.abrir({
             cidade: estado.loja.cidade,
             logo: D.logoSrc ? D.logoSrc(estado.loja) : null,
+            /* os lanches da loja viram os poderes do jogo (do cardapio que ja esta no celular: nada vem do banco) */
+            nomeLoja: estado.loja.nome,
+            produtos: produtosDoJogo(),
+            podePedir: function () { return !!(vivo && estado.loja && R.lojaAberta(estado.loja)); },
+            aoVerProduto: function (id) {
+              var p = R.produtosAtivos(estado.loja).filter(function (x) { return x.id === id; })[0];
+              novoPedido();
+              if (!p || !R.lojaAberta(estado.loja)) return;
+              comecarPedido(); montarGrade(p.categoria); abrirPersonalizacao(p);
+            },
             rotulo: 'Senha ' + estado.pedido.senha + ' · ' + R.rotuloStatusCliente(estado.pedido),
             aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
           });
         }, function () { btn.disabled = false; UI.avisar('Não deu para abrir o jogo agora. Confira a internet.'); });
       } }, 'Jogar');
       caixa.appendChild(btn);
+    }
+    /* ate 3 lanches (sem bebida), os com foto primeiro: a foto so se ja estiver no celular */
+    function produtosDoJogo() {
+      var lista = R.produtosAtivos(estado.loja).filter(function (p) { return p.preco > 0 && !/bebida/i.test(p.categoria || ''); });
+      var comFoto = lista.filter(function (p) { return D.fotoSrc(p, estado.fotos); }), semFoto = lista.filter(function (p) { return !D.fotoSrc(p, estado.fotos); });
+      return comFoto.concat(semFoto).slice(0, 3).map(function (p) { return { id: p.id, nome: p.nome, preco: p.preco, emoji: p.emoji || '', foto: D.fotoSrc(p, estado.fotos) || '' }; });
     }
     function carregarJogo() {
       if (window.LigeiroJogo) return Promise.resolve(window.LigeiroJogo);
