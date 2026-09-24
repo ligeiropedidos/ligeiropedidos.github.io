@@ -324,7 +324,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aviso-cel-pedido { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; }
 .tema-conizza .linha-do-tempo { background: var(--cz-branco); border: 3px solid var(--cz-tinta); border-radius: 18px; } /* o mesmo cartao da casa */
 .tema-conizza .jogo-convite { background: linear-gradient(135deg, #FDEDBF 0%, var(--cz-branco) 85%); }
-.tema-conizza .jogo-convite-ico { background: var(--cz-branco); box-shadow: 0 0 0 2px var(--cz-ouro); }
+.tema-conizza .jogo-convite-ico { box-shadow: 0 0 0 2px var(--cz-tinta), 0 3px 0 var(--cz-tinta); }
 .tema-conizza .jogo-recorde-selo { background: var(--cz-vermelho); color: var(--cz-creme); }
 .tema-conizza .jogo-recorde-selo .ico-traco { color: var(--cz-ouro-claro); }
 .tema-conizza .aviso-cel-pedido.ligado { background: var(--cz-verde-claro); border-color: var(--cz-verde); }
@@ -340,3 +340,46 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aceite-campo:checked + .aceite-caixa { background: var(--cz-vermelho); border-color: var(--cz-tinta); color: var(--cz-creme); }
 .tema-conizza .termos-resumo li::before { background: var(--cz-vermelho); }
 .tema-conizza .termos-links a, .tema-conizza .aceite-texto a { color: var(--cz-vermelho); }
+
+/* ---------- ritmo com a sombra chapada da casa ----------
+   A sombra desce abaixo de cada peca (4 px; 6 no cartao da senha; 10 no botao gigante) e comia o espaco de baixo.
+   Nas colunas, a peca ganha embaixo o mesmo tanto da sombra: o espaco que se ve fica igual ao das outras lojas
+   (16 entre blocos, 12 entre itens de lista, 8 entre opcoes). Botao em fileira (lado a lado) nao ganha: sairia do centro */
+.tema-conizza .card-produto,
+.tema-conizza .oficial-extra,
+.tema-conizza .aviso-topo,
+.tema-conizza .item-carrinho,
+.tema-conizza .totais,
+.tema-conizza .qr-caixa,
+.tema-conizza .escolha-grande,
+.tema-conizza .opcao,
+.tema-conizza .bloco-form,
+.tema-conizza .pedido-card,
+.tema-conizza .tela-card,
+.tema-conizza .linha-produto,
+.tema-conizza .metrica,
+.tema-conizza .ficha-cozinha,
+.tema-conizza .status-loja,
+.tema-conizza .barras,
+.tema-conizza .avaliar-google,
+.tema-conizza .zap-status { margin-bottom: 4px; }
+.tema-conizza .passo-item,
+.tema-conizza .passos-feitos { margin-bottom: 3px; }
+.tema-conizza .painel-senha { margin-bottom: 6px; }
+.tema-conizza .btn-gigante { margin-bottom: 10px; }
+/* opcoes da janela do item: la as margens se juntam (nao somam), entao o espaco vai em cima de cada opcao (12 menos a
+   sombra = 8, igual as outras lojas) e um respiro embaixo do grupo (16 ate o proximo, contando a sombra) */
+.tema-conizza .grupo > .opcao { margin-bottom: 0; }
+.tema-conizza .grupo > .opcao + .opcao { margin-top: 12px; }
+.tema-conizza .grupo { padding-bottom: 4px; }
+.tema-conizza .sucesso > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .abertura > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .conteudo > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .pilha > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .fim-inicio > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .modal-corpo > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante),
+.tema-conizza .passos-card > .btn:not(.btn-fantasma):not(.btn-link):not(.btn-gigante) { margin-bottom: 4px; }
+/* avisos leves no cartao da casa: a borda grossa e o canto de todo cartao; o fundo continua o de cada aviso */
+.tema-conizza .aviso, .tema-conizza .a-cobrar { border: 3px solid var(--cz-tinta); border-radius: 18px; color: var(--cz-tinta); }
+.tema-conizza .aviso > .ico-traco { color: var(--cz-verde); }
+.tema-conizza .a-cobrar .ico-traco { color: var(--cz-vermelho); }

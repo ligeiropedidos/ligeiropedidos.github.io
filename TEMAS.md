@@ -25,9 +25,21 @@ O tema muda a cara da loja sem quebrar nenhuma peça do sistema. Para isso, esta
   `pix-` / `cartao-` (telas de pagamento), `forma-` (formas de pagamento), `garantias`, `faixa-`.
 - Estado de peça é classe junto do prefixo (`tour-abertura`), não uma palavra que outro lugar já usa.
 
-## 4. Antes de publicar um tema
+## 4. Sombra chapada ocupa espaço
+
+- Sombra sem desfoque (`box-shadow: 0 4px 0 ...`) desce abaixo da peça e come o espaço de baixo: o vão de 16 vira 12.
+- Toda peça com sombra chapada, empilhada em coluna, ganha `margin-bottom` do mesmo tamanho da sombra (4, 6, 10...).
+  Botão em fileira (lado a lado) não ganha, senão sai do centro.
+- Onde as margens se juntam em vez de somar (coluna em bloco, como as opções da janela do item), o espaço vai em
+  cima da peça seguinte (`+ .peca { margin-top }`) e um `padding-bottom` no grupo.
+- A régua é o tema comum: o espaço que se vê tem que ser o mesmo nas duas lojas (16 entre blocos, 12 entre itens de
+  lista e blocos do formulário, 8 entre opções e entre linhas que andam juntas).
+- Aviso leve (`.aviso`, `.a-cobrar`) usa a borda e o canto dos cartões do tema, com o fundo do próprio aviso.
+
+## 5. Antes de publicar um tema
 
 1. `node --test testes/temas.test.js testes/regras.test.js testes/pix.test.js`
 2. Abrir a loja do tema e uma loja comum, em 320, 375 e 390 px, e rodar `ferramentas/auditoria-visual.js`
    (`ligeiroAuditar()` em cada tela do pedido e `ligeiroBotoes()` no painel). Tudo tem que voltar `ok` / vazio.
+   `ligeiroRitmo()` em cada tela mostra o espaço visto entre os blocos: tem que bater com o da loja comum.
 3. Passar o tutorial do painel inteiro nas duas lojas: o lugar aceso sempre acima do balão.

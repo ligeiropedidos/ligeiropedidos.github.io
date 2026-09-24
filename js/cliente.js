@@ -2237,6 +2237,30 @@
     /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
     /* Corrida do Ligeiro: o joguinho enquanto o pedido fica pronto. So depois de pago (antes, o certo e pagar) e ate
        sair ou ficar pronto. Zero banco: roda no aparelho, e o codigo so baixa quando a pessoa toca em Jogar */
+    /* arte do icone da Corrida: ceu, sol, morro, a rua em perspectiva com as faixas e a motinho do Ligeiro de costas */
+    var ARTE_CORRIDA = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
+      '<defs><linearGradient id="arteCorridaCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FB6EE"/><stop offset="1" stop-color="#D4F0FF"/></linearGradient></defs>' +
+      '<rect width="48" height="48" fill="url(#arteCorridaCeu)"/>' +
+      '<circle cx="37.5" cy="9.5" r="7" fill="#FFF3B8" opacity=".6"/><circle cx="37.5" cy="9.5" r="4.6" fill="#FFD84A"/>' +
+      '<path d="M0 21c7-6 13-6 19-2s12 2 17-3 9-2 12 1v7H0z" fill="#A9D98C"/>' +
+      '<path d="M0 23c9-4 16-3 24 0s16 2 24-1v26H0z" fill="#7CC35A"/>' +
+      '<path d="M20.6 23h6.8L47 48H1z" fill="#E3DCCB"/>' +
+      '<path d="M21.6 23h4.8L43 48H5z" fill="#4B5058"/>' +
+      '<path d="M21.6 23 5 48H2.6L20.9 23zM26.4 23 43 48h2.4L27.1 23z" fill="#D64541"/>' +
+      '<path d="M23.2 23.5 19.5 48M24.8 23.5 28.5 48" stroke="#fff" stroke-width=".9" stroke-dasharray="2.2 2.4" opacity=".9"/>' +
+      '<circle cx="28" cy="27" r="1" fill="#F7C325" stroke="#D9A109" stroke-width=".4"/><circle cx="29.8" cy="30.6" r="1.35" fill="#F7C325" stroke="#D9A109" stroke-width=".45"/><circle cx="32.2" cy="35.6" r="1.75" fill="#F7C325" stroke="#D9A109" stroke-width=".5"/>' +
+      '<path d="M7 29.5 3.5 36M41 29.5l3.5 6.5M9.5 37 6.5 43M38.5 37l3 6" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".85"/>' +
+      '<g stroke="#A99FB0" stroke-width=".45"><circle cx="20.5" cy="31.3" r="2.3" fill="#DDD6E2"/><circle cx="27.5" cy="31.3" r="2.3" fill="#DDD6E2"/>' +
+      '<circle cx="24" cy="32.6" r="2.9" fill="#F1EDF3"/></g>' +
+      '<g fill="#fff" stroke="#C9CFCC" stroke-width=".4"><rect x="21.3" y="28" width="5.4" height="2.2" rx=".8"/><circle cx="22.2" cy="27.5" r="1.5"/><circle cx="25.8" cy="27.5" r="1.5"/><circle cx="24" cy="26.8" r="1.8"/></g>' +
+      '<path d="M18.7 34.6h10.6l-.9-1.5h-8.8z" fill="#1B6B4A"/>' +
+      '<rect x="18.2" y="34.4" width="11.6" height="8.2" rx="1.7" fill="#0F3D2E"/>' +
+      '<circle cx="24" cy="37.8" r="2.4" fill="#fff"/><circle cx="24" cy="37.8" r="1.1" fill="#84CC16"/>' +
+      '<rect x="18.4" y="40.5" width="11.2" height="1.1" fill="#84CC16"/>' +
+      '<rect x="20.6" y="42" width="6.8" height="3.8" rx="1.6" fill="#84CC16"/>' +
+      '<rect x="22.4" y="42.7" width="3.2" height="1.2" rx=".5" fill="#FF3B30"/>' +
+      '<rect x="22.5" y="44.9" width="3" height="3.1" rx="1.2" fill="#1D1F22"/>' +
+      '</svg>';
     function desenharConviteJogo(pedido, esconder) {
       var caixa = $('jogoConvite');
       if (!caixa) return;
@@ -2245,7 +2269,7 @@
       if (esconder || !andando || estado.loja.jogoDesligado === true) { caixa.hidden = true; return; }
       caixa.hidden = false;
       var recorde = Number(UI.lerLocal('ligeiro:jogo:recorde')) || 0;
-      caixa.appendChild(el('span', { class: 'jogo-convite-ico', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 })]));
+      caixa.appendChild(el('span', { class: 'jogo-convite-ico', 'aria-hidden': 'true', html: ARTE_CORRIDA }));
       /* textos curtos: cada um numa linha so, ate no celular estreito (o do lado, "Quer saber quando sair?", tambem) */
       caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [
         el('b', { text: 'Corrida do Ligeiro' }),
@@ -2261,6 +2285,7 @@
           if (!vivo || !estado.pedido) return;
           J.abrir({
             cidade: estado.loja.cidade,
+            logo: D.logoSrc ? D.logoSrc(estado.loja) : null,
             rotulo: 'Senha ' + estado.pedido.senha + ' · ' + R.rotuloStatusCliente(estado.pedido),
             aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
           });

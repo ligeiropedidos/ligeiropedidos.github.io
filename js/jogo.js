@@ -83,7 +83,8 @@
   function bola(x, cx, cy, r) { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.closePath(); }
 
   var SP = null;
-  var mascote = null; /* o ratinho de frente, para o adesivo da caixa e para as telas do jogo */
+  /* o adesivo da caixa de entrega: a logo da loja (a moto entrega para ela); sem logo, o ratinho do Ligeiro */
+  var marca = null;
 
   /* poder na rua: uma bolha colorida com o desenho branco dentro (ima vermelho, turbo amarelo, capacete azul) */
   function bolhaDePoder(cor, desenho) {
@@ -274,9 +275,17 @@
       x.fillStyle = '#1B6B4A'; x.beginPath(); x.moveTo(20, 66); x.lineTo(90, 66); x.lineTo(86, 58); x.lineTo(24, 58); x.closePath(); x.fill();
       x.fillStyle = '#0F3D2E'; retangulo(x, 18, 64, 74, 52, 8); x.fill();
       x.fillStyle = '#84CC16'; x.fillRect(18, 104, 74, 5);
-      x.fillStyle = '#FFFFFF'; bola(x, 55, 84, 15); x.fill();
-      if (mascote && mascote.complete && mascote.naturalWidth) { x.save(); bola(x, 55, 84, 14); x.clip(); x.drawImage(mascote, 38, 67, 34, 34); x.restore(); }
-      else { x.fillStyle = '#0F3D2E'; x.font = '900 18px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('L', 55, 85); }
+      x.fillStyle = '#FFFFFF'; bola(x, 55, 84, 18); x.fill();
+      if (marca && marca.img && marca.img.complete && marca.img.naturalWidth) {
+        x.save(); bola(x, 55, 84, 17); x.clip();
+        if (marca.logo) {
+          /* logo da loja inteira dentro do circulo, sem cortar (logo larga fica larga, quadrada fica quadrada) */
+          var iw = marca.img.naturalWidth, ih = marca.img.naturalHeight || iw;
+          var esc = 31 / Math.max(iw, ih);
+          x.drawImage(marca.img, 55 - (iw * esc) / 2, 84 - (ih * esc) / 2, iw * esc, ih * esc);
+        } else x.drawImage(marca.img, 35, 64, 40, 40);
+        x.restore();
+      } else { x.fillStyle = '#0F3D2E'; x.font = '900 18px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('L', 55, 85); }
     });
   }
 
@@ -1285,17 +1294,26 @@
     try { history.pushState({ ligeiroJogo: true }, ''); J.empurrou = true; } catch (_) { J.empurrou = false; }
     window.addEventListener('popstate', aoVoltarNavegador);
 
+    /* os desenhos dependem da loja (a logo na caixa e a cidade na placa): refeitos so quando a loja muda */
+    var chave = (op.cidade || '') + '|' + (op.logo || '');
     var comeco = function () {
       if (!J) return;
-      if (!SP) montarDesenhos(op.cidade);
+      if (!SP || SP.chave !== chave) { montarDesenhos(op.cidade); SP.chave = chave; }
       medir();
       telaInicio();
     };
-    if (!mascote) {
-      mascote = new Image();
-      mascote.onload = mascote.onerror = comeco;
-      mascote.src = 'img/mascote-192.webp';
-    } else comeco();
+    if (SP && SP.chave === chave) { comeco(); return; }
+    var img = new Image();
+    var usar = function (ehLogo) { marca = { img: img, logo: ehLogo }; comeco(); };
+    img.onload = function () { usar(!!op.logo); };
+    /* logo que nao carrega: volta para o ratinho */
+    img.onerror = function () {
+      if (!op.logo || img.dataset.mascote) { marca = null; comeco(); return; }
+      img.dataset.mascote = '1';
+      img.onload = function () { usar(false); };
+      img.src = 'img/mascote-192.webp';
+    };
+    img.src = op.logo || 'img/mascote-192.webp';
   }
 
   function fechar(peloVoltar) {

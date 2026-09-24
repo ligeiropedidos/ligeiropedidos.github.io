@@ -59,7 +59,8 @@ temas.forEach(function (arquivo) {
   test('tema ' + nome + ': nao mexe na posicao das pecas do sistema (tutorial e mensagens por cima da tela)', function () {
     const css = fs.readFileSync(path.join(PASTA, arquivo), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     /* essas pecas ficam presas na tela: o tema pode mudar cor, borda e letra, nunca position, top, inset ou z-index */
-    const perigo = /(\.tour[\w-]*|\.modal[\w-]*|\.toast[\w-]*|\.pausa-fundo)[^{]*\{[^}]*\b(position|inset|top|bottom|z-index)\s*:/g;
+    /* "margin-bottom" e "padding-top" sao espaco, nao posicao: so vale a propriedade sozinha (top:, bottom:...) */
+    const perigo = /(\.tour[\w-]*|\.modal[\w-]*|\.toast[\w-]*|\.pausa-fundo)[^{]*\{[^}]*(?<![-\w])(position|inset|top|bottom|z-index)\s*:/g;
     const achados = css.match(perigo) || [];
     assert.deepStrictEqual(achados.map(function (x) { return x.slice(0, 80); }), [], 'o tema mexeu na posicao de peca do sistema');
   });
