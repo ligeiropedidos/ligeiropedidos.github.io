@@ -1283,7 +1283,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-entrar .conta-bolinha.sem-letra { background: var(--lime-suave) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230F3D2E'%3E%3Ccircle cx='12' cy='8.5' r='4.2'/%3E%3Cpath d='M4 20.5c0-4.1 3.6-6.7 8-6.7s8 2.6 8 6.7z'/%3E%3C/svg%3E") center / 20px no-repeat; }
 @media (hover: hover) { .btn-entrar:hover .conta-bolinha.sem-letra { background-color: #fff; } }
 .barra-topo .btn-assinar { min-height: 44px; padding: 8px 20px; border-radius: 999px; }
-@media (max-width: 420px) { .barra-topo .btn-conta { min-height: 40px; padding: 3px 12px 3px 3px; gap: 8px; font-size: 14px; } .barra-topo .conta-bolinha { width: 32px; height: 32px; font-size: 16px; } .barra-topo .btn-assinar { min-height: 40px; padding: 6px 14px; } }
+/* os botoes ficam compactos ate 480: entre 421 e ~460 (iPhone Pro Max, PC com barra de rolagem) "Começar grátis" quebrava em duas linhas */
+.barra-topo .btn-conta, .barra-topo .btn-assinar { white-space: nowrap; }
+@media (max-width: 480px) { .barra-topo .btn-conta { min-height: 40px; padding: 3px 12px 3px 3px; gap: 8px; font-size: 14px; } .barra-topo .conta-bolinha { width: 32px; height: 32px; font-size: 16px; } .barra-topo .btn-assinar { min-height: 40px; padding: 6px 14px; } }
 @media (max-width: 360px) { .barra-topo .btn-entrar .conta-bolinha { display: none; } .barra-topo .btn-entrar { padding: 6px 14px; } } /* 320: "Entrar" e "Assinar" cabem do lado da marca */
 .preco-destaque { color: var(--lime-escuro); white-space: nowrap; }
 .heroi-mascote { position: relative; z-index: 1; width: 150px; height: 150px; object-fit: contain; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
@@ -1299,7 +1301,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vender-grade .cartao, .raio, .plano-card, .passo-venda { transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s; }
 .heroi-texto { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; }
 .final-mascote { width: 96px; height: 96px; object-fit: contain; }
-@media (max-width: 420px) { .barra-topo .marca { font-size: 24px; } .barra-topo .mascote { display: none; } .barra-topo .btn-pequeno { min-height: 40px; padding: 6px 10px; font-size: 14px; } }
+@media (max-width: 480px) { .barra-topo .btn-pequeno { min-height: 40px; padding: 6px 10px; font-size: 14px; } }
+@media (max-width: 420px) { .barra-topo .marca { font-size: 24px; } .barra-topo .mascote { display: none; } }
 /* botao do comercial (segundo botao do heroi) e o player por cima da pagina */
 /* play: triangulo de cantos redondos com 40% da bolinha, no centro que o olho ve: a caixa dele fica 0,7 a direita do
    centro da grade de 24 (o peso do triangulo mora na esquerda; na regua exata ele parecia puxado para a esquerda, e
