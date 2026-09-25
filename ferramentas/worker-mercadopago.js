@@ -13,6 +13,8 @@
  *   GET  /foto/{slug}/{id}   -> uma foto grande (item aberto, capa). Cada foto tem nome unico: fica guardada para sempre.
  *   GET  /vitrine            -> o resumo das lojas (pagina das cidades e pagina de vendas), conferido a cada 3 h.
  *   POST /publicar { loja } + Authorization: Bearer <idToken do dono> -> o painel avisa que salvou; a copia se atualiza.
+ *                               Mais de 6 no minuto (por loja e pessoa): 202 { ok, depois: true } e a copia se refaz
+ *                               sozinha uns 10 s depois (nunca recusa: a ultima mudanca sempre chega na borda).
  *   POST /dono     { loja } + Authorization: Bearer <idToken do dono> -> grava a marca "lojas" no login do dono (uma vez
  *                               por loja): as regras do banco reconhecem o dono por ela, sem ler a loja a cada pedido.
  *                  { email }  + login do admin -> refaz a marca desse e-mail pelas lojas dele de verdade (troca de dono).
@@ -32,6 +34,8 @@
  *                                       montado aqui com as regras (js/regras.js) e o cardapio da loja, com a senha do
  *                                       dia e o uso do cupom gravados no mesmo lote. O banco nao aceita pedido de fora.
  *                                       No balcao (origem "balcao") so com o login da equipe ou do dono.
+ *                                       dados.chave (20 letras e numeros, uma por compra, a mesma nas novas tentativas)
+ *                                       vira o numero do pedido: repetir o envio devolve o mesmo pedido, nunca dois.
  *   POST /cupom    { loja, codigo }  -> o codigo vale? Devolve o desconto (a lista de cupons nao e publica: mora na parte
  *                                       privada da loja). Poucas tentativas por aparelho: ninguem descobre codigo no chute.
  *   POST /webhook                    -> o Mercado Pago avisa que pagou; o pedido vira "pago" e cai na cozinha.
@@ -88,7 +92,7 @@ const VITRINE_VALE = 3 * 3600 * 1000;
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
 const MEM = {
-  cupons: {}, google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {}, cartao: {}, vezes: {} };
+  cupons: {}, google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {}, cartao: {}, vezes: {}, publicando: {} };
 /* Conta quantas vezes uma chave (IP, loja) chamou numa janela de tempo. Serve para barrar quem gasta o banco gratis
    de proposito (loja inventada, publicar em sequencia). Vale por copia do worker; o grosso fica pela regra do banco. */
 function demais(chave, maximo, janelaMs) {
@@ -100,6 +104,15 @@ function demais(chave, maximo, janelaMs) {
   if (Object.keys(MEM.vezes).length > 5000) MEM.vezes = {};
   return false;
 }
+/* quantas vezes a chave apareceu na janela (so olha, nao conta) */
+function vezesNaJanela(chave, janelaMs) {
+  const agora = Date.now();
+  return (MEM.vezes[chave] || []).filter((t) => agora - t < janelaMs).length;
+}
+/* Loja ou pedido inventado gasta leitura do banco gratis. Cada "nao existe" conta para o endereco (a casa, /64 no IPv6);
+   depois de 30 em 10 min, as rotas que leem o banco pelo nome que veio de fora param antes de ler */
+function faltasDemais(ip) { return vezesNaJanela('falta:' + ipDaCasa(ip), 10 * 60 * 1000) >= 30; }
+function contarFalta(ip) { demais('falta:' + ipDaCasa(ip), 1000, 10 * 60 * 1000); }
 const PEDIDO_ID = /^[A-Za-z0-9]{20}$/;
 /* avisos so vao para os servicos de aviso dos navegadores (Google, Apple, Mozilla, Microsoft), nunca para endereco qualquer */
 const SERVICO_AVISO = /^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//i;
@@ -1547,10 +1560,13 @@ export default {
         const nonce = ponto > 0 ? state.slice(ponto + 1) : '';
         const voltar = (ok) => Response.redirect(site + '/#/painel/' + encodeURIComponent(slug || '') + '/mp-' + (ok ? 'ok' : 'erro'), 302);
         if (!code || !SLUG.test(slug) || !/^[A-Za-z0-9]{8,80}$/.test(nonce) || !env.MP_CLIENT_ID || !env.MP_CLIENT_SECRET) return voltar(false);
+        /* loja inventada no "state" nao gasta o banco sem fim: volta sem ler depois de 30 erros do mesmo endereco */
+        const ipV = request.headers.get('CF-Connecting-IP');
+        if (faltasDemais(ipV)) return voltar(false);
         const fb = await firebase(env);
         const seg = (await fb.get('lojas/' + slug + '/privado/mercadopago')) || {};
         const recente = seg.oauthEm && (Date.now() - new Date(seg.oauthEm).getTime()) < 30 * 60 * 1000;
-        if (!seg.oauthNonce || seg.oauthNonce !== nonce || !recente) return voltar(false);
+        if (!seg.oauthNonce || seg.oauthNonce !== nonce || !recente) { contarFalta(ipV); return voltar(false); }
         const r = await fetch(MP + '/oauth/token', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ client_id: env.MP_CLIENT_ID, client_secret: env.MP_CLIENT_SECRET, grant_type: 'authorization_code', code: code, redirect_uri: url.origin + '/mp/volta' }),
@@ -1565,6 +1581,9 @@ export default {
           conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '',
         });
         esquecerToken(env, ctx, slug);
+        /* renovacao do token antigo que ficou esperando na borda (o banco nao tinha aceitado): nao vale para a conexao
+           nova. Sem apagar, ela voltava por cima do token novo na proxima conferencia */
+        if (env.CARDAPIO) await env.CARDAPIO.delete('mpnovo:' + slug).catch(() => {});
         /* a chave publica e publica mesmo (o formulario do cartao no site precisa dela): vai no documento da loja */
         await fb.merge('lojas/' + slug, Object.assign({ mpAtivo: true, aceitaPix: true, atualizadoEm: agora }, t.public_key ? { mpChavePublica: String(t.public_key) } : {}));
         await fb.merge('vitrine/' + slug, { aceitaPix: true, atualizadoEm: agora }).catch(() => {});
@@ -1584,11 +1603,12 @@ export default {
         if (slug && !SLUG.test(slug)) return json({ ok: true, ignorado: 'loja' });
         /* com o segredo do webhook (MP_WEBHOOK_SECRET) guardado, so aceita aviso assinado pelo Mercado Pago */
         const assinado = !!env.MP_WEBHOOK_SECRET && (await assinaturaMpConfere(request, env.MP_WEBHOOK_SECRET, url.searchParams.get('data.id') || id));
+        const ipW = request.headers.get('CF-Connecting-IP');
         if (!assinado) {
           /* aviso do app da propria loja (?loja=): a chave e a dela. Nada muda sem o Mercado Pago confirmar com o token da loja.
              Sem assinatura, sempre com limite por endereco (cada aviso consulta o Mercado Pago e le o banco) */
           if (env.MP_WEBHOOK_SECRET && !slug) return json({ ok: false, erro: 'assinatura' }, 401);
-          if (demais('aviso:' + (request.headers.get('CF-Connecting-IP') || 'sem-ip'), 120, 60 * 1000)) return json({ ok: false, erro: 'devagar' }, 429);
+          if (demais('aviso:' + ipDaCasa(ipW), 120, 60 * 1000)) return json({ ok: false, erro: 'devagar' }, 429);
         }
         let pedidoId = null;
         if (!slug) {
@@ -1600,12 +1620,19 @@ export default {
         }
         const fb = await firebase(env);
         if (!slug) {
-          /* aviso sem referencia (ou cortada em 64 letras): acha pelo indice gravado na criacao */
+          /* aviso sem referencia (ou cortada em 64 letras): acha pelo indice gravado na criacao. Sem assinatura, id
+             inventado conta como erro do endereco (cada um e uma leitura do banco) */
+          if (!assinado && faltasDemais(ipW)) return json({ ok: false, erro: 'devagar' }, 429);
           const idx = await fb.get('mp_indice/' + id);
           if (idx && SLUG.test(String(idx.loja || '')) && (!idx.pedido || PEDIDO_ID.test(String(idx.pedido)))) { slug = idx.loja; pedidoId = idx.pedido || null; }
+          else if (!assinado) contarFalta(ipW);
         }
         if (!slug) return json({ ok: true, ignorado: 'sem loja' });
-        await conferirPagamento(fb, slug, id, pedidoId, env);
+        /* sem assinatura, loja inventada nao gasta o banco sem fim: o endereco que ja errou demais so passa com loja que a
+           borda conhece (memoria ou copia no KV, sem ler o banco) */
+        if (!assinado && faltasDemais(ipW) && !(await lojaConhecida(env, slug))) return json({ ok: false, erro: 'devagar' }, 429);
+        const novo = await conferirPagamento(fb, slug, id, pedidoId, env, true);
+        if (!assinado && novo === null && !(await lojaConhecida(env, slug))) contarFalta(ipW);
         return json({ ok: true });
       }
 
@@ -1617,23 +1644,34 @@ export default {
         if (m) {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           /* quem inventa endereco de loja para gastar o banco gratis: depois de 30 "nao existe" em 10 min, para de ler */
-          const ipL = request.headers.get('CF-Connecting-IP') || 'sem-ip';
-          const faltas = (MEM.vezes['falta:' + ipL] || []).filter((t) => Date.now() - t < 10 * 60 * 1000).length;
-          if (!MEM.lojas[m[1]] && faltas >= 30) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          const ipL = request.headers.get('CF-Connecting-IP');
+          if (!MEM.lojas[m[1]] && faltasDemais(ipL)) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
           const item = await lerLoja(env, ctx, m[1]);
-          if (!item.existe) demais('falta:' + ipL, 1000, 10 * 60 * 1000);
+          if (!item.existe) contarFalta(ipL);
           if (!item.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
           /* banco no limite de hoje: a loja manda o pedido pelo WhatsApp ate zerar */
           const emPausa = await pausaAtiva(env);
           return pronto(emPausa ? item.corpo.replace('{"borda":1,', '{"borda":1,"pausa":true,') : item.corpo, 'public, max-age=15');
         }
+        /* fotos de loja inventada: o mesmo limite do /loja (30 "nao existe" por endereco em 10 min, depois nao le o banco) */
+        const ipF = request.headers.get('CF-Connecting-IP');
+        const fotosDeMentira = (slug) => !MEM.lojas[slug] && faltasDemais(ipF);
+        const contarSeNaoExiste = (slug) => { if (MEM.lojas[slug] && MEM.lojas[slug].existe === false) contarFalta(ipF); };
         m = /^\/fotos\/([a-z0-9-]{1,60})$/.exec(caminho);
         if (m) {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
-          return await servirFotos(env, ctx, m[1], url.searchParams.get('v') || '', pronto, json);
+          if (fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          const resposta = await servirFotos(env, ctx, m[1], url.searchParams.get('v') || '', pronto, json);
+          contarSeNaoExiste(m[1]);
+          return resposta;
         }
         m = /^\/foto\/([a-z0-9-]{1,60})\/([A-Za-z0-9_-]{1,60})$/.exec(caminho);
-        if (m) return await servirFoto(env, ctx, m[1], m[2]);
+        if (m) {
+          if (env.CARDAPIO && fotosDeMentira(m[1])) return new Response('', { status: 404, headers: { 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' } });
+          const resposta = await servirFoto(env, ctx, m[1], m[2]);
+          contarSeNaoExiste(m[1]);
+          return resposta;
+        }
         if (caminho === '/vitrine') {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
@@ -1771,8 +1809,8 @@ export default {
         const { loja } = await request.json().catch(() => ({}));
         if (!idToken || !SLUG.test(loja || '')) return json({ ok: false, erro: 'faltou a loja ou o login' }, 400);
         if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
-        /* salvar em sequencia (ou de proposito) nao gasta as gravacoes do KV de todas as lojas */
-        if (demais('publicar:' + loja, 6, 60 * 1000)) return json({ ok: false, erro: 'muitas vezes seguidas; tente daqui a pouco' }, 429);
+        /* o login vem antes do limite: token inventado nao gasta a vez do dono (antes, 6 chamadas de qualquer um
+           travavam o "Salvar" de verdade e a borda ficava com a loja velha por ate 6 h) */
         const fb = await firebase(env);
         const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
@@ -1780,18 +1818,18 @@ export default {
         const antes = await lerKv(env, 'loja:' + loja, 'text');
         const donoAntes = antes && antes.metadata ? String(antes.metadata.dono || '') : '';
         if (donoAntes && donoAntes !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        /* salvar em sequencia nao gasta as gravacoes do KV: 6 por minuto por loja e por pessoa. Passou disso, nao recusa
+           (a ultima mudanca do dono nunca pode ficar de fora da borda): uma atualizacao so fica marcada para daqui a
+           pouco, uma por loja, e ela le o banco na hora em que roda */
+        if (demais('publicar:' + loja + ':' + quem, 6, 60 * 1000)) {
+          publicarDepois(env, ctx, loja);
+          return json({ ok: true, depois: true }, 202);
+        }
         const item = await atualizarLoja(env, loja);
         if (!item.existe) return json({ ok: false, erro: 'loja não existe' }, 404);
         if (item.meta.dono !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
-        /* o token do Mercado Pago pode ter mudado (colou outro, desconectou): a copia guardada sai agora */
-        esquecerToken(env, ctx, loja);
-        /* mudou algo que a pagina da cidade mostra (aberta, nome, logo, frete, tempo): a vitrine da borda sai e e refeita
-           na proxima visita. Antes ficava ate ~20 min dizendo "Aberta agora" de loja que ja tinha fechado. Preco e foto
-           de item nao mexem nela (nao gasta gravacao do KV a cada edicao) */
-        if (!antes || !antes.value || camposDaVitrine(antes.value) !== camposDaVitrine(item.corpo)) {
-          MEM.vitrine = null;
-          if (ctx && ctx.waitUntil) ctx.waitUntil(env.CARDAPIO.delete('vitrine').catch(() => {}));
-        }
+        const vitrine = depoisDePublicar(env, loja, antes, item);
+        if (vitrine && ctx && ctx.waitUntil) ctx.waitUntil(vitrine);
         return json({ ok: true, versao: item.meta.em });
       }
 
@@ -1871,7 +1909,10 @@ export default {
         const planoDaConta = (p) => ({ status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agora.toISOString(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0 });
         doc.nome = nome;
         doc.donoEmail = email;
-        doc.plano = planoDaConta(docConta.plano);
+        /* loja da conta do Ligeiro: cortesia de verdade no plano (ativo, sem pagoAte). A copia publica nao leva o e-mail
+           do dono, entao o cliente so ve "ativa" pelo plano; com a copia do plano da conta ("teste"), a loja aparecia
+           bloqueada para o cliente depois dos dias gratis e ativa para o dono */
+        doc.plano = email === ADMIN ? Object.assign(planoDaConta({}), { status: 'ativo', pagoAte: '' }) : planoDaConta(docConta.plano);
         doc.cidadeSlug = REGRAS.slugDaCidade(typeof l.cidade === 'string' && l.cidade ? l.cidade : 'Juquiá', typeof l.uf === 'string' ? l.uf : 'SP') || 'juquia';
         doc.criadoEm = doc.atualizadoEm = agora.toISOString();
         const vit = Object.assign({}, c.vitrine);
@@ -1989,25 +2030,47 @@ export default {
         /* banco no limite de hoje: o site manda o pedido pronto pelo WhatsApp da loja */
         if (await pausaAtiva(env)) return json({ pausa: true, erro: 'O site está com movimento demais agora.' }, 503);
         const ip = request.headers.get('CF-Connecting-IP') || 'sem-ip';
+        const casa = ipDaCasa(ip);
         const muitos = 'Muitos pedidos seguidos daqui. Espere alguns minutos ou chame a loja no WhatsApp.';
-        if (demais('pedido-ip:' + ip, 15, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
-        const fone = String(dados.telefone || '').replace(/\D/g, '').slice(-11);
-        if (fone && demais('pedido-fone:' + loja + ':' + fone, 6, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
-        /* balcao (tablet da loja): so com o login da equipe ou do dono (a regra do balcao dispensa WhatsApp e endereco) */
-        if (dados.origem === 'balcao') {
+        const balcao = dados.origem === 'balcao';
+        if (balcao) {
+          /* balcao (tablet da loja): so com o login da equipe ou do dono (a regra do balcao dispensa WhatsApp e endereco).
+             O login vem antes do limite: o tablet (e o wifi da loja) faz pedido atras de pedido e travava no limite de
+             um aparelho qualquer (15 em 10 min). Com o login, vale o limite da loja, bem mais alto. Login que nao confere
+             conta para o endereco: ninguem fica chutando token */
+          if (vezesNaJanela('balcao-erro:' + casa, 10 * 60 * 1000) >= 15) return json({ erro: 'Entre de novo com a senha da equipe.' }, 401);
           const quem = await quemChamou(env, request);
-          if (!quem || !(await ehDaLoja(env, loja, quem))) return json({ erro: 'Entre de novo com a senha da equipe.' }, 401);
+          if (!quem || !(await ehDaLoja(env, loja, quem))) { demais('balcao-erro:' + casa, 1000, 10 * 60 * 1000); return json({ erro: 'Entre de novo com a senha da equipe.' }, 401); }
+          if (demais('pedido-balcao:' + loja, 200, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
+        } else if (demais('pedido-ip:' + casa, 15, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
+        const fb = await firebase(env);
+        const lojaDoc = 'lojas/' + loja;
+        /* chave do pedido (o site sorteia uma por compra, 20 letras e numeros, e manda a mesma nas novas tentativas): a
+           resposta que se perdeu nao vira um segundo pedido (dinheiro e maquininha iam duas vezes para a cozinha). Ja
+           existe com esta chave, nesta loja, do mesmo telefone e de menos de 1 dia: devolve o mesmo pedido, com a mesma
+           senha. Existe e e de outro: o pedido ganha um numero sorteado, como sem chave */
+        let chave = typeof dados.chave === 'string' && PEDIDO_ID.test(dados.chave) ? dados.chave : '';
+        const foneLimpo = (t) => { const d = String(t || '').replace(/\D/g, ''); return d.indexOf('55') === 0 && d.length > 11 ? d.slice(2) : d; };
+        const oMesmo = (ja) => !!ja && (ja.origem === 'balcao') === balcao && foneLimpo(ja.cliente && ja.cliente.telefone) === foneLimpo(dados.telefone)
+          && Date.now() - nasceuEm(ja) < 24 * 3600 * 1000;
+        const jaFeito = (ja) => { const x = Object.assign({}, ja); delete x._criadoNoBanco; delete x._atualizadoNoBanco; return json({ pedido: x, avisado: true }); };
+        if (chave) {
+          const ja = await fb.get(lojaDoc + '/pedidos/' + chave, true);
+          if (oMesmo(ja)) return jaFeito(ja);
+          if (ja) chave = '';
         }
+        /* no balcao quem pede e a loja (o telefone digitado pode ser o mesmo da casa): o limite por telefone e so do site */
+        const fone = String(dados.telefone || '').replace(/\D/g, '').slice(-11);
+        if (fone && !balcao && demais('pedido-fone:' + loja + ':' + fone, 6, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
         /* a loja de agora: copia da borda (o painel publica a cada salvar); sem borda, le o banco */
         let l = null;
-        const fb = await firebase(env);
         if (env.CARDAPIO) { const item = await lerLoja(env, ctx, loja); if (item.existe) { try { l = JSON.parse(item.corpo).loja; } catch (_) { l = null; } } }
         else l = await fb.get('lojas/' + loja);
         if (!l) return json({ erro: 'Essa loja não existe mais.' }, 404);
         if (l.ativa === false) return json({ erro: 'Esta loja não está recebendo pedidos pelo site.' }, 409);
         /* cupons: a lista privada, so quando o pedido veio com codigo (pedido sem codigo nao gasta nada com isso) */
         const comCodigo = !!String(dados.cupom || '').trim();
-        if (comCodigo && (demais('cupom-ped:' + ipDaCasa(ip), 30, 10 * 60 * 1000) || demais('cupom-loja:' + loja, 300, 10 * 60 * 1000))) return json({ erro: 'Muitas tentativas de código. Espere alguns minutos.' }, 429);
+        if (comCodigo && (demais('cupom-ped:' + casa, 30, 10 * 60 * 1000) || demais('cupom-loja:' + loja, 300, 10 * 60 * 1000))) return json({ erro: 'Muitas tentativas de código. Espere alguns minutos.' }, 429);
         l = Object.assign({}, l, { cupons: comCodigo && (l.temCupom === true || (Array.isArray(l.cupons) && l.cupons.length > 0)) ? await cuponsDaLoja(env, fb, loja) : [] });
         /* as regras contam o horario da loja pelo relogio local: o Cloudflare roda no horario de Londres, entao elas
            recebem a hora de Brasilia (o Brasil nao tem mais horario de verao). No pedido fica a hora de verdade */
@@ -2029,10 +2092,9 @@ export default {
         const volta = String((c.aviso && c.aviso.u) || '');
         if (insc && dados.origem !== 'balcao') pedido.aviso = { e: insc.endpoint, k: insc.p256dh, a: insc.auth, u: /^#\/[a-z0-9-]{1,60}\/[a-z0-9-]{1,60}\/pedido\/$/.test(volta) ? volta : '' };
         /* senha do dia, uso do cupom e o pedido: um lote so, com trava (dois pedidos juntos nunca pegam a mesma senha) */
-        const lojaDoc = 'lojas/' + loja;
         const codigo = pedido.desconto > 0 && pedido.cupom ? String(pedido.cupom) : '';
         const regraCupom = codigo ? ((l.cupons || []).filter((x) => x.codigo === codigo)[0] || null) : null;
-        const id = idAleatorio(20);
+        let id = chave || idAleatorio(20);
         let completo = null;
         for (let tentativa = 0; tentativa < 5 && !completo; tentativa++) {
           const cont = await fb.get(lojaDoc + '/contadores/senha', true);
@@ -2048,7 +2110,14 @@ export default {
           }
           const doc = Object.assign({}, pedido, { id: id, senha: senha.ultima });
           escritas.push({ caminho: lojaDoc + '/pedidos/' + id, dados: doc, trava: { exists: false } });
-          if (await fb.gravarJuntos(escritas)) completo = doc;
+          if (await fb.gravarJuntos(escritas)) { completo = doc; break; }
+          /* a trava falhou. Com chave, pode ter sido o outro toque do mesmo pedido que gravou agora (dois envios juntos):
+             o lote todo voltou (senha e cupom nao gastos) e a resposta e o pedido que ja nasceu */
+          if (chave && id === chave) {
+            const ja = await fb.get(lojaDoc + '/pedidos/' + chave, true);
+            if (oMesmo(ja)) return jaFeito(ja);
+            if (ja) id = idAleatorio(20);
+          }
         }
         if (!completo) return json({ erro: 'Muita gente pedindo agora. Toque em enviar de novo.' }, 503);
         /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo */
@@ -2067,9 +2136,13 @@ export default {
       if (caminho === '/criar' && request.method === 'POST') {
         const { loja, pedido } = await request.json().catch(() => ({}));
         if (!SLUG.test(String(loja || '')) || !PEDIDO_ID.test(String(pedido || ''))) return json({ erro: 'faltou loja ou pedido' }, 400);
+        /* cada chamada le o pedido no banco: limite por endereco (a casa, /64 no IPv6), e pedido ou loja inventados contam
+           como erro (depois de 30 em 10 min, para antes de ler) */
+        const ipC = request.headers.get('CF-Connecting-IP');
+        if (demais('criar-ip:' + ipDaCasa(ipC), 40, 10 * 60 * 1000) || faltasDemais(ipC)) return json({ erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const fb = await firebase(env);
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido, true);
-        if (!p) return json({ erro: 'pedido não existe' }, 404);
+        if (!p) { contarFalta(ipC); return json({ erro: 'pedido não existe' }, 404); }
         if (p.pixCodigo) return json({ codigo: p.pixCodigo, expiraEm: p.pixExpiraEm || '' });
         if (p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando Pix' }, 400);
         /* pedido antigo que nunca ganhou codigo: nada de Pix novo horas depois. Vale a hora em que o pedido nasceu no
@@ -2143,8 +2216,9 @@ export default {
         const c = await request.json().catch(() => ({}));
         const loja = String(c.loja || ''), pedido = String(c.pedido || ''), cartao = String(c.token || ''), metodo = String(c.metodo || '');
         if (!SLUG.test(loja) || !PEDIDO_ID.test(pedido) || !/^[A-Za-z0-9-]{8,80}$/.test(cartao) || !/^[a-z0-9_]{2,30}$/.test(metodo)) return json({ erro: 'faltou o cartão' }, 400);
-        /* poucas tentativas por pedido e por aparelho: quem testa cartao roubado nao faz da loja o laboratorio dele */
-        const ip = request.headers.get('CF-Connecting-IP') || 'sem-ip';
+        /* poucas tentativas por pedido e por aparelho: quem testa cartao roubado nao faz da loja o laboratorio dele. No
+           IPv6 vale a casa (/64): o celular troca o fim do endereco a toda hora */
+        const ip = ipDaCasa(request.headers.get('CF-Connecting-IP'));
         const agoraC = Date.now();
         const tent = MEM.cartao;
         Object.keys(tent).forEach((k) => { tent[k] = tent[k].filter((t) => agoraC - t < 10 * 60 * 1000); if (!tent[k].length) delete tent[k]; });
@@ -2179,7 +2253,7 @@ export default {
           try { antiga = await mp(token, '/v1/orders/' + encodeURIComponent(String(p.mp.id)), {}); } catch (e) { if (!(e && e.status === 404)) return json({ status: 'recusado', motivo: 'Não deu para conferir o pagamento anterior agora. Espere um minuto e tente de novo.' }); }
           const est = String((antiga && antiga.status) || '');
           if (est === 'processed') {
-            const r0 = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env).catch(() => null);
+            const r0 = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env, true).catch(() => null);
             if (r0 === 'pago') return json({ status: 'aprovado' });
           }
           if (est === 'processing' || est === 'in_process') return json({ status: 'analise', motivo: 'Seu pagamento anterior ainda está em análise pelo banco. Assim que aprovar, o pedido entra na fila sozinho.' });
@@ -2215,7 +2289,8 @@ export default {
           /* recusa de verdade (4xx, menos o 409 da chave repetida, que quer dizer "ja estava cobrando"): nada foi cobrado */
           if (e && e.status >= 400 && e.status < 500 && e.status !== 409) {
             const idRecusa = e.dados && e.dados.id ? String(e.dados.id) : '';
-            await fb.merge(caminhoPedido, Object.assign({ cobrandoEm: '', cobrancaIncerta: '' }, idRecusa ? { cobrancas: ((Array.isArray(p.cobrancas) ? p.cobrancas : []).concat([idRecusa])).slice(-10) } : {})).catch(() => {});
+            if (idRecusa) await gravarJuntandoCobrancas(fb, caminhoPedido, { cobrandoEm: '', cobrancaIncerta: '' }, [idRecusa]).catch(() => {});
+            else await fb.merge(caminhoPedido, { cobrandoEm: '', cobrancaIncerta: '' }).catch(() => {});
             return json({ status: 'recusado', motivo: motivoDoCartao(detalheDoCartao(e.dados)) });
           }
           /* sem resposta (queda, demora, erro do Mercado Pago): pode ter passado. A trava fica por 5 minutos e o aviso do
@@ -2228,12 +2303,13 @@ export default {
         const agoraMp = new Date().toISOString();
         if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agoraMp }).catch(() => {});
         const idMp = { id: String(ord.id), criadoEm: agoraMp, cartao: true };
-        /* toda cobranca do pedido fica anotada: a devolucao alcanca todas */
+        /* toda cobranca do pedido fica anotada: a devolucao alcanca todas. Fora da gravacao travada na hora da trava, a
+           lista e juntada com a do pedido de AGORA (um aviso do Mercado Pago pode ter anotado outra cobranca no meio) */
         const cobrancas = ((Array.isArray(p.cobrancas) ? p.cobrancas : []).concat([String(ord.id)])).filter((x, i, l) => l.indexOf(x) === i).slice(-10);
         /* em analise pelo banco: a trava fica (ninguem cobra de novo); o aviso do Mercado Pago libera ou recusa depois */
         const detalheOrd = String(detalhe || '').toLowerCase();
         if (ord.status === 'processing' || ord.status === 'in_process' || (ord.status === 'action_required' && /waiting_retry|in_process|review/.test(detalheOrd))) {
-          await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: agoraMp, cobrancaIncerta: agoraMp, atualizadoEm: agoraMp }).catch(() => {});
+          await gravarJuntandoCobrancas(fb, caminhoPedido, { mp: idMp, cobrandoEm: agoraMp, cobrancaIncerta: agoraMp, atualizadoEm: agoraMp }, [String(ord.id)]).catch(() => {});
           return json({ status: 'analise', motivo: 'Seu pagamento está em análise pelo banco. Assim que aprovar, o pedido entra na fila sozinho.' });
         }
         /* aprovado na hora, deste pedido e do mesmo valor: o "pago" vai junto com o id, numa gravacao so, travada na
@@ -2248,7 +2324,7 @@ export default {
                (nenhum toque cobra de novo) e o aviso do Mercado Pago marca o pedido pago daqui a pouco. Antes, tenta ao
                menos anotar a cobranca (sem ela, uma segunda cobranca nao seria reconhecida) */
             console.error('cartao aprovado, banco falhou', loja, pedido, e && e.message);
-            await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrancaIncerta: agoraMp }).catch(() => {});
+            await gravarJuntandoCobrancas(fb, caminhoPedido, { mp: idMp, cobrancaIncerta: agoraMp }, [String(ord.id)]).catch(() => {});
             return json({ status: 'aprovado' });
           }
           if (pagou) {
@@ -2256,10 +2332,12 @@ export default {
             return json({ status: 'aprovado' });
           }
         }
-        await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: agoraMp }).catch(() => {});
+        /* o pedido mudou desde a trava (um aviso do Mercado Pago de outra cobranca, o cliente cancelou): junta com o que
+           esta la agora. Antes gravava por cima com a leitura velha e a cobranca anotada pelo aviso sumia */
+        await gravarJuntandoCobrancas(fb, caminhoPedido, { mp: idMp, cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: agoraMp }, [String(ord.id)]).catch(() => {});
         if (ord.status === 'processed') {
           let r2 = null;
-          try { r2 = await conferirPagamento(fb, loja, ord.id, pedido, env); } catch (e) { if (aprovadoNoMp) return json({ status: 'aprovado' }); throw e; }
+          try { r2 = await conferirPagamento(fb, loja, ord.id, pedido, env, true); } catch (e) { if (aprovadoNoMp) return json({ status: 'aprovado' }); throw e; }
           if (r2 === 'pago') return json({ status: 'aprovado' });
         }
         if (ord.status === 'action_required') return json({ status: 'recusado', motivo: 'O banco pediu uma confirmação que ainda não fazemos por aqui. Tente outro cartão ou pague no Pix.' });
@@ -2278,15 +2356,24 @@ export default {
         const docLoja = await fb.get('lojas/' + loja);
         const dono = docLoja ? String(docLoja.donoEmail || '').toLowerCase() : '';
         if (!dono || (dono !== quem && quem !== ADMIN)) return json({ ok: false, erro: 'só o dono da loja devolve pagamentos' }, 403);
-        const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
+        const caminhoD = 'lojas/' + loja + '/pedidos/' + pedido;
+        const p = await fb.get(caminhoD);
         if (!p) return json({ ok: false, erro: 'pedido não existe' }, 404);
-        if (p.devolvidoEm) return json({ ok: true, ja: true });
+        /* devolvido sai do "Falta devolver" do painel (a lista procura cancelado com pagamentoStatus "pago"): o toque
+           repetido acerta tambem o pedido devolvido antes desta marca */
+        if (p.devolvidoEm) {
+          if (p.pagamentoStatus === 'pago') await fb.merge(caminhoD, { pagamentoStatus: 'devolvido', atualizadoEm: new Date().toISOString() }).catch(() => {});
+          return json({ ok: true, ja: true });
+        }
         if (p.status !== 'cancelado') return json({ ok: false, erro: 'cancele o pedido antes de devolver' }, 409);
         if ((p.formaPagamento !== 'pix' && p.formaPagamento !== 'cartao_online') || p.pagamentoStatus !== 'pago' || !p.mp || !p.mp.id || p.mp.simulado) return json({ ok: false, erro: 'esse pedido não foi pago pelo site' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ ok: false, erro: 'a loja está sem Mercado Pago conectado' }, 409);
-        /* todas as cobrancas aprovadas do pedido voltam (a ultima e as anteriores, se alguma tiver passado) */
-        const ids = [String(p.mp.id)].concat(Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : []).filter((x, i, l) => x && l.indexOf(x) === i && /^[A-Za-z0-9_-]{1,64}$/.test(x));
+        /* todas as cobrancas aprovadas do pedido voltam (a ultima, as anteriores e a que pagou, mesmo que a lista tenha
+           perdido alguma). A cobranca a mais que ja voltou sozinha (duplicadasDevolvidas) nao e devolvida de novo */
+        const jaVoltaram = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];
+        const ids = [String(p.mp.id)].concat(Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : [], p.pagoPor ? [String(p.pagoPor)] : [])
+          .filter((x, i, l) => x && l.indexOf(x) === i && /^[A-Za-z0-9_-]{1,64}$/.test(x) && jaVoltaram.indexOf(x) < 0);
         try {
           for (const mpId of ids) {
             /* pedido novo e uma "order" (ORD...); os Pix antigos eram pagamento avulso. Os dois devolvem o valor inteiro */
@@ -2311,7 +2398,7 @@ export default {
           return json({ ok: false, erro: 'o Mercado Pago não devolveu' }, 502);
         }
         const agoraD = new Date().toISOString();
-        await fb.merge('lojas/' + loja + '/pedidos/' + pedido, { devolvidoEm: agoraD, devolvidoPor: quem.slice(0, 120), atualizadoEm: agoraD }).catch(() => {});
+        await fb.merge(caminhoD, { devolvidoEm: agoraD, devolvidoPor: quem.slice(0, 120), pagamentoStatus: 'devolvido', atualizadoEm: agoraD }).catch(() => {});
         return json({ ok: true });
       }
 
@@ -2320,24 +2407,31 @@ export default {
         const loja = url.searchParams.get('loja') || '';
         const pedido = url.searchParams.get('pedido') || '';
         if (!SLUG.test(loja) || !PEDIDO_ID.test(pedido)) return json({ erro: 'faltou loja ou pedido' }, 400);
-        /* "caiu?" do jeito antigo le o banco: no maximo 60 por minuto por IP */
-        if (demais('status:' + (request.headers.get('CF-Connecting-IP') || 'sem-ip'), 60, 60 * 1000)) return json({ status: 'aguardando_pagamento', vencido: false }, 429);
+        /* "caiu?" do jeito antigo le o banco: no maximo 60 por minuto por endereco (a casa, /64 no IPv6) */
+        const ipS = request.headers.get('CF-Connecting-IP');
+        const devagar = () => json({ status: 'aguardando_pagamento', vencido: false }, 429);
+        if (demais('status:' + ipDaCasa(ipS), 60, 60 * 1000)) return devagar();
         const mpId = url.searchParams.get('mp') || '';
         const expira = Date.parse(url.searchParams.get('expira') || '');
         const fb = await firebase(env);
         if (/^[A-Za-z0-9_-]{1,64}$/.test(mpId) && !isNaN(expira)) {
           /* caminho leve (site novo): pergunta direto ao Mercado Pago; o banco so e lido se o Pix caiu.
-             O prazo vem do proprio pedido (pixExpiraEm) e vale pelo relogio do servidor, nunca o do aparelho */
-          let novo = null;
-          try { novo = await conferirPagamento(fb, loja, mpId, pedido, env); } catch (_) { novo = null; }
+             O prazo vem do proprio pedido (pixExpiraEm) e vale pelo relogio do servidor, nunca o do aparelho.
+             Loja inventada gasta uma leitura (o token): o endereco que ja errou demais so passa com loja que a borda
+             conhece. O "caiu?" nunca devolve cobranca sozinho (o id veio de fora): so o aviso do Mercado Pago e o /cartao */
+          if (faltasDemais(ipS) && !(await lojaConhecida(env, loja))) return devagar();
+          let novo = null, falhou = false;
+          try { novo = await conferirPagamento(fb, loja, mpId, pedido, env, false); } catch (_) { novo = null; falhou = true; }
+          if (novo === null && !falhou && !(await lojaConhecida(env, loja))) contarFalta(ipS);
           const status = novo || 'aguardando_pagamento';
           return json({ status: status, vencido: status === 'aguardando_pagamento' && Date.now() > expira });
         }
+        if (faltasDemais(ipS)) return devagar();
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido, true);
-        if (!p) return json({ erro: 'pedido não existe' }, 404);
+        if (!p) { contarFalta(ipS); return json({ erro: 'pedido não existe' }, 404); }
         if (p.status !== 'aguardando_pagamento' || !p.mp || !p.mp.id) return json({ status: p.status, vencido: pixVencidoNoServidor(p, Date.now()) });
         let novo = null;
-        try { novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env); } catch (_) { novo = null; /* Mercado Pago fora do ar: responde pelo que o banco tem */ }
+        try { novo = await conferirPagamento(fb, loja, String(p.mp.id), pedido, env, false); } catch (_) { novo = null; /* Mercado Pago fora do ar: responde pelo que o banco tem */ }
         const status = novo || p.status;
         return json({ status: status, vencido: status === 'aguardando_pagamento' && pixVencidoNoServidor(p, Date.now()) });
       }
@@ -2446,6 +2540,41 @@ async function atualizarLoja(env, slug) {
   return item;
 }
 
+/* O que o /publicar faz depois de refazer a copia. O token do Mercado Pago pode ter mudado (colou outro, desconectou):
+   a copia guardada sai agora. Mudou algo que a pagina da cidade mostra (aberta, nome, logo, frete, tempo): a vitrine da
+   borda sai e e refeita na proxima visita. Antes ficava ate ~20 min dizendo "Aberta agora" de loja que ja tinha
+   fechado. Preco e foto de item nao mexem nela (nao gasta gravacao do KV a cada edicao). Devolve a exclusao da
+   vitrine (ou null) para quem chama esperar */
+function depoisDePublicar(env, slug, antes, item) {
+  esquecerToken(env, null, slug);
+  if (antes && antes.value && camposDaVitrine(antes.value) === camposDaVitrine(item.corpo)) return null;
+  MEM.vitrine = null;
+  return env.CARDAPIO.delete('vitrine').catch(() => {});
+}
+/* O dono passou de 6 publicacoes no minuto: a copia se refaz sozinha daqui a pouco (uma pendente por loja neste
+   worker; se outra chegar enquanto ela ja le o banco, roda mais uma vez no fim). Cabe no tempo que o Cloudflare da
+   depois da resposta (30 s) */
+const PUBLICAR_ESPERA = 10 * 1000;
+function publicarDepois(env, ctx, slug) {
+  const pendente = MEM.publicando[slug];
+  if (pendente) { if (pendente.lendo) pendente.deNovo = true; return; }
+  const vez = { lendo: false, deNovo: false };
+  MEM.publicando[slug] = vez;
+  const espera = env.PUBLICAR_ESPERA_MS != null ? Math.max(0, Number(env.PUBLICAR_ESPERA_MS) || 0) : PUBLICAR_ESPERA; /* so os testes mudam */
+  const p = (async () => {
+    for (let volta = 0; volta < 2; volta++) {
+      await new Promise((ok) => setTimeout(ok, espera));
+      vez.lendo = true;
+      vez.deNovo = false;
+      const antes = await lerKv(env, 'loja:' + slug, 'text');
+      const item = await atualizarLoja(env, slug);
+      if (item.existe) await depoisDePublicar(env, slug, antes, item);
+      if (!vez.deNovo) break;
+    }
+  })().catch(() => {}).then(() => { delete MEM.publicando[slug]; });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+}
+
 /* atualiza depois de responder (quem pediu nao espera); uma vez so por vez neste worker */
 function atualizarDepois(ctx, chave, fazer) {
   if (MEM.atualizando[chave]) return;
@@ -2465,6 +2594,13 @@ async function etiquetaDaLoja(env, slug) {
   const g = await lerKv(env, 'loja:' + slug, 'stream');
   if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
   return g && g.metadata ? g.metadata : null;
+}
+/* a borda conhece a loja (memoria, token guardado ou copia no KV), sem ler o banco? Sem KV ligado nao da para saber: sim */
+async function lojaConhecida(env, slug) {
+  if (!env.CARDAPIO) return true;
+  const mem = MEM.lojas[slug];
+  if ((mem && mem.existe) || (MEM.mp[slug] && MEM.mp[slug].token)) return true;
+  return !!(await etiquetaDaLoja(env, slug));
 }
 
 /* Miniaturas: guardadas pela versao das fotos da loja. Os documentos do banco vao como vieram (texto), sem o worker
@@ -2811,8 +2947,10 @@ async function avisarPixPago(env, slug, p) {
 
 /* ================= Pix ================= */
 
-/* Consulta o pagamento no Mercado Pago com o token da loja e, se aprovado, libera o pedido. Devolve o status novo. */
-async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
+/* Consulta o pagamento no Mercado Pago com o token da loja e, se aprovado, libera o pedido. Devolve o status novo.
+   devolverDuplicada: so o aviso do Mercado Pago e o /cartao devolvem sozinhos a cobranca a mais. O "caiu?" do site
+   (/status) manda um id que veio de fora: la ela so e anotada, nunca devolvida */
+async function conferirPagamento(fb, slug, idPagamento, pedidoId, env, devolverDuplicada) {
   const token = await tokenDaLoja(fb, slug, env);
   if (!token) return null;
   const ehOrder = String(idPagamento).indexOf('ORD') === 0;
@@ -2825,71 +2963,110 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     if (e && e.status === 404) return null;
     throw e;
   }
+  /* o id que vale e o que o Mercado Pago devolveu: outra grafia do mesmo pagamento, vinda de fora, nunca vira "outra
+     cobranca" (e nunca e devolvida como se fosse a mais) */
+  const idPg = String(pg.id || idPagamento);
+  const pgEhOrder = idPg.indexOf('ORD') === 0;
   let ref = String(pg.external_reference || '');
   if (ref.indexOf('|') > 0) ref = ref.split('|')[1];
   else if (ref.indexOf('__') > 0) ref = ref.split('__')[1];
   const id = pedidoId || ref;
   if (!id) return null;
+  const caminhoP = 'lojas/' + slug + '/pedidos/' + id;
   if (pg.status === 'approved' || pg.status === 'processed') {
-    const p = await fb.get('lojas/' + slug + '/pedidos/' + id);
-    if (!p) return null;
-    /* o pagamento tem que ser DESTE pedido e do MESMO valor: ninguem reaproveita um Pix de R$ 1 pra liberar outro pedido */
-    const limpo = (t) => String(t || '').replace(/[^A-Za-z0-9_-]/g, '');
-    const refDoMp = String(pg.external_reference || '');
-    const refCerta = refDoMp === limpo(slug + '__' + id).slice(0, 64) || refDoMp === slug + '|' + id || refDoMp === id;
-    const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
-    if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
-    const agora3 = new Date().toISOString();
-    const idPg = String(idPagamento);
-    const cobrancasAntes = Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : [];
-    /* toda cobranca aprovada fica anotada (a devolucao alcanca todas) e o pedido guarda qual delas pagou */
-    const anotar = { cobrancas: cobrancasAntes.concat([idPg]).filter((x, i, l) => l.indexOf(x) === i).slice(-10), pagoPor: idPg };
-    if (!p.mp || !p.mp.id) anotar.mp = { id: idPg, criadoEm: agora3, cartao: p.formaPagamento === 'cartao_online' };
-    const pagador = String(p.pagoPor || ''); /* pedido de antes desta anotacao: so anota, nunca devolve sozinho */
-    let entrou = true;
-    if (p.pagamentoStatus === 'pago' && pagador && idPg !== pagador) {
-      /* segunda cobranca aprovada do mesmo pedido (resposta do banco que nao chegou e o cliente tentou de novo, Pix
-         gerado duas vezes e pago duas vezes): o pedido ja estava pago por outra, entao esta volta sozinha para o cliente */
-      const devolvidas = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];
-      if (devolvidas.indexOf(idPg) < 0) {
+    /* le com a hora da ultima mudanca e grava travado nela: dois avisos juntos (duas cobrancas aprovadas do mesmo
+       pedido, o aviso e o /cartao) nunca gravam um por cima do outro. Mudou no meio: le de novo e decide de novo.
+       Antes, os dois viam "esperando", os dois marcavam pago, ninguem devolvia a segunda e uma sumia da lista */
+    for (let volta = 0; volta < 4; volta++) {
+      const p = await fb.get(caminhoP, true);
+      if (!p) return null;
+      /* o pagamento tem que ser DESTE pedido e do MESMO valor: ninguem reaproveita um Pix de R$ 1 pra liberar outro pedido */
+      const limpo = (t) => String(t || '').replace(/[^A-Za-z0-9_-]/g, '');
+      const refDoMp = String(pg.external_reference || '');
+      const refCerta = refDoMp === limpo(slug + '__' + id).slice(0, 64) || refDoMp === slug + '|' + id || refDoMp === id;
+      const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
+      if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
+      const agora3 = new Date().toISOString();
+      const cobrancasAntes = Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : [];
+      /* toda cobranca aprovada fica anotada (a devolucao alcanca todas) e o pedido guarda qual delas pagou */
+      const anotar = { cobrancas: cobrancasAntes.concat([idPg]).filter((x, i, l) => l.indexOf(x) === i).slice(-10), pagoPor: idPg };
+      if (!p.mp || !p.mp.id) anotar.mp = { id: idPg, criadoEm: agora3, cartao: p.formaPagamento === 'cartao_online' };
+      const pagador = String(p.pagoPor || ''); /* pedido de antes desta anotacao: so anota, nunca devolve sozinho */
+      /* ja devolvido pela loja: cobranca nova nao reabre o pedido (e, com quem pagou anotado, volta sozinha) */
+      const devolvido = p.pagamentoStatus === 'devolvido' || !!p.devolvidoEm;
+      const trava = p._atualizadoNoBanco;
+      if ((p.pagamentoStatus === 'pago' || devolvido) && pagador && idPg !== pagador) {
+        /* segunda cobranca aprovada do mesmo pedido (resposta do banco que nao chegou e o cliente tentou de novo, Pix
+           gerado duas vezes e pago duas vezes): o pedido ja estava pago por outra, entao esta volta sozinha para o cliente */
+        const devolvidas = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];
+        if (devolvidas.indexOf(idPg) >= 0) return 'pago';
+        if (!devolverDuplicada) {
+          if (cobrancasAntes.indexOf(idPg) < 0 && !(await fb.mergeSeIgual(caminhoP, { cobrancas: anotar.cobrancas, atualizadoEm: agora3 }, trava))) continue;
+          return 'pago';
+        }
         try {
-          await mp(token, ehOrder ? '/v1/orders/' + encodeURIComponent(idPg) + '/refund' : '/v1/payments/' + encodeURIComponent(idPg) + '/refunds', { method: 'POST', body: ehOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'duplicada-' + idPg } });
+          await mp(token, pgEhOrder ? '/v1/orders/' + encodeURIComponent(idPg) + '/refund' : '/v1/payments/' + encodeURIComponent(idPg) + '/refunds', { method: 'POST', body: pgEhOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'duplicada-' + idPg } });
         } catch (e) {
           /* ja devolvida antes (a resposta se perdeu): segue. Outro erro: o aviso falha e o Mercado Pago manda de novo */
           if (!(e && e.status === 409)) throw e;
         }
-        await fb.merge('lojas/' + slug + '/pedidos/' + id, { cobrancas: anotar.cobrancas, duplicadasDevolvidas: devolvidas.concat([idPg]).slice(-10), atualizadoEm: agora3 });
+        /* mudou no meio: le de novo (a devolucao repetida usa a mesma chave, o Mercado Pago nao devolve duas vezes) */
+        if (!(await fb.mergeSeIgual(caminhoP, { cobrancas: anotar.cobrancas, duplicadasDevolvidas: devolvidas.concat([idPg]).slice(-10), atualizadoEm: agora3 }, trava))) continue;
+        return 'pago';
       }
+      let gravar = null;
+      let entrou = false;
+      if (devolvido) gravar = null;
+      else if (p.status === 'aguardando_pagamento') {
+        gravar = Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 }, anotar);
+        entrou = true;
+      } else if (p.status === 'cancelado' && (p.canceladoPor === 'cliente' || p.canceladoPor === 'pix-vencido') && !p.pagoEm) {
+        /* pagou e o pedido ja tinha sido cancelado (desistiu depois de copiar o codigo, ou o Pix "venceu" pelo relogio do aparelho):
+           o dinheiro entrou, entao o pedido volta pra fila, marcado pra loja ver */
+        gravar = Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar);
+        entrou = true;
+      } else if (p.status === 'cancelado' && p.canceladoPor === 'pix-vencido' && p.pagoEm && !p.pagoAposCancelar) {
+        /* o painel cancelou por vencimento em cima do "pago" que o mensageiro tinha acabado de gravar:
+           o dinheiro entrou, entao volta pra fila do mesmo jeito (mantem o pagoEm de quando caiu) */
+        gravar = { status: 'pago', pagamentoStatus: 'pago', confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 };
+        entrou = true;
+      } else if (p.status === 'cancelado' && p.pagamentoStatus !== 'pago') {
+        /* a loja cancelou e o pagamento caiu depois: o pedido continua cancelado, mas fica "pago" para o painel mostrar o
+           "Devolver" (antes o dinheiro ficava parado sem ninguem saber) */
+        gravar = Object.assign({ pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar);
+      }
+      if (gravar && !(await fb.mergeSeIgual(caminhoP, gravar, trava))) continue;
+      /* o pedido acabou de entrar na fila: avisa a loja e o cliente (aviso que falha nunca derruba o pagamento) */
+      if (entrou) await avisarPixPago(env, slug, Object.assign({}, p, { id: id })).catch(() => {});
       return 'pago';
     }
-    if (p.status === 'aguardando_pagamento') {
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 }, anotar));
-    } else if (p.status === 'cancelado' && (p.canceladoPor === 'cliente' || p.canceladoPor === 'pix-vencido') && !p.pagoEm) {
-      /* pagou e o pedido ja tinha sido cancelado (desistiu depois de copiar o codigo, ou o Pix "venceu" pelo relogio do aparelho):
-         o dinheiro entrou, entao o pedido volta pra fila, marcado pra loja ver */
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar));
-    } else if (p.status === 'cancelado' && p.canceladoPor === 'pix-vencido' && p.pagoEm && !p.pagoAposCancelar) {
-      /* o painel cancelou por vencimento em cima do "pago" que o mensageiro tinha acabado de gravar:
-         o dinheiro entrou, entao volta pra fila do mesmo jeito (mantem o pagoEm de quando caiu) */
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
-    } else if (p.status === 'cancelado' && p.pagamentoStatus !== 'pago') {
-      /* a loja cancelou e o pagamento caiu depois: o pedido continua cancelado, mas fica "pago" para o painel mostrar o
-         "Devolver" (antes o dinheiro ficava parado sem ninguem saber) */
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar));
-      entrou = false;
-    } else entrou = false;
-    /* o pedido acabou de entrar na fila: avisa a loja e o cliente (aviso que falha nunca derruba o pagamento) */
-    if (entrou) await avisarPixPago(env, slug, Object.assign({}, p, { id: id })).catch(() => {});
-    return 'pago';
+    /* o pedido nao parou de mudar: o aviso falha e o Mercado Pago manda de novo daqui a pouco */
+    throw new Error('pedido mudando sem parar ' + slug + '/' + id);
   }
   if (['failed', 'cancelled', 'expired', 'rejected'].indexOf(String(pg.status)) >= 0) {
-    /* cartao que estava em analise e foi recusado: solta a trava, para o cliente tentar outro cartao ou o Pix */
-    const p = await fb.get('lojas/' + slug + '/pedidos/' + id).catch(() => null);
-    if (p && p.formaPagamento === 'cartao_online' && p.status === 'aguardando_pagamento' && p.mp && String(p.mp.id) === String(idPagamento) && p.cobrandoEm) {
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: new Date().toISOString() }).catch(() => {});
+    /* cartao que estava em analise e foi recusado: solta a trava, para o cliente tentar outro cartao ou o Pix (so se
+       ninguem mexeu no pedido desde a leitura: uma cobranca nova no meio fica com a trava dela) */
+    const p = await fb.get(caminhoP, true).catch(() => null);
+    if (p && p.formaPagamento === 'cartao_online' && p.status === 'aguardando_pagamento' && p.mp && String(p.mp.id) === idPg && p.cobrandoEm) {
+      await fb.mergeSeIgual(caminhoP, { cobrandoEm: '', cobrancaIncerta: '', atualizadoEm: new Date().toISOString() }, p._atualizadoNoBanco).catch(() => {});
     }
   }
   return 'aguardando_pagamento';
+}
+
+/* Grava no pedido juntando as cobrancas novas com as que estao la AGORA (le de novo e grava travado na hora da
+   leitura): um aviso do Mercado Pago que anotou outra cobranca no meio nunca some. Tres voltas; sem conseguir, grava
+   juntando com a ultima leitura */
+async function gravarJuntandoCobrancas(fb, caminho, campos, novas) {
+  const juntar = (atual) => Object.assign({}, campos, { cobrancas: (Array.isArray(atual.cobrancas) ? atual.cobrancas.map(String) : []).concat(novas.map(String)).filter((x, i, l) => x && l.indexOf(x) === i).slice(-10) });
+  let atual = null;
+  for (let volta = 0; volta < 3; volta++) {
+    atual = await fb.get(caminho, true);
+    if (!atual) return false;
+    if (await fb.mergeSeIgual(caminho, juntar(atual), atual._atualizadoNoBanco)) return true;
+  }
+  await fb.merge(caminho, juntar(atual));
+  return true;
 }
 
 /* Token da loja: da memoria (10 min), da borda (6 h, so o worker le: nenhuma rota publica chega nessa chave) ou do
@@ -2942,13 +3119,20 @@ async function tokenDaLoja(fb, slug, env) {
   }
   let seg = await fb.get('lojas/' + slug + '/privado/mercadopago');
   if (env && env.CARDAPIO) {
-    /* renovacao que o banco nao aceitou na hora: grava agora (o refresh que vale e esse) */
+    /* renovacao que o banco nao aceitou na hora: grava agora (o refresh que vale e esse). So vale para a MESMA
+       conexao (o refresh de onde ela saiu ainda e o do banco): a loja desconectou, colou outro token ou conectou de
+       novo, e ela sai sem gravar (antes o token velho voltava por cima da conexao nova) */
     const pend = await lerKv(env, 'mpnovo:' + slug, 'text');
     if (pend && pend.value) {
       try {
         const novo = JSON.parse(pend.value);
-        await fb.merge('lojas/' + slug + '/privado/mercadopago', novo);
-        seg = Object.assign({}, seg || {}, novo);
+        const de = novo.de;
+        delete novo.de;
+        const mesma = !!(seg && seg.token && seg.refresh) && (de == null || String(de) === String(seg.refresh));
+        if (mesma) {
+          await fb.merge('lojas/' + slug + '/privado/mercadopago', novo);
+          seg = Object.assign({}, seg || {}, novo);
+        }
         await env.CARDAPIO.delete('mpnovo:' + slug).catch(() => {});
       } catch (_) { /* fica para a proxima */ }
     }
@@ -2967,7 +3151,7 @@ async function tokenDaLoja(fb, slug, env) {
         /* o refresh antigo ja nao vale: grava o novo com insistencia; se o banco nao aceitar, guarda na borda para a proxima */
         let gravou = false;
         for (let v = 0; v < 3 && !gravou; v++) { try { await fb.merge('lojas/' + slug + '/privado/mercadopago', novo); gravou = true; } catch (_) { /* tenta de novo */ } }
-        if (!gravou) await gravarKv(env, 'mpnovo:' + slug, JSON.stringify(novo), { em: Date.now() });
+        if (!gravou) await gravarKv(env, 'mpnovo:' + slug, JSON.stringify(Object.assign({ de: String(seg.refresh) }, novo)), { em: Date.now() });
         if (t.public_key && t.public_key !== seg.publica) {
           await fb.merge('lojas/' + slug, { mpChavePublica: String(t.public_key), atualizadoEm: new Date().toISOString() }).catch(() => {});
           /* o formulario do cartao no site usa a chave publica: a copia da borda muda agora, nao em 6 h */
@@ -3060,6 +3244,11 @@ function venceDoToken(idToken) {
    sem codigo, pedido que nasceu no banco ha mais de 35 min (hora do proprio Firestore, nao o criadoEm do celular) */
 function pixVencidoNoServidor(p, agora) {
   if (!p || p.status !== 'aguardando_pagamento' || (p.formaPagamento !== 'pix' && p.formaPagamento !== 'cartao_online')) return false;
+  /* cartao em analise pelo banco (a cobranca existe e ainda nao foi aprovada nem recusada): nao venceu. O banco leva
+     de minutos a 2 dias; o aviso do Mercado Pago marca pago ou solta a trava, e ai o prazo volta a valer. Antes o
+     pedido caia como "Pix venceu" aos 35 min com o dinheiro ainda podendo entrar */
+  const analise = Date.parse((p && p.cobrancaIncerta) || '');
+  if (p.formaPagamento === 'cartao_online' && p.mp && p.mp.cartao && p.mp.id && !isNaN(analise) && agora - analise < 2 * 86400 * 1000) return false;
   if (p.pixExpiraEm) { const fim = Date.parse(p.pixExpiraEm); return !isNaN(fim) && agora > fim; }
   const nasceu = Date.parse(p._criadoNoBanco || '');
   return !isNaN(nasceu) && agora > nasceu + 35 * 60 * 1000;
