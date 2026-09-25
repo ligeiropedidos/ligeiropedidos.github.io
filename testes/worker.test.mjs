@@ -1221,6 +1221,273 @@ console.log('Loja nova (so pelo mensageiro)');
   globalThis.__antesDoLote = () => { const x = db.get('contas/corrida@x.com'); x.plano = Object.assign({}, x.plano, { status: 'ativo', pagoAte: pagoDepois }); versoes.set('contas/corrida@x.com', (versoes.get('contas/corrida@x.com') || 0) + 1); };
   r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Pastel Livre' }), vitrine: { nome: 'Pastel Livre', horarios: {} } }, headers: bearer('tok-corrida') }); j = await r.json();
   ok(r.status === 200 && j.slug === 'pastel-livre' && db.get('lojas/pastel-livre').plano.status === 'ativo' && db.get('lojas/pastel-livre').plano.pagoAte === pagoDepois && db.get('vitrine/pastel-livre').plano.status === 'ativo', 'pagamento no meio da criacao: a loja nasce no endereco dela (nao no -2) e com o plano pago');
+
+  /* loja da propria conta do Ligeiro: cortesia de verdade (a copia publica nao leva o e-mail do dono) */
+  db.set('contas/ligeiro.pedidos@gmail.com', { email: 'ligeiro.pedidos@gmail.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: '2026-01-01T00:00:00.000Z' } });
+  r = await chamar(await workerNovo(), '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Loja do Ligeiro Teste' }), vitrine: { nome: 'Loja do Ligeiro Teste', horarios: {} } }, headers: bearer('tok-admin') }); j = await r.json();
+  const lojaAdm = db.get('lojas/' + j.slug) || {};
+  const { createRequire } = await import('node:module');
+  const regrasDoSite = createRequire(import.meta.url)('../js/regras.js');
+  const copiaAdm = kv.mapa.get('loja:' + j.slug) ? JSON.parse(kv.mapa.get('loja:' + j.slug).valor).loja : {};
+  const daquiUmMes = new Date(Date.now() + 30 * 864e5);
+  ok(r.status === 200 && lojaAdm.plano && lojaAdm.plano.status === 'ativo' && lojaAdm.plano.pagoAte === '' && db.get('vitrine/' + j.slug).plano.status === 'ativo', 'loja criada pela conta do Ligeiro: nasce com cortesia de verdade (ativo, sem pagoAte), na loja e na vitrine');
+  ok(!('donoEmail' in copiaAdm) && regrasDoSite.assinatura(copiaAdm, daquiUmMes).estado === 'ativa' && regrasDoSite.assinatura(db.get('vitrine/' + j.slug), daquiUmMes).estado === 'ativa', 'e o cliente (copia sem o e-mail do dono) ve a loja ativa depois dos dias gratis');
+}
+
+console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
+{
+  const lojaD = db.get('lojas/dom-conizza');
+  Object.assign(lojaD, { aberta: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true, aceitaEntrega: true, aceitaDinheiroEntrega: true, aceitaCartaoEntrega: true, aceitaCartaoOnline: true, cupons: [] });
+  kv.mapa.delete('loja:dom-conizza'); kv.mapa.delete('cupons:dom-conizza');
+  const caminhoDe = (id) => 'lojas/dom-conizza/pedidos/' + id;
+  const dadosD = (extra) => Object.assign({ nome: 'Ana Souza', telefone: '13999990000', tipoEntrega: 'entrega', endereco: { rua: 'Rua A', numero: '1', bairro: 'Centro' }, itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'dinheiro_entrega' }, extra);
+  let nIp = 0;
+  const ipNovo = () => { nIp += 1; return '10.60.' + Math.floor(nIp / 250) + '.' + (nIp % 250); };
+  const pedirD = (wx, d, h) => chamar(wx, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: d }, headers: Object.assign({ 'CF-Connecting-IP': ipNovo() }, h || {}) });
+  const senhaAgora = () => (db.get('lojas/dom-conizza/contadores/senha') || {}).ultima || 0;
+  const contarPedidos = () => [...db.keys()].filter((k) => k.indexOf('lojas/dom-conizza/pedidos/') === 0).length;
+  const valorP1 = () => (precoP1() / 100).toFixed(2);
+  const expiraLonge = encodeURIComponent(new Date(Date.now() + 3600e3).toISOString());
+
+  /* 1. chave do pedido: a resposta que se perdeu nao vira dois pedidos na cozinha */
+  w = await workerNovo();
+  const CH1 = 'ChaveDoPedido0000001';
+  let senha0 = senhaAgora(), antesP = contarPedidos();
+  r = await pedirD(w, dadosD({ chave: CH1 })); const jc1 = await r.json();
+  const rc2 = await pedirD(w, dadosD({ chave: CH1 })); const jc2 = await rc2.json();
+  ok(r.status === 200 && rc2.status === 200 && jc1.pedido.id === CH1 && jc2.pedido.id === CH1 && jc1.pedido.status === 'pago' && contarPedidos() === antesP + 1 && senhaAgora() === senha0 + 1, 'dinheiro na entrega enviado duas vezes com a mesma chave: 1 pedido so na cozinha e 1 senha gasta');
+  /* campo sem valor (undefined) nasce como null no banco: na comparacao, null e "sem o campo" */
+  const semNulo = (x) => JSON.stringify(x, (k, v) => (v === null ? undefined : v));
+  ok(semNulo(jc1) === semNulo(jc2), 'a segunda resposta e igual a primeira (mesmo numero, mesma senha, mesmo pedido)');
+  const CH2 = 'ChaveDoPedido0000002';
+  senha0 = senhaAgora(); antesP = contarPedidos();
+  const fetchDaChave = globalThis.fetch;
+  let presos = [];
+  const soltar = () => { if (presos) { const p = presos; presos = null; p.forEach((f) => f()); } };
+  globalThis.fetch = async (u, o) => {
+    if (presos && String(u) === BASE.slice(0, -1) + ':commit' && String((o && o.body) || '').indexOf('/pedidos/' + CH2) >= 0) {
+      await new Promise((solta) => { presos.push(solta); if (presos.length === 2) soltar(); else setTimeout(soltar, 3000); });
+    }
+    return fetchDaChave(u, o);
+  };
+  const [wA, wB] = [await workerNovo(), await workerNovo()];
+  const [rA, rB] = await Promise.all([pedirD(wA, dadosD({ chave: CH2 })), pedirD(wB, dadosD({ chave: CH2 }))]);
+  globalThis.fetch = fetchDaChave;
+  const [jA, jB] = [await rA.json(), await rB.json()];
+  ok(rA.status === 200 && rB.status === 200 && jA.pedido.id === CH2 && jB.pedido.id === CH2 && jA.pedido.senha === jB.pedido.senha && contarPedidos() === antesP + 1 && senhaAgora() === senha0 + 1, 'dois envios juntos com a mesma chave (dois workers): 1 pedido, a mesma senha, nenhuma senha a mais');
+  antesP = contarPedidos();
+  const rn1 = await pedirD(w, dadosD({ telefone: '13988880001' })); const jn1 = await rn1.json();
+  const rn2 = await pedirD(w, dadosD({ telefone: '13988880001' })); const jn2 = await rn2.json();
+  ok(rn1.status === 200 && rn2.status === 200 && jn1.pedido.id !== jn2.pedido.id && contarPedidos() === antesP + 2, 'sem chave (site antigo): cada envio e um pedido, como antes');
+  r = await pedirD(w, dadosD({ chave: CH1, telefone: '13977770002' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.id !== CH1 && /^[A-Za-z0-9]{20}$/.test(j.pedido.id) && ((db.get(caminhoDe(CH1)) || {}).cliente || {}).telefone === '13999990000','chave de um pedido de outro telefone: nasce outro pedido com numero sorteado (o de la nao aparece nem muda)');
+  r = await pedirD(w, dadosD({ chave: 'curta', telefone: '13977770003' })); j = await r.json();
+  ok(r.status === 200 && j.pedido.id !== 'curta' && /^[A-Za-z0-9]{20}$/.test(j.pedido.id), 'chave fora do formato (20 letras e numeros): ignorada');
+
+  /* 2. no IPv6 o limite vale para a casa (/64), nao para o endereco que o celular troca a toda hora */
+  w = await workerNovo();
+  const v6 = (bloco, i) => '2804:14c:65a1:' + bloco + ':' + (i + 1).toString(16) + '::1';
+  let aceitos = 0, barrado = false;
+  for (let i = 0; i < 16; i++) { r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dadosD({ telefone: '1395555' + String(1000 + i) }) }, headers: { 'CF-Connecting-IP': v6('4001', i) } }); if (r.status === 200) aceitos++; if (r.status === 429) barrado = true; }
+  ok(aceitos === 15 && barrado, '/pedido pelo IPv6 trocando o fim do endereco: a casa (/64) para em 15');
+  const cartoesAntes = cartoes.length;
+  const pcs = [0, 1, 2].map((i) => { const id = 'ipv6cartao0000000' + String(i).padStart(3, '0'); db.set(caminhoDe(id), pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 90 + i, cliente: { nome: 'Rui' } })); return id; });
+  barrado = false;
+  for (let i = 0; i < 9; i++) { r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: pcs[i % 3], token: 'RECUSA000000000' + i, metodo: 'visa' }, headers: { 'CF-Connecting-IP': v6('4002', i) } }); j = await r.json(); if (/Tentativas demais/.test(j.motivo || '')) barrado = true; }
+  ok(cartoes.length - cartoesAntes === 8 && barrado, '/cartao pelo IPv6 trocando o fim: 8 tentativas por casa (/64), a 9a nem chega ao Mercado Pago');
+  barrado = false;
+  for (let i = 0; i < 61; i++) { r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PED, { headers: { 'CF-Connecting-IP': v6('4003', i) } }); if (r.status === 429) barrado = true; }
+  ok(barrado, '/status pelo IPv6 trocando o fim: 60 por minuto por casa (/64)');
+  zerar();
+  for (let i = 0; i < 40; i++) await chamar(w, '/loja/inventada-v6-' + i, { headers: { 'CF-Connecting-IP': v6('4004', i) } });
+  ok(conta.leituras === 30, 'GET /loja de loja inventada pelo IPv6 trocando o fim: para de ler o banco em 30 por casa (/64)');
+  barrado = false;
+  for (let i = 0; i < 121 && !barrado; i++) { r = await chamar(w, '/webhook?loja=dom-conizza', { metodo: 'POST', corpo: { data: { id: 'ORDV6' + i } }, headers: { Origin: '', 'CF-Connecting-IP': v6('4005', i) } }); if (r.status === 429) barrado = true; }
+  ok(barrado, 'aviso sem assinatura pelo IPv6 trocando o fim: 120 por minuto por casa (/64)');
+
+  /* 3. balcao: o tablet da loja (e o wifi dela) nao cai no limite de um aparelho qualquer */
+  w = await workerNovo();
+  const ipLoja = '177.10.20.30';
+  let balcaoOk = 0;
+  for (let i = 0; i < 20; i++) {
+    r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: '', telefone: '', tipoEntrega: 'retirada', formaPagamento: 'cartao_entrega', itens: [{ produtoId: 'p1', quantidade: 1 }], origem: 'balcao' } }, headers: { Authorization: 'Bearer tok-equipe', 'CF-Connecting-IP': ipLoja } });
+    if (r.status === 200) balcaoOk++;
+  }
+  r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dadosD({ telefone: '13966660003' }) }, headers: { 'CF-Connecting-IP': ipLoja } });
+  ok(balcaoOk === 20 && r.status === 200, 'balcao com a senha da equipe: 20 pedidos seguidos passam, e o cliente no wifi da loja continua pedindo');
+  const lookupsAntes = conta.lookup;
+  let recusas = 0;
+  for (let i = 0; i < 20; i++) { r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { origem: 'balcao', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }] } }, headers: { Authorization: 'Bearer lixo-' + i, 'CF-Connecting-IP': '177.10.20.99' } }); if (r.status === 401) recusas++; }
+  ok(recusas === 20 && conta.lookup - lookupsAntes === 15, 'login de balcao inventado: 401, e depois de 15 do mesmo endereco nem confere mais o login');
+
+  /* 4. publicar: token inventado nao trava o dono, e o dono que salva depressa sempre chega na borda */
+  w = await workerNovo();
+  await chamar(w, '/loja/dom-conizza');
+  for (let i = 0; i < 8; i++) await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer lixo-' + i } });
+  lojaD.aberta = false;
+  r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+  await esperarFundo();
+  let jl = await (await chamar(await workerNovo(), '/loja/dom-conizza')).json();
+  ok(r.status === 200 && jl.loja.aberta === false, '8 chamadas com token inventado: o dono publica na hora e a loja fechada ja aparece para o cliente');
+  lojaD.aberta = true;
+  w = await workerNovo();
+  const envRapido = Object.assign({}, env, { PUBLICAR_ESPERA_MS: 200 });
+  const estados = [];
+  let gravacoesKv = 0;
+  for (let i = 1; i <= 8; i++) {
+    if (i === 7) { await esperarFundo(); gravacoesKv = kv.gravacoes; }
+    lojaD.produtos[0].preco = 5000 + i;
+    r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' }, env: envRapido });
+    j = await r.json();
+    estados.push(r.status + (j.depois ? 'd' : ''));
+  }
+  const naBordaAntes = JSON.parse(kv.mapa.get('loja:dom-conizza').valor).loja.produtos[0].preco;
+  await esperarFundo();
+  const naBorda = JSON.parse(kv.mapa.get('loja:dom-conizza').valor).loja.produtos[0].preco;
+  ok(estados.join(',') === '200,200,200,200,200,200,202d,202d' && naBordaAntes === 5006 && naBorda === 5008, 'dono salvando 8 vezes no minuto: nada de 429 (202 "depois") e a ultima mudanca chega na borda (' + estados.join(',') + ')');
+  ok(kv.gravacoes - gravacoesKv === 1, 'as duas publicacoes a mais viram uma atualizacao so (1 gravacao no KV)');
+
+  /* 5. loja e pedido inventados nao gastam o banco sem fim (30 "nao existe" por endereco em 10 min) */
+  const IPX = { 'CF-Connecting-IP': '203.0.113.50' };
+  const idx = (n) => ('x' + String(n)).padEnd(20, '0');
+  const leiturasDe = async (n, fazer) => { const wx = await workerNovo(); zerar(); for (let i = 0; i < n; i++) await (await fazer(wx, i)).text(); return conta.leituras; };
+  const envMp = Object.assign({}, env, { MP_CLIENT_ID: 'cli', MP_CLIENT_SECRET: 'seg' });
+  const medidas = {
+    criar: await leiturasDe(60, (wx, i) => chamar(wx, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: idx(i) }, headers: IPX })),
+    criarLoja: await leiturasDe(60, (wx, i) => chamar(wx, '/criar', { metodo: 'POST', corpo: { loja: 'inventada-c' + i, pedido: idx(i) }, headers: IPX })),
+    fotos: await leiturasDe(60, (wx, i) => chamar(wx, '/fotos/inventada-f' + i + '?v=1', { headers: IPX })),
+    foto: await leiturasDe(60, (wx, i) => chamar(wx, '/foto/inventada-g' + i + '/x', { headers: IPX })),
+    status: await leiturasDe(60, (wx, i) => chamar(wx, '/status?loja=inventada-s' + i + '&pedido=' + idx(i) + '&mp=ORD1&expira=' + expiraLonge, { headers: IPX })),
+    statusAntigo: await leiturasDe(60, (wx, i) => chamar(wx, '/status?loja=dom-conizza&pedido=' + idx(i), { headers: IPX })),
+    aviso: await leiturasDe(60, (wx, i) => chamar(wx, '/webhook?loja=inventada-w' + i, { metodo: 'POST', corpo: { data: { id: 'ORD' + i } }, headers: Object.assign({ Origin: '' }, IPX) })),
+    avisoSemLoja: await leiturasDe(60, (wx, i) => chamar(wx, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORDSEMREF' + i } }, headers: Object.assign({ Origin: '' }, IPX) })),
+    volta: await leiturasDe(60, (wx, i) => chamar(wx, '/mp/volta?code=abc&state=inventada-v' + i + '.nonce12345678', { headers: IPX, env: envMp })),
+  };
+  ok(Object.keys(medidas).every((k) => medidas[k] === 30), '60 chamadas com loja ou pedido inventado: no maximo 30 leituras em cada rota (' + JSON.stringify(medidas) + ')');
+  const wReal = await workerNovo();
+  for (let i = 0; i < 31; i++) await (await chamar(wReal, '/status?loja=inventada-t' + i + '&pedido=' + idx(i) + '&mp=ORD1&expira=' + expiraLonge, { headers: IPX })).text();
+  r = await chamar(wReal, '/status?loja=dom-conizza&pedido=' + PED + '&mp=ORDNAOTEM&expira=' + expiraLonge, { headers: IPX });
+  ok(r.status === 200, 'o mesmo endereco continua perguntando de uma loja de verdade (a borda conhece)');
+
+  /* 6. /status com outra grafia do id: vale o id do Mercado Pago, e o "caiu?" nunca devolve sozinho */
+  w = await workerNovo();
+  const PA = 'aliasaliasaliasalia1';
+  const ORDA = 'ORD01JS2V6CM8KJ0EC4H502TGK1WP';
+  const ORDa = 'ORD' + ORDA.slice(3).toLowerCase();
+  db.set(caminhoDe(PA), pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', pagamentoStatus: 'pendente', senha: 95, cliente: { nome: 'Ana' }, mp: { id: ORDA }, pixCodigo: 'X' }));
+  ordens.set(ORDA, { id: ORDA, status: 'processed', external_reference: 'dom-conizza__' + PA, total_amount: valorP1() });
+  ordens.set(ORDa, ordens.get(ORDA)); /* o Mercado Pago acha a mesma order por outra grafia */
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: ORDA, external_reference: 'dom-conizza__' + PA } }, headers: { Origin: '' } });
+  const devA = devolucoes.length;
+  r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PA + '&mp=' + ORDa + '&expira=' + expiraLonge);
+  let pa = db.get(caminhoDe(PA));
+  ok((await r.json()).status === 'pago' && devolucoes.length === devA && !pa.duplicadasDevolvidas && pa.pagoPor === ORDA && pa.cobrancas.join(',') === ORDA, '"caiu?" com outra grafia do id da cobranca que pagou: vale o id do Mercado Pago e nada e devolvido');
+  ordens.set('ORD990601', { id: 'ORD990601', status: 'processed', external_reference: 'dom-conizza__' + PA, total_amount: valorP1() });
+  r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PA + '&mp=ORD990601&expira=' + expiraLonge);
+  pa = db.get(caminhoDe(PA));
+  ok(devolucoes.length === devA && pa.cobrancas.indexOf('ORD990601') >= 0 && !pa.duplicadasDevolvidas, '"caiu?" de uma segunda cobranca aprovada: so anota no pedido (quem devolve e o aviso do Mercado Pago)');
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD990601', external_reference: 'dom-conizza__' + PA } }, headers: { Origin: '' } });
+  ok(devolucoes.length === devA + 1 && devolucoes[devolucoes.length - 1].id === 'ORD990601' && db.get(caminhoDe(PA)).pagoPor === ORDA, 'e o aviso do Mercado Pago devolve a segunda');
+
+  /* 7. confirmacoes ao mesmo tempo nao perdem cobranca nem devolucao */
+  const PR = 'corridacorridacorri1';
+  db.set(caminhoDe(PR), pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', pagamentoStatus: 'pendente', senha: 96, cliente: { nome: 'Ana' }, mp: { id: 'ORD990701' }, pixCodigo: 'X' }));
+  for (const idR of ['ORD990701', 'ORD990702']) ordens.set(idR, { id: idR, status: 'processed', external_reference: 'dom-conizza__' + PR, total_amount: valorP1() });
+  const fetchDaCorrida = globalThis.fetch;
+  let esperando = [], lidas = 0;
+  globalThis.fetch = async (u, o) => {
+    /* as duas copias do worker leem o pedido antes de qualquer uma gravar */
+    if (String(u) === BASE + caminhoDe(PR) && (!o || !o.method || o.method === 'GET') && ++lidas <= 2) {
+      await new Promise((solta) => { esperando.push(solta); if (esperando.length === 2) esperando.forEach((f) => f()); });
+    }
+    return fetchDaCorrida(u, o);
+  };
+  const devR = devolucoes.length;
+  await Promise.all(['ORD990701', 'ORD990702'].map(async (idR) => (await chamar(await workerNovo(), '/webhook', { metodo: 'POST', corpo: { data: { id: idR, external_reference: 'dom-conizza__' + PR } }, headers: { Origin: '' } })).text()));
+  globalThis.fetch = fetchDaCorrida;
+  const pr = db.get(caminhoDe(PR));
+  const voltaram = devolucoes.slice(devR).map((d) => d.id);
+  ok(voltaram.length === 1 && pr.status === 'pago' && pr.cobrancas.length === 2 && (pr.duplicadasDevolvidas || [])[0] === voltaram[0] && pr.pagoPor !== voltaram[0], 'duas cobrancas aprovadas confirmadas juntas (dois workers): uma paga, a outra volta sozinha e as duas ficam anotadas');
+  Object.assign(pr, { status: 'cancelado', canceladoPor: 'loja' });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PR }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok((await r.json()).ok === true && devolucoes.slice(devR).map((d) => d.id).sort().join(',') === 'ORD990701,ORD990702', 'cancelar e devolver: volta a que pagou, e a que ja tinha voltado nao volta de novo');
+  ok(db.get(caminhoDe(PR)).pagamentoStatus === 'devolvido' && !!db.get(caminhoDe(PR)).devolvidoEm, 'devolvido: pagamentoStatus "devolvido" (sai do "Falta devolver" do painel)');
+  ordens.set('ORD990703', { id: 'ORD990703', status: 'processed', external_reference: 'dom-conizza__' + PR, total_amount: valorP1() });
+  const devR2 = devolucoes.length;
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD990703', external_reference: 'dom-conizza__' + PR } }, headers: { Origin: '' } });
+  ok(devolucoes.length === devR2 + 1 && db.get(caminhoDe(PR)).status === 'cancelado' && db.get(caminhoDe(PR)).pagamentoStatus === 'devolvido', 'cobranca nova num pedido ja devolvido: volta sozinha e o pedido nao reabre');
+  const PV = 'devolvidovelho000001';
+  db.set(caminhoDe(PV), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 97, mp: { id: 'ORD990704' }, devolvidoEm: '2026-09-20T10:00:00.000Z', cliente: { nome: 'Rui' } }));
+  const devV = devolucoes.length;
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PV }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok((await r.json()).ja === true && devolucoes.length === devV && db.get(caminhoDe(PV)).pagamentoStatus === 'devolvido', 'pedido devolvido antes desta marca: o toque de novo so acerta o pagamentoStatus (nada volta duas vezes)');
+  /* /cartao com o aviso atrasado da cobranca anterior chegando no meio */
+  const PC3 = 'cartaocorridacartao1';
+  const seisMin = new Date(Date.now() - 6 * 60e3).toISOString();
+  db.set(caminhoDe(PC3), pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', senha: 98, cliente: { nome: 'Rui' }, cobrandoEm: seisMin, cobrancaIncerta: seisMin, tentativasCartao: 1 }));
+  ordens.set('ORD990801', { id: 'ORD990801', status: 'processed', external_reference: 'dom-conizza__' + PC3, total_amount: valorP1() });
+  const wAviso = await workerNovo();
+  let disparou = false;
+  const fetchDoCartao = globalThis.fetch;
+  globalThis.fetch = async (u, o) => {
+    if (!disparou && /api\.mercadopago\.com\/v1\/orders$/.test(String(u)) && o && o.method === 'POST') {
+      disparou = true;
+      await (await chamar(wAviso, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORD990801', external_reference: 'dom-conizza__' + PC3 } }, headers: { Origin: '' } })).text();
+    }
+    return fetchDoCartao(u, o);
+  };
+  r = await chamar(await workerNovo(), '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC3, token: 'APROVA2NOVO00000001', metodo: 'visa' }, headers: { 'CF-Connecting-IP': ipNovo() } });
+  globalThis.fetch = fetchDoCartao;
+  const pc3 = db.get(caminhoDe(PC3));
+  ok(disparou && (await r.json()).status === 'aprovado' && pc3.pagoPor === 'ORD990801' && pc3.cobrancas.indexOf('ORD990801') >= 0 && pc3.cobrancas.indexOf(pc3.mp.id) >= 0, 'aviso atrasado de outra cobranca no meio do cartao: as duas cobrancas continuam anotadas no pedido');
+  Object.assign(pc3, { status: 'cancelado', canceladoPor: 'loja' });
+  const devC = devolucoes.length;
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC3 }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok((await r.json()).ok === true && devolucoes.slice(devC).some((d) => d.id === 'ORD990801') && !devolucoes.slice(devC).some((d) => d.id === pc3.mp.id), 'cancelar e devolver alcanca a cobranca que pagou (e nao repete a que ja voltou)');
+  const PP = 'devolverpagopor00001';
+  for (const idP of ['ORD990901', 'ORD990902']) ordens.set(idP, { id: idP, status: 'processed', external_reference: 'dom-conizza__' + PP, total_amount: valorP1() });
+  db.set(caminhoDe(PP), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 99, mp: { id: 'ORD990901' }, cobrancas: ['ORD990901'], pagoPor: 'ORD990902', cliente: { nome: 'Rui' } }));
+  const devP = devolucoes.length;
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PP }, headers: { Authorization: 'Bearer tok-dono' } });
+  ok((await r.json()).ok === true && devolucoes.slice(devP).map((d) => d.id).sort().join(',') === 'ORD990901,ORD990902', 'devolver alcanca tambem a cobranca que pagou (pagoPor) mesmo fora da lista');
+
+  /* 9. renovacao do token que ficou esperando na borda so vale para a mesma conexao */
+  const privadoMp = 'lojas/loja-mp/privado/mercadopago';
+  const longe = new Date(Date.now() + 90 * 864e5).toISOString();
+  db.set('lojas/loja-mp', { slug: 'loja-mp', nome: 'Loja MP', donoEmail: 'dono@x.com' });
+  const statusMp = async () => (await chamar(await workerNovo(), '/status?loja=loja-mp&pedido=' + idx(1) + '&mp=ORDNAOTEM&expira=' + expiraLonge, { headers: { 'CF-Connecting-IP': ipNovo() } })).text();
+  const guardarPendente = (x) => kv.mapa.set('mpnovo:loja-mp', { valor: JSON.stringify(x), metadata: { em: Date.now() } });
+  db.set(privadoMp, { token: '', desconectadoEm: new Date().toISOString() });
+  guardarPendente({ token: 'TOKEN-VELHO', refresh: 'R2', de: 'R1', tokenExpiraEm: longe });
+  await statusMp();
+  ok(db.get(privadoMp).token === '' && !kv.mapa.has('mpnovo:loja-mp'), 'loja desconectada: a renovacao velha guardada na borda sai sem religar o token');
+  db.set(privadoMp, { token: 'T1', refresh: 'R1', tokenExpiraEm: longe });
+  guardarPendente({ token: 'T2', refresh: 'R2', de: 'R1', tokenExpiraEm: longe });
+  await statusMp();
+  ok(db.get(privadoMp).token === 'T2' && db.get(privadoMp).refresh === 'R2' && !('de' in db.get(privadoMp)) && !kv.mapa.has('mpnovo:loja-mp'), 'renovacao da mesma conexao: grava no banco como antes');
+  db.set(privadoMp, { token: 'T3', refresh: 'R3', tokenExpiraEm: longe });
+  guardarPendente({ token: 'T-VELHO', refresh: 'R-VELHO', de: 'R2', tokenExpiraEm: longe });
+  await statusMp();
+  ok(db.get(privadoMp).token === 'T3' && !kv.mapa.has('mpnovo:loja-mp'), 'conectou de novo antes: a renovacao da conexao antiga nao passa por cima');
+  db.set(privadoMp, { token: 'T3', refresh: 'R3', tokenExpiraEm: longe, oauthNonce: 'nonce12345678', oauthEm: new Date().toISOString() });
+  guardarPendente({ token: 'T-VELHO', refresh: 'R-VELHO', de: 'R3', tokenExpiraEm: longe });
+  const fetchDaVolta = globalThis.fetch;
+  globalThis.fetch = async (u, o) => String(u) === 'https://api.mercadopago.com/oauth/token' ? resposta({ access_token: 'T-NOVO', refresh_token: 'R-NOVO', user_id: 7, public_key: 'PUB-NOVO', expires_in: 15552000 }) : fetchDaVolta(u, o);
+  r = await chamar(await workerNovo(), '/mp/volta?code=abc&state=loja-mp.nonce12345678', { env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  globalThis.fetch = fetchDaVolta;
+  ok(r.status === 302 && /mp-ok$/.test(r.headers.get('Location') || '') && db.get(privadoMp).token === 'T-NOVO' && !kv.mapa.has('mpnovo:loja-mp'), 'conectar de novo apaga a renovacao que esperava na borda');
+
+  /* 11. cartao em analise no banco nao "vence" como Pix */
+  const quarentaMin = new Date(Date.now() - 40 * 60e3).toISOString();
+  const PAN = 'analiseanaliseanali1';
+  ordens.set('ORD991101', { id: 'ORD991101', status: 'processing', status_detail: 'in_process', external_reference: 'dom-conizza__' + PAN, total_amount: valorP1(), transactions: { payments: [{ id: 'PAYORD991101', status: 'processing', status_detail: 'in_process' }] } });
+  db.set(caminhoDe(PAN), pedidoDe(1, { criadoEm: quarentaMin, status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', senha: 100, cliente: { nome: 'Rui' }, mp: { id: 'ORD991101', cartao: true }, cobrandoEm: quarentaMin, cobrancaIncerta: quarentaMin }));
+  r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PAN, { headers: { 'CF-Connecting-IP': ipNovo() } }); j = await r.json();
+  ok(j.status === 'aguardando_pagamento' && j.vencido === false, 'cartao em analise no banco ha 40 min: nao vence (o painel nao cancela como "Pix venceu")');
+  const PSA = 'semanalisesemanalis1';
+  db.set(caminhoDe(PSA), pedidoDe(1, { criadoEm: quarentaMin, status: 'aguardando_pagamento', formaPagamento: 'cartao_online', pagamentoStatus: 'pendente', senha: 101, cliente: { nome: 'Rui' } }));
+  r = await chamar(w, '/status?loja=dom-conizza&pedido=' + PSA, { headers: { 'CF-Connecting-IP': ipNovo() } }); j = await r.json();
+  ok(j.vencido === true, 'cartao sem cobranca nenhuma ha 40 min: vence como antes');
 }
 
 console.log('Banco no limite do dia');

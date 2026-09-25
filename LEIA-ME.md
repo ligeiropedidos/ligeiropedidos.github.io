@@ -147,7 +147,7 @@ Pago da loja.
 | Opções por grupo | 30 | painel avisa |
 | Cupons | 20 por loja | painel avisa, regra do banco (`privado/cupons`) |
 | Itens num pedido | 40 | `R.montarPedido` (mensageiro) |
-| Pedidos | 15 por aparelho em 10 min | mensageiro `/pedido` |
+| Pedidos | 15 por aparelho em 10 min (o tablet do balcão, com a senha da equipe: 200 por loja) | mensageiro `/pedido` |
 | Código de cupom | 12 tentativas por aparelho em 10 min, 300 por loja | mensageiro `/cupom` e `/pedido` |
 | Cartão | 4 tentativas por pedido, 8 por aparelho em 10 min | mensageiro `/cartao` |
 | Contato ("Fale com a gente") | 3 por aparelho em 10 min, 300 por dia | mensageiro `/lead` (a regra não deixa gravar direto) |
