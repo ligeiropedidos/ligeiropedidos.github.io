@@ -481,9 +481,15 @@ Ligar (uma vez, na Cloudflare, nesta ordem):
 
 1. Workers & Pages > Create > Worker "ligeiro-site" > colar `worker-site.js` > Deploy.
 2. SSL/TLS do domínio em **Full** (nunca "Flexible": com o "Enforce HTTPS" do GitHub dá voltas sem fim).
-3. Workers Routes do domínio: `ligeiropedidos.com.br/*` com **ligeiro-site**; e com **None**:
+3. Workers Routes do domínio: `ligeiropedidos.com.br/*` com **ligeiro-site** ("Fail open": passou das 100 mil
+   chamadas do dia, o site abre direto pelo GitHub, com o `#`); e com **None**:
    `ligeiropedidos.com.br/js/*`, `/css/*`, `/img/*`, `/fontes/*`, `/midia/*`, `/vendor/*`, `/dados/*`.
 4. DNS: nuvem **laranja** ("Proxied") nos 4 registros A e no `www`.
+5. SSL/TLS > Edge Certificates: **Always Use HTTPS** ligado (o `http://` vai para o `https://`, como o GitHub fazia).
+
+Ligado por ele em 25/09/2026, na ordem acima, e conferido de fora: página limpa 200 com a marca, prévia do WhatsApp
+com o nome, a cidade e a logo da Dom Conizza, `/_logo/dom-conizza` em JPG, arquivos 200, `www` e `http` levando
+para `https://ligeiropedidos.com.br`.
 
 Teste: `node testes/site.test.mjs`.
 
