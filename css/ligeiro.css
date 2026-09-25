@@ -1531,6 +1531,15 @@ button.plano-card { cursor: pointer; }
 .plano-barra { display: block; height: 8px; border-radius: 999px; background: var(--lime-suave); overflow: hidden; margin-top: 6px; }
 .plano-barra i { display: block; height: 100%; border-radius: 999px; background: var(--lime); }
 .plano-recado { margin: 0; }
+/* periodo gratis: "Por que assinar agora?" com tres motivos, cada um com o icone num circulo */
+.plano-gratis { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+.plano-gratis-titulo { font-family: var(--display); font-size: 16px; line-height: 1.25; color: var(--ink); }
+.plano-gratis-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.plano-gratis-lista li { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.4; color: var(--body); }
+.plano-gratis-lista li b { color: var(--ink); white-space: nowrap; } /* "os pedidos param" nunca parte no meio */
+.plano-gratis-txt { text-wrap: balance; } /* duas linhas do mesmo tamanho: nada de palavra sozinha embaixo */
+.plano-gratis-ico { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; }
+.plano-gratis-ico .ico-traco svg { width: 18px; height: 18px; }
 .plano-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; }
 .plano-acoes .plano-pagar { grid-column: 1 / -1; min-height: 52px; font-size: 17px; }

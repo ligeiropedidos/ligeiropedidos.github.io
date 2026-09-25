@@ -147,7 +147,6 @@
       var valor = R.precoDoPlano(plano.id, p.tipo, conta);
       var fundador = R.ehPrecoFundador(conta);
       var textos = {
-        gratis: 'Grátis até ' + dataBR(a.limite) + '. Depois, ' + R.dinheiro(valor) + (p.tipo === 'anual' ? ' por ano' : ' por mês') + '. Cadastre o cartão agora e não precisa lembrar de pagar.',
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Paga até ' + dataBR(a.limite) + '.',
         vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague pelo Pix para não parar.',
         vencida: 'Vencida desde ' + dataBR(a.limite) + '. Suas lojas seguem no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
@@ -181,7 +180,8 @@
           quadro('Valor', a.cortesia ? R.dinheiro(0) : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
           quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
         ]),
-        (alerta || a.estado === 'gratis' || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado' + (alerta ? ' com-alerta' : '') }, [alerta ? UI.iconeLinha('alerta') : null, el('span', { text: textos[a.estado] || '' })]) : null,
+        a.estado === 'gratis' ? porQueAssinar(p.tipo === 'anual') : null,
+        (alerta || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado' + (alerta ? ' com-alerta' : '') }, [alerta ? UI.iconeLinha('alerta') : null, el('span', { text: textos[a.estado] || '' })]) : null,
         p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', 'estrela', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
         p.avisoPagamentoEm ? avisoPlano('espera', 'ampulheta', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
         fatura ? avisoPlano('espera', 'recibo', 'Mensalidade de ' + R.dinheiro(fatura.valor), C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.')) : null,
@@ -202,6 +202,22 @@
               } }) : null),
         ]),
       ]));
+    }
+
+    /* No periodo gratis: o que ganha assinando agora. Nao repete a data nem o valor (estao nos quadros de cima): diz o que
+       os quadros nao dizem (os dias gratis continuam, o cartao cobra sozinho, e o que acontece se nao assinar) */
+    function porQueAssinar(anual) {
+      function item(icone, partes) {
+        return el('li', {}, [el('span', { class: 'plano-gratis-ico', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { class: 'plano-gratis-txt' }, partes)]);
+      }
+      return el('div', { class: 'plano-gratis' }, [
+        el('b', { class: 'plano-gratis-titulo', text: 'Por que assinar agora?' }),
+        el('ul', { class: 'plano-gratis-lista' }, [
+          item('presente', ['Os dias grátis ', el('b', { text: 'não se perdem' }), ': os pagos só contam depois deles.']),
+          item('cartao', ['No cartão, a ' + (anual ? 'renovação' : 'mensalidade') + ' ', el('b', { text: 'cai sozinha' }), anual ? ' todo ano.' : ' todo mês.']),
+          item('relogio', ['Sem assinar, ', el('b', { text: 'os pedidos param' }), ' quando o grátis acabar.']),
+        ]),
+      ]);
     }
 
     /* aviso do plano: icone num circulo, titulo e uma linha curta (tipo: 'fundador' dourado, 'espera' laranja) */

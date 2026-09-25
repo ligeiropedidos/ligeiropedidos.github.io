@@ -20,7 +20,7 @@ const env = {
 const db = new Map();
 const emails = [];
 const cobrancas = new Map();
-const clientes = new Map([['cus_1', { email: 'dono@loja.com' }]]);
+const clientes = new Map([['cus_1', { email: 'dono@loja.com' }], ['cus_t', { email: 'teste@loja.com' }]]);
 const BASE = 'https://firestore.googleapis.com/v1/projects/proj/databases/(default)/documents/';
 function fs(v) {
   if (v === null || v === undefined) return { nullValue: null };
@@ -133,6 +133,13 @@ cobrancas.set('pay_4', { id: 'pay_4', customer: 'cus_1', value: 89, status: 'CON
 r = await avisar({ id: 'pay_4', customer: 'cus_1', value: 89 });
 conta = db.get('contas/dono@loja.com');
 ok(!conta.plano.pagamentoParcial && db.get('lojas/loja-do-ze').plano.status === 'ativo', 'preco cheio: mes inteiro e a loja espelhada ativa');
+
+/* assinou no periodo gratis (2 dias de 7 usados): os 5 que faltam continuam e os 30 pagos contam depois deles */
+db.set('contas/teste@loja.com', { email: 'teste@loja.com', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: new Date(Date.now() - 2 * 864e5).toISOString() } });
+cobrancas.set('pay_t', { id: 'pay_t', customer: 'cus_t', value: 89, status: 'CONFIRMED' });
+r = await avisar({ id: 'pay_t', customer: 'cus_t', value: 89 });
+const diasTeste = Math.round((new Date(db.get('contas/teste@loja.com').plano.pagoAte).getTime() - Date.now()) / 864e5);
+ok(r.status === 200 && diasTeste === 35, 'assinou no gratis: nao perde os 5 dias que faltavam (' + diasTeste + ' dias, 5 + 30)');
 
 /* estorno e contestacao: a conta pausa (loja trava) ate o admin olhar */
 cobrancas.set('pay_9', { id: 'pay_9', customer: 'cus_1', value: 89, status: 'RECEIVED' });

@@ -78,7 +78,11 @@ export default {
       const jaFeito = Array.isArray(conta && conta.pagamentos) && conta.pagamentos.indexOf(pag.id) >= 0;
       if (jaFeito) return json({ ok: true, repetido: pag.id });
 
-      const base = Math.max(Date.now(), p.pagoAte ? new Date(p.pagoAte).getTime() : 0);
+      /* quem assina no periodo gratis nao perde os dias que faltam: os dias pagos contam depois do gratis (igual a Central
+         ao confirmar um pagamento e igual ao R.assinatura do site, que usa o maior entre o pago e o fim do gratis) */
+      const inicio = p.desde ? new Date(p.desde).getTime() : NaN;
+      const fimGratis = isFinite(inicio) ? inicio + DIAS_GRATIS * 864e5 : 0;
+      const base = Math.max(Date.now(), p.pagoAte ? new Date(p.pagoAte).getTime() || 0 : 0, fimGratis);
       /* Quantos dias o pagamento vale. Preco cheio: o periodo inteiro. Preco de fundador: so para quem ja e fundador ou
          enquanto houver vaga (conferida aqui, no servidor, na hora do pagamento; o site nao decide). Sem vaga, ou valor
          que nao bate com nenhum plano: dias proporcionais ao que entrou, e o painel mostra a diferenca */
@@ -182,6 +186,8 @@ async function lembrarFaturas(env, agora) {
    igual; no celular a faixa encolhe pelo @media. As imagens sao PNG do site (img/email, feitas por
    comercial/scripts/selos_email.mjs), porque e-mail nao mostra SVG */
 const SITE = 'https://ligeiropedidos.com.br';
+/* dias gratis do teste: o mesmo numero de precos.diasGratis em js/config.js (mudou la, muda aqui) */
+const DIAS_GRATIS = 7;
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function mensagemDoLembrete(qual, f, cartao, nome) {
   const valor = 'R$ ' + (Math.round(Number(f.valor) || 0) / 100).toFixed(2).replace('.', ',');
