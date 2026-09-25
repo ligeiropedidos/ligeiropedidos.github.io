@@ -35,9 +35,11 @@
     return lista.filter(function (p) { return String(p.criadoEm || '') >= desde; });
   }
 
-  function chaveSessao(slug) { return 'ligeiro:painel:' + slug; }
-  function logado(slug) { try { return sessionStorage.getItem(chaveSessao(slug)) === '1'; } catch (_) { return false; } }
-  function marcarLogado(slug) { try { sessionStorage.setItem(chaveSessao(slug), '1'); } catch (_) { /* ignora */ } }
+  /* marca de "ja entrou" desta aba. O balcao (tablet virado para o cliente) tem a marca dele: com a do painel, quem estava
+     no balcao abria a fila da equipe (nome, telefone e endereco dos clientes, cancelar) sem digitar a senha */
+  function chaveSessao(slug, marca) { return 'ligeiro:' + (marca || 'painel') + ':' + slug; }
+  function logado(slug, marca) { try { return sessionStorage.getItem(chaveSessao(slug, marca)) === '1'; } catch (_) { return false; } }
+  function marcarLogado(slug, marca) { try { sessionStorage.setItem(chaveSessao(slug, marca), '1'); } catch (_) { /* ignora */ } }
 
   /* Recarga depois que o banco recusa a fila: no maximo uma vez por sessao (a mesma marca do painel).
      Sem isso, uma conta sem acesso recarrega sem fim. Sair zera a marca, e a fila de pe por 60 s tambem. */
@@ -81,8 +83,9 @@
     ]));
   }
 
-  /* Carrega a loja, pede a senha se precisar e chama montar(loja). Devolve a funcao de limpeza. */
-  function abrirComSenha(raiz, slug, titulo, montar) {
+  /* Carrega a loja, pede a senha se precisar e chama montar(loja). Devolve a funcao de limpeza.
+     marca: 'balcao' guarda o "ja entrou" a parte (o painel, a cozinha e o entregador nao abrem com ela) */
+  function abrirComSenha(raiz, slug, titulo, montar, marca) {
     var limpar = function () {};
     var vivo = true;
     UI.abrirOficialCedo(raiz, slug);
@@ -96,12 +99,12 @@
       }
       UI.aplicarTemaOficial(raiz, slug);
       /* na nuvem a marca da sessao so vale se ainda existe alguem logado (senha da equipe trocada derruba o login antigo) */
-      if (logado(slug)) {
+      if (logado(slug, marca)) {
         if (D.modoDemo || !store.usuarioAtual) { limpar = montar(loja) || limpar; return; }
         store.usuarioAtual().then(function (u) {
           if (!vivo) return;
           if (u) { limpar = montar(loja) || limpar; return; }
-          try { sessionStorage.removeItem(chaveSessao(slug)); } catch (_) { /* ignora */ }
+          try { sessionStorage.removeItem(chaveSessao(slug, marca)); } catch (_) { /* ignora */ }
           pedirSenha();
         }).catch(function () { if (vivo) pedirSenha(); });
         return;
@@ -110,7 +113,7 @@
       var donoCheca = store.donoLogado ? store.donoLogado(loja) : Promise.resolve(false);
       donoCheca.then(function (ehDono) {
         if (!vivo) return;
-        if (ehDono) { marcarLogado(slug); UI.limpar(raiz); limpar = montar(loja) || limpar; return; }
+        if (ehDono) { marcarLogado(slug, marca); UI.limpar(raiz); limpar = montar(loja) || limpar; return; }
         pedirSenha();
       });
       function pedirSenha() {
@@ -126,7 +129,7 @@
         store.entrarPainel(slug, campo.value).then(function (ok) {
           if (!vivo) return;
           if (!ok) { erro.textContent = 'Senha errada.'; erro.hidden = false; campo.value = ''; campo.focus(); UI.soar('erro'); return; }
-          marcarLogado(slug);
+          marcarLogado(slug, marca);
           UI.limpar(raiz);
           limpar(); /* derruba uma montagem anterior, se houver */
           limpar = montar(loja) || limpar;
@@ -157,18 +160,31 @@
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
       el('p', { text: 'Essa senha abre a cozinha e o entregador da ' + loja.nome + '. Só números, de 6 a 8.' }),
       el('div', { class: 'campo' }, [el('label', { text: 'Nova senha da equipe' }), campo]),
-      el('p', { class: 'muted pequeno', text: 'Anote e passe para quem trabalha com você. Quem já estava logado continua até fechar a tela.' }),
+      /* trocar a senha derruba o login antigo, mas nao na hora: o Firebase so confere quando o acesso vence (ate 1 hora) */
+      el('p', { class: 'muted pequeno', text: 'Anote e passe para quem trabalha com você. Quem entrou com a senha antiga vai precisar digitar a nova: a tela pede em até uma hora.' }),
     ]);
+    /* a resposta do mensageiro ("senha facil demais: ...") vira frase: maiuscula no comeco e ponto no fim */
+    function frase(t) { var s = String(t || '').trim(); if (!s) return s; s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + '.'; }
     function salvar() {
       var pin = campo.value.replace(/\D/g, '');
       if (pin.length < 6 || pin.length > 8) return UI.avisar('Use de 6 a 8 números.');
+      /* a mesma conta do mensageiro: 123456, 111111 e 654321 sao as primeiras que alguem tenta */
+      if (/^(\d)\1+$/.test(pin) || '0123456789'.indexOf(pin) >= 0 || '9876543210'.indexOf(pin) >= 0) return UI.avisar('Senha fácil demais. Evite números repetidos ou em sequência, como 123456.');
       var promessa = D.modoDemo
         ? store.salvarLoja({ slug: loja.slug, senhaPainel: pin })
         : store.obterIdToken().then(function (idToken) {
           var cfg = window.LIGEIRO_CONFIG || {};
           if (!cfg.proxyMercadoPago) throw new Error('O mensageiro ainda não está no ar.');
           return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/equipe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify({ loja: loja.slug, pin: pin }) })
-            .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu para salvar.'); return j; }); });
+            .then(function (r) {
+              return r.json().catch(function () { return {}; }).then(function (j) {
+                if (r.ok && j.ok) return j;
+                /* a mensagem do mensageiro e para o dono ler (senha fraca, conta errada): passa inteira */
+                var e = new Error(j.erro ? frase(j.erro) : 'Não deu para salvar agora. Tente de novo.');
+                e.publico = true;
+                throw e;
+              });
+            });
         });
       promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para salvar agora.')); });
     }
@@ -181,6 +197,78 @@
   }
 
   function minutosDesde(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
+  /* "12 min", "1 h 05", "10 h", "2 dias": a mesma conta do "ha quanto tempo" do painel (antes a cozinha mostrava "584 min") */
+  function tempoNaFila(min) {
+    if (min < 60) return min + ' min';
+    if (min < 180) { var mm = min % 60; return Math.floor(min / 60) + ' h' + (mm ? ' ' + (mm < 10 ? '0' : '') + mm : ''); }
+    var h = Math.round(min / 60);
+    if (h < 24) return h + ' h';
+    var d = Math.floor(min / 1440);
+    return d + (d === 1 ? ' dia' : ' dias');
+  }
+
+  /* A loja das telas da equipe acompanha o cardapio do dono pela copia da borda (a mesma do cliente, confere a cada
+     minuto e nao gasta leitura do banco). Antes a cozinha e o entregador ficavam com o cardapio de quando a tela abriu,
+     e preco novo ou item criado depois acendia "valor nao confere" em pedido certo. aoMudar(loja) a cada mudanca */
+  function lojaAtualizada(slug, aoMudar) {
+    var viva = store.lojaPublica ? store.lojaPublica(slug) : null;
+    if (!viva) return { conferir: function () { return Promise.resolve(null); }, parar: function () {} };
+    var parado = false, pararOuvir = function () {};
+    /* escuta depois da primeira: sem a borda, a loja passa a vir do banco ao vivo, e so ai da para escutar */
+    viva.primeira.then(function (l) {
+      if (parado) return;
+      if (l) aoMudar(l);
+      pararOuvir = viva.assistir(function (l2) { if (l2 && !parado) aoMudar(l2); });
+    }).catch(function () { /* sem internet: fica o cardapio de quando abriu */ });
+    return {
+      /* a loja de agora, uma vez (antes de acender o aviso de valor) */
+      conferir: function () { return viva.conferirAgora ? viva.conferirAgora().catch(function () { return null; }) : Promise.resolve(null); },
+      parar: function () { parado = true; try { pararOuvir(); } catch (_) { /* ignora */ } viva.parar(); },
+    };
+  }
+
+  /* Botao do apito no topo da cozinha e do entregador: "Ligar" (com o pontinho) ate o navegador liberar o som no
+     primeiro toque; depois liga e desliga */
+  function botaoApito(estado) {
+    var btnSom = el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () {
+      if (UI.somAcabouDeLiberar()) { pintarSom(); UI.soar('toque'); return; } /* esse toque so liberou o som */
+      estado.somLigado = UI.somLigado(!estado.somLigado);
+      pintarSom();
+      if (estado.somLigado) UI.soar('toque');
+    } });
+    function pintarSom() {
+      var travado = UI.somTravado();
+      var longo = travado ? 'Toque para ligar o apito' : estado.somLigado ? 'Apito ligado' : 'Apito desligado';
+      rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar' : 'Apito');
+      btnSom.setAttribute('aria-label', longo);
+      btnSom.classList.toggle('on', estado.somLigado);
+      btnSom.classList.toggle('pedindo', travado);
+      if (travado) UI.quandoLiberarSom(pintarSom);
+    }
+    pintarSom();
+    return btnSom;
+  }
+
+  /* Escuta da fila que volta sozinha depois do limite do banco gratis (a escuta que deu erro morre): tenta de novo a
+     cada 10 min, como o painel, e a faixa sai quando a fila volta. Antes a cozinha e o entregador paravam de vez */
+  function filaQueVolta(raiz, assinar) {
+    var parar = function () {};
+    var noLimite = false, tentouEm = 0;
+    function ligar() {
+      try { parar(); } catch (_) { /* ignora */ }
+      parar = assinar(function () {
+        if (!noLimite) return;
+        noLimite = false;
+        var fx = raiz.querySelector('.faixa-limite');
+        if (fx) fx.remove();
+      }, function () { noLimite = true; tentouEm = Date.now(); UI.faixaLimite(raiz); });
+    }
+    ligar();
+    return {
+      tentarDeNovo: function () { if (noLimite && Date.now() - tentouEm > 10 * 60 * 1000) { tentouEm = Date.now(); ligar(); } },
+      parar: function () { try { parar(); } catch (_) { /* ignora */ } },
+    };
+  }
 
   /* botao do topo, como no painel: icone de traco, nome inteiro no PC e o curto no celular (tercos iguais) */
   function rotuloTopo(botao, icone, longo, curto) {
@@ -256,30 +344,28 @@
    * ========================================================== */
   function abrirCozinha(raiz, slug) {
     return abrirComSenha(raiz, slug, 'Cozinha', function (lojaInicial) {
-      var estado = { loja: lojaInicial, pedidos: [], conhecidos: null, parar: [], relogio: null, somLigado: UI.somLigado() };
+      var estado = { loja: lojaInicial, pedidos: [], conhecidos: null, parar: [], relogio: null, somLigado: UI.somLigado(), conferidos: {} };
       document.body.classList.add('cozinha-modo');
 
-      var btnSom = el('button', { class: 'btn btn-pequeno', type: 'button', onclick: function () {
-        if (UI.somAcabouDeLiberar()) { pintarSom(); UI.soar('toque'); return; } /* esse toque so liberou o som */
-        estado.somLigado = UI.somLigado(!estado.somLigado);
-        pintarSom();
-        if (estado.somLigado) UI.soar('toque');
-      } });
       /* um botao so para o apito: "Ligar" (com o pontinho) ate o navegador liberar o som no primeiro toque */
-      function pintarSom() {
-        var travado = UI.somTravado();
-        var longo = travado ? 'Toque para ligar o apito' : estado.somLigado ? 'Apito ligado' : 'Apito desligado';
-        rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar' : 'Apito');
-        btnSom.setAttribute('aria-label', longo);
-        btnSom.classList.toggle('on', estado.somLigado);
-        btnSom.classList.toggle('pedindo', travado);
-        if (travado) UI.quandoLiberarSom(pintarSom);
-      }
-      pintarSom();
+      var btnSom = botaoApito(estado);
       /* sem contador no topo (cada coluna ja diz quantos) e sem ir ao painel: a cozinha so cuida da fila */
       raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [], [btnSom, botaoAvisos(slug, 'cozinha')]));
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
+      /* o cardapio do dono chega aqui quando muda (preco novo, item novo): o aviso de valor confere com o de agora */
+      var loja = lojaAtualizada(slug, function (l) { estado.loja = l; desenhar(); });
+      estado.parar.push(loja.parar);
+      /* o valor nao bateu: antes de acender o aviso, confere uma vez o cardapio de agora (o dono pode ter acabado de mudar) */
+      function avisoConferido(p) {
+        var aviso = avisoDeValor(estado.loja, p);
+        if (!aviso || estado.conferidos[p.id] === 'feito') return aviso;
+        if (!estado.conferidos[p.id]) {
+          estado.conferidos[p.id] = 'indo';
+          loja.conferir().then(function () { estado.conferidos[p.id] = 'feito'; desenhar(); });
+        }
+        return null;
+      }
 
       function desenhar() {
         UI.limpar(colunas);
@@ -303,11 +389,11 @@
         f.appendChild(el('div', { class: 'cabeca' }, [
           /* o desenho do cartao do painel: senha e tempo em cima, o tipo embaixo */
           el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
-          el('span', { class: 'selo tempo ' + (min >= limite ? 'laranja' : 'cinza'), title: 'Desde que entrou na fila' }, [UI.iconeLinha('relogio'), min + ' min']),
+          el('span', { class: 'selo tempo ' + (min >= limite ? 'laranja' : 'cinza'), title: 'Desde que entrou na fila' }, [UI.iconeLinha('relogio'), tempoNaFila(min)]),
           UI.seloTipo(p),
         ]));
         f.appendChild(itensGrandes(p));
-        var avisoValor = avisoDeValor(estado.loja, p);
+        var avisoValor = avisoConferido(p);
         if (avisoValor) f.appendChild(avisoValor);
         var proximo = R.proximoStatus(p);
         var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
@@ -323,11 +409,13 @@
         return f;
       }
 
-      /* a loja veio uma vez ao abrir; a cozinha nao precisa da loja inteira de novo a cada vez que o dono salva algo */
+      /* a loja vem da copia da borda (lojaAtualizada, la em cima), sem ler o banco a cada vez que o dono salva algo */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
       estado.movidosAqui = {};
-      estado.parar.push(store.assistirPedidos(slug, function (lista, doCache) {
+      var fila = filaQueVolta(raiz, function (voltou, noLimite) {
+        return store.assistirPedidos(slug, function (lista, doCache) {
+        if (!doCache) voltou(); /* a do cache chega antes da recusa do banco: so a do servidor tira a faixa */
         lista = desdeOntem(lista);
         var novos = 0;
         if (estado.conhecidos) lista.forEach(function (p) { if (p.status === R.STATUS.PAGO && !estado.conhecidos[p.id + p.status]) novos += 1; });
@@ -351,8 +439,11 @@
         estado.pedidos = lista;
         if (novos) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
         desenhar();
-      }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO], aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } }));
-      estado.relogio = setInterval(desenhar, 30000);
+        }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO], aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { noLimite(); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Cozinha', estado.loja.nome, pararCozinha); } });
+      });
+      estado.parar.push(fila.parar);
+      /* o relogio redesenha o "ha quanto tempo" e, no limite do banco, tenta a fila de novo a cada 10 min */
+      estado.relogio = setInterval(function () { fila.tentarDeNovo(); desenhar(); }, 30000);
 
       function pararCozinha() {
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
@@ -396,11 +487,24 @@
 
   function abrirEntrega(raiz, slug) {
     return abrirComSenha(raiz, slug, 'Entregador', function (lojaInicial) {
-      var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null };
+      var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null, somLigado: UI.somLigado(), conferidos: {}, naRua: null };
 
-      raiz.appendChild(topoEquipe(slug, 'Entregador · ' + estado.loja.nome, [], [botaoAvisos(slug, 'entregas')]));
+      /* espaco fixo depois do ponto: o nome da loja nunca quebra a linha logo depois do "·" */
+      raiz.appendChild(topoEquipe(slug, 'Entregador\u00a0· ' + estado.loja.nome, [], [botaoApito(estado), botaoAvisos(slug, 'entregas')]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
+      /* o cardapio de agora (preco novo, item novo), como na cozinha */
+      var loja = lojaAtualizada(slug, function (l) { estado.loja = l; desenhar(); });
+      estado.parar.push(loja.parar);
+      function avisoConferido(p) {
+        var aviso = avisoDeValor(estado.loja, p);
+        if (!aviso || estado.conferidos[p.id] === 'feito') return aviso;
+        if (!estado.conferidos[p.id]) {
+          estado.conferidos[p.id] = 'indo';
+          loja.conferir().then(function () { estado.conferidos[p.id] = 'feito'; desenhar(); });
+        }
+        return null;
+      }
 
       function desenhar() {
         UI.limpar(lista);
@@ -431,7 +535,7 @@
         if (e.referencia) end.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
         card.appendChild(end);
         card.appendChild(el('div', { class: 'itens' }, [el('span', { text: p.itens.map(function (it) { return it.quantidade + 'x ' + it.nome; }).join(', ') })]));
-        var avisoValorE = avisoDeValor(estado.loja, p);
+        var avisoValorE = avisoConferido(p);
         if (avisoValorE) card.appendChild(avisoValorE);
         var acoes = el('div', { class: 'acoes acoes-entrega' });
         acoes.appendChild(el('a', { class: 'btn btn-fantasma', href: linkMapa(estado.loja, p), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Mapa']));
@@ -444,11 +548,28 @@
         return card;
       }
 
-      /* so as entregas em andamento (a loja veio uma vez ao abrir) */
+      /* so as entregas em andamento (a loja vem da copia da borda, em lojaAtualizada) */
       var pararZerar = zerarRecargaDepois(slug);
       estado.parar.push(pararZerar);
-      estado.parar.push(store.assistirPedidos(slug, function (lista) { estado.pedidos = desdeOntem(lista); desenhar(); }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { UI.faixaLimite(raiz); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Entregador', estado.loja.nome, pararEntrega); } }));
-      estado.relogio = setInterval(desenhar, 60000);
+      var fila = filaQueVolta(raiz, function (voltou, noLimite) {
+        return store.assistirPedidos(slug, function (lista, doCache) {
+          if (!doCache) voltou();
+          estado.pedidos = desdeOntem(lista);
+          /* entrega nova em "Para entregar agora" apita e vibra, como pedido novo na cozinha. A primeira lista so conta (e
+             a do cache tambem: a primeira do servidor ainda e o ponto de partida, sem apito de coisa que ja estava la) */
+          var prontas = estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega' && p.status === R.STATUS.PRONTO; });
+          var partida = !estado.naRua || estado.naRuaDoCache;
+          var novas = partida ? 0 : prontas.filter(function (p) { return !estado.naRua[p.id]; }).length;
+          estado.naRuaDoCache = partida && !!doCache;
+          estado.naRua = estado.naRua || {};
+          prontas.forEach(function (p) { estado.naRua[p.id] = true; });
+          if (novas) { UI.soar('apito'); UI.vibrar([200, 100, 200]); }
+          desenhar();
+        }, { status: [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO], tipoEntrega: 'entrega', aoErro: function (e) { if (D.ehLimite && D.ehLimite(e)) { noLimite(); return; } pararZerar(); sessaoCaiu(raiz, slug, 'Entregador', estado.loja.nome, pararEntrega); } });
+      });
+      estado.parar.push(fila.parar);
+      /* o relogio redesenha e, no limite do banco, tenta a fila de novo a cada 10 min */
+      estado.relogio = setInterval(function () { fila.tentarDeNovo(); desenhar(); }, 60000);
 
       function pararEntrega() {
         estado.parar.forEach(function (f) { try { f(); } catch (_) { /* ignora */ } });
@@ -459,12 +580,13 @@
     });
   }
 
-  /* Balcao (tablet no caixa): pede a senha do painel uma vez por aparelho; depois abre a loja em modo totem. */
+  /* Balcao (tablet no caixa): pede a senha da equipe uma vez; depois abre a loja em modo totem. A marca de "ja entrou"
+     e so do balcao: dali, o painel, a cozinha e o entregador pedem a senha de novo (o tablet fica com o cliente) */
   function abrirBalcao(raiz, slug) {
     return abrirComSenha(raiz, slug, 'Balcão', function () {
       document.body.classList.add('balcao');
       return window.LigeiroCliente.loja(raiz, slug, { balcao: true });
-    });
+    }, 'balcao');
   }
 
   window.LigeiroEquipe = { abrirCozinha: abrirCozinha, abrirEntrega: abrirEntrega, abrirBalcao: abrirBalcao, definirSenha: definirSenha, linkMapa: linkMapa };

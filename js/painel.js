@@ -401,9 +401,17 @@
       /* cancelado com o dinheiro pago pelo site (a loja cancelou, ou pagou depois de cancelado): lista pequena propria,
          de qualquer dia, ate devolver. So o dono devolve */
       estado.aDevolver = [];
+      estado.corrigidos = {};
       if (!estado.equipe) estado.parar.push(store.assistirPedidos(slug, function (l) {
         /* o devolvido sai daqui e volta para "Cancelados hoje" ja na versao nova (sem o botao) */
         if (estado.encerrados) l.forEach(function (p) { if (estado.encerrados[p.id]) estado.encerrados[p.id] = p; });
+        /* devolvido de antes (so com devolvidoEm, ainda "pago"): vira "devolvido" e sai da consulta. Sem isso os devolvidos
+           ocupavam as 50 vagas dela para sempre e o proximo cancelado pago nao aparecia aqui. Uma vez por pedido */
+        l.forEach(function (p) {
+          if (!p.devolvidoEm || p.pagamentoStatus !== 'pago' || estado.corrigidos[p.id]) return;
+          estado.corrigidos[p.id] = true;
+          store.atualizarPedido(slug, p.id, { pagamentoStatus: 'devolvido' }).catch(function () { /* fica para a proxima abertura */ });
+        });
         estado.aDevolver = l.filter(pagoPeloSite);
         if (estado.aba === 'pedidos') desenharPedidos();
       }, { devolver: true }));
@@ -513,7 +521,7 @@
       if (aba === 'pedidos') { desenharCabecaPedidos(); desenharPedidos(); }
       else if (aba === 'cardapio') desenharCardapio();
       else if (aba === 'vendas') desenharVendas();
-      else if (aba === 'ajustes') desenharAjustes();
+      else if (aba === 'ajustes') { estado.cupons = null; desenharAjustes(); } /* cupons de novo do banco: outro aparelho pode ter mexido */
       else if (aba === 'links') desenharLinks();
       window.scrollTo(0, 0);
     }
@@ -696,7 +704,8 @@
         ]));
         if (fatura) filhos.push(el('div', { class: 'aviso-plano aviso-espera aviso-no-cartao', role: 'note' }, [
           el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('recibo')]),
-          el('span', { class: 'aviso-plano-texto' }, [el('b', { text: 'Mensalidade de ' + dinheiro(fatura.valor) }), el('span', { text: C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.') })]),
+          /* plano anual: "Fatura de" (a fatura aberta pode ser a anual, ou a ultima mensal de quem acabou de trocar) */
+          el('span', { class: 'aviso-plano-texto' }, [el('b', { text: (a.tipo === 'anual' ? 'Fatura de ' : 'Mensalidade de ') + dinheiro(fatura.valor) }), el('span', { text: C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.') })]),
         ]));
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
           fatura
@@ -836,6 +845,17 @@
        tutorial. Sem "Pular": ou aceita, ou fica na tela (a loja continua recebendo pedidos normalmente) */
     function pedirAceiteDosTermos(depois) {
       if (estado.equipe || !estado.loja || R.termosEmDia(estado.loja) || R.ehDoLigeiro(estado.loja) || raiz.querySelector('.tour')) { if (depois) depois(); return; }
+      /* so o dono aceita: o admin (Central) ou outra conta abrindo o painel nao aceita por ele. Fica guardado quem aceitou */
+      var quem = D.modoDemo || !store.usuarioAtual ? Promise.resolve(null) : store.usuarioAtual().catch(function () { return null; });
+      quem.then(function (u) {
+        if (!vivo || !raiz.isConnected) return;
+        var email = u && u.email ? String(u.email).toLowerCase() : '';
+        if (!D.modoDemo && (!email || email !== String(estado.loja.donoEmail || '').toLowerCase())) { if (depois) depois(); return; }
+        mostrarTermos(depois, email);
+      });
+    }
+    function mostrarTermos(depois, email) {
+      if (raiz.querySelector('.tour')) { if (depois) depois(); return; }
       var botao = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Li e aceito' });
       var caixa = el('div', { class: 'tour tour-abertura tour-termos', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Termos de uso', tabindex: '-1' }, [
         el('span', { class: 'tour-mascote-caixa' }, [el('img', { class: 'tour-mascote pulando', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 })]),
@@ -856,7 +876,11 @@
       botao.addEventListener('click', function () {
         botao.disabled = true;
         botao.textContent = 'Guardando…';
-        salvarLoja({ termos: { versao: R.TERMOS_VERSAO, aceitoEm: new Date().toISOString() } }).then(function () {
+        var aceite = { versao: R.TERMOS_VERSAO, aceitoEm: new Date().toISOString() };
+        /* quem aceitou (o e-mail) fica na parte privada da loja: o documento da loja vira a copia publica da borda, que
+           nao leva o e-mail do dono. Na loja fica so a versao e a data, como antes */
+        var guardarQuem = store.guardarSegredo && email ? store.guardarSegredo(slug, 'termos', Object.assign({ aceitoPor: email }, aceite)) : Promise.resolve();
+        guardarQuem.then(function () { return salvarLoja({ termos: aceite }); }).then(function () {
           if (caixa.parentNode) caixa.parentNode.removeChild(caixa);
           UI.soar('sucesso');
           if (depois) depois();
@@ -1099,12 +1123,15 @@
       var loja = estado.loja;
       var novo = estado.novos && estado.novos.indexOf(p.id) >= 0;
       var entrega = p.tipoEntrega === 'entrega';
-      var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (p.status === R.STATUS.AGUARDANDO && p.clientePagou ? ' atencao' : '') });
+      /* "Diz que pagou" so no Pix pela chave da loja (conferido a mao no app). No Pix pelo Mercado Pago quem diz e o
+         Mercado Pago: a palavra do cliente (ou um print) nao vale nada ali */
+      var dizQuePagou = p.status === R.STATUS.AGUARDANDO && p.clientePagou && !(p.mp && p.mp.id);
+      var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (dizQuePagou ? ' atencao' : '') });
 
       /* ordem fixa em todo cartao: pagamento e entrega numa linha, extras (troco, cancelado) na linha de baixo */
       var selos = [], extras = [];
-      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (p.clientePagou ? 'laranja' : 'cinza'), text: p.clientePagou ? 'Diz que pagou' : (p.formaPagamento === 'cartao_online' ? 'Aguardando cartão' : 'Aguardando Pix') })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
-      else if (p.devolvidoEm) selos.push(el('span', { class: 'selo cinza', text: 'Devolvido' }));
+      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (dizQuePagou ? 'laranja' : 'cinza'), text: dizQuePagou ? 'Diz que pagou' : (p.formaPagamento === 'cartao_online' ? 'Aguardando cartão' : 'Aguardando Pix') })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
+      else if (p.devolvidoEm || p.pagamentoStatus === 'devolvido') selos.push(el('span', { class: 'selo cinza', text: 'Devolvido' }));
       else if (p.formaPagamento === 'pix') selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix confirmado' }));
       else if (p.formaPagamento === 'cartao_online') selos.push(el('span', { class: 'selo', text: 'Cartão pago' }));
       else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: 'Maquininha' })); /* onde paga ja esta no selo do lado (Entrega, Retirada, Balcao) */
@@ -1113,8 +1140,9 @@
         if (p.trocoPara > 0) extras.push(el('span', { class: 'selo laranja', text: 'Troco de ' + dinheiro(p.trocoPara - p.total) }));
       }
       selos.push(UI.seloTipo(p));
-      if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: p.canceladoPor === 'pix-vencido' ? 'Pix venceu' : 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
-      if (p.pagoAposCancelar && !p.devolvidoEm) extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
+      /* "pix-vencido" e o prazo do pagamento pelo site: no cartao, o selo diz cartao (antes todo vencido dizia "Pix venceu") */
+      if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: p.canceladoPor === 'pix-vencido' ? (p.formaPagamento === 'cartao_online' ? 'Cartão não pago' : 'Pix venceu') : 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
+      if (p.pagoAposCancelar && !p.devolvidoEm && p.pagamentoStatus !== 'devolvido') extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
 
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
       card.appendChild(el('div', { class: 'cabeca' }, [
@@ -1170,12 +1198,18 @@
 
       var acoes = el('div', { class: 'acoes acoes-pedido' });
       var proximo = R.proximoStatus(p);
-      if (proximo && R.rotuloProximoPasso(p)) {
+      if (p.status === R.STATUS.AGUARDANDO && p.mp && p.mp.id) {
+        /* Pix (ou cartao) pelo Mercado Pago: so ele confirma. "Conferir" pergunta ao Mercado Pago pelo mensageiro, que
+           libera o pedido se caiu mesmo. Nada de "marcar como pago" na mao: um print falso liberava pedido sem pagar */
+        var conferir = el('button', { class: 'btn btn-principal', type: 'button', text: 'Conferir pagamento', onclick: function () { conferirPagamento(p, conferir); } });
+        acoes.appendChild(conferir);
+      } else if (proximo && R.rotuloProximoPasso(p) && !(p.status === R.STATUS.AGUARDANDO && estado.equipe)) {
+        /* Pix pela chave da loja: so o dono marca como pago (quem entra com a senha da equipe nao ve o dinheiro cair) */
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: R.rotuloProximoPasso(p), onclick: function () { avancar(p); } }));
       }
       /* cancelado com o dinheiro ainda com a loja (pagou depois de cancelar, ou a devolucao falhou): devolve daqui,
-         no lugar do botao principal (o mesmo desenho dos outros cartoes) */
-      if (p.status === R.STATUS.CANCELADO && pagoPeloSite(p)) {
+         no lugar do botao principal (o mesmo desenho dos outros cartoes). So o dono devolve: a equipe nao ve o botao */
+      if (p.status === R.STATUS.CANCELADO && pagoPeloSite(p) && !estado.equipe) {
         acoes.appendChild(el('button', { class: 'btn btn-principal', text: 'Devolver ' + dinheiro(p.total), onclick: function () {
           UI.perguntar('Devolver ' + dinheiro(p.total) + ' da senha ' + p.senha + ' para o cliente pelo Mercado Pago?', { sim: 'Devolver', nao: 'Voltar' }).then(function (sim) { if (sim) devolverPagamento(p); });
         } }));
@@ -1196,7 +1230,9 @@
       var proximo = R.proximoStatus(p);
       if (!proximo) return;
       if (proximo === R.STATUS.PAGO && p.status === R.STATUS.AGUARDANDO) {
-        UI.perguntar('O Pix de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' caiu mesmo? Confira no app do banco antes. O pedido vai para a cozinha.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo); });
+        /* so o Pix pela chave da loja chega aqui, e so o dono: o do Mercado Pago tem o "Conferir pagamento" */
+        if (estado.equipe || (p.mp && p.mp.id)) return;
+        UI.perguntar('O Pix de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' caiu mesmo? Confira no extrato da conta da sua chave Pix antes: print ou comprovante mandado pelo cliente não vale. O pedido vai para a cozinha.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo); });
         return;
       }
       avancarAgora(p, proximo);
@@ -1207,33 +1243,70 @@
       store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); }).catch(function (e) { UI.avisar(D.erroAmigavel(e)); });
     }
 
+    /* "Conferir pagamento" (Pix ou cartao pelo Mercado Pago): pergunta ao mensageiro (/status), que pergunta ao Mercado
+       Pago e, se caiu mesmo, libera o pedido no banco (a fila muda sozinha, com o som de pago). Daqui nada grava "pago" */
+    function conferirPagamento(p, botao) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      if (D.modoDemo || (p.mp && p.mp.simulado) || !cfg.proxyMercadoPago) { UI.avisar('Na demonstração, o pagamento simulado cai sozinho em alguns segundos.'); return; }
+      var texto = botao.textContent;
+      botao.disabled = true; botao.textContent = 'Conferindo…';
+      var leve = p.pixExpiraEm ? '&mp=' + encodeURIComponent(p.mp.id) + '&expira=' + encodeURIComponent(p.pixExpiraEm) : '';
+      fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/status?loja=' + encodeURIComponent(slug) + '&pedido=' + encodeURIComponent(p.id) + leve)
+        .then(function (r) { return r.json().then(function (j) { return r.ok && j && typeof j === 'object' ? j : null; }); })
+        .catch(function () { return null; })
+        .then(function (j) {
+          botao.disabled = false; botao.textContent = texto;
+          if (!vivo) return;
+          if (!j) { UI.avisar('Não deu para conferir agora. Confira a internet e tente de novo.'); return; }
+          if (j.status === 'pago') { UI.avisar('O Mercado Pago confirmou o pagamento da senha ' + p.senha + '. O pedido já vai para a fila.'); return; }
+          UI.avisar('O Mercado Pago ainda não recebeu o pagamento da senha ' + p.senha + '. Comprovante ou print do cliente não vale: quando cair, o pedido muda sozinho.');
+        });
+    }
+
     /* pago pelo site (Pix ou cartao, pelo Mercado Pago): cancelar devolve o dinheiro sozinho, sem a loja abrir o app */
     function pagoPeloSite(p) { return R.pagaPeloSite(p) && p.pagamentoStatus === 'pago' && p.total > 0 && !!(p.mp && p.mp.id) && !p.devolvidoEm; }
     function cancelar(p) {
       var devolver = pagoPeloSite(p);
-      var texto = devolver
+      /* senha da equipe: o mensageiro so deixa o dono devolver. A equipe cancela e o dono devolve pelo painel dele */
+      var texto = devolver && estado.equipe
+        ? 'Cancelar o pedido de senha ' + p.senha + '? Ele já foi pago pelo site: só o dono da loja devolve os ' + dinheiro(p.total) + ', pelo painel dele. Avise o dono.'
+        : devolver
         ? 'Cancelar o pedido de senha ' + p.senha + '? Os ' + dinheiro(p.total) + ' voltam para o cliente pelo Mercado Pago, ' + (p.formaPagamento === 'cartao_online' ? 'no mesmo cartão.' : 'na mesma conta do Pix.')
         : 'Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.';
-      UI.perguntar(texto, { sim: devolver ? 'Cancelar e devolver' : 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
+      UI.perguntar(texto, { sim: devolver && !estado.equipe ? 'Cancelar e devolver' : 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
         if (!sim) return;
         store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () {
           avisarQueAndou(p, R.STATUS.CANCELADO);
+          if (devolver && estado.equipe) { UI.avisar('Pedido cancelado. Avise o dono para devolver o dinheiro.'); return; }
           if (!devolver) { UI.avisar('Pedido cancelado.'); return; }
           UI.avisar('Pedido cancelado. Devolvendo o dinheiro…');
           return devolverPagamento(p);
         }).catch(function () { UI.avisar('Não deu para cancelar agora. Confira a internet e tente de novo.'); });
       });
     }
+    /* devolvido por fora (no app do Mercado Pago, ou venda velha que o Mercado Pago nao devolve mais): sai do "Falta devolver" */
+    function marcarDevolvido(p) {
+      UI.perguntar('Você já devolveu os ' + dinheiro(p.total) + ' da senha ' + p.senha + ' pelo app do Mercado Pago? O pedido sai de "Falta devolver".', { sim: 'Já devolvi', nao: 'Voltar' }).then(function (sim) {
+        if (!sim) return;
+        store.atualizarPedido(slug, p.id, { devolvidoEm: new Date().toISOString(), pagamentoStatus: 'devolvido', devolvidoPor: 'app' })
+          .then(function () { UI.avisar('Pronto. A senha ' + p.senha + ' saiu de "Falta devolver".'); })
+          .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para marcar agora. Tente de novo.')); });
+      });
+    }
     function devolverPagamento(p) {
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo || (p.mp && p.mp.simulado)) {
-        return store.atualizarPedido(slug, p.id, { devolvidoEm: new Date().toISOString() }).then(function () { UI.avisar('Dinheiro devolvido ao cliente (simulado).'); }, function () {});
+        return store.atualizarPedido(slug, p.id, { devolvidoEm: new Date().toISOString(), pagamentoStatus: 'devolvido' }).then(function () { UI.avisar('Dinheiro devolvido ao cliente (simulado).'); }, function () {});
       }
+      /* a devolucao pelo Mercado Pago nao deu: ensina a devolver pelo app e, feito isso, um toque tira da lista */
       var semDevolver = function (motivo) {
         UI.abrirModal({
           titulo: 'Falta devolver',
-          corpo: el('p', { text: (motivo ? motivo + ' ' : '') + 'Devolva pelo app do Mercado Pago: abra a venda de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' e toque em Devolver.', style: { fontSize: '17px', padding: '6px 0 12px' } }),
-          rodape: [el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, text: 'Entendi', onclick: UI.fecharModal })],
+          corpo: el('p', { text: (motivo ? motivo + ' ' : '') + 'Devolva pelo app do Mercado Pago: abra a venda de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' e toque em Devolver. Depois, toque em "Já devolvi pelo app".', style: { fontSize: '17px', padding: '6px 0 12px' } }),
+          rodape: [
+            el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1' }, text: 'Já devolvi pelo app', onclick: function () { UI.fecharModal(); marcarDevolvido(p); } }),
+            el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, text: 'Entendi', onclick: UI.fecharModal }),
+          ],
         });
       };
       if (!cfg.proxyMercadoPago || !store.obterIdToken) { semDevolver(''); return Promise.resolve(); }
@@ -1283,16 +1356,34 @@
     }
 
     /* ---------------------------------------------------------- cardapio */
-    /* Manda so o que mudou: o que outro aparelho editou enquanto isso nao e sobrescrito. */
-    function salvarLoja(mudancas, aviso) {
+    /* O que o cliente precisa ver na hora (a loja fechou, o item acabou, o cupom ou o cartao desligou): a copia da
+       loja na borda sai sem esperar a folga de 1,5 s. Preco e texto seguem com a folga (10 edicoes seguidas, um aviso) */
+    var CAMPOS_NA_HORA = ['aberta', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
+    function ligados(lista, campo) { return (lista || []).map(function (x) { return x ? String(x.id) + (x[campo] === false ? ':0' : ':1') : ''; }).join(','); }
+    function opcoesLigadas(grupos) {
+      return Object.keys(grupos || {}).sort().map(function (k) { return k + '[' + ((grupos[k] && grupos[k].opcoes) || []).map(function (o) { return o && o.ativo === false ? '0' : '1'; }).join('') + ']'; }).join(',');
+    }
+    function publicarNaHora(antes, mudancas) {
+      if (CAMPOS_NA_HORA.some(function (k) { return k in mudancas && JSON.stringify(mudancas[k]) !== JSON.stringify(antes[k]); })) return true;
+      /* item ou categoria ligado, desligado, criado ou excluido; opcao (bacon, tamanho) ligada ou desligada */
+      if ('produtos' in mudancas && ligados(mudancas.produtos, 'ativo') !== ligados(antes.produtos, 'ativo')) return true;
+      if ('categorias' in mudancas && ligados(mudancas.categorias, 'ativa') !== ligados(antes.categorias, 'ativa')) return true;
+      return 'grupos' in mudancas && opcoesLigadas(mudancas.grupos) !== opcoesLigadas(antes.grupos);
+    }
+    /* Manda so o que mudou: o que outro aparelho editou enquanto isso nao e sobrescrito.
+       naHora: publica a copia da borda na hora, mesmo sem mudar nenhum campo da lista acima (cupom, que mora a parte) */
+    function salvarLoja(mudancas, aviso, naHora) {
       var nova = Object.assign({ slug: slug }, mudancas);
       delete nova.fotosVersao; /* so salvarFoto/excluirFoto mexem nisso */
       /* vale na tela na hora: o proximo toque (a chave logo depois de digitar o preco, o lapis) ja parte do valor novo.
          Antes partia da loja velha e a segunda gravacao desfazia a primeira. Falhou: volta o que era, campo por campo */
       var antes = estado.loja || {};
+      var urgente = naHora === true || publicarNaHora(antes, nova);
       estado.loja = Object.assign({}, antes, nova);
       return store.salvarLoja(nova, Object.assign({}, estado.loja)).then(function (salva) {
         estado.loja = Object.assign({}, estado.loja, salva || nova);
+        /* o banco ja tem: a loja do cliente muda agora (a gravacao ja pediu a publicacao com folga; esta passa na frente) */
+        if (urgente && store.publicarLoja) store.publicarLoja(slug, { agora: true });
         if (aviso) UI.avisar(aviso);
         return estado.loja;
       }).catch(function (e) {
@@ -2045,7 +2136,10 @@
           var maximo = 0;
           var diasLista = [];
           for (var i = dias - 1; i >= 0; i--) {
-            var d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+            /* o dia de trabalho vira as 5 h, como nas vendas somadas (dados.js): a 1 h da manha o "hoje" ainda e ontem.
+               Antes a barra de hoje ficava vazia e as vendas da noite caiam no dia de antes */
+            var d = new Date(Date.now() - 5 * 60 * 60 * 1000);
+            d.setDate(d.getDate() - i);
             var k = R.diaLocal(d);
             var v = r.porDia[k] || 0;
             maximo = Math.max(maximo, v);
@@ -2255,7 +2349,9 @@
       var pixPossivel = D.modoDemo || !!cfgMP.proxyMercadoPago;
       var temConexao = D.modoDemo || !!cfgMP.mercadoPagoClientId;
       pagamento.appendChild(el('div', { class: 'forma-grupo', text: 'Pelo site · Mercado Pago' }));
-      f.mpAtivo = interruptorCampo('Pix pelo site', 'Cai na hora na sua conta. Taxa do Mercado Pago: cerca de 1%.', !!l.mpAtivo);
+      /* a chave e do Pix (aceitaPix), nao da conexao: com o Pix desligado e o cartao ligado, mpAtivo segue true, e o Pix
+         voltava a ligar sozinho no proximo "Salvar tudo" */
+      f.mpAtivo = interruptorCampo('Pix pelo site', 'Cai na hora na sua conta. Taxa do Mercado Pago: cerca de 1%.', !!l.mpAtivo && l.aceitaPix !== false);
       f.mpToken = campoTexto('Access Token do Mercado Pago', '', { max: 200, tipo: 'password', placeholder: D.modoDemo ? 'Digite SIMULACAO' : 'Começa com APP_USR-', ajuda: 'Fica guardado em segredo, só a loja e o Ligeiro veem. Cole outro só para trocar.' });
       f.mpToken.input.setAttribute('autocomplete', 'off');
       f.mpToken.temSalvo = false;
@@ -2327,7 +2423,12 @@
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
               UI.perguntar('Desconectar o Mercado Pago? O Pix e o cartão pelo site param até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
                 if (!sim) return;
-                window.LigeiroMP.desconectar(slug).then(function () { return salvarLoja({ mpAtivo: false, aceitaPix: false, aceitaCartaoOnline: false }, 'Mercado Pago desconectado.'); }).then(function () { desenharAjustes(); });
+                /* redesenha so a caixa da conexao (e desliga as chaves do site): o resto dos Ajustes, talvez com algo
+                   digitado e nao salvo, fica como esta */
+                window.LigeiroMP.desconectar(slug).then(function () {
+                  return salvarLoja({ mpAtivo: false, aceitaPix: false, aceitaCartaoOnline: false }, 'Mercado Pago desconectado.')
+                    .then(function () { if (conexao.isConnected) desenharConexao(null); }, function () { /* salvarLoja ja avisou */ });
+                }, function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para desconectar agora. Tente de novo.')); });
               });
             } }),
           ]));
@@ -2446,10 +2547,11 @@
       noSite.appendChild(f.jogo);
       s.appendChild(noSite);
 
-      var cupons = el('div', { class: 'bloco-form' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
+      /* id proprio: tocar nas chaves dos cupons nao marca "Alteracoes nao salvas" (o cupom se salva sozinho, na hora) */
+      var cupons = el('div', { class: 'bloco-form', id: 'aj-cupons' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
       var listaCupons = el('div', { class: 'pilha' });
-      /* a lista mora na parte privada da loja (o cliente nao ve os codigos): carrega na primeira vez que os Ajustes abrem,
-         e so a lista se redesenha (o resto dos Ajustes, talvez com algo digitado, fica como esta) */
+      /* a lista mora na parte privada da loja (o cliente nao ve os codigos): le de novo a cada vez que os Ajustes abrem
+         (outro aparelho pode ter mudado), e so a lista se redesenha (o resto dos Ajustes, talvez com algo digitado, fica) */
       function buscarCupons() {
         UI.limpar(listaCupons);
         listaCupons.appendChild(el('small', { class: 'muted', text: 'Carregando os cupons…' }));
@@ -2460,20 +2562,28 @@
           listaCupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: buscarCupons }));
         });
       }
-      if (!estado.cupons) buscarCupons();
+      if (!estado.cupons) buscarCupons(); /* trocarAba zera a lista: abrir os Ajustes sempre le a de agora */
       else pintarCupons();
+      /* criar cupom (fora daqui) redesenha so esta lista */
+      estado.pintarCupons = function () { if (vivo && listaCupons.isConnected) pintarCupons(); };
       function pintarCupons() {
         UI.limpar(listaCupons);
-        (estado.cupons || []).forEach(function (c, i) {
+        (estado.cupons || []).forEach(function (c) {
           var chave = el('button', { class: 'chave' + (c.ativo !== false ? ' on' : ''), type: 'button', 'aria-label': 'Ligar ou desligar ' + c.codigo, onclick: function () {
-            var lista = D.clonar(estado.cupons);
-            lista[i].ativo = !(lista[i].ativo !== false);
-            salvarCupons(lista, 'Cupom ' + (lista[i].ativo ? 'ligado' : 'desligado')).then(desenharAjustes);
+            /* liga ou desliga o que a pessoa viu, na lista de agora do banco (outro aparelho pode ter mexido) */
+            var ligar = c.ativo === false;
+            chave.disabled = true;
+            mudarCupons(function (lista) {
+              var achado = lista.filter(function (x) { return x.codigo === c.codigo; })[0];
+              if (!achado) throw avisoCupom('O cupom ' + c.codigo + ' não existe mais. A lista foi atualizada.');
+              achado.ativo = ligar;
+              return lista;
+            }, 'Cupom ' + (ligar ? 'ligado' : 'desligado')).then(function () { chave.disabled = false; estado.pintarCupons(); });
           } });
           var excluir = el('button', { class: 'editar', type: 'button', 'aria-label': 'Excluir ' + c.codigo, onclick: function () {
             UI.perguntar('Excluir o cupom ' + c.codigo + '?', { sim: 'Excluir', perigo: true }).then(function (sim) {
               if (!sim) return;
-              salvarCupons(estado.cupons.filter(function (x) { return x.codigo !== c.codigo; }), 'Cupom excluído').then(desenharAjustes);
+              mudarCupons(function (lista) { return lista.filter(function (x) { return x.codigo !== c.codigo; }); }, 'Cupom excluído').then(function () { estado.pintarCupons(); });
             });
           } }, [UI.iconeLinha('fechar')]);
           function textoUsos(usos) { return (c.minimo ? 'a partir de ' + dinheiro(c.minimo) + ' · ' : '') + (c.limite ? usos + ' de ' + c.limite + ' usos' : usos + ' usos'); }
@@ -2485,7 +2595,8 @@
           if (sabido && Date.now() - sabido.em < 2 * 60 * 1000) usosTexto.textContent = textoUsos(sabido.n);
           else if (store.usosDoCupom) store.usosDoCupom(slug, c.codigo).then(function (n) { estado.usosCupom[c.codigo] = { n: Number(n) || 0, em: Date.now() }; usosTexto.textContent = textoUsos(Number(n) || 0); }).catch(function () { /* fica o que estava */ });
           listaCupons.appendChild(el('div', { class: 'linha-produto' + (c.ativo !== false ? '' : ' desligado') }, [
-            el('div', { class: 'nome nome-cupom' }, [c.codigo + ' · ' + c.percentual + '%', usosTexto]),
+            /* o codigo num span: e ele o primeiro filho do nome (o small dos usos fica em segundo, como o CSS espera) */
+            el('div', { class: 'nome nome-cupom' }, [el('span', { text: c.codigo + ' · ' + c.percentual + '%' }), usosTexto]),
             excluir,
             chave,
           ]));
@@ -2526,7 +2637,7 @@
       }
       s.addEventListener('input', marcarMudanca);
       s.addEventListener('change', marcarMudanca);
-      s.addEventListener('click', function (e) { if (e.target.closest('.chave, .cor, .aba-painel, .foto-botoes button')) marcarMudanca(); });
+      s.addEventListener('click', function (e) { if (e.target.closest('.chave, .cor, .aba-painel, .foto-botoes button') && !e.target.closest('#aj-cupons')) marcarMudanca(); });
     }
 
     /* Aceita "18:00-23:00", "18h-23h30", "11:00 as 14:00; 18:00-23:00". Se nao entender, avisa e devolve null. */
@@ -2692,6 +2803,8 @@
       var logo = f.logo.valor();
       if (logo.dados) { mudancas.logoDados = logo.dados; mudancas.logoUrl = ''; }
       else if (logo.removida) { mudancas.logoDados = ''; mudancas.logoUrl = ''; }
+      /* o mesmo do cadastro: sem o WhatsApp certo, o botao "Falar com a loja" do site do cliente nao abre conversa nenhuma */
+      if (mudancas.whatsapp.length < 10) { f.whatsapp.input.focus(); return UI.avisar('Digite o WhatsApp da loja com DDD.'); }
       if (f.cnpj.input.value.trim() && !mudancas.cnpj) { f.cnpj.input.focus(); return UI.avisar('Esse CNPJ não confere. Veja se digitou os 14 números certos, ou deixe o campo vazio.'); }
       if (f.google.input.value.trim() && !mudancas.googleUrl) { f.google.input.focus(); return UI.avisar('Esse link não é do Google. No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.'); }
       if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
@@ -2716,7 +2829,7 @@
       var passo = Promise.resolve();
       if (tokenMP && window.LigeiroMP) {
         passo = window.LigeiroMP.guardarToken(slug, tokenMP)
-          .catch(function () { throw new Error('Não deu para guardar o token do Mercado Pago. Confira a internet e tente de novo.'); })
+          .catch(function () { var e = new Error('Não deu para guardar o token do Mercado Pago. Confira a internet e tente de novo.'); e.publico = true; throw e; })
           .then(function () { if (estado.loja.mpAtivo) ligarMP(); });
       }
 
@@ -2754,13 +2867,25 @@
         var pct = Number(percentual.input.value);
         if (cod.length < 3) return UI.avisar('Código com pelo menos 3 letras ou números.');
         if (!(pct >= 1 && pct <= 100)) return UI.avisar('Desconto entre 1 e 100.');
-        var antigo = (estado.cupons || []).filter(function (c) { return c.codigo === cod; })[0];
-        var lista = (estado.cupons || []).filter(function (c) { return c.codigo !== cod; });
-        lista.push({ codigo: cod, percentual: pct, minimo: minimo.centavos(), limite: Number(limite.input.value) || 0, usos: antigo ? (antigo.usos || 0) : 0, ativo: true });
-        /* codigo novo (ou de um cupom excluido): zera o contador antigo antes, senao o cupom nasce esgotado.
-           Se o banco recusar (regra antiga), segue e cria do mesmo jeito. */
-        var zerar = antigo || !store.zerarUsosDoCupom ? Promise.resolve() : store.zerarUsosDoCupom(slug, cod).catch(function () { /* ignora */ });
-        zerar.then(function () { return salvarCupons(lista, 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado')); }).then(function () { UI.fecharModal(); desenharAjustes(); });
+        var botao = this;
+        botao.disabled = true;
+        var antigo = null;
+        /* sobre a lista de agora do banco: o cupom criado em outro aparelho nao some */
+        mudarCupons(function (lista) {
+          antigo = lista.filter(function (c) { return c.codigo === cod; })[0] || null;
+          if (!antigo && lista.length >= MAX_CUPONS) throw avisoCupom('Sua loja já tem ' + MAX_CUPONS + ' cupons, o máximo. Exclua um antigo para criar outro.');
+          var nova = lista.filter(function (c) { return c.codigo !== cod; });
+          nova.push({ codigo: cod, percentual: pct, minimo: minimo.centavos(), limite: Number(limite.input.value) || 0, usos: antigo ? (antigo.usos || 0) : 0, ativo: true });
+          /* codigo novo (ou de um cupom excluido): zera o contador antigo antes, senao o cupom nasce esgotado.
+             Se o banco recusar (regra antiga), segue e cria do mesmo jeito. */
+          var zerar = antigo || !store.zerarUsosDoCupom ? Promise.resolve() : store.zerarUsosDoCupom(slug, cod).catch(function () { /* ignora */ });
+          return zerar.then(function () { return nova; });
+        }, function () { return 'Cupom ' + cod + (antigo ? ' atualizado' : ' criado'); }).then(function (deu) {
+          botao.disabled = false;
+          if (!deu) return;
+          UI.fecharModal();
+          if (estado.pintarCupons) estado.pintarCupons();
+        });
       } })] });
     }
 
@@ -2771,20 +2896,44 @@
        apagaria os cupons de verdade. Loja antiga, com a lista ainda no documento publico: passa para a parte privada */
     function carregarCupons() {
       if (estado.cupons) return Promise.resolve(estado.cupons);
-      var antigos = D.clonar(estado.loja.cupons || []);
-      if (!store.lerSegredo) { estado.cupons = antigos; return Promise.resolve(estado.cupons); }
-      return store.lerSegredo(slug, 'cupons', true).then(function (seg) {
-        var lista = seg && Array.isArray(seg.lista) ? seg.lista : [];
-        antigos.forEach(function (c) { if (!lista.some(function (x) { return x.codigo === c.codigo; })) lista.push(c); });
-        estado.cupons = lista;
-        if (antigos.length) return salvarCupons(lista, '').then(function () { return estado.cupons; }, function () { return estado.cupons; });
+      return lerCuponsAgora().then(function (x) {
+        estado.cupons = x.lista;
+        if (x.antigos) return salvarCupons(x.lista, '').then(function () { return estado.cupons; }, function () { return estado.cupons; });
         return estado.cupons;
       });
     }
+    /* a lista como esta no banco agora (mais os cupons antigos do documento publico, que passam para a parte privada) */
+    function lerCuponsAgora() {
+      var antigos = D.clonar(estado.loja.cupons || []);
+      if (!store.lerSegredo) return Promise.resolve({ lista: D.clonar(estado.cupons || antigos), antigos: 0 });
+      return store.lerSegredo(slug, 'cupons', true).then(function (seg) {
+        var lista = seg && Array.isArray(seg.lista) ? D.clonar(seg.lista) : [];
+        antigos.forEach(function (c) { if (!lista.some(function (x) { return x.codigo === c.codigo; })) lista.push(c); });
+        return { lista: lista, antigos: antigos.length };
+      });
+    }
+    /* o aviso de um cupom (esgotou a lista, sumiu em outro aparelho) vai para a tela como esta */
+    function avisoCupom(texto) { var e = new Error(texto); e.publico = true; return e; }
+    /* Mudar a lista: le a de agora do banco, aplica a mudanca e grava. A tela so muda depois que gravou (antes mudava
+       antes, e com erro ficava mostrando um cupom que nao existia). Sempre resolve: true se gravou, false se nao (ja avisou).
+       msg: texto do aviso, ou funcao que devolve o texto (quando depende do que a lista tinha) */
+    function mudarCupons(mudar, msg) {
+      return lerCuponsAgora().then(function (x) {
+        estado.cupons = x.lista; /* mesmo se a mudanca falhar, a tela mostra a lista de agora */
+        return Promise.resolve(mudar(D.clonar(x.lista))).then(function (nova) { return salvarCupons(nova, typeof msg === 'function' ? msg() : msg); });
+      }).then(function () { return true; }, function (e) {
+        if (!(e && e.jaAvisou)) UI.avisar(D.erroAmigavel(e, 'Não deu para salvar o cupom. Confira a internet e tente de novo.'));
+        return false;
+      });
+    }
+    /* grava a lista (parte privada) e o "temCupom" da loja. estado.cupons so muda depois que o banco aceitou */
     function salvarCupons(lista, msg) {
-      estado.cupons = lista;
       return store.guardarSegredo(slug, 'cupons', { lista: D.clonar(lista), atualizadoEm: new Date().toISOString() })
-        .then(function () { return salvarLoja({ cupons: [], temCupom: lista.some(function (c) { return c.ativo !== false; }) }, msg); });
+        .then(function () {
+          estado.cupons = D.clonar(lista);
+          /* ligar, desligar ou apagar cupom vale no site na hora (o mensageiro confere o cupom pela copia da loja) */
+          return salvarLoja({ cupons: [], temCupom: lista.some(function (c) { return c.ativo !== false; }) }, msg, true).catch(function (e) { if (e && typeof e === 'object') e.jaAvisou = true; throw e; });
+        });
     }
 
     /* ---------------------------------------------------------- links */

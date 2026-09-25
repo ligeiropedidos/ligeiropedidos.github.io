@@ -609,7 +609,8 @@
     var todos = db.pedidos[lojaSlug] || {};
     var lista = Object.keys(todos).map(function (k) { return todos[k]; });
     if (o.status) lista = lista.filter(function (p) { return o.status.indexOf(p.status) >= 0 && (!o.tipoEntrega || p.tipoEntrega === o.tipoEntrega); });
-    else if (o.devolver) lista = lista.filter(function (p) { return p.status === 'cancelado' && p.pagamentoStatus === 'pago'; });
+    /* "Falta devolver": o devolvido vira pagamentoStatus 'devolvido' (e o de antes, so com devolvidoEm, fica de fora aqui) */
+    else if (o.devolver) lista = lista.filter(function (p) { return p.status === 'cancelado' && p.pagamentoStatus === 'pago' && !p.devolvidoEm; });
     else if (o.desde) lista = lista.filter(function (p) { return p.criadoEm >= o.desde; });
     lista.sort(function (a, b) { return a.criadoEm < b.criadoEm ? 1 : -1; });
     if (o.limite) lista = lista.slice(0, o.limite);
@@ -968,23 +969,84 @@
     return precarregar(base + '/foto/' + encodeURIComponent(lojaSlug) + '/' + encodeURIComponent(id)).catch(function () { return eu.obterFoto(lojaSlug, id); });
   };
 
-  /* O painel salvou: avisa a borda para a loja do cliente mudar na hora (e nao so quando a copia vencer).
-     Espera 3 s sem salvar nada para avisar uma vez so (subir 10 fotos seguidas e um aviso). */
-  FirebaseStore.prototype.publicarLoja = function (slug) {
+  /* O painel salvou: avisa a borda para a loja do cliente mudar na hora (e nao so quando a copia vencer, ate 6 h depois).
+     opcoes.agora: fechar a loja, desligar item, cupom ou cartao vai na hora. O resto (preco, texto, 10 fotos seguidas)
+     espera 1,5 s sem salvar nada para avisar uma vez so. Nada fica preso num relogio: a tela que some (celular bloqueado,
+     aba fechada, outro app) manda na hora o que estava esperando. E o aviso recusado por pressa (429) ou por falha do
+     mensageiro (5xx, sem internet) tenta de novo mais duas vezes, com folga (o mensageiro antigo conta 6 por minuto).
+     O mensageiro novo, no limite, responde 202 e refaz a copia sozinho uns 10 s depois: vale como feito */
+  var ESPERA_PUBLICAR = 1500;
+  var DE_NOVO_PUBLICAR = { pressa: [20000, 61000], falha: [3000, 15000] };
+  FirebaseStore.prototype.publicarLoja = function (slug, opcoes) {
     var eu = this;
     var base = enderecoBorda();
     if (!base || !slug) return Promise.resolve(false);
-    eu._aPublicar = eu._aPublicar || {};
-    clearTimeout(eu._aPublicar[slug]);
+    var fila = eu._publicar || (eu._publicar = {});
+    var item = fila[slug] || (fila[slug] = { espera: null, deNovo: null, tentativa: 0, avisos: [] });
+    ouvirSaidaDaTela(eu);
+    /* o login pronto antes da hora: na saida da tela nao da para esperar o Firebase */
+    guardarTokenPublicar(eu);
     return new Promise(function (ok) {
-      eu._aPublicar[slug] = setTimeout(function () {
-        delete eu._aPublicar[slug];
-        eu.obterIdToken().then(function (t) {
-          return fetch(base + '/publicar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ loja: slug }) });
-        }).then(function (r) { ok(!!r && r.ok); }, function () { ok(false); });
-      }, 3000);
+      item.avisos.push(ok);
+      clearTimeout(item.espera);
+      item.tentativa = 0; /* mudanca nova: as tentativas contam de novo */
+      if (opcoes && opcoes.agora) { enviarPublicacao(eu, slug, false); return; }
+      item.espera = setTimeout(function () { enviarPublicacao(eu, slug, false); }, ESPERA_PUBLICAR);
     });
   };
+  /* o token do login (vale 1 h) guardado na memoria por 50 min */
+  function guardarTokenPublicar(eu) {
+    var g = eu._tokenPublicar;
+    if (g && Date.now() - g.em < 50 * 60 * 1000) return Promise.resolve(g.t);
+    return eu.obterIdToken().then(function (t) { eu._tokenPublicar = { t: t, em: Date.now() }; return t; }, function () { return ''; });
+  }
+  function tokenPublicarNaMao(eu) { var g = eu._tokenPublicar; return g && Date.now() - g.em < 50 * 60 * 1000 ? g.t : ''; }
+  /* keepalive: o pedido sai mesmo com a pagina indo embora. Navegador que recusa (keepalive com login): vai do jeito normal */
+  function postarPublicar(base, token, slug) {
+    var pedido = { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ loja: slug }) };
+    try {
+      return fetch(base + '/publicar', Object.assign({ keepalive: true }, pedido)).catch(function () { return fetch(base + '/publicar', pedido); });
+    } catch (_) { return fetch(base + '/publicar', pedido); }
+  }
+  function enviarPublicacao(eu, slug, saindo) {
+    var item = eu._publicar && eu._publicar[slug];
+    var base = enderecoBorda();
+    if (!item || !base) return;
+    clearTimeout(item.espera); item.espera = null;
+    clearTimeout(item.deNovo); item.deNovo = null;
+    var avisos = item.avisos; item.avisos = [];
+    var naMao = tokenPublicarNaMao(eu);
+    /* saindo da tela: vai com o token que ja esta na memoria, sem esperar promessa nenhuma */
+    var token = saindo && naMao ? Promise.resolve(naMao) : guardarTokenPublicar(eu);
+    token.then(function (t) {
+      if (!t) return { semLogin: true };
+      return postarPublicar(base, t, slug).then(function (r) { return { r: r }; }, function () { return { r: null }; });
+    }).then(function (x) {
+      var r = x.r;
+      var deu = !!(r && r.ok);
+      avisos.forEach(function (f) { try { f(deu); } catch (_) { /* segue */ } });
+      if (deu || x.semLogin) { item.tentativa = 0; return; }
+      /* 401 (token velho): pega outro na proxima tentativa */
+      if (r && r.status === 401) eu._tokenPublicar = null;
+      var tipo = r && r.status === 429 ? 'pressa' : (!r || r.status >= 500 || r.status === 401) ? 'falha' : '';
+      if (!tipo || item.tentativa >= DE_NOVO_PUBLICAR[tipo].length || item.espera || item.deNovo) return;
+      var espera = DE_NOVO_PUBLICAR[tipo][item.tentativa];
+      item.tentativa += 1;
+      item.deNovo = setTimeout(function () { item.deNovo = null; enviarPublicacao(eu, slug, false); }, espera);
+    });
+  }
+  /* a tela sumiu (bloqueou, trocou de app, fechou a aba): o que esperava a folga de 1,5 s sai agora. Os relogios param com
+     a tela apagada, e antes o aviso ficava parado ali (e a loja do cliente, velha, por horas) */
+  function ouvirSaidaDaTela(eu) {
+    if (eu._ouvindoSaida || typeof document === 'undefined') return;
+    eu._ouvindoSaida = true;
+    var esvaziar = function () {
+      var fila = eu._publicar || {};
+      Object.keys(fila).forEach(function (slug) { if (fila[slug].espera) enviarPublicacao(eu, slug, true); });
+    };
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') esvaziar(); });
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pagehide', esvaziar);
+  }
 
   /* O banco recusou por limite do dia: conta para a borda, que confere e avisa as lojas (os proximos clientes ja pedem pelo WhatsApp) */
   FirebaseStore.prototype.avisarPausa = function () {
@@ -1067,7 +1129,9 @@
         if (comTipo) q = q.where('tipoEntrega', '==', o.tipoEntrega);
         q = q.where('status', 'in', o.status).limit(300);
       } else if (o.devolver) {
-        /* cancelado com o dinheiro pago pelo site: poucos, e a tela separa os ja devolvidos */
+        /* cancelado com o dinheiro pago pelo site: poucos. Devolvido vira pagamentoStatus 'devolvido' e sai daqui (o
+           mensageiro grava na devolucao; o de antes, so com devolvidoEm, o painel do dono corrige ao ver). Sem isso os
+           devolvidos ocupavam o limite de 50 para sempre e os novos nao apareciam */
         q = q.where('status', '==', 'cancelado').where('pagamentoStatus', '==', 'pago').limit(50);
       } else {
         if (o.desde) q = q.where('criadoEm', '>=', o.desde);
@@ -1816,7 +1880,9 @@
           /* e-mail ainda nao conferido: o banco recusa tudo. Manda o e-mail de confirmacao, sai e avisa (senao o painel recarrega sem fim) */
           var enviar = r && r.user ? r.user.sendEmailVerification().catch(function () { /* ja mandou ha pouco */ }) : Promise.resolve();
           return enviar.then(function () { return eu.auth.signOut(); }).catch(function () { /* segue */ }).then(function () {
-            throw new Error('Falta confirmar o seu e-mail. Mandamos um link para ' + loja.donoEmail + ' (olhe também no spam). Toque no link e entre de novo.');
+            var falta = new Error('Falta confirmar o seu e-mail. Mandamos um link para ' + loja.donoEmail + ' (olhe também no spam). Toque no link e entre de novo.');
+            falta.publico = true; /* o e-mail do dono pode ter palavra que o filtro de mensagem tecnica pega */
+            throw falta;
           });
         }, function (e2) {
           var c2 = (e2 && e2.code) || '';
@@ -2017,8 +2083,9 @@
     if (c === 'unavailable' || c === 'deadline-exceeded' || c === 'aborted' || e instanceof TypeError || /network|failed to fetch|load failed|offline/i.test(m)) return 'Sem internet agora. Confira a conexão e toque de novo.';
     if (c === 'permission-denied' || c === 'unauthenticated' || /permission/i.test(m)) return 'Sua sessão caiu. Entre de novo.';
     if (c === 'not-found') return 'Isso não existe mais. Atualize a tela.';
-    /* mensagem nossa (em portugues, sem codigo do banco): passa como esta. Ingles ou tecnica: troca pela padrao */
-    if (m && !c && m.length < 200 && !/(the|of|is|not|failed|error|missing|permissions?|unexpected|invalid|fetch|token|json|firestore|get|http|undefined|null)/i.test(m)) return m;
+    /* mensagem nossa (em portugues, sem codigo do banco): passa como esta. Ingles ou tecnica: troca pela padrao.
+       Palavra inteira (\b escrito com a barra): antes o filtro nao pegava nada, e com a palavra solta pegaria o "is" de "demais" */
+    if (m && !c && m.length < 200 && !/\b(the|of|is|not|failed|error|missing|permissions?|unexpected|invalid|fetch|token|json|firestore|get|http|undefined|null)\b/i.test(m)) return m;
     return padrao || 'Não deu agora. Tente de novo.';
   }
 
