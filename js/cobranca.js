@@ -80,7 +80,8 @@
       corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     } else if (link) {
       var botoes = [
-        el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
+        /* rotulos curtos, numa linha: com "cai sozinho todo mes" o do cartao quebrava em 2 linhas e ficava torto ao lado do outro */
+        el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito']),
         el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Pix ou boleto']),
       ];
       /* o pagamento acha a conta pelo e-mail que a pessoa digita no Asaas: com outro e-mail, o dinheiro entra e a loja nao
@@ -120,7 +121,7 @@
         ]));
       }
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, botoes));
-      corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a página segura do ' + provedor + '. Você cadastra uma vez e não precisa lembrar de pagar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a página segura do ' + provedor + '. No cartão, a cobrança cai sozinha todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') + ', sem precisar lembrar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     }
 
     /* 3: Pix manual */

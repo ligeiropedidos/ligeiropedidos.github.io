@@ -622,6 +622,8 @@
     var caixaPlanos = el('div');
     var resumo = el('div', { class: 'cartao destaque resumo-assinatura' });
     var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + escolhido + '/' + tipo, text: 'Criar minha loja' });
+    /* so a duvida: o "Entrar" ja esta no topo, e quem tem conta e reconhecido no login de "Criar minha loja" */
+    var linhaAjuda = el('p', { class: 'muted pequeno centro' }, ['Dúvida? ', el('a', { href: '#/lojas', text: 'Veja como funciona' }), '.']);
 
     function desenhar() {
       UI.limpar(caixaTipo); caixaTipo.appendChild(seletorTipo(tipo, function (t) { tipo = t; desenhar(); }));
@@ -633,8 +635,19 @@
       UI.limpar(resumo);
       resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Plano' }), el('b', { text: plano.nome + ' · ' + (tipo === 'anual' ? 'anual' : 'mensal') })]));
       if (conta) {
-        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: R.planoPorId((conta.plano || {}).planoId).nome })]));
-        resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Trocar de plano vale a partir do próximo Pix: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
+        var pc = conta.plano || {};
+        var atual = R.planoPorId(pc.planoId);
+        var tipoAtual = pc.tipo === 'anual' ? 'anual' : 'mensal';
+        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: atual.nome + ' · ' + tipoAtual })]));
+        /* o mesmo plano que ja tem: nada para trocar, o caminho e pagar ou ver o vencimento em Minha conta */
+        if (atual.id === plano.id && tipoAtual === tipo) {
+          resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Este já é o seu plano. Para pagar ou ver quando vence, vá em Minha conta.' }));
+          continuar.textContent = 'Ir para Minha conta';
+          continuar.setAttribute('href', '#/conta');
+          continuar.onclick = null;
+          return;
+        }
+        resumo.appendChild(el('p', { class: 'muted pequeno', text: 'A troca vale a partir do próximo pagamento: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
         continuar.textContent = 'Mudar para este plano';
         continuar.setAttribute('href', '#');
         continuar.onclick = function (ev) {
@@ -653,7 +666,8 @@
         };
       } else {
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Hoje' }), el('b', { text: R.dinheiro(0) })]));
-        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'A partir de ' + dataBR(fim) + ' (' + pr.diasGratis + ' dias)' }), el('b', { text: dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') })]));
+        /* curto para caber numa linha no celular ("A partir de 02/10/2026 (7 dias)" e "R$ 79,00 por mes" quebravam) */
+        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'A partir de ' + fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }), el('b', { text: dinheiro(valor) + (tipo === 'anual' ? '/ano' : '/mês') })]));
         resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Sem cartão agora. Quando o período grátis terminar, o Pix aparece na sua conta e no painel. Não gostou? Não paga e pronto.' }));
         continuar.setAttribute('href', '#/comecar/' + escolhido + '/' + tipo);
         continuar.textContent = 'Criar minha loja';
@@ -682,7 +696,7 @@
     corpo.appendChild(caixaPlanos);
     corpo.appendChild(resumo);
     corpo.appendChild(continuar);
-    corpo.appendChild(el('p', { class: 'muted pequeno centro' }, ['Já tem conta? ', el('a', { href: '#/entrar', text: 'Entrar' }), '. Dúvida? ', el('a', { href: '#/lojas', text: 'Veja como funciona' }), '.']));
+    corpo.appendChild(linhaAjuda);
     raiz.appendChild(rodape());
     botaoFlutuante(raiz);
     return function () { document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
