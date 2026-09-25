@@ -1314,15 +1314,39 @@
     return function () { cancelado = true; parar(); };
   };
 
+  /* A escuta do pedido do cliente (tela do Pix, do cartao e da senha). O programa do banco nao baixou (a internet
+     piscou) ou a escuta caiu: tenta de novo sozinha, cada vez mais devagar (3 s ate 30 s). Antes ficava parada para
+     sempre e a tela do Pix nunca mudava, mesmo com o pagamento feito. Sem permissao (link com mais de 3 dias) para */
   FirebaseStore.prototype.assistirPedido = function (lojaSlug, id, cb) {
+    var eu = this;
     var parar = function () {};
     var cancelado = false;
-    this._pronto.then(function () {
+    var espera = 3000;
+    var relogio = null;
+    function deNovo() {
+      parar = function () {};
       if (cancelado) return;
-      parar = this.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id)
-        .onSnapshot(function (d) { var x = null; try { x = d.exists ? sanearPedido(d) : null; } catch (_) { x = null; } cb(x); });
-    }.bind(this));
-    return function () { cancelado = true; parar(); };
+      relogio = setTimeout(ouvir, espera);
+      espera = Math.min(espera * 2, 30000);
+    }
+    function ouvir() {
+      relogio = null;
+      if (cancelado) return;
+      eu._pronto.then(function () {
+        if (cancelado) return;
+        parar = eu.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id).onSnapshot(function (d) {
+          espera = 3000;
+          var x = null;
+          try { x = d.exists ? sanearPedido(d) : null; } catch (_) { x = null; }
+          cb(x);
+        }, function (e) {
+          if (e && e.code === 'permission-denied') { parar = function () {}; return; }
+          deNovo();
+        });
+      }).catch(deNovo);
+    }
+    ouvir();
+    return function () { cancelado = true; clearTimeout(relogio); parar(); };
   };
 
   FirebaseStore.prototype.listarTodasLojas = function () {
