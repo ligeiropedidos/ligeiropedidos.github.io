@@ -665,6 +665,10 @@
       var nomePlano = R.planoPorId(plano.planoId || 'uma').nome;
       /* periodo gratis (7 dias): o cartao so aparece nos 3 ultimos; antes ficava a semana toda em cima do interruptor e dos pedidos */
       var tranquila = a.estado === 'ativa' || (a.estado === 'gratis' && (a.cortesia || a.dias > 3));
+      /* a fatura do mes (Pix ou boleto) perto de vencer, ou vencida: o aviso e daqui (sem os avisos pagos do Asaas) */
+      var C = window.LigeiroCobranca;
+      var fatura = estado.conta && C && C.faturaAberta ? C.faturaAberta(estado.conta) : null;
+      if (fatura) tranquila = false;
       if (!sempre && tranquila) return null;
       var textos = {
         gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + (a.dias > 0 ? ' (' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ')' : ' (acaba hoje)') + '. Depois é ' + dinheiro(valor) + ' por ' + periodo + ': cartão, boleto ou Pix, aqui mesmo.',
@@ -687,8 +691,14 @@
           el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]),
           el('span', { class: 'aviso-plano-texto' }, [el('b', { text: 'Pagamento avisado' }), el('span', { text: 'Em ' + dataBR(plano.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.' })]),
         ]));
+        if (fatura) filhos.push(el('div', { class: 'aviso-plano aviso-espera aviso-no-cartao', role: 'note' }, [
+          el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('recibo')]),
+          el('span', { class: 'aviso-plano-texto' }, [el('b', { text: 'Mensalidade de ' + dinheiro(fatura.valor) }), el('span', { text: C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.') })]),
+        ]));
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
-          el('button', { class: 'btn ' + (tranquila ? 'btn-fantasma' : 'btn-principal') + ' btn-pequeno', type: 'button', text: (a.gratis ? 'Assinar · ' : 'Pagar ') + dinheiro(valor), onclick: abrirPagamentoAssinatura }),
+          fatura
+            ? el('a', { class: 'btn btn-principal btn-pequeno', href: fatura.url, target: '_blank', rel: 'noopener', text: 'Pagar a fatura · ' + dinheiro(fatura.valor) })
+            : el('button', { class: 'btn ' + (tranquila ? 'btn-fantasma' : 'btn-principal') + ' btn-pequeno', type: 'button', text: (a.gratis ? 'Assinar · ' : 'Pagar ') + dinheiro(valor), onclick: abrirPagamentoAssinatura }),
         ]));
       }
       return el('div', { class: 'cartao' + (tranquila ? '' : ' destaque'), id: 'cartaoAssinatura' }, filhos);
@@ -707,6 +717,7 @@
         return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); });
       }
       window.LigeiroCobranca.abrir({
+        fatura: estado.conta && window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(estado.conta, { todas: true }) : null,
         valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome, email: (estado.conta && estado.conta.email) || estado.loja.donoEmail || '',
         txid: 'LIG' + slug.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro ' + estado.loja.nome, avisar: avisar,
       });

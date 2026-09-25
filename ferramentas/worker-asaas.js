@@ -23,6 +23,8 @@
  *      eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED, e tambem os de estorno e contestacao: PAYMENT_REFUNDED,
  *      PAYMENT_REFUND_IN_PROGRESS, PAYMENT_CHARGEBACK_REQUESTED, PAYMENT_CHARGEBACK_DISPUTE e
  *      PAYMENT_AWAITING_CHARGEBACK_REVERSAL (a conta fica pausada ate o admin olhar). Fila sincrona, versao 3.
+ *      E os da fatura do mes: PAYMENT_CREATED, PAYMENT_UPDATED, PAYMENT_OVERDUE, PAYMENT_DELETED e PAYMENT_RESTORED
+ *      (o painel da loja mostra "sua mensalidade vence dia X" com o botao da fatura: sem os avisos pagos do Asaas).
  *   4. O e-mail do cliente no Asaas tem que ser o MESMO e-mail com que o dono entra no Ligeiro
  *      (o link de assinatura ja pede o e-mail; confira em Clientes).
  *
@@ -39,13 +41,16 @@ export default {
     try { corpo = await request.json(); } catch (_) { return json({ ok: false, erro: 'json' }, 400); }
     const evento = corpo.event || '';
     const pag = corpo.payment || {};
-    /* so pagamento confirmado, estorno e contestacao interessam; o resto responde 200 pra fila do Asaas nao travar */
-    if (['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].concat(EVENTOS_DE_ESTORNO).indexOf(evento) < 0) return json({ ok: true, ignorado: evento });
+    /* so pagamento confirmado, estorno, contestacao e a fatura do mes interessam; o resto responde 200 pra fila do Asaas nao travar */
+    if (['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].concat(EVENTOS_DE_ESTORNO, EVENTOS_DE_FATURA).indexOf(evento) < 0) return json({ ok: true, ignorado: evento });
     if (!pag.id || !pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
 
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.id)) || !/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.customer))) return json({ ok: false, erro: 'sem pagamento' }, 400);
     if (EVENTOS_DE_ESTORNO.indexOf(evento) >= 0) {
       try { return await pausarPorEstorno(env, pag); } catch (e) { console.error('asaas estorno', e && e.message || e); return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500); }
+    }
+    if (EVENTOS_DE_FATURA.indexOf(evento) >= 0) {
+      try { return await anotarFatura(env, pag, evento); } catch (e) { console.error('asaas fatura', e && e.message || e); return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500); }
     }
 
     try {
@@ -102,7 +107,11 @@ export default {
         pagamentoParcial: parcial ? Object.assign({ em: new Date().toISOString(), dias: dias }, parcial) : null,
       });
       const pagamentos = ((conta && conta.pagamentos) || []).concat([pag.id]).slice(-50);
-      await fb.merge('contas/' + encodeURIComponent(email), { email: email, plano: novoPlano, pagamentos: pagamentos, atualizadoEm: new Date().toISOString() });
+      const gravar = { email: email, plano: novoPlano, pagamentos: pagamentos, atualizadoEm: new Date().toISOString() };
+      /* a fatura que estava em aberto e esta: sai do painel */
+      if (conta && conta.faturaAsaas && conta.faturaAsaas.id === pag.id) gravar.faturaAsaas = null;
+      if (pag.subscription && /^[A-Za-z0-9_-]{1,80}$/.test(String(pag.subscription))) gravar.assinaturaAsaas = String(pag.subscription);
+      await fb.merge('contas/' + encodeURIComponent(email), gravar);
 
       /* espelho nas lojas e na vitrine */
       const espelho = { status: 'ativo', tipo: novoPlano.tipo, planoId: novoPlano.planoId, planoPago: novoPlano.planoPago, desde: p.desde || new Date().toISOString(), pagoAte: pagoAte, avisoPagamentoEm: '', avisoValor: 0 };
@@ -156,6 +165,43 @@ async function pausarPorEstorno(env, pag) {
   }
   if (env.CARDAPIO && lojas.length) await env.CARDAPIO.delete('vitrine').catch(() => {});
   return json({ ok: true, pausada: email, lojas: lojas.length });
+}
+
+/* Fatura do mes da assinatura (Pix ou boleto): o painel da loja avisa "vence dia X" com o botao da fatura, entao os
+   avisos do Asaas (R$ 0,99 por cobranca) podem ficar desligados. Guarda so a fatura em aberto que vence primeiro;
+   paga, removida ou cancelada, sai. Quem manda e o Asaas: a cobranca e lida de novo pela chave da API */
+const EVENTOS_DE_FATURA = ['PAYMENT_CREATED', 'PAYMENT_UPDATED', 'PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_RESTORED'];
+async function anotarFatura(env, pag, evento) {
+  const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+  if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
+  /* so a cobranca de assinatura (a dos links do Ligeiro); cobranca avulsa nao e mensalidade */
+  if (!real.subscription) return json({ ok: true, ignorado: 'cobranca avulsa' });
+  const cliente = await asaas(env, '/customers/' + encodeURIComponent(real.customer || pag.customer));
+  const email = String(cliente.email || '').trim().toLowerCase();
+  if (!email) return json({ ok: true, ignorado: 'cliente sem e-mail' });
+  const fb = await firebase(env);
+  const caminho = 'contas/' + encodeURIComponent(email);
+  const conta = await fb.get(caminho);
+  if (!conta) return json({ ok: true, ignorado: 'sem conta no Ligeiro' });
+  const st = String(real.status || '');
+  const aberta = (st === 'PENDING' || st === 'OVERDUE') && real.deleted !== true && evento !== 'PAYMENT_DELETED';
+  const atual = conta.faturaAsaas && conta.faturaAsaas.id ? conta.faturaAsaas : null;
+  const agora = new Date().toISOString();
+  if (!aberta) {
+    if (atual && atual.id === real.id) await fb.merge(caminho, { faturaAsaas: null, atualizadoEm: agora });
+    return json({ ok: true, fatura: 'fechada' });
+  }
+  const vencimento = /^\d{4}-\d{2}-\d{2}$/.test(String(real.dueDate || '')) ? String(real.dueDate) : '';
+  /* outra fatura ainda aberta que vence antes (ou ja venceu) continua sendo a do painel */
+  if (atual && atual.id !== real.id && atual.vencimento && vencimento && atual.vencimento <= vencimento) return json({ ok: true, fatura: 'mantida' });
+  /* endereco da fatura so do Asaas (o painel abre este link) */
+  const url = /^https:\/\/(www\.)?asaas\.com\/[A-Za-z0-9/_-]{1,200}$/.test(String(real.invoiceUrl || '')) ? String(real.invoiceUrl) : '';
+  const fatura = {
+    id: String(real.id), valor: Math.round(Number(real.value || 0) * 100), vencimento: vencimento, url: url,
+    status: st, forma: String(real.billingType || '').slice(0, 20), assinatura: String(real.subscription).slice(0, 80), em: agora,
+  };
+  await fb.merge(caminho, { faturaAsaas: fatura, assinaturaAsaas: fatura.assinatura, atualizadoEm: agora });
+  return json({ ok: true, fatura: fatura.status, vencimento: vencimento });
 }
 
 /* compara o token sem parar na primeira letra diferente (ninguem descobre o token pelo tempo da resposta) */

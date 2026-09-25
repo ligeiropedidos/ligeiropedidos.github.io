@@ -18,11 +18,38 @@
    * o = { valor, periodo ('30 dias' | '12 meses'), planoId, tipo, quem (nome da loja ou e-mail), email (login do dono),
    *       txid, descricao, avisar: function () -> Promise (grava "ja paguei") }
    */
+  /* Fatura do mes em aberto no Asaas (o mensageiro guarda em contas/{email}.faturaAsaas). No painel ela aparece para
+     Pix e boleto nos 7 dias antes de vencer, e para qualquer forma depois de vencida (cartao em dia e cobrado sozinho).
+     opcoes.todas: qualquer fatura em aberto (o botao Pagar abre ela, e nao o link que criaria outra assinatura) */
+  function faturaAberta(conta, opcoes, agora) {
+    var f = conta && conta.faturaAsaas;
+    if (!f || !/^https:\/\/(www\.)?asaas\.com\//.test(String(f.url || ''))) return null;
+    if (f.status !== 'PENDING' && f.status !== 'OVERDUE') return null;
+    var hoje = agora || new Date();
+    var p = String(f.vencimento || '').split('-');
+    var venc = p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null;
+    var dias = venc ? Math.round((venc.getTime() - new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime()) / 864e5) : null;
+    var vencida = f.status === 'OVERDUE' || (dias != null && dias < 0);
+    if (!(opcoes && opcoes.todas)) {
+      if (!vencida && f.forma === 'CREDIT_CARD') return null;
+      if (!vencida && (dias == null || dias > 7)) return null;
+    }
+    return { url: f.url, valor: Number(f.valor) || 0, vencimento: venc, dias: dias, vencida: vencida, cartao: f.forma === 'CREDIT_CARD' };
+  }
+  /* "vence em 3 dias (28/10)", "vence hoje", "venceu em 20/10" */
+  function textoFatura(f) {
+    var data = f.vencimento ? f.vencimento.toLocaleDateString('pt-BR') : '';
+    if (f.vencida) return 'venceu em ' + data;
+    if (f.dias === 0) return 'vence hoje';
+    return 'vence em ' + f.dias + (f.dias === 1 ? ' dia' : ' dias') + (data ? ' (' + data + ')' : '');
+  }
+
   function abrir(o) {
     var cfg = window.LIGEIRO_CONFIG || {};
     var pixL = cfg.pixLigeiro || {};
     var Pix = window.LigeiroPix;
-    var link = R.linkDeCobranca(o.planoId, o.tipo, !!o.fundador);
+    var fatura = o.fatura && o.fatura.url ? o.fatura : null;
+    var link = fatura ? fatura.url : R.linkDeCobranca(o.planoId, o.tipo, !!o.fundador);
     /* ainda sem link de cartao/boleto e sem Pix do Ligeiro: vai direto para o WhatsApp com a mensagem pronta (antes abria
        uma janela so para mostrar esse mesmo botao) */
     if (!link && !pixL.chave && cfg.whatsappLigeiro) {
@@ -33,8 +60,14 @@
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
     corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));
 
-    /* 1 e 2: cartao e boleto pelo link de assinatura */
-    if (link) {
+    /* ja tem fatura do mes em aberto: paga ela (o link de assinatura criaria outra assinatura em cima desta) */
+    if (fatura) {
+      corpo.appendChild(el('p', { class: 'centro', text: 'Sua mensalidade de ' + R.dinheiro(fatura.valor) + ' ' + textoFatura(fatura) + '.' }));
+      corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
+        el('a', { class: 'btn btn-principal btn-largo', href: fatura.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a fatura · Pix, boleto ou cartão']),
+      ]));
+      corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
+    } else if (link) {
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
         el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
         el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Pix ou boleto']),
@@ -75,5 +108,5 @@
     UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: rodape });
   }
 
-  window.LigeiroCobranca = { abrir: abrir };
+  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura };
 })();

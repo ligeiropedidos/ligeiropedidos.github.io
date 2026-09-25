@@ -132,6 +132,34 @@ ok(r.status === 200 && conta.plano.status === 'pausado' && conta.estornos.length
 r = await avisar({ id: 'pay_4', customer: 'cus_1', value: 89 }, undefined, 'PAYMENT_CHARGEBACK_DISPUTE');
 ok(db.get('contas/dono@loja.com').estornos.length === 1, 'o mesmo estorno avisado de novo: anota uma vez so');
 
+/* fatura do mes (assinatura por Pix ou boleto): o painel mostra, e sai quando paga */
+const avisarEvento = (pag, evento) => avisar(pag, undefined, evento);
+cobrancas.set('pay_5', { id: 'pay_5', customer: 'cus_1', value: 89, status: 'PENDING', dueDate: '2026-10-20', billingType: 'UNDEFINED', subscription: 'sub_1', invoiceUrl: 'https://www.asaas.com/i/abc123' });
+r = await avisarEvento({ id: 'pay_5', customer: 'cus_1' }, 'PAYMENT_CREATED');
+conta = db.get('contas/dono@loja.com');
+ok(r.status === 200 && conta.faturaAsaas && conta.faturaAsaas.id === 'pay_5' && conta.faturaAsaas.valor === 8900 && conta.faturaAsaas.vencimento === '2026-10-20' && conta.faturaAsaas.url === 'https://www.asaas.com/i/abc123' && conta.assinaturaAsaas === 'sub_1', 'fatura nova da assinatura: fica guardada na conta (valor, vencimento, link)');
+cobrancas.set('pay_6', { id: 'pay_6', customer: 'cus_1', value: 89, status: 'PENDING', dueDate: '2026-11-20', billingType: 'UNDEFINED', subscription: 'sub_1', invoiceUrl: 'https://www.asaas.com/i/def456' });
+await avisarEvento({ id: 'pay_6', customer: 'cus_1' }, 'PAYMENT_CREATED');
+ok(db.get('contas/dono@loja.com').faturaAsaas.id === 'pay_5', 'fatura do mes seguinte nao passa por cima da que vence antes');
+cobrancas.set('pay_7', { id: 'pay_7', customer: 'cus_1', value: 5, status: 'PENDING', dueDate: '2026-10-01', invoiceUrl: 'https://www.asaas.com/i/x' });
+await avisarEvento({ id: 'pay_7', customer: 'cus_1' }, 'PAYMENT_CREATED');
+ok(db.get('contas/dono@loja.com').faturaAsaas.id === 'pay_5', 'cobranca avulsa (sem assinatura) nao vira mensalidade');
+cobrancas.set('pay_8', { id: 'pay_8', customer: 'cus_1', value: 89, status: 'PENDING', dueDate: '2026-10-10', subscription: 'sub_1', invoiceUrl: 'javascript:alert(1)' });
+await avisarEvento({ id: 'pay_8', customer: 'cus_1' }, 'PAYMENT_CREATED');
+ok(db.get('contas/dono@loja.com').faturaAsaas.url === '', 'link da fatura que nao e do Asaas: nao vai para o painel');
+cobrancas.set('pay_8', { id: 'pay_8', customer: 'cus_1', value: 89, status: 'RECEIVED', dueDate: '2026-10-10', subscription: 'sub_1', invoiceUrl: 'https://www.asaas.com/i/ghi' });
+await avisar({ id: 'pay_8', customer: 'cus_1', value: 89 });
+ok(db.get('contas/dono@loja.com').faturaAsaas === null, 'fatura paga: sai do painel');
+cobrancas.set('pay_9b', { id: 'pay_9b', customer: 'cus_1', value: 89, status: 'PENDING', dueDate: '2026-12-10', subscription: 'sub_1', invoiceUrl: 'https://www.asaas.com/i/jkl' });
+await avisarEvento({ id: 'pay_9b', customer: 'cus_1' }, 'PAYMENT_CREATED');
+cobrancas.set('pay_9b', { id: 'pay_9b', customer: 'cus_1', value: 89, status: 'PENDING', deleted: true, dueDate: '2026-12-10', subscription: 'sub_1' });
+await avisarEvento({ id: 'pay_9b', customer: 'cus_1' }, 'PAYMENT_DELETED');
+ok(db.get('contas/dono@loja.com').faturaAsaas === null, 'fatura removida no Asaas: sai do painel');
+clientes.set('cus_2', { email: 'semconta@x.com' });
+cobrancas.set('pay_10', { id: 'pay_10', customer: 'cus_2', value: 89, status: 'PENDING', dueDate: '2026-10-10', subscription: 'sub_2', invoiceUrl: 'https://www.asaas.com/i/mno' });
+r = await avisarEvento({ id: 'pay_10', customer: 'cus_2' }, 'PAYMENT_CREATED');
+ok(r.status === 200 && !db.get('contas/semconta@x.com'), 'fatura de quem nao tem conta no Ligeiro: ignorada, sem criar conta');
+
 /* id com caminho escondido */
 r = await avisar({ id: '../contas/x', customer: 'cus_1', value: 89 });
 ok(r.status === 400, 'id de cobranca com caminho: 400');
