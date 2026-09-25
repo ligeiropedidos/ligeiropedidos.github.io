@@ -66,7 +66,7 @@
       /* so a conta do Ligeiro: atalho pra Central (o #/admin confere o Google de novo, ninguem mais entra) */
       if (R.ehDoLigeiro({ email: u.email })) corpo.appendChild(el('a', { class: 'btn btn-escuro conta-painel conta-central', href: '#/admin' }, [
         el('span', { class: 'conta-painel-texto' }, [el('b', {}, [UI.iconeLinha('ferramenta'), 'Central do Ligeiro']), el('small', { text: 'Lojas, assinaturas, contatos e pagamentos' })]),
-        el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
+        el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true' }, [UI.iconeLinha('seta')]),
       ]));
       /* a loja e a assinatura. Com uma loja so (o normal: 1 loja por conta), elas viram um par: no celular a loja vem
          primeiro (o painel e o uso do dia a dia) e a assinatura sobe quando pede atencao; na tela larga ficam lado a lado,
@@ -123,11 +123,12 @@
         var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email && l.ativa !== false; }).length;
         tituloLojas.textContent = lojas.length > 1 ? 'Suas lojas' : 'Sua loja';
         /* uma loja so: o par loja + assinatura (com titulo nas duas). A assinatura vai para cima, no celular, quando pede
-           atencao (vencendo, vencida, bloqueada, pausada ou com fatura em aberto) */
+           atencao (vencendo, vencida, bloqueada, pausada, com fatura em aberto ou nos 3 ultimos dias gratis) */
         var par = lojas.length === 1;
-        var sitConta = conta && conta.plano ? R.assinatura(conta).estado : '';
+        var sitA = conta && conta.plano ? R.assinatura(conta) : null;
+        var sitConta = sitA ? sitA.estado : '';
         var Cb = window.LigeiroCobranca;
-        var urgente = ['vencendo', 'vencida', 'bloqueada', 'pausada'].indexOf(sitConta) >= 0 || !!(conta && Cb && Cb.faturaAberta && Cb.faturaAberta(conta));
+        var urgente = ['vencendo', 'vencida', 'bloqueada', 'pausada'].indexOf(sitConta) >= 0 || (sitConta === 'gratis' && sitA.dias <= 3) || !!(conta && Cb && Cb.faturaAberta && Cb.faturaAberta(conta));
         arranjo.className = 'conta-arranjo' + (par ? ' par' : '') + (par && urgente ? ' plano-primeiro' : '');
         tituloPlano.hidden = !par;
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
@@ -216,10 +217,10 @@
             /* assinatura em dia e sem fatura aberta: nada a pagar (o link abriria outra assinatura) */
             : (comAssinatura && !atrasada) ? null
             : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && a.estado !== 'ativa') ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
-          a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para ' + outroTipo }),
+          a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para o ' + outroTipo }),
           p.status === 'cancelado'
             ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague a mensalidade para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
-            : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar', onclick: function () {
+            : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar assinatura', onclick: function () {
                 UI.perguntar('Encerrar a assinatura?' + (comAssinatura ? ' A cobrança automática é cancelada agora.' : '') + ' Sua loja continua no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois para de receber pedidos.' + (p.fundador === true ? ' E o preço de fundador acaba: se voltar, volta no preço normal.' : ''), { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
                   /* com assinatura no Asaas, o mensageiro cancela ela junto (direto no banco, o cartao seguiria cobrando) */
@@ -291,7 +292,9 @@
 
     function ladrilho(tag, atributos, icone, rotulo) {
       atributos.class = 'btn btn-fantasma btn-pequeno conta-ladrilho';
-      return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { text: rotulo })]);
+      /* rotulo [longo, curto]: o curto entra quando o quadradinho aperta (celular) */
+      var texto = Array.isArray(rotulo) ? el('span', {}, [el('span', { class: 'rot-longo', text: rotulo[0] }), el('span', { class: 'rot-curto', text: rotulo[1] })]) : el('span', { text: rotulo });
+      return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), texto]);
     }
 
     function cartaoLoja(l, comQr) {
@@ -322,7 +325,7 @@
         /* entrada principal: o painel. Depois o site da loja e, separadas, as telas da equipe. */
         el('a', { class: 'btn btn-principal conta-painel', href: '#/painel/' + l.slug }, [
           el('span', { class: 'conta-painel-texto' }, [el('b', { text: 'Abrir o painel' }), el('small', { text: 'Pedidos, ' + R.catalogo(l).nome + ', vendas e ajustes' })]),
-          el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
+          el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true' }, [UI.iconeLinha('seta')]),
         ]),
         el('div', { class: 'conta-acoes' }, [
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug }, [UI.iconeLinha('olho'), 'Ver loja']),
@@ -334,7 +337,7 @@
         el('div', { class: 'conta-grupo conta-grupo-equipe', text: 'Equipe' }),
         el('div', { class: 'conta-equipe' }, [
           ladrilho('a', { href: '#/cozinha/' + l.slug }, 'chef', 'Cozinha'),
-          ladrilho('a', { href: '#/entrega/' + l.slug }, 'entrega', 'Entregador'),
+          ladrilho('a', { href: '#/entrega/' + l.slug, 'aria-label': 'Entregador' }, 'entrega', ['Entregador', 'Entrega']),
           ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, 'chave', 'Senha'),
         ]),
       ]);

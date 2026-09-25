@@ -176,6 +176,9 @@
     return som.ligado;
   }
   document.addEventListener('pointerdown', prepararSom, { once: true });
+  /* iPhone: sem ninguem ouvindo o toque, o Safari nao acende o :active e o botao nao afunda no dedo (so muda quando a
+     tela seguinte chega, e parece travado). Um ouvinte vazio e passivo liga o afundar na hora */
+  document.addEventListener('touchstart', function () { /* so para o :active */ }, { passive: true });
   function vibrar(padrao) { if (navigator.vibrate) { try { navigator.vibrate(padrao || [120, 60, 120]); } catch (_) { /* ignora */ } } }
 
   /* ---------- Modal generico ---------- */
@@ -803,6 +806,8 @@
     desfazer: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
     abrir: '<path d="m6 9 6 6 6-6"/>',
     avancar: '<path d="m9 6 6 6-6 6"/>',
+    /* seta de "ir": desenho, nao a letra (cada fonte poe o "→" numa altura; aqui o meio e o meio da bolinha em todo aparelho) */
+    seta: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
     fechar: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
     fogo: '<path d="M12 21a6 6 0 0 0 6-6c0-3.6-2.4-5.4-3.6-8.2-.7 1.8-1.8 2.9-2.9 3.4C11.3 7.6 10.4 5.3 11.6 3 7.9 4.6 6 8.6 6 12.4V15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 1-2.5-2.5c0-1.6 1.3-2.4 2.5-4 1.2 1.6 2.5 2.4 2.5 4A2.5 2.5 0 0 1 12 21z"/>',
     escudo: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',

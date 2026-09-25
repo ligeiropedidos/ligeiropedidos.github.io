@@ -49,6 +49,8 @@
 [hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
+/* toque responde na hora: sem a espera do "toque duplo para ampliar" (o zoom de pinca continua) */
+html, a, button, input, select, textarea, label, summary { touch-action: manipulation; } /* botao dentro de trilho que rola de lado tambem */
 /* janela ou video aberto: a pagina para de rolar e o lugar da barra de rolagem vira espaco (nada anda para o lado) */
 html.rolagem-travada { overflow: hidden; padding-right: var(--trava, 0px); }
 body {
@@ -658,6 +660,9 @@ a.selo-google:hover { background: var(--lime-suave); }
   .pedido-card .acoes-entrega .btn-principal, .pedido-card .acoes-entrega > .btn:only-child, .pedido-card .acoes-entrega > .btn-fantasma:has(+ .btn-principal) { grid-column: 1 / -1; }
 }
 @media (max-width: 360px) { .pedido-card .acoes .btn { padding-left: 8px; padding-right: 8px; font-size: 16px; } }
+/* 320 (iPhone com tela ampliada): Mapa e Chegando um embaixo do outro; lado a lado o icone do WhatsApp encostava na
+   borda grossa do tema */
+@media (max-width: 340px) { .pedido-card .acoes-entrega { grid-template-columns: minmax(0, 1fr); } }
 .divergente { background: var(--erro-suave); color: var(--erro); border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; }
 
 .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
@@ -1520,7 +1525,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 420px) { .conta-foto { width: 52px; height: 52px; } .conta-texto h1 { font-size: 22px; } }
 .conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 2px 0; }
 .conta-lojas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; } /* minmax: texto comprido nunca alarga o cartao alem da tela */
-.conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); }
+.conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); container: conta-loja / inline-size; }
 .conta-loja-topo { display: flex; align-items: flex-start; gap: 14px; } /* logo no alto, igual em todo cartao (centrada, descia quando o nome quebrava em mais linhas) */
 .conta-logo { width: 64px; height: 64px; border-radius: var(--raio-logo-p, 16px); background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 30px; flex: none; overflow: hidden; }
 .conta-logo img { width: 100%; height: 100%; object-fit: cover; }
@@ -1532,30 +1537,41 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-selos .rot-curto { display: none; }
 @media (max-width: 360px) { .conta-selos .rot-longo { display: none; } .conta-selos .rot-curto { display: inline; } } /* 320: "Aberta" + o outro selo cabem lado a lado */
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.conta-acoes .btn { width: 100%; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; font-size: 15px; }
+.conta-acoes .btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; font-size: 15px; }
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
 .conta-acoes .btn-principal { grid-column: 1 / -1; }
 /* equipe: tres botoes iguais com o icone em cima do nome, como os do topo do painel (antes a senha sobrava sozinha numa linha) */
 .conta-equipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .conta-ladrilho { width: 100%; min-width: 0; flex-direction: column; gap: 6px; min-height: 72px; padding: 10.75px 4px 7.25px; font-size: 15px; line-height: 1.1; white-space: nowrap; }
 .conta-ladrilho-icone { font-size: 22px; line-height: 1; }
-@media (max-width: 360px) { .conta-acoes .btn, .conta-ladrilho { font-size: 13px; } } /* celular pequeno: "Copiar link" e "Entregador" cabem com folga */
+/* "Copiar link" com o icone: 15px com folga; no celular pequeno 14 e 13, com o icone mais perto do texto */
+@container conta-loja (max-width: 277.9px) { .conta-acoes .btn { font-size: 14px; gap: 8px; } }
+@container conta-loja (max-width: 261.9px) { .conta-acoes .btn { font-size: 13px; } }
+/* equipe: o texto sempre a 10px ou mais do contorno, medido com a letra do iPhone (mais larga que a do PC). Os tres
+   quadradinhos ficam lado a lado, com a letra do mesmo tamanho dos botoes de cima; quando "Entregador" nao cabe com essa
+   folga (celular), vira "Entrega". No 320, 13px */
+.conta-ladrilho .rot-curto { display: none; }
+@container conta-loja (max-width: 345.9px) { .conta-ladrilho .rot-longo { display: none; } .conta-ladrilho .rot-curto { display: inline; } }
+@container conta-loja (max-width: 270.9px) { .conta-ladrilho { font-size: 13px; } }
 .conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
 .conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
 .conta-painel-texto small { font-size: 13.5px; font-weight: 600; line-height: 1.5; opacity: 0.8; text-wrap: balance; } /* nao corta: na fonte larga do iPhone quebra em duas linhas iguais */
 .conta-painel-seta { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; line-height: 1; }
 .conta-central .conta-painel-seta { background: rgba(255, 255, 255, 0.16); } /* seta clara no botao escuro */
+.conta-painel-seta .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.4; display: block; }
 /* criar loja: frete em dois botoes iguais que ocupam a linha toda */
 
 .conta-grupo { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
-.conta-plano { display: flex; flex-direction: column; gap: 12px; }
+.conta-plano { display: flex; flex-direction: column; gap: 12px; container: conta-plano / inline-size; }
 .conta-plano > .selo { align-self: flex-start; }
 .plano-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .plano-dado { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
 .plano-dado-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.plano-dado-valor { font-family: var(--display); font-size: clamp(18px, 5vw, 22px); line-height: 1.15; color: var(--ink); white-space: nowrap; }
-@media (max-width: 360px) { .plano-dados { grid-template-columns: minmax(0, 1fr); } } /* tela ampliada do iPhone: cada quadro com a linha inteira */
+.plano-dado-valor { font-family: var(--display); font-size: clamp(18px, 5vw, 22px); font-size: clamp(18px, 6cqi, 22px); line-height: 1.15; color: var(--ink); white-space: nowrap; }
+/* a data pela largura do cartao (nao da tela: no PC o cartao fica na metade e "01/10/2026" passava do quadro). Cartao
+   estreito (celular pequeno, iPhone ampliado): cada quadro com a linha inteira */
+@container conta-plano (max-width: 299.9px) { .plano-dados { grid-template-columns: minmax(0, 1fr); } }
 .plano-dado-sub { font-size: 13px; color: var(--muted); }
 .plano-recado { margin: 0; }
 /* periodo gratis: "Por que assinar agora?" com tres motivos, cada um com o icone num circulo */
@@ -1567,10 +1583,18 @@ a.selo-google:hover { background: var(--lime-suave); }
 .plano-gratis-txt { text-wrap: balance; } /* duas linhas do mesmo tamanho: nada de palavra sozinha embaixo */
 .plano-gratis-ico { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; }
 .plano-gratis-ico .ico-traco svg { width: 18px; height: 18px; }
-.plano-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; }
-.plano-acoes .plano-pagar { grid-column: 1 / -1; min-height: 52px; font-size: 17px; }
-@media (max-width: 360px) { .plano-acoes .btn:not(.plano-pagar) { font-size: 14px; } }
+/* botoes do plano um embaixo do outro, com a largura toda ("Mudar para o mensal" encostava na borda no iPhone); lado a
+   lado so quando o cartao e largo e cada um cabe com folga */
+.plano-acoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 16px; white-space: nowrap; }
+.plano-acoes .plano-pagar { min-height: 52px; font-size: 17px; }
+@container conta-plano (min-width: 440px) {
+  .plano-acoes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* o pagar tem a linha dele; botao que sobraria sozinho numa linha tambem ocupa a linha toda */
+  .plano-acoes > .plano-pagar,
+  .plano-acoes > .plano-pagar ~ .btn:last-child:nth-child(even),
+  .plano-acoes > .btn:last-child:nth-child(odd):not(.plano-pagar ~ .btn) { grid-column: 1 / -1; }
+}
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
 @media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } }
@@ -1724,6 +1748,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .linha-botoes.dupla .btn { font-size: 14px; padding: 0 4px; }
 }
 @media (max-width: 480px) { .btn-mp { font-size: 16px; white-space: nowrap; padding-left: 8px; padding-right: 8px; } }
+@media (max-width: 345px) { .btn-mp, .mp-conexao .btn-mp { font-size: 14px; } } /* 320: "Conectar Mercado Pago" com o icone a 10px ou mais da borda (letra do iPhone) */
 
 /* ==========================================================
    Central do Ligeiro (#/admin). Tudo aqui tem o prefixo adm-.
@@ -2024,12 +2049,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 
 /* abas do painel: no PC o nome inteiro; no celular as cinco numa linha, icone em cima e nome curto embaixo.
-   As cinco do mesmo tamanho; a aba nunca fica menor que o proprio nome (sem o "min-width: 0"): se a letra do celular for
-   mais larga e "Cardapio" nao couber, so ela cresce os pixels que faltam, em vez de virar "Carda..." (era o iPhone) */
+   As cinco do mesmo tamanho sempre que cabem; a aba nunca fica menor que o proprio nome mais 8px de cada lado
+   (minmax(max-content, 1fr)): com a letra do iPhone, mais larga, "Pedidos" e "Ajustes" crescem os pixels que faltam e as
+   outras dividem o resto, em vez do nome encostar na borda */
 .abas-principais .aba-painel .rot-curto { display: none; }
 @media (max-width: 640px) {
-  .abas-principais { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; overflow: visible; }
-  .abas-principais .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; padding: 9px 2px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
+  .abas-principais { display: grid; grid-template-columns: repeat(5, minmax(max-content, 1fr)); gap: 6px; overflow: visible; }
+  .abas-principais .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; padding: 9px 8px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
   .abas-principais .aba-painel .rot-longo { display: none; }
   .abas-principais .aba-painel .rot-curto { display: inline; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .abas-principais .aba-painel .ico-traco svg { width: 20px; height: 20px; }
@@ -2045,7 +2071,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* iPhone com "Tela ampliada" (320 px): margem e vao um pouco menores e letra 11,5 para "Cardapio" caber inteiro */
 @media (max-width: 360px) {
   .abas-principais { gap: 4px; padding-left: 12px; padding-right: 12px; }
-  .abas-principais .aba-painel { padding-left: 1px; padding-right: 1px; font-size: 11.5px; }
+  .abas-principais .aba-painel { padding-left: 6px; padding-right: 6px; font-size: 11.5px; }
 }
 
 /* ---------- icones de traco no lugar dos emojis de interface (a comida escolhida pela loja continua emoji) ---------- */
