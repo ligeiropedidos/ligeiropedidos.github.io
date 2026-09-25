@@ -2141,7 +2141,8 @@ export default {
         const agoraBr = new Date(Date.now() - 3 * 3600 * 1000);
         let pedido;
         try {
-          pedido = REGRAS.montarPedido(l, Object.assign({}, dados, { origem: dados.origem === 'balcao' ? 'balcao' : 'link' }), agoraBr);
+          /* 4o argumento: a hora de verdade (a assinatura conta o dia em Brasilia sozinha; o horario da loja usa o 3o) */
+          pedido = REGRAS.montarPedido(l, Object.assign({}, dados, { origem: dados.origem === 'balcao' ? 'balcao' : 'link' }), agoraBr, new Date());
         } catch (e) {
           if (e && e.publico) return json({ erro: e.message }, 422);
           throw e;
