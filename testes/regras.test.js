@@ -880,6 +880,50 @@ test('link do Google de avaliar com placeid (o que o proprio Google da) vale', (
   assert.equal(R.linkGoogle('https://search.google.com.golpe.com/local/writereview?placeid=a'), '');
 });
 
+test('Pix com cobranca no Mercado Pago: sem "Marcar como pago" e sem "diz que pagou" (o Mercado Pago confirma sozinho)', () => {
+  const naMao = { status: R.STATUS.AGUARDANDO, formaPagamento: 'pix', tipoEntrega: 'retirada', clientePagou: true };
+  const noMp = Object.assign({}, naMao, { mp: { id: 'ORD123' } });
+  const loja = { tempoPreparo: 20 };
+  /* Pix conferido na mao (sem cobranca no Mercado Pago): como antes */
+  assert.equal(R.rotuloProximoPasso(naMao), 'Pix caiu? Marcar como pago');
+  assert.equal(R.rotuloStatus(naMao), 'Cliente diz que pagou');
+  assert.match(R.textoDoEstagio(naMao, loja), /Assim que ela conferir o Pix/);
+  /* com mp.id: nada de botao de confirmar na mao, e o "diz que pagou" nao conta */
+  assert.equal(R.rotuloProximoPasso(noMp), '');
+  assert.equal(R.rotuloStatus(noMp), 'Aguardando Pix');
+  assert.equal(R.textoDoEstagio(noMp, loja), 'Falta só pagar o Pix para o pedido entrar na fila.');
+  assert.equal(R.cobrancaNoMp(noMp), true);
+  assert.equal(R.cobrancaNoMp(Object.assign({}, naMao, { mp: {} })), false);
+  /* cartao continua sem o botao, e o pago segue para o proximo passo */
+  assert.equal(R.rotuloProximoPasso({ status: R.STATUS.AGUARDANDO, formaPagamento: 'cartao_online' }), '');
+  assert.equal(R.rotuloProximoPasso(Object.assign({}, noMp, { status: R.STATUS.PAGO })), 'Começar a fazer');
+});
+
+test('dinheiro devolvido: a mensagem do cliente e a ficha dizem devolvido, nao pago', () => {
+  const loja = lojaDeTeste();
+  const pago = Object.assign(R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1 }] }),
+    { status: R.STATUS.CANCELADO, pagamentoStatus: 'pago', senha: 9, mp: { id: 'ORD9' } });
+  assert.match(R.mensagemDoCliente(loja, pago), /Já pago no Pix\./);
+  assert.match(R.fichaDoPedido(loja, pago), /TOTAL PAGO: R\$ 18,00\* \(Pix\)/);
+  /* o mensageiro grava pagamentoStatus 'devolvido' ao devolver */
+  const devolvido = Object.assign({}, pago, { pagamentoStatus: 'devolvido', devolvidoEm: '2026-09-25T20:00:00.000Z' });
+  /* pedido de antes: so o devolvidoEm, com o pagamentoStatus ainda 'pago' */
+  const antigo = Object.assign({}, pago, { devolvidoEm: '2026-09-25T20:00:00.000Z' });
+  [devolvido, antigo].forEach((p) => {
+    assert.equal(R.dinheiroDevolvido(p), true);
+    const msg = R.mensagemDoCliente(loja, p);
+    assert.match(msg, /O dinheiro do Pix foi devolvido\./);
+    assert.ok(!/Já pago/.test(msg));
+    const ficha = R.fichaDoPedido(loja, p);
+    assert.match(ficha, /\*DINHEIRO DEVOLVIDO: R\$ 18,00\* \(Pix\)/);
+    assert.ok(!/TOTAL PAGO/.test(ficha));
+  });
+  const cartao = Object.assign({}, devolvido, { formaPagamento: 'cartao_online' });
+  assert.match(R.mensagemDoCliente(loja, cartao), /O dinheiro do cartão foi devolvido\./);
+  assert.match(R.fichaDoPedido(loja, cartao), /DINHEIRO DEVOLVIDO: R\$ 18,00\* \(cartão pelo site\)/);
+  assert.equal(R.dinheiroDevolvido(pago), false);
+});
+
 test('tipo "Outro": emoji de comida (vira o emoji da loja)', () => {
   const outro = R.TIPOS_DE_LOJA.filter((t) => t[0] === 'Outro')[0];
   assert.deepEqual(outro, ['Outro', '🍴']);

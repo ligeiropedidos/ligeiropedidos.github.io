@@ -768,10 +768,19 @@ const REGRAS = (function () {
    * Rotulos e textos
    * ---------------------------------------------------------- */
 
+  /* Pedido com a cobranca criada no Mercado Pago (mp.id): quem confirma e o Mercado Pago, sozinho (o painel confere pelo
+     mensageiro). O "diz que pagou" do cliente e o "Pix caiu? Marcar como pago" do painel so valem para o Pix conferido
+     na mao */
+  function cobrancaNoMp(pedido) { return !!(pedido && pedido.mp && pedido.mp.id); }
+  function dizQuePagou(pedido) { return !!(pedido && pedido.clientePagou) && !cobrancaNoMp(pedido); }
+  /* Dinheiro devolvido ao cliente: pagamentoStatus 'devolvido' (o mensageiro grava ao devolver) ou, nos pedidos de
+     antes, devolvidoEm com o pagamentoStatus ainda 'pago' */
+  function dinheiroDevolvido(pedido) { return !!pedido && (pedido.pagamentoStatus === 'devolvido' || !!pedido.devolvidoEm); }
+
   function rotuloStatus(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.clientePagou ? 'Cliente diz que pagou' : 'Aguardando ' + nomeDoPagamento(pedido);
+      case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : 'Aguardando ' + nomeDoPagamento(pedido);
       case STATUS.PAGO: return 'Novo, preparar';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -800,7 +809,7 @@ const REGRAS = (function () {
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        return pedido.clientePagou
+        return dizQuePagou(pedido)
           ? 'Avisamos a loja. Assim que ela conferir o Pix, o pedido entra na fila.'
           : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.' : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
@@ -824,7 +833,8 @@ const REGRAS = (function () {
   function rotuloProximoPasso(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? '' : 'Pix caiu? Marcar como pago'; /* cartao: so o Mercado Pago confirma */
+      /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento") */
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
       case STATUS.PAGO: return 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
@@ -910,9 +920,12 @@ const REGRAS = (function () {
 
   /* Mensagem que o CLIENTE manda para a loja (botao "Falar com a loja"). */
   function mensagemDoCliente(loja, pedido) {
-    var pagamento = pedido.pagamentoStatus === 'na_entrega'
-      ? (pedido.formaPagamento === 'dinheiro_entrega' ? 'Vou pagar em dinheiro na entrega.' : 'Vou pagar na maquininha na entrega.')
-      : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (pedido.formaPagamento === 'cartao_online' ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (pedido.formaPagamento === 'cartao_online' ? 'com o cartão pelo site.' : 'no Pix.'));
+    var cartao = pedido.formaPagamento === 'cartao_online';
+    var pagamento = dinheiroDevolvido(pedido)
+      ? 'O dinheiro ' + (cartao ? 'do cartão' : 'do Pix') + ' foi devolvido.'
+      : pedido.pagamentoStatus === 'na_entrega'
+        ? (pedido.formaPagamento === 'dinheiro_entrega' ? 'Vou pagar em dinheiro na entrega.' : 'Vou pagar na maquininha na entrega.')
+        : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
     return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *senha ' + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
   }
@@ -946,6 +959,8 @@ const REGRAS = (function () {
     if (pedido.acrescimoCartao > 0) l.push('Taxa do cartão: ' + dinheiro(pedido.acrescimoCartao));
     if (pedido.total === 0) {
       l.push('*CORTESIA: NADA A COBRAR*');
+    } else if (dinheiroDevolvido(pedido)) {
+      l.push('*DINHEIRO DEVOLVIDO: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão pelo site' : 'Pix') + ')');
     } else if (pedido.pagamentoStatus === 'na_entrega') {
       l.push('*TOTAL A COBRAR: ' + dinheiro(pedido.total) + '*');
       if (pedido.formaPagamento === 'dinheiro_entrega') {
@@ -1489,6 +1504,8 @@ const REGRAS = (function () {
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
     nomeDoPagamento: nomeDoPagamento,
+    cobrancaNoMp: cobrancaNoMp,
+    dinheiroDevolvido: dinheiroDevolvido,
     STATUS: STATUS,
     TRANSICOES: TRANSICOES,
     EM_ANDAMENTO: EM_ANDAMENTO,
