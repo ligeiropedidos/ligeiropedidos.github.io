@@ -187,6 +187,14 @@ console.log('publicarLoja: mensageiro recusou por pressa (429, o antigo conta 6 
 }
 {
   const { n, rel, store, publicacoes } = lojaNaNuvem();
+  n.respostas.push({ status: 202, corpo: { ok: true, depois: true } });
+  let resultado = null;
+  store.publicarLoja('loja', { agora: true }).then((x) => { resultado = x; });
+  await rel.andar(600000);
+  ok(resultado === true && publicacoes().length === 1, '202 (mensageiro novo no limite: ele mesmo refaz a copia em 10 s): vale como feito, sem repetir');
+}
+{
+  const { n, rel, store, publicacoes } = lojaNaNuvem();
   n.respostas.push({ status: 403 });
   store.publicarLoja('loja', { agora: true });
   await rel.andar(600000);

@@ -973,7 +973,8 @@
      opcoes.agora: fechar a loja, desligar item, cupom ou cartao vai na hora. O resto (preco, texto, 10 fotos seguidas)
      espera 1,5 s sem salvar nada para avisar uma vez so. Nada fica preso num relogio: a tela que some (celular bloqueado,
      aba fechada, outro app) manda na hora o que estava esperando. E o aviso recusado por pressa (429) ou por falha do
-     mensageiro (5xx, sem internet) tenta de novo mais duas vezes, com folga (o mensageiro antigo conta 6 por minuto) */
+     mensageiro (5xx, sem internet) tenta de novo mais duas vezes, com folga (o mensageiro antigo conta 6 por minuto).
+     O mensageiro novo, no limite, responde 202 e refaz a copia sozinho uns 10 s depois: vale como feito */
   var ESPERA_PUBLICAR = 1500;
   var DE_NOVO_PUBLICAR = { pressa: [20000, 61000], falha: [3000, 15000] };
   FirebaseStore.prototype.publicarLoja = function (slug, opcoes) {

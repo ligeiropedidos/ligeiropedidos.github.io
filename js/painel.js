@@ -1140,7 +1140,8 @@
         if (p.trocoPara > 0) extras.push(el('span', { class: 'selo laranja', text: 'Troco de ' + dinheiro(p.trocoPara - p.total) }));
       }
       selos.push(UI.seloTipo(p));
-      if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: p.canceladoPor === 'pix-vencido' ? 'Pix venceu' : 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
+      /* "pix-vencido" e o prazo do pagamento pelo site: no cartao, o selo diz cartao (antes todo vencido dizia "Pix venceu") */
+      if (p.status === R.STATUS.CANCELADO) extras.push(el('span', { class: 'selo fechado', text: p.canceladoPor === 'pix-vencido' ? (p.formaPagamento === 'cartao_online' ? 'Cartão não pago' : 'Pix venceu') : 'Cancelado' + (p.canceladoPor === 'cliente' ? ' pelo cliente' : '') }));
       if (p.pagoAposCancelar && !p.devolvidoEm && p.pagamentoStatus !== 'devolvido') extras.push(el('span', { class: 'selo laranja', text: 'Pagou depois de cancelado' }));
 
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
