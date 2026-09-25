@@ -1150,6 +1150,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .cobranca-email .pequeno { margin: 0; line-height: 1.4; }
 .cobranca-email .aceite-termos { border-color: #F7D2B8; }
 .btn.btn-travado { opacity: 0.45; filter: saturate(0.6); cursor: not-allowed; }
+/* cartao da fatura do mes: rotulo, valor grande, quando vence e as formas aceitas. Ritmo 8 entre as linhas, 16 de respiro */
+.fatura-cartao { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border: 1.5px solid #D5ECB0; border-radius: 14px; background: var(--lime-suave); text-align: center; }
+.fatura-rotulo { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.fatura-valor { font-family: var(--display); font-size: 36px; line-height: 1.05; color: var(--ink); }
+.fatura-quando { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--deep2); }
+.fatura-quando .ico-traco svg { width: 18px; height: 18px; }
+.fatura-formas { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.fatura-forma { padding: 4px 12px; border-radius: 999px; background: var(--card); border: 1px solid #D5ECB0; font-size: 13px; font-weight: 700; color: var(--body); }
+.fatura-cartao.vencida { background: var(--erro-suave); border-color: #F3C2BB; }
+.fatura-cartao.vencida .fatura-quando { color: var(--erro); }
+.fatura-cartao.vencida .fatura-forma { border-color: #F3C2BB; }
 /* comparativo com concorrentes (pagina de vendas) */
 .comparativo { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }

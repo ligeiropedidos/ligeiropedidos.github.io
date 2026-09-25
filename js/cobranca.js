@@ -58,15 +58,26 @@
     }
     var provedor = (cfg.cobranca && cfg.cobranca.provedor) || 'Asaas';
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
-    corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));
+    /* com fatura, o valor e o vencimento ficam no cartao dela (antes o valor aparecia duas vezes) */
+    if (!fatura) corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));
 
     /* ja tem fatura do mes em aberto: paga ela (o link de assinatura criaria outra assinatura em cima desta) */
     if (fatura) {
-      corpo.appendChild(el('p', { class: 'centro', text: 'Sua mensalidade de ' + R.dinheiro(fatura.valor) + ' ' + textoFatura(fatura) + '.' }));
-      corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
-        el('a', { class: 'btn btn-principal btn-largo', href: fatura.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a fatura · Pix, boleto ou cartão']),
+      /* cartao da fatura: o valor grande no meio, quando vence logo abaixo e as formas aceitas; vencida fica vermelha */
+      var dia = fatura.vencimento ? fatura.vencimento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '';
+      var quando = fatura.vencida ? 'Venceu em ' + dia
+        : fatura.dias === 0 ? 'Vence hoje'
+        : 'Vence em ' + fatura.dias + (fatura.dias === 1 ? ' dia' : ' dias') + (dia ? ' · ' + dia : '');
+      corpo.appendChild(el('div', { class: 'fatura-cartao' + (fatura.vencida ? ' vencida' : '') }, [
+        el('span', { class: 'fatura-rotulo', text: 'Mensalidade do Ligeiro' }),
+        el('b', { class: 'fatura-valor', text: R.dinheiro(fatura.valor) }),
+        el('span', { class: 'fatura-quando' }, [UI.iconeLinha(fatura.vencida ? 'alerta' : 'relogio'), quando]),
+        el('div', { class: 'fatura-formas' }, ['Pix', 'Boleto', 'Cartão'].map(function (t) { return el('span', { class: 'fatura-forma', text: t }); })),
       ]));
-      corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
+      corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
+        el('a', { class: 'btn btn-principal btn-largo', href: fatura.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a fatura']),
+      ]));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     } else if (link) {
       var botoes = [
         el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
