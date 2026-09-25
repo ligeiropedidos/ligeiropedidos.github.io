@@ -18,6 +18,7 @@ const env = {
 
 /* ---- banco e Asaas de mentira ---- */
 const db = new Map();
+const emails = [];
 const cobrancas = new Map();
 const clientes = new Map([['cus_1', { email: 'dono@loja.com' }]]);
 const BASE = 'https://firestore.googleapis.com/v1/projects/proj/databases/(default)/documents/';
@@ -53,8 +54,22 @@ globalThis.fetch = async (u, o) => {
     const c = clientes.get(decodeURIComponent(endereco.split('/').pop()));
     return c ? resposta(c) : resposta({ errors: [] }, 404);
   }
+  /* o Apps Script (e-mail) de mentira: guarda o que mandaria */
+  if (endereco.indexOf('https://script.google.com/macros/s/') === 0) {
+    const c = JSON.parse(o.body);
+    if (c.token !== 'senhaDoEmail12345678901234567890') return resposta({ ok: false, erro: 'token' });
+    emails.push(c);
+    return resposta({ ok: true });
+  }
   if (endereco === BASE + ':runQuery') {
     const q = JSON.parse(o.body).structuredQuery;
+    /* contas com fatura em aberto (IN no faturaAsaas.status) */
+    if (q.from[0].collectionId === 'contas') {
+      const vals = q.where.fieldFilter.value.arrayValue.values.map((v) => v.stringValue);
+      const achadas = [...db.entries()].filter(([k, d]) => k.indexOf('contas/') === 0 && d.faturaAsaas && vals.indexOf(d.faturaAsaas.status) >= 0)
+        .map(([k, d]) => ({ document: { name: BASE + 'contas/' + encodeURIComponent(k.slice(7)), fields: fs(d).mapValue.fields } }));
+      return resposta(achadas.length ? achadas : [{}]);
+    }
     const valor = q.where.fieldFilter.value.stringValue;
     const linhas = [...db.entries()].filter(([k, d]) => k.indexOf('lojas/') === 0 && k.split('/').length === 2 && d.donoEmail === valor)
       .map(([k]) => ({ document: { name: BASE + k } }));
@@ -159,6 +174,34 @@ clientes.set('cus_2', { email: 'semconta@x.com' });
 cobrancas.set('pay_10', { id: 'pay_10', customer: 'cus_2', value: 89, status: 'PENDING', dueDate: '2026-10-10', subscription: 'sub_2', invoiceUrl: 'https://www.asaas.com/i/mno' });
 r = await avisarEvento({ id: 'pay_10', customer: 'cus_2' }, 'PAYMENT_CREATED');
 ok(r.status === 200 && !db.get('contas/semconta@x.com'), 'fatura de quem nao tem conta no Ligeiro: ignorada, sem criar conta');
+
+/* lembrete por e-mail (Cron): cada aviso uma vez, cartao em dia nao recebe, conta cancelada nao recebe */
+const diaMais = (n) => new Date(Date.now() - 3 * 36e5 + n * 864e5).toISOString().slice(0, 10);
+const fatura = (o) => Object.assign({ id: 'pay_l', valor: 8900, vencimento: diaMais(3), url: 'https://www.asaas.com/i/lembrete', status: 'PENDING', forma: 'UNDEFINED', assinatura: 'sub_9' }, o);
+db.set('contas/tres@x.com', { email: 'tres@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura() });
+db.set('contas/hoje@x.com', { email: 'hoje@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(0) }) });
+db.set('contas/cartao@x.com', { email: 'cartao@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ forma: 'CREDIT_CARD' }) });
+db.set('contas/venceu@x.com', { email: 'venceu@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(-2), status: 'OVERDUE', forma: 'CREDIT_CARD' }) });
+db.set('contas/parando@x.com', { email: 'parando@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(-8), status: 'OVERDUE' }) });
+db.set('contas/cancelou@x.com', { email: 'cancelou@x.com', plano: { status: 'cancelado' }, faturaAsaas: fatura() });
+db.set('contas/longe@x.com', { email: 'longe@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(20) }) });
+const rodarCron = async (e) => { const tarefas = []; await worker.scheduled({}, e, { waitUntil: (p) => tarefas.push(p) }); await Promise.all(tarefas); };
+await rodarCron(env);
+ok(emails.length === 0, 'sem EMAIL_URL e EMAIL_TOKEN: nenhum e-mail (e nada quebra)');
+const envEmail = Object.assign({}, env, { EMAIL_URL: 'https://script.google.com/macros/s/AKfyTESTE123/exec', EMAIL_TOKEN: 'senhaDoEmail12345678901234567890' });
+await rodarCron(envEmail);
+const para = (quem) => emails.filter((m) => m.para === quem);
+ok(para('tres@x.com').length === 1 && /vence em 3 dias/.test(para('tres@x.com')[0].assunto) && para('tres@x.com')[0].html.indexOf('https://www.asaas.com/i/lembrete') > 0, 'vence em 3 dias: e-mail com o botao da fatura');
+ok(para('hoje@x.com').length === 1 && /vence hoje/.test(para('hoje@x.com')[0].assunto), 'vence hoje: e-mail');
+ok(para('cartao@x.com').length === 0, 'cartao em dia: sem e-mail (e cobrado sozinho)');
+ok(para('venceu@x.com').length === 1 && /cartão não passou/.test(para('venceu@x.com')[0].texto), 'cartao que nao passou: e-mail de vencida explicando');
+ok(para('parando@x.com').length === 1 && /podem parar/.test(para('parando@x.com')[0].assunto), '7 dias vencida: e-mail de que as lojas podem parar');
+ok(para('cancelou@x.com').length === 0 && para('longe@x.com').length === 0, 'conta encerrada e fatura longe de vencer: sem e-mail');
+ok(db.get('contas/tres@x.com').faturaAsaas.lembretes.indexOf('d3') >= 0, 'o aviso mandado fica anotado na fatura');
+const antesDeRepetir = emails.length;
+await rodarCron(envEmail);
+ok(emails.length === antesDeRepetir, 'o Cron de novo no mesmo dia: ninguem recebe duas vezes');
+ok(!/ pra /.test(emails.map((m) => m.texto).join(' ')) && !/—/.test(emails.map((m) => m.texto + m.html).join(' ')), 'texto sem "pra" e sem travessao');
 
 /* id com caminho escondido */
 r = await avisar({ id: '../contas/x', customer: 'cus_1', value: 89 });

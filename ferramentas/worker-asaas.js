@@ -25,6 +25,10 @@
  *      PAYMENT_AWAITING_CHARGEBACK_REVERSAL (a conta fica pausada ate o admin olhar). Fila sincrona, versao 3.
  *      E os da fatura do mes: PAYMENT_CREATED, PAYMENT_UPDATED, PAYMENT_OVERDUE, PAYMENT_DELETED e PAYMENT_RESTORED
  *      (o painel da loja mostra "sua mensalidade vence dia X" com o botao da fatura: sem os avisos pagos do Asaas).
+ *   3b. Lembrete por e-mail (gratis, pelo Gmail do Ligeiro, ate 100 por dia): cole ferramentas/lembrete-email.gs num
+ *      projeto novo do Google Apps Script na conta do Ligeiro (instrucoes no proprio arquivo) e ponha aqui, como Secret,
+ *      EMAIL_URL (o endereco do app da Web, .../exec) e EMAIL_TOKEN (a mesma senha das Propriedades do script).
+ *      Em Settings > Trigger events > Cron triggers: "0 12 * * *" (todo dia as 9 h de Brasilia).
  *   4. O e-mail do cliente no Asaas tem que ser o MESMO e-mail com que o dono entra no Ligeiro
  *      (o link de assinatura ja pede o e-mail; confira em Clientes).
  *
@@ -130,7 +134,77 @@ export default {
       return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500);
     }
   },
+  /* todo dia (Cron trigger): os lembretes por e-mail da fatura do mes */
+  async scheduled(evento, env, ctx) {
+    const tarefa = lembrarFaturas(env).then((r) => console.log('lembretes', JSON.stringify(r))).catch((e) => console.error('lembretes', e && e.message || e));
+    if (ctx && ctx.waitUntil) ctx.waitUntil(tarefa); else await tarefa;
+  },
 };
+
+/* ---------------- lembrete por e-mail da fatura do mes (gratis, pelo Gmail do Ligeiro) ----------------
+   Uma vez por dia, olha as contas com fatura em aberto e manda, uma vez cada: "vence em 3 dias" e "vence hoje" (Pix e
+   boleto; o cartao e cobrado sozinho), "venceu" e, 7 dias depois, "pode parar" (qualquer forma: no cartao, e porque nao
+   passou). O que ja foi mandado fica em faturaAsaas.lembretes (fatura nova, lista nova) */
+function diaDeBrasilia(agora) { return new Date((agora || new Date()).getTime() - 3 * 36e5).toISOString().slice(0, 10); }
+function diasAte(hoje, dia) { return Math.round((Date.parse(dia + 'T00:00:00Z') - Date.parse(hoje + 'T00:00:00Z')) / 864e5); }
+async function lembrarFaturas(env, agora) {
+  if (!env.EMAIL_URL || !env.EMAIL_TOKEN || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(String(env.EMAIL_URL).trim())) return { ok: false, motivo: 'sem EMAIL_URL ou EMAIL_TOKEN' };
+  const fb = await firebase(env);
+  const contas = await fb.consultarEm('contas', 'faturaAsaas.status', ['PENDING', 'OVERDUE']);
+  const hoje = diaDeBrasilia(agora);
+  let enviados = 0, falhas = 0;
+  for (const c of contas) {
+    const f = c.faturaAsaas;
+    const email = String(c._id || '').toLowerCase();
+    if (!f || !f.url || !/^\d{4}-\d{2}-\d{2}$/.test(String(f.vencimento || '')) || email.indexOf('@') < 1) continue;
+    const pl = c.plano || {};
+    if (pl.status === 'cancelado' || pl.status === 'pausado') continue;
+    const dias = diasAte(hoje, f.vencimento);
+    const vencida = f.status === 'OVERDUE' || dias < 0;
+    const cartao = f.forma === 'CREDIT_CARD';
+    let qual = '';
+    if (vencida) qual = dias <= -7 ? 'vencida7' : 'vencida';
+    else if (!cartao && dias === 3) qual = 'd3';
+    else if (!cartao && dias === 0) qual = 'd0';
+    if (!qual) continue;
+    const ja = Array.isArray(f.lembretes) ? f.lembretes : [];
+    if (ja.indexOf(qual) >= 0 || (qual === 'vencida' && ja.indexOf('vencida7') >= 0)) continue;
+    const ok = await mandarEmail(env, email, mensagemDoLembrete(qual, f, cartao));
+    if (!ok) { falhas++; continue; }
+    await fb.merge('contas/' + encodeURIComponent(email), { faturaAsaas: Object.assign({}, f, { lembretes: ja.concat([qual]) }) });
+    enviados++;
+  }
+  return { ok: true, contas: contas.length, enviados: enviados, falhas: falhas };
+}
+function mensagemDoLembrete(qual, f, cartao) {
+  const valor = 'R$ ' + (Math.round(Number(f.valor) || 0) / 100).toFixed(2).replace('.', ',');
+  const p = f.vencimento.split('-');
+  const dia = p[2] + '/' + p[1];
+  const m = {
+    d3: ['Sua mensalidade do Ligeiro vence em 3 dias', 'A mensalidade do Ligeiro, de ' + valor + ', vence em 3 dias (' + dia + '). Pague pela fatura, no Pix, no boleto ou no cartão.'],
+    d0: ['Sua mensalidade do Ligeiro vence hoje', 'A mensalidade do Ligeiro, de ' + valor + ', vence hoje (' + dia + '). Pague pela fatura, no Pix, no boleto ou no cartão.'],
+    vencida: ['Sua mensalidade do Ligeiro venceu', (cartao ? 'A cobrança no cartão não passou. ' : '') + 'A mensalidade do Ligeiro, de ' + valor + ', venceu em ' + dia + '. Suas lojas seguem no ar por mais alguns dias: pague pela fatura para não parar.'],
+    vencida7: ['Suas lojas podem parar de receber pedidos', (cartao ? 'A cobrança no cartão não passou. ' : '') + 'A mensalidade do Ligeiro, de ' + valor + ', venceu em ' + dia + ' e ainda não foi paga. Pague pela fatura para suas lojas não pararem de receber pedidos.'],
+  }[qual];
+  const fecho = 'Assim que o pagamento cai, tudo segue sozinho. Qualquer dúvida, é só responder este e-mail.';
+  const texto = 'Olá!\n\n' + m[1] + '\n\nPagar a fatura: ' + f.url + '\n\n' + fecho + '\n\nLigeiro\nligeiropedidos.com.br';
+  const html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1F2937">'
+    + '<div style="background:#0F3D2E;padding:16px 24px;border-radius:12px 12px 0 0"><b style="color:#fff;font-size:22px">Ligei<span style="color:#A3E635">ro</span></b></div>'
+    + '<div style="border:1px solid #E5E7EB;border-top:0;border-radius:0 0 12px 12px;padding:24px">'
+    + '<p style="margin:0 0 16px;font-size:16px;line-height:1.5">Olá!</p>'
+    + '<p style="margin:0 0 24px;font-size:16px;line-height:1.5">' + m[1] + '</p>'
+    + '<p style="margin:0 0 24px;text-align:center"><a href="' + f.url + '" style="display:inline-block;background:#84CC16;color:#0F3D2E;font-weight:bold;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:12px">Pagar a fatura</a></p>'
+    + '<p style="margin:0;font-size:14px;line-height:1.5;color:#6B7280">' + fecho + '</p>'
+    + '</div><p style="text-align:center;font-size:12px;color:#9CA3AF;margin:16px 0 0">Ligeiro · ligeiropedidos.com.br</p></div>';
+  return { assunto: m[0], texto: texto, html: html };
+}
+async function mandarEmail(env, para, m) {
+  const r = await fetch(String(env.EMAIL_URL).trim(), { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: String(env.EMAIL_TOKEN).trim(), para: para, assunto: m.assunto, texto: m.texto, html: m.html }) });
+  const j = await r.json().catch(() => ({}));
+  /* no registro, o e-mail sai escondido (so a primeira letra) */
+  if (!j.ok) console.error('email', String(para).replace(/^(.).*@/, '$1***@'), j.erro || r.status);
+  return !!j.ok;
+}
 
 /* Estorno ou contestacao (chargeback) de uma cobranca que ja liberou dias: a conta fica pausada ate o admin olhar na
    Central (o dono nao tira a pausa sozinho; as regras do banco nao deixam). Antes, o plano seguia pago o ano inteiro
@@ -262,6 +336,14 @@ async function firebase(env) {
       const mask = campos.map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
       const r = await fetch(base + caminho + '?' + mask, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: camposFirestore(dados) }) });
       if (!r.ok) throw new Error('Firestore patch ' + r.status + ' ' + (await r.text()).slice(0, 200));
+    },
+    /* documentos inteiros (com _id) em que o campo e um dos valores: 1 leitura por documento achado */
+    async consultarEm(colecao, campo, valores) {
+      const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { fieldFilter: { field: { fieldPath: campo }, op: 'IN', value: { arrayValue: { values: valores.map((v) => ({ stringValue: v })) } } } }, limit: 500 } };
+      const r = await fetch(base + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) });
+      if (!r.ok) throw new Error('Firestore query ' + r.status);
+      const linhas = await r.json();
+      return linhas.filter((l) => l.document).map((l) => Object.assign(deFirestore(l.document.fields || {}), { _id: decodeURIComponent(l.document.name.split('/').pop()) }));
     },
     async query(colecao, campo, valor) {
       const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { fieldFilter: { field: { fieldPath: campo }, op: 'EQUAL', value: { stringValue: valor } } }, select: { fields: [{ fieldPath: 'slug' }] } } };
