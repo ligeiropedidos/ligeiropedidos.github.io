@@ -387,6 +387,9 @@
             var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === emailConta; }).length;
             if (reais >= limite) throw new Error('Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.');
             dados.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || planoTipo, planoId: c.plano.planoId || planoId, planoPago: c.plano.planoPago || '', fundador: c.plano.fundador === true, desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
+            /* conta do proprio Ligeiro: a loja nasce em cortesia de verdade. A copia publica (vitrine e borda) nao leva o
+               e-mail do dono, e com o teste da conta a loja aparecia bloqueada para o cliente depois dos dias gratis */
+            if (R.ehDoLigeiro({ email: emailConta }) && D.planoDaLoja) dados.plano = D.planoDaLoja(emailConta, c.plano);
           });
         }
       }).then(function () { return store.criarLoja(dados); }).then(function (loja) {

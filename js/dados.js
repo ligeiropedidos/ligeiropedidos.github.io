@@ -437,11 +437,11 @@
     var db = this._ler(), agora = agoraISO();
     achados.pedidos.forEach(function (x) {
       var p = db.pedidos[x.loja] && db.pedidos[x.loja][x.id];
-      if (p) { Object.assign(p, titularAnonimo(agora)); delete p.aviso; }
+      if (p) { Object.assign(p, titularAnonimo(agora)); delete p.aviso; p.itens = itensSemObservacao(p.itens); }
     });
     achados.resumos.forEach(function (x) {
       var r = db.resumos && db.resumos[x.loja] && db.resumos[x.loja][x.dia];
-      if (r) r.clientes = clonar(x.restantes);
+      if (r) r.clientes = clientesSemTitular(r.clientes, achados.telefone);
     });
     achados.leads.forEach(function (l) { if (db.leads) delete db.leads[l.id]; });
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
@@ -453,6 +453,121 @@
     var p = plano || {};
     return { status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agoraISO(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: p.avisoValor || 0 };
   }
+  /* copia do plano da conta que vai para as lojas dela. A conta do proprio Ligeiro (adminEmail) vai como cortesia de
+     verdade (ativo e sem pagoAte): a copia publica da loja (vitrine e borda) nao leva o e-mail do dono, e com o plano de
+     teste da conta a loja aparecia bloqueada para o cliente depois dos dias gratis */
+  function planoDaLoja(email, plano) {
+    var espelho = espelhoDoPlano(plano);
+    if (R.ehDoLigeiro({ email: email })) { espelho.status = 'ativo'; espelho.pagoAte = ''; espelho.avisoPagamentoEm = ''; espelho.avisoValor = 0; }
+    return espelho;
+  }
+
+  /* ---- Central: Pagou, Desfazer, Pausar, Reativar e Tornar fundador ----
+     Contas puras (sem banco). O mudarConta chama dentro da transacao, com a conta e o contador de fundadores lidos na
+     hora: a ficha aberta com dado velho nao grava por cima de um pagamento novo, nao soma os dias duas vezes e nao
+     passa do numero de vagas de fundador */
+  var DIA = 864e5;
+  var DIAS_TOLERANCIA = 10; /* a mesma do R.assinatura e do mensageiro do Asaas */
+  function erroPublico(msg) { var e = new Error(msg); e.publico = true; return e; }
+  /* vagas de fundador que existem para o contador publico (config: vagas menos as ja ocupadas fora dele) */
+  function capacidadeFundador() {
+    var f = (window.LIGEIRO_CONFIG || {}).fundador || {};
+    return Math.max(0, (Number(f.vagas) || 0) - (Number(f.jaOcupadas) || 0));
+  }
+  /* a ficha abriu com um pagoAte e um ultimo pagamento: se o banco tem outros, alguem pagou ou mexeu no meio */
+  function conferirEsperado(p, esperado, oQue) {
+    if (!esperado) return;
+    if (String(p.pagoAte || '') !== String(esperado.pagoAte || '') || String(p.ultimoPagamentoEm || '') !== String(esperado.ultimoPagamentoEm || '')) {
+      throw erroPublico('A ' + (oQue || 'conta') + ' mudou desde que você abriu a Central. Toque em Atualizar e confira antes de marcar de novo.');
+    }
+  }
+  /* de onde contam os dias do pagamento (a mesma conta do mensageiro do Asaas): pagou dentro da tolerancia conta do
+     vencimento; encerrada, pausada ou fora da tolerancia conta de hoje, sem perder os dias pagos que ainda tem. Antes a
+     pausada contava sempre de hoje (o R.assinatura dela nao tem limite) e os dias que sobravam sumiam */
+  function baseDoPagamento(o, agoraMs) {
+    var p = (o && o.plano) || {};
+    var cfg = window.LIGEIRO_CONFIG || {};
+    var diasGratis = (cfg.precos && cfg.precos.diasGratis) || 7;
+    var pagoAteMs = p.pagoAte ? (new Date(p.pagoAte).getTime() || 0) : 0;
+    var inicio = new Date(p.desde || (o && o.criadoEm) || agoraMs).getTime();
+    var fimGratis = isNaN(inicio) ? 0 : inicio + diasGratis * DIA;
+    var noPrazo = pagoAteMs > 0 && p.status !== 'cancelado' && p.status !== 'pausado' && agoraMs - pagoAteMs <= DIAS_TOLERANCIA * DIA;
+    return noPrazo ? Math.max(pagoAteMs, fimGratis) : Math.max(agoraMs, pagoAteMs, fimGratis);
+  }
+  /* "Pagou" (30 ou 365 dias). Guarda como o plano estava (antesDoPagamento) para o Desfazer voltar exatamente, e so pega
+     a vaga de fundador se ainda houver uma (contador lido agora). Sem fundadores (loja sem conta): nao mexe em fundador */
+  function contaPagou(o, dias, fundadores, opcoes) {
+    var op = opcoes || {};
+    var agora = op.agora ? new Date(op.agora) : new Date();
+    var p = (o && o.plano) || {};
+    conferirEsperado(p, op.esperado, op.oQue);
+    var usados = fundadores ? (Number(fundadores.usados) || 0) : 0;
+    var vira = !!fundadores && p.fundador !== true && !p.ultimoPagamentoEm && usados < capacidadeFundador();
+    var quando = agora.toISOString();
+    var pagoAte = new Date(baseDoPagamento(o, agora.getTime()) + dias * DIA).toISOString();
+    return {
+      pagoAte: pagoAte, viraFundador: vira, usados: vira ? usados + 1 : usados,
+      plano: {
+        status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: pagoAte, planoPago: R.planoPorId(p.planoId || 'uma').id,
+        fundador: p.fundador === true || vira, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: quando, ultimoPagamentoDias: dias,
+        fundadorPeloPagamento: vira, pagamentoDesfeitoEm: '',
+        antesDoPagamento: {
+          de: quando, pagoAte: p.pagoAte || '', status: p.status || 'teste', tipo: p.tipo || 'mensal', planoPago: p.planoPago || '',
+          ultimoPagamentoEm: p.ultimoPagamentoEm || '', ultimoPagamentoDias: Number(p.ultimoPagamentoDias) || 0, fundador: p.fundador === true,
+          fundadorPeloPagamento: p.fundadorPeloPagamento === true, avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0,
+        },
+      },
+    };
+  }
+  /* "Desfazer o ultimo pagamento": volta ao que estava antes do Pagou (a foto guardada nele). So o Pagou da Central tem a
+     foto: pagamento do Asaas, ou marcado antes dela existir, nao desfaz por aqui. O que mudou depois do Pagou fica (conta
+     encerrada ou pausada continua assim), e a vaga de fundador que ele pegou volta para o contador */
+  function contaDesfez(o, fundadores, opcoes) {
+    var op = opcoes || {};
+    var quando = (op.agora ? new Date(op.agora) : new Date()).toISOString();
+    var p = (o && o.plano) || {};
+    conferirEsperado(p, op.esperado);
+    var s = p.antesDoPagamento;
+    if (!s || !s.de || s.de !== p.ultimoPagamentoEm) throw erroPublico('Este pagamento não foi marcado aqui na Central, então não dá para desfazer por aqui.');
+    var r = {
+      pagoAte: s.pagoAte || '', tipo: s.tipo || p.tipo || 'mensal', planoPago: s.planoPago || '', ultimoPagamentoEm: s.ultimoPagamentoEm || '',
+      ultimoPagamentoDias: Number(s.ultimoPagamentoDias) || 0, fundadorPeloPagamento: s.fundadorPeloPagamento === true, pagamentoDesfeitoEm: quando, antesDoPagamento: null,
+    };
+    if (p.status === 'ativo') r.status = s.status || 'teste';
+    else if (p.status === 'pausado' && p.antesDaPausa) r.antesDaPausa = Object.assign({}, p.antesDaPausa, { status: s.status || 'teste' });
+    if (!p.avisoPagamentoEm && s.avisoPagamentoEm) { r.avisoPagamentoEm = s.avisoPagamentoEm; r.avisoValor = Number(s.avisoValor) || 0; }
+    var usados = fundadores ? (Number(fundadores.usados) || 0) : 0;
+    var libera = p.fundadorPeloPagamento === true && s.fundador !== true && p.fundador === true;
+    if (libera) r.fundador = false;
+    return { plano: r, liberouVaga: libera, usados: libera ? Math.max(0, usados - 1) : usados };
+  }
+  /* Pausar guarda o status de antes (cortesia, teste ou pagando) para o Reativar voltar a ele */
+  function contaPausou(o, opcoes) {
+    var p = (o && o.plano) || {};
+    if (p.status === 'pausado') return { plano: {} };
+    var quando = (opcoes && opcoes.agora ? new Date(opcoes.agora) : new Date()).toISOString();
+    return { plano: { status: 'pausado', pausadoEm: quando, antesDaPausa: { status: p.status || 'teste', em: quando } } };
+  }
+  /* Reativar volta ao status de antes da pausa da Central (a cortesia pausada voltava como teste, e a loja ficava
+     bloqueada). Pausa do mensageiro (estorno) ou conta encerrada: ativa se ainda tem dias pagos, senao teste */
+  function contaReativou(o, opcoes) {
+    var p = (o && o.plano) || {};
+    if (p.status !== 'pausado' && p.status !== 'cancelado') return { plano: {} };
+    var agora = opcoes && opcoes.agora ? new Date(opcoes.agora) : new Date();
+    var a = p.antesDaPausa;
+    var daCentral = p.status === 'pausado' && a && a.em && a.em === p.pausadoEm && (a.status === 'ativo' || a.status === 'teste');
+    var status = daCentral ? a.status : (p.pagoAte && new Date(p.pagoAte).getTime() > agora.getTime() ? 'ativo' : 'teste');
+    return { plano: { status: status, reativadoEm: agora.toISOString(), antesDaPausa: null } };
+  }
+  /* Tornar fundador: so com vaga (contador lido agora) */
+  function contaVirouFundador(o, fundadores) {
+    var p = (o && o.plano) || {};
+    var usados = fundadores ? (Number(fundadores.usados) || 0) : 0;
+    if (p.fundador === true) return { plano: {}, usados: usados };
+    if (usados >= capacidadeFundador()) throw erroPublico('As vagas de fundador acabaram.');
+    return { plano: { fundador: true }, usados: usados + 1 };
+  }
+
   DemoStore.prototype.obterConta = function (email) {
     var db = this._ler();
     var c = db.contas && db.contas[String(email || '').toLowerCase()];
@@ -473,16 +588,50 @@
     var m = clonar(mudancas || {});
     if (m.plano) { m.plano = Object.assign({}, atual.plano || {}, m.plano); }
     db.contas[e] = Object.assign({}, atual, m, { atualizadoEm: agoraISO() });
-    Object.keys(db.lojas).forEach(function (k) { var l = db.lojas[k]; if (l && String(l.donoEmail || '').toLowerCase() === e) l.plano = espelhoDoPlano(db.contas[e].plano); });
+    Object.keys(db.lojas).forEach(function (k) { var l = db.lojas[k]; if (l && String(l.donoEmail || '').toLowerCase() === e) l.plano = planoDaLoja(e, db.contas[e].plano); });
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve(clonar(db.contas[e]));
+  };
+  /* Central: le a conta e o contador de fundadores, fazer(conta, { usados }) devolve { plano: mudancas, usados } (ou
+     um erro, que cancela tudo) e grava. Na demonstracao tudo e local: ler e gravar ja acontecem juntos */
+  DemoStore.prototype.mudarConta = function (email, fazer) {
+    var db = this._ler();
+    var e = String(email || '').toLowerCase();
+    var atual = db.contas && db.contas[e];
+    if (!atual) return Promise.reject(erroPublico('Essa conta não existe mais. Toque em Atualizar.'));
+    var vagas = (db.publico || {}).fundadores || {};
+    var usados = Number(vagas.usados) || 0;
+    var feito;
+    try { feito = fazer(clonar(atual), { usados: usados }) || {}; } catch (err) { return Promise.reject(err); }
+    var mudancas = clonar(feito.plano || {});
+    var novoUsados = feito.usados == null ? usados : feito.usados;
+    if (Object.keys(mudancas).length) db.contas[e] = Object.assign({}, atual, { plano: Object.assign({}, atual.plano || {}, mudancas), atualizadoEm: agoraISO() });
+    if (novoUsados !== usados) {
+      db.publico = db.publico || {};
+      db.publico.fundadores = Object.assign({}, vagas, { usados: novoUsados, atualizadoEm: agoraISO() });
+    }
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve({ conta: clonar(db.contas[e]), usados: novoUsados, feito: feito });
+  };
+  /* Central, loja sem conta: le a loja, fazer(loja) devolve { plano, ativa } e grava so esses campos */
+  DemoStore.prototype.mudarPlanoDaLoja = function (slug, fazer) {
+    var db = this._ler();
+    var atual = db.lojas[slug];
+    if (!atual) return Promise.reject(erroPublico('Loja não encontrada. Toque em Atualizar.'));
+    var feito;
+    try { feito = fazer(clonar(atual)) || {}; } catch (err) { return Promise.reject(err); }
+    if (feito.plano) atual.plano = clonar(feito.plano);
+    if (typeof feito.ativa === 'boolean') atual.ativa = feito.ativa;
+    atual.atualizadoEm = agoraISO();
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve(feito);
   };
   DemoStore.prototype.espelharPlanoNasLojas = function (email) {
     var db = this._ler();
     var e = String(email || '').toLowerCase();
     var conta = db.contas && db.contas[e];
     if (!conta) return Promise.resolve(false);
-    Object.keys(db.lojas).forEach(function (k) { var l = db.lojas[k]; if (l && String(l.donoEmail || '').toLowerCase() === e) l.plano = espelhoDoPlano(conta.plano); });
+    Object.keys(db.lojas).forEach(function (k) { var l = db.lojas[k]; if (l && String(l.donoEmail || '').toLowerCase() === e) l.plano = planoDaLoja(e, conta.plano); });
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve(true);
   };
@@ -511,10 +660,13 @@
     this._gravar(db);
     return Promise.resolve(clonar(f.capacidade));
   };
+  /* so enquanto houver vaga: antes somava 1 mesmo com as 5 ocupadas */
   DemoStore.prototype.ocuparVagaFundador = function () {
     var db = this._ler();
     db.publico = db.publico || {};
-    db.publico.fundadores = Object.assign({}, db.publico.fundadores || {}, { usados: (((db.publico.fundadores || {}).usados) || 0) + 1, atualizadoEm: agoraISO() });
+    var usados = Number((db.publico.fundadores || {}).usados) || 0;
+    if (usados >= capacidadeFundador()) return Promise.reject(erroPublico('As vagas de fundador acabaram.'));
+    db.publico.fundadores = Object.assign({}, db.publico.fundadores || {}, { usados: usados + 1, atualizadoEm: agoraISO() });
     this._gravar(db);
     return Promise.resolve(db.publico.fundadores);
   };
@@ -1139,15 +1291,82 @@
     var eu = this;
     return this._pronto.then(function () {
       var ref = eu.db.collection('contas').doc(e);
-      return ref.get().then(function (d) {
-        var atual = d.exists ? d.data() : { email: e, criadoEm: agoraISO(), plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: agoraISO() } };
-        var m = clonar(mudancas || {});
-        if (m.plano) m.plano = Object.assign({}, atual.plano || {}, m.plano);
-        var nova = Object.assign({}, atual, m, { atualizadoEm: agoraISO() });
-        return ref.set(nova).then(function () {
-          /* espelha nas lojas (encerrar/reativar precisa chegar no site da loja). Se a regra recusar, a conta ja ficou salva. */
-          return eu.espelharPlanoNasLojas(e).catch(function (err) { if (window.console) console.warn('espelho do plano', err); });
-        }).then(function () { return nova; });
+      /* numa transacao: le e grava juntos. Antes lia e depois gravava a conta inteira, e um pagamento gravado no meio
+         (mensageiro do Asaas, outra aba da Central) era apagado pela copia velha */
+      return eu.db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (d) {
+          var atual = d.exists ? d.data() : { email: e, criadoEm: agoraISO(), plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: agoraISO() } };
+          var m = clonar(mudancas || {});
+          if (m.plano) m.plano = Object.assign({}, atual.plano || {}, m.plano);
+          var nova = Object.assign({}, atual, m, { atualizadoEm: agoraISO() });
+          tx.set(ref, nova);
+          return nova;
+        });
+      }).then(function (nova) {
+        /* espelha nas lojas (encerrar/reativar precisa chegar no site da loja). Se a regra recusar, a conta ja ficou salva. */
+        return eu.espelharPlanoNasLojas(e).catch(function (err) { if (window.console) console.warn('espelho do plano', err); }).then(function () { return nova; });
+      });
+    });
+  };
+  /* Central: muda a conta numa transacao. fazer(conta, { usados }) recebe a conta e o contador de fundadores lidos agora
+     e devolve { plano: mudancas, usados: contador novo }; um erro dentro dele cancela tudo. A conta e a vaga de fundador
+     vao juntas, na mesma gravacao. A copia nas lojas fica para quem chamou (espelharPlanoNasLojas), que avisa se so ela
+     falhar: assim um "tente de novo" nunca soma os dias duas vezes */
+  FirebaseStore.prototype.mudarConta = function (email, fazer) {
+    var e = String(email || '').toLowerCase();
+    var eu = this;
+    if (!e) return Promise.reject(new Error('Conta sem e-mail.'));
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('contas').doc(e);
+      var refVagas = eu.db.collection('publico').doc('fundadores');
+      return eu.db.runTransaction(function (tx) {
+        /* Firestore exige todas as leituras antes de qualquer escrita */
+        return tx.get(ref).then(function (d) {
+          return tx.get(refVagas).then(function (dv) {
+            if (!d.exists) throw erroPublico('Essa conta não existe mais. Toque em Atualizar.');
+            var atual = d.data();
+            var usados = dv.exists ? (Number(dv.data().usados) || 0) : 0;
+            var feito = fazer(clonar(atual), { usados: usados }) || {};
+            var mudancas = clonar(feito.plano || {});
+            var novoUsados = feito.usados == null ? usados : feito.usados;
+            var nova = atual;
+            if (Object.keys(mudancas).length) {
+              nova = Object.assign({}, atual, { plano: Object.assign({}, atual.plano || {}, mudancas), atualizadoEm: agoraISO() });
+              tx.update(ref, { plano: nova.plano, atualizadoEm: nova.atualizadoEm });
+            }
+            if (novoUsados !== usados) tx.set(refVagas, { usados: novoUsados, atualizadoEm: agoraISO() }, { merge: true });
+            return { conta: nova, usados: novoUsados, mudouVagas: novoUsados !== usados, feito: feito };
+          });
+        });
+      });
+    }).then(function (x) {
+      if (x.mudouVagas) { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } }
+      return x;
+    });
+  };
+  /* Central, loja sem conta: le a loja numa transacao, fazer(loja) devolve { plano, ativa } (um erro cancela) e grava so
+     esses campos. Depois a vitrine e a copia da borda acompanham, como no salvarLoja */
+  FirebaseStore.prototype.mudarPlanoDaLoja = function (slug, fazer) {
+    var eu = this;
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('lojas').doc(slug);
+      return eu.db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (d) {
+          if (!d.exists) throw erroPublico('Loja não encontrada. Toque em Atualizar.');
+          var feito = fazer(daNuvem(d.data(), d.id)) || {};
+          var m = { atualizadoEm: agoraISO() };
+          if (feito.plano) m.plano = clonar(feito.plano);
+          if (typeof feito.ativa === 'boolean') m.ativa = feito.ativa;
+          tx.update(ref, m);
+          return feito;
+        });
+      }).then(function (feito) {
+        eu.publicarLoja(slug);
+        return ref.get().then(function (d) {
+          if (!d.exists) return feito;
+          return resumoLeve(daNuvem(d.data(), d.id)).then(function (r) { return eu.db.collection('vitrine').doc(slug).set(paraNuvem(r)); })
+            .then(function () { limparCacheVitrine(); return feito; });
+        }).catch(function () { return feito; }); /* o plano ja ficou salvo; o "Reconstruir vitrine" acerta o hub */
       });
     });
   };
@@ -1162,9 +1381,10 @@
         /* dois lotes: a regra da vitrine confere o plano com o que JA esta gravado na loja */
         var lojas = eu.db.batch();
         var vitrine = eu.db.batch();
+        var copia = planoDaLoja(e, conta.plano);
         snap.forEach(function (d) {
-          lojas.update(d.ref, { plano: espelhoDoPlano(conta.plano), atualizadoEm: agoraISO() });
-          vitrine.set(eu.db.collection('vitrine').doc(d.id), { plano: espelhoDoPlano(conta.plano), atualizadoEm: agoraISO() }, { merge: true });
+          lojas.update(d.ref, { plano: copia, atualizadoEm: agoraISO() });
+          vitrine.set(eu.db.collection('vitrine').doc(d.id), { plano: copia, atualizadoEm: agoraISO() }, { merge: true });
         });
         return lojas.commit().then(function () { return vitrine.commit(); }).then(function () {
           limparCacheVitrine();
@@ -1222,18 +1442,24 @@
       return this.db.collection('leads').doc(id).update(clonar(mudancas)).then(function () { return true; });
     }.bind(this));
   };
-  /* LGPD (so o admin): le os pedidos e os resumos de cada loja, uma loja por vez, e os contatos do "Fale com a gente".
-     Custa uma leitura por pedido guardado: so roda quando alguem pede os proprios dados (prazo da lei: 15 dias) */
+  /* LGPD (so o admin): em cada loja, uma por vez, busca so os pedidos com o telefone da pessoa (o pedido guarda o
+     telefone so com numeros, R.validarTelefone, entao a busca vai direto nas variantes que o mesmoTelefone aceita) e le
+     os resumos do dia e os contatos do "Fale com a gente". Antes lia todos os pedidos de todas as lojas: um pedido de
+     LGPD podia gastar sozinho as 50 mil leituras gratis do dia. Agora custa 1 leitura por loja, mais os pedidos dela,
+     os resumos e os contatos */
   FirebaseStore.prototype.dadosDoTitular = function (telefone, aoAndar) {
     var eu = this, achados = titularVazio(telefone);
+    var variantes = variantesTelefone(telefone);
+    if (!variantes.length) return Promise.reject(erroPublico('Digite o WhatsApp com DDD.'));
     return this.listarTodasLojas().then(function (lojas) {
       var fila = Promise.resolve();
       lojas.forEach(function (loja, i) {
         fila = fila.then(function () {
           if (aoAndar) aoAndar(i + 1, lojas.length, loja.nome);
           var ref = eu.db.collection('lojas').doc(loja.slug);
-          return Promise.all([ref.collection('pedidos').get(), ref.collection('resumos').get()]).then(function (r) {
-            r[0].forEach(function (d) { achados.lidos++; try { titularAcharPedido(achados, loja.slug, loja.nome, sanearPedido(d)); } catch (_) { /* ilegivel */ } });
+          return Promise.all([ref.collection('pedidos').where('cliente.telefone', 'in', variantes).get(), ref.collection('resumos').get()]).then(function (r) {
+            achados.lidos += Math.max(1, r[0].size); /* busca sem resultado tambem conta 1 leitura */
+            r[0].forEach(function (d) { try { titularAcharPedido(achados, loja.slug, loja.nome, sanearPedido(d)); } catch (_) { /* ilegivel */ } });
             r[1].forEach(function (d) { achados.lidos++; titularAcharResumo(achados, loja.slug, loja.nome, d.id, d.data() || {}); });
           });
         });
@@ -1246,24 +1472,44 @@
       });
     });
   };
-  /* Apaga nome, telefone, endereco, observacao e o aviso no celular dos pedidos (os valores das vendas ficam), tira a
-     pessoa da lista de clientes dos resumos e apaga os contatos. Lotes de 400 (o limite do Firestore e 500) */
+  /* Apaga nome, telefone, endereco, observacao (do pedido e de cada item) e o aviso no celular dos pedidos (os valores
+     das vendas ficam), tira a pessoa da lista de clientes dos resumos e apaga os contatos. Le de novo cada pedido e cada
+     resumo antes: o que sumiu desde a busca fica de fora (um so que faltasse derrubava o lote inteiro, e o "tente de
+     novo" caia no mesmo erro para sempre) e a lista de clientes sai da versao de agora. Lotes de 400 (o limite e 500) */
   FirebaseStore.prototype.anonimizarTitular = function (achados) {
-    var eu = this, agora = agoraISO(), ops = [];
+    var eu = this, agora = agoraISO(), ops = [], feito = { pedidos: 0, resumos: 0, leads: 0 };
     return this._pronto.then(function () {
       var FV = window.firebase.firestore.FieldValue;
-      achados.pedidos.forEach(function (x) {
-        ops.push(function (lote) { lote.update(eu.db.collection('lojas').doc(x.loja).collection('pedidos').doc(x.id), Object.assign(titularAnonimo(agora), { aviso: FV.delete() })); });
-      });
-      achados.resumos.forEach(function (x) {
-        ops.push(function (lote) { lote.update(eu.db.collection('lojas').doc(x.loja).collection('resumos').doc(x.dia), { clientes: clonar(x.restantes) }); });
-      });
-      achados.leads.forEach(function (l) { ops.push(function (lote) { lote.delete(eu.db.collection('leads').doc(l.id)); }); });
-      var fila = Promise.resolve();
-      for (var i = 0; i < ops.length; i += 400) {
-        (function (fatia) { fila = fila.then(function () { var lote = eu.db.batch(); fatia.forEach(function (f) { f(lote); }); return lote.commit(); }); })(ops.slice(i, i + 400));
-      }
-      return fila.then(function () { return { pedidos: achados.pedidos.length, resumos: achados.resumos.length, leads: achados.leads.length }; });
+      var leituras = achados.pedidos.map(function (x) {
+        var ref = eu.db.collection('lojas').doc(x.loja).collection('pedidos').doc(x.id);
+        return ref.get().then(function (d) {
+          if (!d.exists) return;
+          var m = Object.assign(titularAnonimo(agora), { aviso: FV.delete() });
+          var itens = (d.data() || {}).itens;
+          if (Array.isArray(itens)) m.itens = itensSemObservacao(itens);
+          feito.pedidos++;
+          ops.push(function (lote) { lote.update(ref, m); });
+        });
+      }).concat(achados.resumos.map(function (x) {
+        var ref = eu.db.collection('lojas').doc(x.loja).collection('resumos').doc(x.dia);
+        return ref.get().then(function (d) {
+          if (!d.exists) return;
+          var clientes = (d.data() || {}).clientes;
+          var restantes = clientesSemTitular(clientes, achados.telefone);
+          if (Array.isArray(clientes) && restantes.length === clientes.length) return; /* ja nao tem a pessoa */
+          feito.resumos++;
+          ops.push(function (lote) { lote.update(ref, { clientes: restantes }); });
+        });
+      }));
+      /* contato que ja nao existe: apagar de novo nao da erro */
+      achados.leads.forEach(function (l) { feito.leads++; ops.push(function (lote) { lote.delete(eu.db.collection('leads').doc(l.id)); }); });
+      return Promise.all(leituras).then(function () {
+        var fila = Promise.resolve();
+        for (var i = 0; i < ops.length; i += 400) {
+          (function (fatia) { fila = fila.then(function () { var lote = eu.db.batch(); fatia.forEach(function (f) { f(lote); }); return lote.commit(); }); })(ops.slice(i, i + 400));
+        }
+        return fila;
+      }).then(function () { return feito; });
     });
   };
 
@@ -1299,6 +1545,24 @@
   }
   function titularAnonimo(agora) {
     return { cliente: { nome: 'Apagado a pedido (LGPD)', telefone: '' }, endereco: {}, observacao: '', anonimizadoEm: agora };
+  }
+  /* a observacao de cada item ("sem cebola, portao azul") tambem e dado da pessoa; o resto do item fica como esta */
+  function itensSemObservacao(itens) {
+    if (!Array.isArray(itens)) return itens;
+    return itens.map(function (it) { return it && typeof it === 'object' ? Object.assign({}, it, { observacao: '' }) : it; });
+  }
+  function clientesSemTitular(clientes, telefone) {
+    return (Array.isArray(clientes) ? clientes : []).filter(function (c) { return !mesmoTelefone(c && c.t, telefone); });
+  }
+  /* os telefones que o mesmoTelefone da como iguais, do jeito que o pedido guarda (so numeros, sem o 55): DDD e os 8
+     ultimos, sem ou com um digito na frente (nenhum numero comeca com 0 depois do DDD). Sao 10: cabe ate no limite
+     antigo da busca "in" do Firestore */
+  function variantesTelefone(t) {
+    var d = soDigitosTel(t);
+    if (d.length < 10) return [];
+    var ddd = d.slice(0, 2), fim = d.slice(-8), lista = [ddd + fim];
+    for (var i = 1; i <= 9; i++) lista.push(ddd + i + fim);
+    return lista;
   }
 
   /* 'ligeiro:vitrine2': a chave antiga podia ter lojas com o slug trocado pela posicao na lista */
@@ -1664,13 +1928,17 @@
       return eu.db.collection('publico').doc('fundadores').set({ capacidade: dados }, { merge: true });
     }).then(function () { try { localStorage.removeItem('ligeiro:fundadores'); } catch (_) { /* ignora */ } return dados; });
   };
+  /* so enquanto houver vaga: antes somava 1 mesmo com as 5 ocupadas (o Pagou e o Tornar fundador da Central agora pegam
+     a vaga junto com a conta, no mudarConta) */
   FirebaseStore.prototype.ocuparVagaFundador = function () {
     var eu = this;
     return this._pronto.then(function () {
       var ref = eu.db.collection('publico').doc('fundadores');
       return eu.db.runTransaction(function (tx) {
         return tx.get(ref).then(function (d) {
-          var usados = (d.exists ? (Number(d.data().usados) || 0) : 0) + 1;
+          var usados = d.exists ? (Number(d.data().usados) || 0) : 0;
+          if (usados >= capacidadeFundador()) throw erroPublico('As vagas de fundador acabaram.');
+          usados += 1;
           tx.set(ref, { usados: usados, atualizadoEm: agoraISO() }, { merge: true });
           return { usados: usados };
         });
@@ -2034,5 +2302,8 @@
     modoDemo: store.tipo === 'demo',
     navegadorDeApp: navegadorDeApp,
     lojaDaEquipe: lojaDaEquipe,
+    planoDaLoja: planoDaLoja,
+    /* contas da Central (puras): o admin passa para o store.mudarConta, que roda dentro da transacao */
+    contas: { pagou: contaPagou, desfez: contaDesfez, pausou: contaPausou, reativou: contaReativou, virouFundador: contaVirouFundador, baseDoPagamento: baseDoPagamento },
   };
 })();
