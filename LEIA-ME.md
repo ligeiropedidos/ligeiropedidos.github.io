@@ -185,6 +185,21 @@ fim do endereço a toda hora.
 - Ao ligar a nuvem pela primeira vez (ou se algo desencontrar), toque em
   **Reconstruir vitrine** no `#/admin`.
 
+## LGPD (dados pessoais)
+
+- **Papéis:** com os dados de quem pede, a loja é a controladora e o Ligeiro é o operador (termos, cláusula "Dados
+  pessoais (LGPD)"; novo aceite pedido pela versão `2026-09-24.2` em `R.TERMOS_VERSAO`). Pelos dados das lojas, donos e
+  contatos do "Fale com a gente", o responsável é o Ligeiro. Política completa em `#/privacidade` (serviços, países, base
+  legal, prazos, direitos, incidente).
+- **Pedido de uma pessoa (ver ou apagar):** Central, aba Mais, "Dados de uma pessoa (LGPD)". Busca pelo WhatsApp em todos
+  os pedidos, nos resumos diários (lista de clientes) e nos contatos. "Baixar os dados" gera o arquivo só com o que é dela;
+  "Apagar os dados" deixa o pedido só com os valores (nome vira "Apagado a pedido (LGPD)", sem telefone, endereço,
+  observação e aviso), tira a pessoa dos resumos e apaga os contatos. Custa uma leitura por pedido guardado: só usar
+  quando alguém pedir. Prazo da lei: 15 dias. Antes, confirmar que é a pessoa (mensagem do mesmo número).
+- **No celular do cliente:** Meus pedidos, "Apagar meus dados deste aparelho" (nome, telefone, endereço, e-mail do
+  cartão e lista de pedidos).
+- **Fontes da Dom Conizza** servidas pelo site (`fontes/`), sem o Google Fonts.
+
 ## Assinatura e cobrança
 
 - **Teste grátis de 7 dias** (`config.precos.diasGratis`), sem cartão. No período

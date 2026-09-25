@@ -2510,6 +2510,18 @@
     }
     $('btnNovoPedido').addEventListener('click', novoPedido);
     $('btnVoltarInicio').addEventListener('click', function () { irPara('tela-inicio'); });
+    /* LGPD: a pessoa apaga daqui mesmo o que ficou no celular (nome, telefone, endereco, e-mail do cartao e a lista de pedidos) */
+    $('btnApagarAparelho').addEventListener('click', function () {
+      UI.perguntar('Apagar deste aparelho o seu nome, telefone, endereço, e-mail do cartão e a lista dos seus pedidos? Os pedidos continuam com a loja. Para apagar lá também, fale com a loja ou com o Ligeiro.',
+        { titulo: 'Apagar meus dados', sim: 'Apagar', perigo: true }).then(function (sim) {
+        if (!sim) return;
+        [CHAVE_CLIENTE, CHAVE_MEUS_PEDIDOS, CHAVE_EMAIL, 'ligeiro:avisos-cliente'].forEach(function (k) { try { localStorage.removeItem(k); } catch (_) { /* ignora */ } });
+        limparRascunho();
+        UI.avisar('Pronto: seus dados foram apagados deste aparelho.');
+        abrirMeusPedidos();
+        atualizarFaixaAcompanhar();
+      });
+    });
 
     return function () {
       vivo = false;
@@ -2580,7 +2592,8 @@
       '<header class="topo"><button class="voltar" data-voltar="tela-inicio" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Acompanhamento</div><div class="topo-titulo">Meus pedidos</div></div></header>' +
       '<div class="conteudo"><div class="pilha" id="listaMeusPedidos"></div>' +
       '<p class="nota">' + UI.iconeHtml('cadeado') + 'Seus pedidos ficam guardados só neste aparelho.</p>' +
-      '<button class="btn btn-fantasma btn-largo" id="btnVoltarInicio">Fazer um novo pedido</button></div>' +
+      '<button class="btn btn-fantasma btn-largo" id="btnVoltarInicio">Fazer um novo pedido</button>' +
+      '<button class="apagar-aparelho" id="btnApagarAparelho" type="button">Apagar meus dados deste aparelho</button></div>' +
     '</section>' +
 
     '<section class="tela" id="tela-tipo">' +

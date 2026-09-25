@@ -1787,12 +1787,14 @@ button.plano-card { cursor: pointer; }
 .adm-barra { display: flex; flex-direction: column; gap: 12px; }
 .adm-chips { display: flex; gap: 8px; margin: -4px 0; padding: 4px 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .adm-chips::-webkit-scrollbar { display: none; }
+/* o filtro que passa da tela some num degrade na borda (fica claro que a fileira rola, em vez de parecer cortada) */
+@media (max-width: 640px) { .adm-chips { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); } }
 .adm-chips .aba-painel { flex: none; min-height: 40px; padding: 0 14px; font-size: 14.5px; line-height: 1; white-space: nowrap; }
 @media (max-width: 640px) { .adm-chips { margin: -4px calc(-1 * var(--margem)); padding: 4px var(--margem); scroll-padding: 0 var(--margem); } }
 
 /* precisa de atencao: icone, texto e o botao na mesma altura, botoes da mesma largura */
 .adm-atencao-linha { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border-top: 1px solid var(--line); }
-.adm-atencao > :first-child { border-top: 0; }
+.adm-atencao > :first-child, .adm-lista > .adm-atencao-linha:first-child, .adm-lista > .adm-tudo-ok:first-child { border-top: 0; } /* sem linha dupla em cima (a lista ja tem borda) */
 .adm-ico { flex: none; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1; background: var(--lime-suave); color: var(--deep2); }
 .adm-ico.laranja { background: var(--orange-suave); color: #C2410C; }
 .adm-ico.erro { background: var(--erro-suave); color: var(--erro); }
@@ -1808,7 +1810,7 @@ button.plano-card { cursor: pointer; }
 .adm-tudo-ok .adm-ico { background: var(--lime); color: var(--ink); font-weight: 700; }
 .adm-mais { display: block; width: 100%; min-height: 48px; margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid var(--line); background: var(--card); color: var(--deep2); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 @media (hover: hover) { .adm-mais:hover { background: var(--bg); } }
-@media (max-width: 480px) { .adm-atencao-linha .btn { width: 92px; } }
+@media (max-width: 480px) { .adm-atencao-linha .btn { width: 104px; gap: 8px; } } /* "Chamar" com o icone do WhatsApp: 92 espremia o icone e o texto nas bordas */
 @media (max-width: 400px) { .adm-atencao-linha .adm-ico { display: none; } }
 
 /* contatos: acoes a direita no PC (duas colunas iguais); no celular embaixo, metades iguais */
@@ -1970,6 +1972,13 @@ button.plano-card { cursor: pointer; }
   .abas-principais .aba-painel .rot-curto { display: inline; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .abas-principais .aba-painel .ico-traco svg { width: 20px; height: 20px; }
   .abas-principais .aba-painel .badge { position: absolute; top: 3px; right: 3px; min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; }
+}
+/* Central no celular: as cinco abas iguais as do painel; a contagem sai e fica so o aviso (contato para chamar,
+   pagamento avisado) como bolinha no canto da aba */
+@media (max-width: 640px) {
+  .adm-abas .adm-aba-extra { position: absolute; top: 4px; right: 4px; gap: 4px; }
+  .adm-abas .adm-aba-extra .chip-qtd { display: none; }
+  .adm-abas .adm-aba-extra .badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; }
 }
 /* iPhone com "Tela ampliada" (320 px): margem e vao um pouco menores e letra 11,5 para "Cardapio" caber inteiro */
 @media (max-width: 360px) {
@@ -2420,6 +2429,8 @@ button.plano-card { cursor: pointer; }
 .termos-links a { color: var(--deep2); font-weight: 700; }
 .nota-termos { text-align: center; }
 .nota-termos a { color: inherit; text-decoration: underline; }
+/* LGPD: o cliente apaga o que ficou no proprio celular (Meus pedidos), discreto como o "entrar com e-mail" */
+.apagar-aparelho { display: block; margin: 0 auto; min-height: 44px; border: 0; background: none; padding: 8px 12px; font: inherit; font-size: 14.5px; font-weight: 600; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 /* ---------- design exclusivo: a aparencia travada (so a logo troca) ---------- */
 .design-exclusivo { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid #C9E7A1; border-radius: var(--raio-p); background: var(--lime-suave); }
@@ -2444,3 +2455,22 @@ button.plano-card { cursor: pointer; }
 .contato-ok b { font-family: var(--display); font-size: 22px; color: var(--ink); }
 .contato-ok-marca { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 50%; background: var(--lime); color: var(--texto-no-destaque); display: inline-flex; align-items: center; justify-content: center; }
 .contato-ok-marca .ico-traco svg { width: 32px; height: 32px; }
+
+/* Central: ver e apagar os dados de uma pessoa (LGPD), com as pecas da Central (adm-ico, adm-kpi, adm-lista).
+   Ritmo: 16 entre os blocos, 8 entre rotulo e campo; campo e botao com 48, como os botoes da Central */
+.titular { display: flex; flex-direction: column; gap: 16px; }
+.titular-aviso { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--lime-suave); border: 1px solid #D5ECB0; border-radius: var(--raio-p); }
+.titular-aviso .adm-ico { background: var(--card); }
+.titular-rotulo { display: block; margin: 0 0 -8px; font-size: 15px; font-weight: 700; }
+.titular-busca { display: flex; gap: 8px; align-items: stretch; }
+.titular-busca input { flex: 1; min-width: 0; min-height: 48px; padding: 0 14px; border: 1.5px solid var(--line-forte); border-radius: 12px; background: var(--card); color: var(--ink); font-size: 17px; }
+.titular-busca .btn { flex: none; min-height: 48px; padding: 0 18px; font-size: 15px; }
+.titular-situacao { margin: -8px 0 0; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.titular-situacao:empty { display: none; }
+.titular-resultado { display: flex; flex-direction: column; gap: 12px; }
+.titular-resultado:empty { display: none; }
+.titular-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.titular-kpis .adm-kpi { padding: 12px; }
+.titular-kpis .adm-kpi-valor { font-size: 26px; }
+.titular-nota { margin: -4px 0 0; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.titular-acoes .btn { min-height: 48px; }

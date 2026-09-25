@@ -64,7 +64,8 @@
  * Limites do plano gratis: Workers 100 mil chamadas por dia; KV 100 mil leituras e 1 mil gravacoes por dia, 1 GB.
  * Uma visita ao cardapio usa 1 a 2 chamadas; um pedido com Pix, umas 5 a 15.
  */
-const ORIGENS = ['https://ligeiropedidos.github.io', 'https://ligeiro.app.br', 'http://localhost:8765'];
+/* o primeiro e para onde volta o "Conectar Mercado Pago" (o GitHub manda o github.io para o dominio proprio sozinho) */
+const ORIGENS = ['https://ligeiropedidos.github.io', 'https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiro.app.br', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 /* a copia da loja confere o banco de novo depois disso (so se alguem pedir); o painel atualiza na hora ao salvar */
@@ -524,7 +525,7 @@ const REGRAS = (function () {
      Teto de 6%: cobre a taxa do Mercado Pago (cerca de 5%) sem virar lucro em cima do cliente */
   /* Versao dos termos de uso e da politica de privacidade. Mudou o texto de um jeito que importa: muda aqui e o painel
      pede o aceite de novo (o aceite fica na loja: termos.versao e termos.aceitoEm) */
-  var TERMOS_VERSAO = '2026-09-24';
+  var TERMOS_VERSAO = '2026-09-24.2';   /* data + numero do dia: o que vem depois do ponto nao aparece na tela */
   function termosEmDia(loja) { var t = (loja || {}).termos; return !!t && t.versao === TERMOS_VERSAO; }
   var TAXA_CARTAO_MAX = 6;
   /* a chave "Cliente paga a taxa do cartao" usa esta: soma o bastante para a loja receber o valor cheio depois dos

@@ -20,7 +20,8 @@
   var DIAS_ALERTA = 7; /* "vencendo" e "acabam em 7 dias" */
   /* valor em dinheiro que nunca quebra entre o R$ e o numero */
   function din(v) { return R.dinheiro(v).replace(/ /g, '\u00A0'); }
-  var ABAS = [['geral', 'Visão geral'], ['lojas', 'Lojas'], ['contas', 'Assinaturas'], ['contatos', 'Contatos'], ['ferramentas', 'Ferramentas']];
+  /* aba: chave, nome no PC, icone e nome curto do celular (no celular as cinco numa linha, como as abas do painel) */
+  var ABAS = [['geral', 'Visão geral', 'vendas', 'Geral'], ['lojas', 'Lojas', 'loja', 'Lojas'], ['contas', 'Assinaturas', 'dinheiro', 'Contas'], ['contatos', 'Contatos', 'telefone', 'Contatos'], ['ferramentas', 'Ferramentas', 'ferramenta', 'Mais']];
   var FILTROS_LOJAS = [['todas', 'Todas'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['desativadas', 'Desativadas'], ['verificadas', 'Verificadas']];
   var FILTROS_CONTAS = [['todas', 'Todas'], ['avisos', 'Avisaram pagamento'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['fundadores', 'Fundadores']];
   var FILTROS_CONTATOS = [['pendentes', 'Para chamar'], ['chamados', 'Já chamados'], ['todos', 'Todos']];
@@ -281,10 +282,10 @@
         ]),
       ]));
 
-      var abas = el('nav', { class: 'abas-painel adm-abas', 'aria-label': 'Seções da central' });
+      var abas = el('nav', { class: 'abas-painel abas-principais adm-abas', 'aria-label': 'Seções da central' });
       ABAS.forEach(function (d) {
         abas.appendChild(el('button', { class: 'aba-painel' + (estado.aba === d[0] ? ' ativa' : ''), type: 'button', dataset: { aba: d[0] }, onclick: function () { trocarAba(d[0]); } }, [
-          el('span', { text: d[1] }), el('span', { class: 'adm-aba-extra', dataset: { extra: d[0] } }),
+          UI.iconeLinha(d[2]), el('span', { class: 'rot-longo', text: d[1] }), el('span', { class: 'rot-curto', text: d[3] }), el('span', { class: 'adm-aba-extra', dataset: { extra: d[0] } }),
         ]));
       });
       raiz.appendChild(abas);
@@ -896,6 +897,8 @@
       var cards = [];
       cards.push(ferramenta('texto', 'Exportar lojas', 'Planilha com ' + plural(estado.lojas.length, 'loja', 'lojas') + ': dono, WhatsApp, plano, vencimento e selo. Abre no Excel.',
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Baixar planilha', onclick: exportarLojas })));
+      cards.push(ferramenta('escudo', 'Dados de uma pessoa (LGPD)', 'Alguém pediu para ver ou apagar os próprios dados? Busque pelo WhatsApp em todos os pedidos, resumos e contatos. A lei dá até 15 dias para responder.',
+        el('button', { class: 'btn btn-fantasma', type: 'button', onclick: abrirTitular }, [UI.iconeLinha('busca'), 'Buscar pelo WhatsApp'])));
       cards.push(ferramenta('texto', 'Exportar contas', 'Planilha com ' + plural(estado.contas.length, 'conta', 'contas') + ': plano, cobrança, vencimento, fundador e lojas de cada uma.',
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Baixar planilha', disabled: !estado.contasOk, onclick: exportarContas })));
       if (!D.modoDemo && store.reconstruirVitrine) {
@@ -923,6 +926,101 @@
       cards.push(ferramenta('site', 'Versão do site', 'Versão ' + tag + '. ' + (D.modoDemo ? 'Modo demonstração: os dados ficam só neste navegador.' : 'Modo nuvem: dados no Firebase, iguais em todo aparelho.'),
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Recarregar o site', onclick: function () { location.reload(); } })));
       s.appendChild(el('div', { class: 'adm-ferramentas' }, cards));
+    }
+
+    /* ---------- LGPD: ver e apagar os dados de uma pessoa ---------- */
+    function abrirTitular() {
+      var campo = el('input', { id: 'titularTel', type: 'tel', inputmode: 'tel', autocomplete: 'off', placeholder: '(13) 99999-9999' });
+      var situacao = el('p', { class: 'titular-situacao', 'aria-live': 'polite', text: '' });
+      var resultado = el('div', { class: 'titular-resultado' });
+      var btn = el('button', { class: 'btn btn-principal', type: 'button' }, [UI.iconeLinha('busca'), 'Buscar']);
+      function buscar() {
+        var tel = String(campo.value || '').replace(/\D/g, '');
+        if (tel.length < 10) { situacao.textContent = 'Digite o WhatsApp com DDD.'; campo.focus(); return; }
+        btn.disabled = true; UI.limpar(resultado);
+        situacao.textContent = 'Procurando…';
+        store.dadosDoTitular(tel, function (i, n, nome) { situacao.textContent = 'Lendo a loja ' + i + ' de ' + n + (nome ? ': ' + nome : '') + '…'; })
+          .then(function (achados) { btn.disabled = false; situacao.textContent = ''; mostrarTitular(achados, resultado); })
+          .catch(function (e) { btn.disabled = false; situacao.textContent = D.erroAmigavel(e, 'Não deu para buscar agora.'); });
+      }
+      btn.onclick = buscar;
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') buscar(); });
+      UI.abrirModal({ titulo: 'Dados de uma pessoa', corpo: el('div', { class: 'titular' }, [
+        el('div', { class: 'titular-aviso' }, [
+          el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, [UI.iconeTraco('escudo')]),
+          el('div', { class: 'adm-atencao-texto' }, [el('b', { text: 'Confira que é a própria pessoa' }), el('span', { text: 'Peça que ela mande a mensagem do mesmo WhatsApp que usou nos pedidos. A lei dá até 15 dias para responder.' })]),
+        ]),
+        el('label', { class: 'titular-rotulo', for: 'titularTel', text: 'WhatsApp da pessoa' }),
+        el('div', { class: 'titular-busca' }, [campo, btn]),
+        situacao,
+        resultado,
+      ]) });
+      setTimeout(function () { try { campo.focus(); } catch (_) { /* ignora */ } }, 80);
+    }
+    function linhaTitular(ico, titulo, detalhe) {
+      return el('div', { class: 'adm-atencao-linha' }, [
+        el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, [UI.iconeTraco(ico)]),
+        el('div', { class: 'adm-atencao-texto' }, [el('b', { text: titulo }), el('span', { text: detalhe })]),
+      ]);
+    }
+    function mostrarTitular(a, caixa) {
+      UI.limpar(caixa);
+      var nada = !a.pedidos.length && !a.resumos.length && !a.leads.length;
+      if (nada) {
+        caixa.appendChild(el('div', { class: 'adm-lista' }, [el('div', { class: 'adm-tudo-ok' }, [
+          el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, [UI.iconeTraco('check')]),
+          el('div', { class: 'adm-atencao-texto' }, [el('b', { text: 'Nada com esse WhatsApp' }), el('span', { text: 'Responda à pessoa que não há dados dela no Ligeiro.' })]),
+        ])]));
+        caixa.appendChild(el('p', { class: 'titular-nota', text: 'Li ' + plural(a.lidos, 'registro', 'registros') + ' em todas as lojas.' }));
+        return;
+      }
+      var kpi = function (rotulo, n) { return el('div', { class: 'adm-kpi' }, [el('span', { class: 'adm-kpi-rotulo', text: rotulo }), el('span', { class: 'adm-kpi-valor', text: String(n) })]); };
+      caixa.appendChild(el('div', { class: 'adm-kpis titular-kpis' }, [kpi('Pedidos', a.pedidos.length), kpi('Relatórios', a.resumos.length), kpi('Contatos', a.leads.length)]));
+      var lista = el('div', { class: 'adm-lista' });
+      a.pedidos.slice(0, 30).forEach(function (p) {
+        lista.appendChild(linhaTitular('recibo', p.lojaNome + ', senha ' + (p.senha || '?'), dataBR(p.criadoEm) + ', ' + (p.cliente.nome || 'sem nome') + ', ' + R.dinheiro(p.total || 0)));
+      });
+      if (a.pedidos.length > 30) lista.appendChild(linhaTitular('recibo', 'E mais ' + plural(a.pedidos.length - 30, 'pedido', 'pedidos'), 'Todos vão no arquivo.'));
+      a.resumos.slice(0, 10).forEach(function (r) { lista.appendChild(linhaTitular('vendas', 'Relatório: ' + r.lojaNome, dataBR(r.dia + 'T12:00:00') + ', na lista de clientes do dia')); });
+      a.leads.forEach(function (l) { lista.appendChild(linhaTitular('telefone', 'Fale com a gente', dataBR(l.criadoEm) + ', ' + (l.nome || 'sem nome'))); });
+      caixa.appendChild(lista);
+      caixa.appendChild(el('p', { class: 'titular-nota', text: 'Li ' + plural(a.lidos, 'registro', 'registros') + ' em todas as lojas.' }));
+      caixa.appendChild(el('div', { class: 'adm-contato-acoes titular-acoes' }, [
+        el('button', { class: 'btn btn-fantasma', type: 'button', onclick: function () { baixarTitular(a); } }, [UI.iconeLinha('texto'), 'Baixar os dados']),
+        el('button', { class: 'btn btn-erro', type: 'button', onclick: function () { apagarTitular(a); } }, [UI.iconeLinha('lixeira'), 'Apagar os dados']),
+      ]));
+    }
+    /* o arquivo que vai para a pessoa: so o que e dela (os outros clientes dos resumos ficam de fora) */
+    function baixarTitular(a) {
+      var copia = { sobre: 'Dados guardados no Ligeiro sobre o WhatsApp ' + R.formatarTelefone(a.telefone) + ', consultados em ' + dataBR(a.consultadoEm) + ' ' + horaBR(a.consultadoEm) + '.',
+        pedidos: a.pedidos, relatorioDasLojas: a.resumos.map(function (r) { return { loja: r.lojaNome, dia: r.dia, registros: r.registros }; }), contatos: a.leads,
+        guardadoNoAparelho: 'Nome, telefone e endereço do último pedido também ficam no próprio celular da pessoa, e ela pode apagar em Meus pedidos.' };
+      try {
+        var url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json;charset=utf-8' }));
+        var nome = 'dados-' + a.telefone + '-' + R.diaLocal() + '.json';
+        var link = el('a', { href: url, download: nome, style: { display: 'none' } });
+        document.body.appendChild(link); link.click();
+        setTimeout(function () { URL.revokeObjectURL(url); if (link.parentNode) link.parentNode.removeChild(link); }, 2000);
+        UI.avisar('Arquivo baixado: ' + nome + '. Mande para a pessoa pelo WhatsApp dela.');
+      } catch (_) { UI.avisar('Não deu para gerar o arquivo neste navegador.'); }
+    }
+    function apagarTitular(a) {
+      var texto = 'Apagar nome, telefone, endereço e observação de ' + plural(a.pedidos.length, 'pedido', 'pedidos') + ', tirar a pessoa de ' + plural(a.resumos.length, 'dia', 'dias') +
+        ' do relatório e apagar ' + plural(a.leads.length, 'contato', 'contatos') + '? Os valores das vendas das lojas continuam. Não dá para desfazer: se a pessoa pediu uma cópia, baixe o arquivo antes.';
+      UI.perguntar(texto, { titulo: 'Apagar os dados desta pessoa?', sim: 'Apagar', perigo: true }).then(function (sim) {
+        if (!sim) return;
+        UI.avisar('Apagando…');
+        store.anonimizarTitular(a).then(function (r) {
+          UI.abrirModal({ titulo: 'Dados apagados', corpo: el('div', { class: 'titular' }, [
+            el('div', { class: 'adm-lista' }, [el('div', { class: 'adm-tudo-ok' }, [
+              el('span', { class: 'adm-ico', 'aria-hidden': 'true' }, [UI.iconeTraco('check')]),
+              el('div', { class: 'adm-atencao-texto' }, [el('b', { text: 'Pronto, tudo apagado' }), el('span', { text: plural(r.pedidos, 'pedido anonimizado', 'pedidos anonimizados') + ', ' +
+                plural(r.resumos, 'relatório limpo', 'relatórios limpos') + ' e ' + plural(r.leads, 'contato apagado', 'contatos apagados') + '.' })]),
+            ])]),
+            el('p', { class: 'titular-nota', text: 'Avise a pessoa que foi feito e guarde a conversa como registro do pedido.' }),
+          ]) });
+        }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para apagar agora. Tente de novo.')); });
+      });
     }
 
     function ferramenta(icone, titulo, texto, botao, extra) {

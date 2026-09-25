@@ -409,6 +409,33 @@
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve(clonar(db.leads[id]));
   };
+  /* LGPD (admin): tudo o que existe de uma pessoa pelo telefone e o apagar a pedido (ajudantes titular* mais abaixo) */
+  DemoStore.prototype.dadosDoTitular = function (telefone) {
+    var db = this._ler(), achados = titularVazio(telefone);
+    var nomeDe = function (slug) { return ((db.lojas || {})[slug] || {}).nome || slug; };
+    Object.keys(db.pedidos || {}).forEach(function (slug) {
+      Object.keys(db.pedidos[slug] || {}).forEach(function (id) { achados.lidos++; titularAcharPedido(achados, slug, nomeDe(slug), db.pedidos[slug][id]); });
+    });
+    Object.keys(db.resumos || {}).forEach(function (slug) {
+      Object.keys(db.resumos[slug] || {}).forEach(function (dia) { achados.lidos++; titularAcharResumo(achados, slug, nomeDe(slug), dia, db.resumos[slug][dia]); });
+    });
+    Object.keys(db.leads || {}).forEach(function (id) { achados.lidos++; titularAcharLead(achados, db.leads[id]); });
+    return Promise.resolve(achados);
+  };
+  DemoStore.prototype.anonimizarTitular = function (achados) {
+    var db = this._ler(), agora = agoraISO();
+    achados.pedidos.forEach(function (x) {
+      var p = db.pedidos[x.loja] && db.pedidos[x.loja][x.id];
+      if (p) { Object.assign(p, titularAnonimo(agora)); delete p.aviso; }
+    });
+    achados.resumos.forEach(function (x) {
+      var r = db.resumos && db.resumos[x.loja] && db.resumos[x.loja][x.dia];
+      if (r) r.clientes = clonar(x.restantes);
+    });
+    achados.leads.forEach(function (l) { if (db.leads) delete db.leads[l.id]; });
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve({ pedidos: achados.pedidos.length, resumos: achados.resumos.length, leads: achados.leads.length });
+  };
 
   /* ---- contas (assinatura e da conta; lojas.plano e espelho) ---- */
   function espelhoDoPlano(plano) {
@@ -1177,6 +1204,84 @@
       return this.db.collection('leads').doc(id).update(clonar(mudancas)).then(function () { return true; });
     }.bind(this));
   };
+  /* LGPD (so o admin): le os pedidos e os resumos de cada loja, uma loja por vez, e os contatos do "Fale com a gente".
+     Custa uma leitura por pedido guardado: so roda quando alguem pede os proprios dados (prazo da lei: 15 dias) */
+  FirebaseStore.prototype.dadosDoTitular = function (telefone, aoAndar) {
+    var eu = this, achados = titularVazio(telefone);
+    return this.listarTodasLojas().then(function (lojas) {
+      var fila = Promise.resolve();
+      lojas.forEach(function (loja, i) {
+        fila = fila.then(function () {
+          if (aoAndar) aoAndar(i + 1, lojas.length, loja.nome);
+          var ref = eu.db.collection('lojas').doc(loja.slug);
+          return Promise.all([ref.collection('pedidos').get(), ref.collection('resumos').get()]).then(function (r) {
+            r[0].forEach(function (d) { achados.lidos++; try { titularAcharPedido(achados, loja.slug, loja.nome, sanearPedido(d)); } catch (_) { /* ilegivel */ } });
+            r[1].forEach(function (d) { achados.lidos++; titularAcharResumo(achados, loja.slug, loja.nome, d.id, d.data() || {}); });
+          });
+        });
+      });
+      return fila;
+    }).then(function () {
+      return eu.db.collection('leads').get().then(function (snap) {
+        snap.forEach(function (d) { achados.lidos++; titularAcharLead(achados, Object.assign({ id: d.id }, d.data())); });
+        return achados;
+      });
+    });
+  };
+  /* Apaga nome, telefone, endereco, observacao e o aviso no celular dos pedidos (os valores das vendas ficam), tira a
+     pessoa da lista de clientes dos resumos e apaga os contatos. Lotes de 400 (o limite do Firestore e 500) */
+  FirebaseStore.prototype.anonimizarTitular = function (achados) {
+    var eu = this, agora = agoraISO(), ops = [];
+    return this._pronto.then(function () {
+      var FV = window.firebase.firestore.FieldValue;
+      achados.pedidos.forEach(function (x) {
+        ops.push(function (lote) { lote.update(eu.db.collection('lojas').doc(x.loja).collection('pedidos').doc(x.id), Object.assign(titularAnonimo(agora), { aviso: FV.delete() })); });
+      });
+      achados.resumos.forEach(function (x) {
+        ops.push(function (lote) { lote.update(eu.db.collection('lojas').doc(x.loja).collection('resumos').doc(x.dia), { clientes: clonar(x.restantes) }); });
+      });
+      achados.leads.forEach(function (l) { ops.push(function (lote) { lote.delete(eu.db.collection('leads').doc(l.id)); }); });
+      var fila = Promise.resolve();
+      for (var i = 0; i < ops.length; i += 400) {
+        (function (fatia) { fila = fila.then(function () { var lote = eu.db.batch(); fatia.forEach(function (f) { f(lote); }); return lote.commit(); }); })(ops.slice(i, i + 400));
+      }
+      return fila.then(function () { return { pedidos: achados.pedidos.length, resumos: achados.resumos.length, leads: achados.leads.length }; });
+    });
+  };
+
+  /* ---------- LGPD: achar uma pessoa pelo telefone ---------- */
+  function soDigitosTel(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    return d.indexOf('55') === 0 && d.length > 11 ? d.slice(2) : d;
+  }
+  /* mesmo DDD e os mesmos 8 ultimos numeros: acha com ou sem o 9 da frente e com ou sem o +55 */
+  function mesmoTelefone(a, b) {
+    a = soDigitosTel(a); b = soDigitosTel(b);
+    if (a.length < 10 || b.length < 10) return false;
+    return a.slice(0, 2) === b.slice(0, 2) && a.slice(-8) === b.slice(-8);
+  }
+  function titularVazio(telefone) {
+    return { telefone: soDigitosTel(telefone), consultadoEm: agoraISO(), lidos: 0, pedidos: [], resumos: [], leads: [] };
+  }
+  function titularAcharPedido(achados, slug, lojaNome, p) {
+    if (!p || !mesmoTelefone(p.cliente && p.cliente.telefone, achados.telefone)) return;
+    achados.pedidos.push({ loja: slug, lojaNome: lojaNome, id: p.id, senha: p.senha, criadoEm: p.criadoEm || '', status: p.status || '',
+      tipoEntrega: p.tipoEntrega || '', cliente: clonar(p.cliente || {}), endereco: clonar(p.endereco || {}), observacao: p.observacao || '',
+      itens: clonar(p.itens || []), total: p.total || 0, formaPagamento: p.formaPagamento || '', avisoNoCelular: !!p.aviso });
+  }
+  function titularAcharResumo(achados, slug, lojaNome, dia, r) {
+    var cs = Array.isArray(r && r.clientes) ? r.clientes : [];
+    var dela = cs.filter(function (c) { return mesmoTelefone(c && c.t, achados.telefone); });
+    if (!dela.length) return;
+    achados.resumos.push({ loja: slug, lojaNome: lojaNome, dia: dia, registros: clonar(dela),
+      restantes: clonar(cs.filter(function (c) { return !mesmoTelefone(c && c.t, achados.telefone); })) });
+  }
+  function titularAcharLead(achados, l) {
+    if (l && mesmoTelefone(l.whatsapp, achados.telefone)) achados.leads.push(clonar(l));
+  }
+  function titularAnonimo(agora) {
+    return { cliente: { nome: 'Apagado a pedido (LGPD)', telefone: '' }, endereco: {}, observacao: '', anonimizadoEm: agora };
+  }
 
   function limparCacheVitrine() { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } }
   /* Vitrine na nuvem: 1 leitura por loja, documentos pequenos, e cache de 5 minutos no aparelho. */

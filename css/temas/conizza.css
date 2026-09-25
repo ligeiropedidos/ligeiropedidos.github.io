@@ -4,7 +4,9 @@
    e sombra dura de desenho animado), aplicado so na loja oficial.
    Tudo aqui vive dentro de .tema-conizza: nenhuma outra loja muda.
    ========================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap');
+/* letras servidas pelo proprio site (LGPD: o Google Fonts recebia o endereco de internet de cada visitante) */
+@font-face { font-family: 'Baloo 2'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('../../fontes/baloo2-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 200 1000; font-display: swap; src: url('../../fontes/nunito-latin.woff2') format('woff2'); }
 
 .tema-conizza {
   --cz-creme: #fbf0d9;

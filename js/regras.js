@@ -425,7 +425,7 @@
      Teto de 6%: cobre a taxa do Mercado Pago (cerca de 5%) sem virar lucro em cima do cliente */
   /* Versao dos termos de uso e da politica de privacidade. Mudou o texto de um jeito que importa: muda aqui e o painel
      pede o aceite de novo (o aceite fica na loja: termos.versao e termos.aceitoEm) */
-  var TERMOS_VERSAO = '2026-09-24';
+  var TERMOS_VERSAO = '2026-09-24.2';   /* data + numero do dia: o que vem depois do ponto nao aparece na tela */
   function termosEmDia(loja) { var t = (loja || {}).termos; return !!t && t.versao === TERMOS_VERSAO; }
   var TAXA_CARTAO_MAX = 6;
   /* a chave "Cliente paga a taxa do cartao" usa esta: soma o bastante para a loja receber o valor cheio depois dos

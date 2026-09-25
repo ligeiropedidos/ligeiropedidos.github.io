@@ -1,0 +1,6 @@
+Fontes do tema da Dom Conizza, servidas pelo proprio site (antes vinham do Google Fonts, que recebia o endereco de
+internet de cada visitante). So a parte "latin" (tem todas as letras do portugues). Licenca SIL Open Font License 1.1
+(uso livre, inclusive comercial): https://openfontlicense.org
+- baloo2-latin.woff2: Baloo 2 (Ek Type), pesos 400 a 800 no mesmo arquivo.
+- nunito-latin.woff2: Nunito (Vernon Adams, Cyreal, Jacques Le Bailly), pesos 200 a 1000 no mesmo arquivo.
+Baixadas de fonts.gstatic.com em 24/09/2026.
