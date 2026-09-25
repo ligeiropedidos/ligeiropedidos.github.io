@@ -405,7 +405,9 @@ Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em 
 4. Ícones e prévia do link (24/09/2026): o mascote sem fundo nos ícones da aba (`img/favicon-48/96/192.png`) e
    no ícone `any` do manifesto; com fundo branco no iPhone (`apple-touch-icon.png`, 180) e no `maskable` do
    Android (`icone-maskable-*.png`, mascote em 70% do quadro, que o sistema recorta em círculo). A prévia do
-   WhatsApp e das redes é `img/previa-link.jpg` (1200x630). Para refazer, em `../comercial`:
+   WhatsApp e das redes é `img/previa-link.jpg` (1200x630) e fala com quem vai pedir, porque o link de toda loja
+   tem `#` e o WhatsApp não lê o que vem depois dele: todas as lojas mostram esta mesma prévia. O título e a
+   descrição do Google (`<title>` e `description`) continuam falando com o lojista. Para refazer, em `../comercial`:
    `hypit capture run scripts/icones.mjs --channel chrome -- out/icones`, depois
    `node scripts/png_paleta.mjs <entrada> <saida>` em cada PNG (paleta de 256 cores, até 10 vezes menor, igual a
    olho) e `hypit capture run scripts/previa_link.mjs --channel chrome -- out/icones/previa-link.jpg`.
