@@ -260,7 +260,7 @@
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba, do jeito que o cliente vê' }), 'site', 'Ver site', 'Site'),
-          estado.equipe ? null : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Suas lojas e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
+          estado.equipe ? null : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Sua loja e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
           rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair'),
         ]),
@@ -654,7 +654,7 @@
 
     /*
      * Cartao "Assinatura" na aba Pedidos: so aparece quando precisa de atencao (vencendo, vencida, bloqueada ou
-     * periodo gratis). Em dia, some. Mudar plano, encerrar e pagar em dia ficam em Minha conta.
+     * periodo gratis). Em dia, some. Mensal/anual, encerrar e pagar em dia ficam em Minha conta.
      */
     function cartaoAssinatura(sempre) {
       var fonte = fonteAssinatura();
@@ -682,11 +682,11 @@
         pausada: 'Assinatura pausada pelo Ligeiro. Fale com a gente.',
         cancelada: 'Assinatura encerrada. Para voltar, reative em Minha conta.',
       };
-      if (a.encerrando) textos.ativa = 'Assinatura encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? É só reativar.';
+      if (a.encerrando) textos.ativa = 'Assinatura encerrada por você: a loja fica no ar até ' + dataBR(a.limite) + '. Mudou de ideia? É só reativar.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada';
       var filhos = [
         el('h3', { class: alerta ? 'titulo-alerta' : null }, [alerta ? UI.iconeLinha('alerta') : null, 'Assinatura · ' + nomePlano + (a.estado === 'gratis' ? ' · período grátis' : a.estado === 'ativa' ? ' · em dia' : '')]),
-        el('p', { class: 'pequeno', text: (textos[a.estado] || '') + (estado.conta ? ' Vale para todas as lojas da sua conta.' : '') }),
+        el('p', { class: 'pequeno', text: textos[a.estado] || '' }),
       ];
       if (a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia) {
         /* pagamento avisado: o mesmo aviso de Minha conta (icone, titulo e uma linha), em vez de selo que virava bolha em 2 linhas */
@@ -2442,7 +2442,7 @@
       noSite.appendChild(f.permitePersonalizar);
       noSite.appendChild(f.mostrarOutras);
       /* o jogo vem ligado em toda loja; so some se o dono desligar aqui (campo jogoDesligado) */
-      f.jogo = interruptorCampo('Joguinho enquanto o cliente espera', 'Depois de pago, a tela do pedido convida para a Corrida do Ligeiro. Roda no celular do cliente e não gasta nada do banco.', l.jogoDesligado !== true);
+      f.jogo = interruptorCampo('Joguinhos enquanto o cliente espera', 'Depois de pago, a tela do pedido convida para a Corrida e o Pulo do Ligeiro. Rodam no celular do cliente e não gastam nada do banco.', l.jogoDesligado !== true);
       noSite.appendChild(f.jogo);
       s.appendChild(noSite);
 

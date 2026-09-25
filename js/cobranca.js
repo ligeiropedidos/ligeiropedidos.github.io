@@ -52,11 +52,6 @@
     /* a pendente (so fatura, ainda nao pagou) conta: trocar e encerrar mudam ou cancelam ela junto */
     return !!(conta && (conta.assinaturaAsaas || conta.assinaturaPendente)) && p.status !== 'cancelado' && p.status !== 'pausado';
   }
-  /* diferenca de uma troca de plano esperando pagamento (so link do Asaas) */
-  function diferencaPendente(conta) {
-    var t = conta && conta.trocaPlano;
-    return t && t.id && /^https:\/\/(www\.)?asaas\.com\//.test(String(t.url || '')) ? { url: t.url, valor: Number(t.valor) || 0, para: t.para, dias: Number(t.dias) || 0 } : null;
-  }
   /* as rotas do dono no mensageiro do Asaas (/plano/simular, /plano/trocar, /plano/encerrar), com o login do Google */
   function pedirAoMensageiro(rota, corpo) {
     var cfg = window.LIGEIRO_CONFIG || {};
@@ -77,42 +72,23 @@
   function porPeriodo(tipo) { return tipo === 'anual' ? ' por ano' : ' por mês'; }
   function diaCurto(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; }
 
-  /* Trocar de plano com a assinatura ativa: primeiro mostra o que acontece (o mensageiro calcula, sem mexer em nada),
-     depois troca. o = { planoId, tipo, nomePlano, aoTerminar(resposta) } */
+  /* Mensal <-> anual com a assinatura ativa: primeiro mostra o que acontece (o mensageiro diz o valor novo e desde quando,
+     sem mexer em nada), depois troca a MESMA assinatura. o = { tipo, nomePlano, aoTerminar(resposta) } */
   function trocarPlano(o) {
-    return pedirAoMensageiro('simular', { planoId: o.planoId, tipo: o.tipo }).then(function (s) {
+    /* planoId vai junto: o mensageiro novo e o antigo aceitam (1 loja por conta) */
+    return pedirAoMensageiro('simular', { planoId: 'uma', tipo: o.tipo }).then(function (s) {
       if (s.acao === 'igual') { UI.avisar('Este já é o seu plano.'); return null; }
-      var depois = R.dinheiro(s.valorNovo) + porPeriodo(s.tipo);
-      var quando = s.proxima ? 'A partir de ' + diaCurto(s.proxima) : 'Na próxima fatura';
-      var linhas, nota, botao = 'Confirmar troca';
-      if (s.acao === 'diferenca') {
-        linhas = [['Hoje, só a diferença', R.dinheiro(s.diferenca)], [quando, depois]];
-        nota = 'É a diferença dos ' + s.dias + (s.dias === 1 ? ' dia' : ' dias') + ' que faltam no plano de agora. As lojas a mais liberam assim que ela cair.';
-        botao = 'Continuar';
-      } else if (s.acao === 'agora') {
-        linhas = [['Hoje', 'Sem cobrança'], [quando, depois]];
-        nota = 'Faltam poucos dias no plano de agora: as lojas a mais liberam na hora.';
-      } else if (s.acao === 'proxima' && s.desce) {
-        linhas = [[quando, depois]];
-        nota = 'O plano menor já vale agora. A mensalidade menor começa na próxima fatura, sem devolução do que já foi pago.';
-      } else if (s.acao === 'proxima') {
-        linhas = [[quando, depois]];
-        nota = 'Até lá, vale o plano de agora, sem cobrança a mais e sem devolução.';
-      } else {
-        linhas = [['Próximo pagamento', depois]];
-        nota = 'O próximo pagamento já é do plano novo.';
-      }
+      var linhas = [[s.proxima ? 'A partir de ' + diaCurto(s.proxima) : 'Na próxima fatura', R.dinheiro(s.valorNovo) + porPeriodo(s.tipo)]];
+      var nota = s.acao === 'marcar' ? 'O próximo pagamento já é do plano novo.' : 'Até lá, vale o que você já pagou, sem cobrança a mais e sem devolução.';
       return new Promise(function (fim) {
-        var confirmar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, type: 'button', text: botao });
+        var confirmar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, type: 'button', text: 'Confirmar troca' });
         confirmar.addEventListener('click', function () {
           if (confirmar.disabled) return;
           confirmar.disabled = true;
-          pedirAoMensageiro('trocar', { planoId: o.planoId, tipo: o.tipo }).then(function (t) {
+          pedirAoMensageiro('trocar', { planoId: 'uma', tipo: o.tipo }).then(function (t) {
             UI.fecharModal();
-            var seguir = function () { if (o.aoTerminar) o.aoTerminar(t); };
-            /* com diferenca, a janela dela fica aberta (mudar de tela fecharia) e o site segue quando ela fecha */
-            if (t.url) mostrarDiferenca({ url: t.url, valor: t.diferenca, para: t.planoId, dias: t.dias }, seguir);
-            else { UI.avisar(t.acao === 'agora' ? 'Pronto: ' + o.nomePlano + ' liberado.' : t.desce ? 'Pronto: plano trocado. A mensalidade menor começa na próxima fatura.' : t.acao === 'proxima' ? 'Pronto: a troca vale a partir da próxima fatura.' : 'Plano trocado: ' + o.nomePlano + '.'); seguir(); }
+            UI.avisar('Pronto: ' + (o.tipo === 'anual' ? 'anual' : 'mensal') + ' a partir da próxima fatura.');
+            if (o.aoTerminar) o.aoTerminar(t);
             fim(t);
           }).catch(function (e) { confirmar.disabled = false; UI.avisar(e.message); });
         });
@@ -125,24 +101,6 @@
           rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Voltar', onclick: function () { UI.fecharModal(); fim(null); } }), confirmar],
         });
       });
-    });
-  }
-  /* a diferenca da troca, no mesmo cartao da fatura: valor grande, o que libera, as formas e o botao do Asaas */
-  function mostrarDiferenca(d, aoFechar) {
-    var nome = R.planoPorId(d.para || 'uma').nome;
-    UI.abrirModal({
-      titulo: 'Falta a diferença',
-      corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-        el('div', { class: 'fatura-cartao' }, [
-          el('span', { class: 'fatura-rotulo', text: 'Diferença da troca' }),
-          el('b', { class: 'fatura-valor', text: R.dinheiro(d.valor) }),
-          el('span', { class: 'fatura-quando' }, [UI.iconeLinha('loja'), 'Libera o ' + nome]),
-          el('div', { class: 'fatura-formas' }, ['Pix', 'Boleto', 'Cartão'].map(function (t) { return el('span', { class: 'fatura-forma', text: t }); })),
-        ]),
-        el('div', { class: 'cobranca-opcoes' }, [el('a', { class: 'btn btn-principal btn-largo', href: d.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a diferença'])]),
-        el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do Asaas. Ela também fica em Minha conta até você pagar.' }),
-      ]),
-      rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Fechar', onclick: function () { UI.fecharModal(); if (aoFechar) aoFechar(); } })],
     });
   }
 
@@ -189,7 +147,7 @@
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
         el('a', { class: 'btn btn-principal btn-largo', href: fatura.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a fatura']),
       ]));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, sua loja é liberada sozinha.' }));
     } else if (link) {
       var botoes = [
         /* rotulos curtos, numa linha: com "cai sozinho todo mes" o do cartao quebrava em 2 linhas e ficava torto ao lado do outro */
@@ -228,12 +186,12 @@
             el('span', { class: 'cobranca-email-valor', text: o.email }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(o.email).then(function () { UI.avisar('E-mail copiado. Cole na página do ' + provedor + '.'); }); } }, [UI.iconeLinha('copiar'), 'Copiar e-mail']),
           ]),
-          el('p', { class: 'pequeno', text: 'É por ele que suas lojas são liberadas sozinhas. Com outro e-mail, o pagamento entra, mas a liberação fica esperando o Ligeiro conferir.' }),
+          el('p', { class: 'pequeno', text: 'É por ele que sua loja é liberada sozinha. Com outro e-mail, o pagamento entra, mas a liberação fica esperando o Ligeiro conferir.' }),
           li,
         ]));
       }
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, botoes));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a página segura do ' + provedor + '. No cartão, a cobrança cai sozinha todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') + ', sem precisar lembrar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a página segura do ' + provedor + '. No cartão, a cobrança cai sozinha todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') + ', sem precisar lembrar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, sua loja é liberada sozinha.' }));
     }
 
     /* 3: Pix manual */
@@ -248,7 +206,7 @@
         Pix.desenharQr(qr, codigo, 180);
         bloco.appendChild(el('div', { class: 'codigo-pix', text: codigo }));
         bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(codigo).then(function () { UI.avisar('Código copiado. Cole no app do banco.'); }); } }, [UI.iconeLinha('copiar'), 'Copiar Pix copia e cola']));
-        bloco.appendChild(el('p', { class: 'muted pequeno', text: 'Pagou no Pix? Toque em "Já paguei". A gente confere no banco e libera mais ' + o.periodo + '. Suas lojas não param enquanto isso.' }));
+        bloco.appendChild(el('p', { class: 'muted pequeno', text: 'Pagou no Pix? Toque em "Já paguei". A gente confere no banco e libera mais ' + o.periodo + '. Sua loja não para enquanto isso.' }));
         corpo.appendChild(bloco);
       }
     }
@@ -266,5 +224,5 @@
     UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: rodape });
   }
 
-  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura, assinaturaAtiva: assinaturaAtiva, diferencaPendente: diferencaPendente, pedirAoMensageiro: pedirAoMensageiro, trocarPlano: trocarPlano, mostrarDiferenca: mostrarDiferenca };
+  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura, assinaturaAtiva: assinaturaAtiva, pedirAoMensageiro: pedirAoMensageiro, trocarPlano: trocarPlano };
 })();

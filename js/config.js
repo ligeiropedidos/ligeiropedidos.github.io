@@ -54,17 +54,12 @@ window.LIGEIRO_CONFIG = {
      As regras do banco (ferramentas/firestore.rules, cardapioNoLimite) usam os mesmos numeros */
   limites: { categorias: 20, itens: 300, grupos: 30, opcoes: 30 },
   capacidade: { maxLojas: 11 }, /* 11 lojas no gratis: com o cardapio na borda o Firebase gratis aguenta ~2.100 pedidos/dia; da ~190 por loja, e o pico de sexta cabe. Sobe no Blaze */
-  /* Um plano so, tudo incluso (centavos). A assinatura e da conta: uma cobranca vale para todas as lojas dela.
-     Loja a mais custa lojaExtra por mes (fundador tambem): 2 e 3 lojas aparecem so em "Assinar".
-     5 e 8 lojas ficam escondidos (oculto): so valem para conta antiga que ja tinha escolhido. anual: 0 esconde o anual. */
+  /* Um plano so, tudo incluso (centavos): 1 loja por conta, mensal ou anual. Outra loja = outra conta (outro e-mail), com a
+     propria assinatura (decidido em 25/09/2026: trocar entre 1, 2 e 3 lojas era o que mais dava dor de cabeca com dinheiro).
+     anual: 0 esconde o anual */
   planos: [
     { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Tudo incluso para a sua loja' },
-    { id: 'duas', nome: 'Ligeiro 2 lojas', lojas: 2, mensal: 15800, anual: 158000, fundador: { mensal: 14800, anual: 148000 }, frase: 'Matriz e filial' },
-    { id: 'tres', nome: 'Ligeiro 3 lojas', lojas: 3, mensal: 22700, anual: 227000, fundador: { mensal: 21700, anual: 217000 }, frase: 'Para quem está crescendo' },
-    { id: 'cinco', nome: 'Ligeiro 5 lojas', lojas: 5, mensal: 36500, anual: 365000, fundador: { mensal: 35500, anual: 355000 }, oculto: true },
-    { id: 'oito', nome: 'Ligeiro 8 lojas', lojas: 8, mensal: 57200, anual: 572000, fundador: { mensal: 56200, anual: 562000 }, oculto: true },
   ],
-  lojaExtra: 6900, /* cada loja a mais na mesma conta, por mes */
 
   /*
    * Cobranca automatica (cartao de credito e boleto) por link de assinatura.
@@ -74,19 +69,16 @@ window.LIGEIRO_CONFIG = {
    */
   cobranca: {
     provedor: 'Asaas',
-    /* o mensageiro do Asaas: troca de plano (so a diferenca) e encerrar (cancela a assinatura) passam por ele */
+    /* o mensageiro do Asaas: mensal/anual (muda a mesma assinatura, vale na proxima fatura) e encerrar (cancela a assinatura) passam por ele */
     mensageiro: 'https://ligeiro-asaas.ligeiro-pedidos.workers.dev',
-    /* linksFundador: os mesmos oito links, com o preco de fundador (so quem tem a vaga ve esses) */
+    /* linksFundador: os mesmos links, com o preco de fundador (so quem tem a vaga ve esses). Os de 2 e 3 lojas sairam
+       (plano unico); no Asaas eles podem ser desativados */
     linksFundador: {
       uma: { mensal: 'https://www.asaas.com/c/0ecl013dsndt48ta', anual: 'https://www.asaas.com/c/ijf1apwcx3f7q5e3' },
-      duas: { mensal: 'https://www.asaas.com/c/drodvoyhdsrkb17v', anual: 'https://www.asaas.com/c/70ne7ywzer6hp1rl' },
-      tres: { mensal: 'https://www.asaas.com/c/ul9xy8c7wsgicnus', anual: 'https://www.asaas.com/c/6xnkfdc0brmlxan8' },
     },
     /* conferidos na pagina publica de cada link em 25/09/2026: nome, valor e frequencia batem com os planos acima */
     links: {
       uma: { mensal: 'https://www.asaas.com/c/7fqf0ii8xsgy70el', anual: 'https://www.asaas.com/c/xlpz69ezcezhvn0q' },
-      duas: { mensal: 'https://www.asaas.com/c/ujhac7dxappwv8dt', anual: 'https://www.asaas.com/c/1xhh4phhrp4hpdq1' },
-      tres: { mensal: 'https://www.asaas.com/c/ok0ynj1japf1utqy', anual: 'https://www.asaas.com/c/g42d9b920f14y0p3' },
     },
   },
 

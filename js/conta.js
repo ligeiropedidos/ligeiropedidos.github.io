@@ -45,7 +45,7 @@
         corpo.appendChild(el('div', { class: 'vazio hub-vazio' }, [
           el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
           el('p', { class: 'forte', text: 'Esta é a senha da equipe da loja.' }),
-          el('p', { class: 'muted', text: 'Ela abre só a fila de pedidos. A conta, a assinatura e as lojas ficam com o dono.' }),
+          el('p', { class: 'muted', text: 'Ela abre só a fila de pedidos. A conta, a assinatura e a loja ficam com o dono.' }),
           el('a', { class: 'btn btn-principal', href: '#/painel/' + equipe, text: 'Abrir a fila de pedidos' }),
           el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
         ]));
@@ -105,14 +105,14 @@
       function desenharTudo(r) {
         var lojas = r[0], conta = r[1];
         tituloLojas.hidden = false;
-        var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email; }).length;
+        /* so as lojas no ar contam (a mesma conta do servidor): loja desligada pelo Ligeiro nao ocupa o lugar */
+        var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email && l.ativa !== false; }).length;
+        tituloLojas.textContent = reais > 1 ? 'Suas lojas' : 'Sua loja';
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
-        desenharPlano(caixaPlano, conta, reais);
+        desenharPlano(caixaPlano, conta);
         UI.limpar(rodapeLojas);
-        var limite = R.limiteDeLojas(conta || { email: u.email });
-        var sit = conta && conta.plano ? R.assinatura(conta).estado : 'gratis';
-        if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') rodapeLojas.appendChild(el('span', { class: 'muted pequeno', text: 'Regularize a assinatura para criar outra loja.' }));
-        else if (reais >= limite) rodapeLojas.appendChild(cartaoPlanoCheio(conta, limite));
+        /* 1 loja por conta: com a loja criada, o caminho para outra e outra conta (a conta do Ligeiro nao tem limite) */
+        if (reais >= R.limiteDeLojas(conta || { email: u.email })) rodapeLojas.appendChild(cartaoOutraLoja());
         else rodapeLojas.appendChild(el('a', { class: 'btn btn-principal', href: '#/comecar', text: '+ Criar outra loja' }));
         UI.limpar(lista);
         if (!lojas.length) UI.limpar(rodapeLojas); /* sem loja, o convite grande ja esta no meio da tela */
@@ -130,8 +130,8 @@
       carregar();
     });
 
-    /* Caixa do plano: nome, situacao, lojas usadas, pagar e mudar. */
-    function desenharPlano(caixa, conta, reais) {
+    /* Caixa do plano: nome, situacao, quando vence, valor, pagar, mensal/anual e encerrar. */
+    function desenharPlano(caixa, conta) {
       UI.limpar(caixa);
       if (!conta || !conta.plano) {
         caixa.appendChild(el('div', { class: 'cartao destaque conta-plano' }, [
@@ -141,26 +141,24 @@
         return;
       }
       var p = conta.plano;
-      var plano = R.planoPorId(p.planoId || 'uma');
-      var valendo = R.planoPorId(R.planoQueVale(conta));
+      var plano = R.planoPorId('uma');
       var a = R.assinatura(conta);
       var valor = R.precoDoPlano(plano.id, p.tipo, conta);
       var fundador = R.ehPrecoFundador(conta);
       var textos = {
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Paga até ' + dataBR(a.limite) + '.',
         vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague pelo Pix para não parar.',
-        vencida: 'Vencida desde ' + dataBR(a.limite) + '. Suas lojas seguem no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
-        bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': os sites pararam de aceitar pedidos. Assine e volta na hora.' : 'Vencida há mais de ' + a.tolerancia + ' dias: os sites pararam de aceitar pedidos. Pague e volta na hora.',
+        vencida: 'Vencida desde ' + dataBR(a.limite) + '. Sua loja segue no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
+        bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': o site parou de aceitar pedidos. Assine e volta na hora.' : 'Vencida há mais de ' + a.tolerancia + ' dias: o site parou de aceitar pedidos. Pague e volta na hora.',
         pausada: 'Pausada pelo Ligeiro. Fale com a gente.', cancelada: 'Encerrada. Reative quando quiser.',
       };
-      if (a.encerrando) textos.ativa = 'Encerrada por você: as lojas ficam no ar até ' + dataBR(a.limite) + '. Mudou de ideia? Reative.';
+      if (a.encerrando) textos.ativa = 'Encerrada por você: a loja fica no ar até ' + dataBR(a.limite) + '. Mudou de ideia? Reative.';
       var alerta = a.estado === 'vencida' || a.estado === 'bloqueada' || a.estado === 'vencendo';
       /* a fatura do mes perto de vencer ou vencida (o aviso e daqui, sem os avisos pagos do Asaas) */
       var C = window.LigeiroCobranca;
       var fatura = C && C.faturaAberta ? C.faturaAberta(conta) : null;
-      /* assinatura viva no Asaas: trocar e encerrar passam pelo mensageiro; a diferenca de uma troca espera aqui */
+      /* assinatura viva no Asaas: mensal/anual e encerrar passam pelo mensageiro (que muda ou cancela ela junto) */
       var comAssinatura = !D.modoDemo && !!(C && C.assinaturaAtiva && C.assinaturaAtiva(conta));
-      var diferenca = C && C.diferencaPendente ? C.diferencaPendente(conta) : null;
       var atrasada = a.estado === 'vencida' || a.estado === 'bloqueada';
       var rotuloStatus = { gratis: 'Período grátis', ativa: a.cortesia ? 'Liberada' : (a.encerrando ? 'Encerrando' : 'Em dia'), vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida', bloqueada: 'Bloqueada', pausada: 'Pausada', cancelada: 'Encerrada' }[a.estado] || a.estado;
       var corStatus = a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
@@ -169,11 +167,10 @@
         ? ['Assinatura', a.estado === 'pausada' ? 'Pausada' : (a.estado === 'cancelada' ? 'Encerrada' : 'Liberada'), a.cortesia ? 'pelo Ligeiro' : '']
         : [a.estado === 'gratis' ? 'Grátis até' : (a.encerrando ? 'No ar até' : (a.estado === 'vencida' || a.estado === 'bloqueada' ? 'Venceu em' : 'Paga até')), dataBR(a.limite),
            a.dias >= 0 ? (a.dias === 0 ? 'é hoje' : 'faltam ' + a.dias + (a.dias === 1 ? ' dia' : ' dias')) : 'há ' + Math.abs(a.dias) + (Math.abs(a.dias) === 1 ? ' dia' : ' dias')];
-      var semLimite = R.ehDoLigeiro(conta);
-      var usoLojas = semLimite ? 100 : Math.min(100, Math.round(reais / Math.max(1, valendo.lojas) * 100));
-      function quadro(rotulo, valorTxt, sub, extra) {
-        return el('div', { class: 'plano-dado' + (extra ? ' largo' : '') }, [el('span', { class: 'plano-dado-rotulo', text: rotulo }), el('b', { class: 'plano-dado-valor', text: valorTxt }), sub ? el('span', { class: 'plano-dado-sub', text: sub }) : null, extra || null]);
+      function quadro(rotulo, valorTxt, sub) {
+        return el('div', { class: 'plano-dado' }, [el('span', { class: 'plano-dado-rotulo', text: rotulo }), el('b', { class: 'plano-dado-valor', text: valorTxt }), sub ? el('span', { class: 'plano-dado-sub', text: sub }) : null]);
       }
+      var outroTipo = p.tipo === 'anual' ? 'mensal' : 'anual';
       caixa.appendChild(el('div', { class: 'cartao ' + (alerta ? 'destaque' : '') + ' conta-plano' }, [
         el('div', { class: 'conta-plano-topo' }, [
           el('div', {}, [el('div', { class: 'kicker', text: 'Seu plano' }), el('b', { class: 'conta-plano-nome', text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') })]),
@@ -182,36 +179,36 @@
         el('div', { class: 'plano-dados' }, [
           quadro(q1[0], q1[1], q1[2]),
           quadro('Valor', a.cortesia ? R.dinheiro(0) : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
-          quadro('Lojas', semLimite ? String(reais) : reais + ' de ' + valendo.lojas, semLimite ? 'conta do Ligeiro, sem limite' : (reais >= valendo.lojas ? 'plano cheio' : 'cabe mais ' + (valendo.lojas - reais)), el('span', { class: 'plano-barra', 'aria-hidden': 'true' }, el('i', { style: { width: Math.max(4, usoLojas) + '%' } }))),
         ]),
         a.estado === 'gratis' ? porQueAssinar(p.tipo === 'anual') : null,
         (alerta || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado' + (alerta ? ' com-alerta' : '') }, [alerta ? UI.iconeLinha('alerta') : null, el('span', { text: textos[a.estado] || '' })]) : null,
         p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', 'estrela', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
+        p.pagamentoParcial && p.pagamentoParcial.cobrado > 0 ? avisoPlano('espera', 'recibo', 'Pagamento abaixo do plano', 'O último pagamento foi de ' + R.dinheiro(p.pagamentoParcial.cobrado) + ' e o plano é ' + R.dinheiro(p.pagamentoParcial.cheio) + ': valeu ' + (Number(p.pagamentoParcial.dias) || 0) + ' dias. A próxima fatura já vem no valor certo.') : null,
         p.avisoPagamentoEm ? avisoPlano('espera', 'ampulheta', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
         fatura ? avisoPlano('espera', 'recibo', 'Mensalidade de ' + R.dinheiro(fatura.valor), C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.')) : null,
-        diferenca ? avisoPlano('espera', 'loja', 'Falta a diferença da troca', R.dinheiro(diferenca.valor) + ' libera o ' + R.planoPorId(diferenca.para).nome + '.') : null,
-        valendo.id !== plano.id && !diferenca ? el('p', { class: 'pequeno', text: 'Hoje vale o ' + valendo.nome + ' (' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + '). O ' + plano.nome + (comAssinatura ? ' começa a valer na próxima fatura.' : ' começa a valer assim que o Pix de ' + R.dinheiro(valor) + ' for confirmado.') }) : null,
         el('div', { class: 'plano-acoes' }, [
-          /* em dia nao tem o que pagar: o botao volta 7 dias antes de vencer, ou quando trocou pra um plano maior */
+          /* em dia nao tem o que pagar: o botao volta 7 dias antes de vencer */
           fatura
             ? el('a', { class: 'btn btn-principal btn-pequeno plano-pagar', href: fatura.url, target: '_blank', rel: 'noopener', text: 'Pagar a fatura · ' + R.dinheiro(fatura.valor) })
-            : diferenca
-            ? el('a', { class: 'btn btn-principal btn-pequeno plano-pagar', href: diferenca.url, target: '_blank', rel: 'noopener', text: 'Pagar a diferença · ' + R.dinheiro(diferenca.valor) })
             /* assinatura em dia e sem fatura aberta: nada a pagar (o link abriria outra assinatura) */
             : (comAssinatura && !atrasada) ? null
-            : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && (a.estado !== 'ativa' || valendo.id !== plano.id)) ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar', text: 'Mudar plano' }),
+            : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && a.estado !== 'ativa') ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
+          a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para ' + outroTipo }),
           p.status === 'cancelado'
-            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague o Pix para suas lojas voltarem ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague a mensalidade para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
             : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar', onclick: function () {
-                UI.perguntar('Encerrar a assinatura?' + (comAssinatura ? ' A cobrança automática é cancelada agora.' : '') + ' Suas lojas continuam no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois param de receber pedidos.', { sim: 'Encerrar', perigo: true }).then(function (sim) {
+                UI.perguntar('Encerrar a assinatura?' + (comAssinatura ? ' A cobrança automática é cancelada agora.' : '') + ' Sua loja continua no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois para de receber pedidos.' + (p.fundador === true ? ' E o preço de fundador acaba: se voltar, volta no preço normal.' : ''), { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
                   /* com assinatura no Asaas, o mensageiro cancela ela junto (direto no banco, o cartao seguiria cobrando) */
                   if (comAssinatura) {
                     C.pedirAoMensageiro('encerrar', {}).then(function () { UI.avisar('Assinatura encerrada. Nenhuma cobrança nova.'); carregar(); }).catch(function (e) { UI.avisar(e.message); });
                     return;
                   }
-                  store.salvarConta(conta.email, { plano: { status: 'cancelado', canceladoEm: new Date().toISOString() } }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
+                  /* encerrou, o preco de fundador acaba (o mensageiro faz o mesmo quando ha assinatura). So vai no pedido de quem
+                     e fundador: para os outros nada muda (e a regra antiga do banco, antes de publicar a nova, nao recusa) */
+                  var fim = { status: 'cancelado', canceladoEm: new Date().toISOString() };
+                  if (p.fundador === true) fim.fundador = false;
+                  store.salvarConta(conta.email, { plano: fim }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
                 });
               } }) : null),
         ]),
@@ -251,23 +248,20 @@
       }
       window.LigeiroCobranca.abrir({
         fatura: window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(conta, { todas: true }) : null,
-        valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, email: conta.email, sufixo: ', todas as suas lojas',
+        valor: valor, periodo: periodo, planoId: 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, email: conta.email,
         assinatura: !!(extra && extra.assinatura), atrasada: !!(extra && extra.atrasada),
         txid: 'LIG' + conta.email.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro assinatura', avisar: avisar,
       });
     }
 
-    /* Plano cheio: um lugar tracejado "pra proxima loja", com o caminho pro plano maior (no maximo, so o aviso) */
-    function cartaoPlanoCheio(conta, limite) {
-      var nome = R.planoPorId(R.planoQueVale(conta || {})).nome;
-      var temMaior = R.planos().some(function (p) { return !p.oculto && p.lojas > limite; });
+    /* Outra loja: um lugar tracejado "pra proxima loja". Cada conta tem uma loja; a outra ganha a propria conta */
+    function cartaoOutraLoja() {
       return el('div', { class: 'conta-cheio' }, [
         el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]),
         el('div', { class: 'conta-cheio-texto' }, [
           el('b', { text: 'Quer abrir outra loja?' }),
-          el('span', { text: temMaior ? 'Seu plano ' + nome + ' já está cheio. Um plano maior libera mais lojas.' : 'Você já está no maior plano (' + limite + ' lojas). Fale com o Ligeiro para ter mais.' }),
+          el('span', { text: 'Cada conta tem uma loja. Para outra, entre com outro e-mail do Google e crie a loja por lá: ela tem a própria assinatura.' }),
         ]),
-        temMaior ? el('a', { class: 'btn btn-principal', href: '#/assinar', text: 'Ver planos maiores' }) : null,
       ]);
     }
 

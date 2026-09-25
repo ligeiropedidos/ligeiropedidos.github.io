@@ -339,7 +339,7 @@ test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro f
   assert.equal(c.ifoodBasico, 76000 + 11000);
   assert.equal(c.ifoodEntrega, 131000 + 15000); // 26,2% (23% + 3,2% do pagamento online)
   assert.equal(c.anotaAi, 19999);
-  assert.equal(c.ligeiro, 7900);
+  assert.equal(c.ligeiro, 8900); // sem config, o preco normal do plano unico (R$ 89)
   const pequena = R.compararCustos(150000, 40);
   assert.equal(pequena.ifoodBasico, 22800);
   assert.equal(pequena.ifoodMensalidade, false);

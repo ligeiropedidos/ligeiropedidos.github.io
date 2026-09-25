@@ -114,6 +114,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  text-align: center; /* texto que quebra em duas linhas continua no meio */
   min-height: 60px; padding: 12px 22px;
   border: 0; border-radius: var(--raio);
   font-family: var(--display); font-size: 19px; font-weight: 700; letter-spacing: 0.1px;
@@ -976,13 +977,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 .fundador.espera .fundador-texto { color: #7A3B10; }
 .fundador.espera .fundador-conta .btn { width: 100%; white-space: nowrap; }
 @media (min-width: 560px) { .fundador.espera { grid-template-columns: minmax(0, 1fr) auto; } }
-.plano-fundador { font-size: 13px; line-height: 1.35; color: #5B3A00; background: #FEF3C7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* fundo sai 10px para fora: o texto fica na mesma linha do titulo e do preco */
-.plano-fundador s { color: #7A5A12; }
-.plano-economia { font-size: 13px; line-height: 1.35; color: #14532D; background: #DCFCE7; border-radius: 10px; padding: 6px 10px; margin: -2px -10px 0; } /* anual: o desconto em reais, colado no preco */
-.plano-economia + .plano-fundador { margin-top: 0; }
-.tipo-selo { font-size: 12px; font-weight: 700; line-height: 1; padding: 5px 8px; border-radius: 999px; background: #DCFCE7; color: #14532D; white-space: nowrap; }
-.aba-painel.ativa .tipo-selo { background: var(--lime); color: var(--ink); }
-@media (max-width: 360px) { .estilo-linha.seletor-tipo { gap: 8px; } .seletor-tipo .aba-painel { padding: 8px 12px; gap: 6px; } .seletor-tipo .tipo-selo { padding: 5px 6px; } } /* tela ampliada do iPhone: Mensal e Anual na mesma linha */
 .selo.selo-fundador { background: #FDE68A; color: #3F2A00; }
 /* avisos do plano (Minha conta): cartao com icone, titulo e uma linha */
 .aviso-plano { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid; text-align: left; }
@@ -1365,14 +1359,41 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 420px) { .teste-banner { padding-left: 16px; padding-right: 16px; } .teste-banner h2 { font-size: 25px; } .teste-botoes .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
-button.plano-card { cursor: pointer; }
-.plano-card > .btn { margin-top: auto; } /* botao sempre no pe do cartao: os da mesma fileira ficam na mesma altura */
-.plano-card.com-destaque { border-color: var(--lime); }
-/* plano escolhido: anel verde-limao com brilho que respira, fundo levemente verde; selo cheio no pe do cartao */
-.plano-card.escolhido { border-color: var(--lime-escuro); background: linear-gradient(180deg, #F7FEE7 0%, var(--card) 60%); box-shadow: 0 0 0 2px var(--lime), 0 10px 28px rgba(101, 163, 13, 0.24); animation: entrar 0.4s ease-out both, plano-brilho 2.6s ease-in-out 0.4s infinite; }
-@keyframes plano-brilho { 0%, 100% { box-shadow: 0 0 0 2px var(--lime), 0 10px 28px rgba(101, 163, 13, 0.22); } 50% { box-shadow: 0 0 0 2px var(--lime), 0 10px 36px rgba(132, 204, 22, 0.5); } }
-@media (prefers-reduced-motion: reduce) { .plano-card.escolhido { animation: none; } }
-.plano-etiqueta { position: absolute; top: -11px; right: 16px; z-index: 1; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; } /* em cima da borda: nunca encosta no titulo, em nenhuma largura */
+/* mensal e anual lado a lado, ate no celular (as partes dos dois na mesma altura, pelo subgrid); o incluso embaixo */
+.planos.planos-lado { grid-template-columns: minmax(0, 1fr); width: 100%; padding-top: 12px; } /* o selo sai 12 px acima do cartao: com isso ele fica a 12 do bloco de cima, e nao colado */
+/* lado a lado quando a caixa tem 328 ou mais (tela de 360 para cima, cartao de 158 ou mais); abaixo disso, um embaixo do outro */
+.planos-caixa { container-type: inline-size; }
+/* um embaixo do outro: 24 entre os cartoes, para o selo do anual (metade dele sai para cima) ficar a 12 do de cima */
+.planos-lado > .plano-card + .plano-card { margin-top: 12px; }
+@container (min-width: 328px) { .planos.planos-lado { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planos-lado > .plano-card + .plano-card { margin-top: 0; } }
+.planos.planos-lado.planos-um { grid-template-columns: minmax(0, 1fr); }
+/* cartao de escolha (mensal ou anual): o toque escolhe. Escolhido: borda verde de 2, fundo verde claro e o visto
+   redondo preso no canto de cima. Estreito (celular de 320): o titulo encolhe um pouco e nada quebra */
+.planos-lado .plano-card { cursor: pointer; padding: 20px 16px 18px; container-type: inline-size; }
+.planos-lado .plano-card.escolhido { border-color: var(--lime-escuro); box-shadow: inset 0 0 0 1px var(--lime-escuro); background: linear-gradient(180deg, #F7FEE7 0%, var(--card) 80%); }
+.plano-visto { position: absolute; top: 0; left: 12px; transform: translateY(-50%); z-index: 1; width: 24px; height: 24px; border-radius: 50%; background: var(--card); border: 1.5px solid var(--line-forte); color: #fff; display: flex; align-items: center; justify-content: center; }
+.plano-card.escolhido .plano-visto { background: var(--lime-escuro); border-color: var(--lime-escuro); }
+.plano-visto .ico-traco svg { width: 14px; height: 14px; stroke-width: 3; }
+.plano-antes { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.2; color: var(--muted); white-space: nowrap; }
+.plano-antes s { color: var(--muted); }
+.plano-antes-rotulo, .plano-antes { font-weight: 700; }
+.plano-antes-rotulo { display: inline-flex; align-items: center; gap: 4px; color: #92400E; }
+.plano-antes .ico-traco { color: #D97706; }
+.plano-antes .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }
+.planos-lado .plano-sub { white-space: nowrap; }
+/* cartao estreito (celular de 360 a 390): o titulo e o preco riscado encolhem um pouco; o circulo e o selo vao para 8 dos cantos */
+@container (max-width: 170px) { .planos-lado .plano-titulo { font-size: 16px; } .plano-antes { gap: 6px; font-size: 13px; } .plano-visto { left: 8px; } .plano-etiqueta { right: 8px; padding: 6px 8px; } }
+.planos-caixa { width: 100%; }
+/* pagina de vendas: cartoes, incluso e o botao grande na largura de um celular grande, no meio. Blocos a 12 na secao:
+   texto ate a faixa 24 (igual a faixa ate os cartoes) e 24 ate a tabela */
+#planos > .planos-venda { max-width: 560px; width: 100%; margin: 12px auto; }
+.plano-etiqueta { position: absolute; top: 0; right: 12px; transform: translateY(-50%); z-index: 1; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12px; font-weight: 800; padding: 6px 9px; border-radius: 999px; white-space: nowrap; } /* na borda de cima, no canto direito (o circulo de escolha fica no esquerdo) */
+.plano-incluso { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--card); }
+.plano-incluso-titulo { font-family: var(--display); font-size: 16px; color: var(--deep2); }
+.plano-incluso .plano-linhas { margin: 0; }
+.plano-incluso { container-type: inline-size; }
+/* duas colunas quando a propria caixa tem espaco (e nao pela tela: a caixa tem limite de largura) */
+@container (min-width: 420px) { .plano-incluso .plano-linhas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; } }
 .plano-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--deep2); }
 .plano-preco-caixa { container-type: inline-size; min-width: 0; } /* a medida do preco mora aqui (no cartao, travaria o alinhamento entre cartoes) */
 .plano-preco { font-family: var(--display); font-size: 40px; font-size: clamp(24px, 12cqi, 40px); font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; } /* preco e /mes sempre numa linha: a letra acompanha a largura do cartao */
@@ -1381,15 +1402,10 @@ button.plano-card { cursor: pointer; }
 .plano-linhas { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
 .plano-linhas li { display: flex; align-items: flex-start; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
 .plano-check { flex: none; }
-.plano-marca { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); font-weight: 700; color: var(--deep); white-space: nowrap; } /* sempre no pe do cartao, mesma altura nos dois */
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
 @supports (grid-template-rows: subgrid) {
   .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }
-  .planos > .plano-card > .plano-marca { justify-self: start; align-self: end; }
-  .planos > .plano-card > .btn { align-self: end; } /* botao da pagina de vendas continua da largura do cartao */
-  .planos > .plano-card > .plano-linhas { align-self: start; }
 }
-.plano-card.escolhido .plano-marca { background: var(--lime); border-color: var(--lime); color: var(--texto-no-destaque, var(--ink)); }
 
 .antes-depois { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .antes-depois .lado p { margin: 6px 0 0; font-size: 15.5px; }
@@ -1470,7 +1486,7 @@ button.plano-card { cursor: pointer; }
 .conta-carregando .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
 .conta-carregando .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
 .conta .hub-secao { margin-top: 8px; }
-/* plano cheio: lugar tracejado pra proxima loja, com o caminho pro plano maior */
+/* outra loja: lugar tracejado pra proxima loja (cada conta tem uma; a outra ganha a propria conta) */
 .conta-cheio { flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; text-align: center; background: var(--card); border: 2px dashed var(--line-forte); border-radius: var(--raio); }
 .conta-cheio-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 28px; line-height: 1; }
 .conta-cheio-texto { display: flex; flex-direction: column; gap: 4px; }
@@ -1525,13 +1541,10 @@ button.plano-card { cursor: pointer; }
 .conta-plano > .selo { align-self: flex-start; }
 .plano-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .plano-dado { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
-.plano-dado.largo { grid-column: 1 / -1; }
 .plano-dado-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .plano-dado-valor { font-family: var(--display); font-size: clamp(18px, 5vw, 22px); line-height: 1.15; color: var(--ink); white-space: nowrap; }
 @media (max-width: 360px) { .plano-dados { grid-template-columns: minmax(0, 1fr); } } /* tela ampliada do iPhone: cada quadro com a linha inteira */
 .plano-dado-sub { font-size: 13px; color: var(--muted); }
-.plano-barra { display: block; height: 8px; border-radius: 999px; background: var(--lime-suave); overflow: hidden; margin-top: 6px; }
-.plano-barra i { display: block; height: 100%; border-radius: 999px; background: var(--lime); }
 .plano-recado { margin: 0; }
 /* periodo gratis: "Por que assinar agora?" com tres motivos, cada um com o icone num circulo */
 .plano-gratis { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
@@ -1546,20 +1559,9 @@ button.plano-card { cursor: pointer; }
 .plano-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 8px; white-space: nowrap; }
 .plano-acoes .plano-pagar { grid-column: 1 / -1; min-height: 52px; font-size: 17px; }
 @media (max-width: 360px) { .plano-acoes .btn:not(.plano-pagar) { font-size: 14px; } }
-@media (min-width: 760px) { .plano-dados { grid-template-columns: repeat(3, minmax(0, 1fr)); } .plano-dado.largo { grid-column: auto; } }
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
-.seletor-tipo { justify-content: center; }
-.planos-3, .planos-4 { grid-template-columns: 1fr; }
-/* tres planos (Assinar): tres colunas iguais a partir de 760, sem o terceiro sozinho embaixo */
-@media (min-width: 760px) { .planos.planos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; margin: 0 auto; width: 100%; } }
-/* um plano so (pagina de vendas): um cartao no meio, da largura de um celular grande */
-@media (min-width: 560px) { .planos.planos-1 { grid-template-columns: minmax(0, 440px); justify-content: center; } }
-.plano-extra { margin: 4px auto 0; max-width: 440px; text-align: center; font-size: 15px; line-height: 1.5; color: var(--muted); }
-.plano-extra b { color: var(--ink); }
-@media (min-width: 560px) { .planos-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } .planos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; } }
-@media (min-width: 1000px) { .planos-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 1100px; } }
+@media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } }
 /* botao flutuante de WhatsApp (paginas de venda) */
 .zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s; animation: entrar 0.4s ease-out 0.6s both; }
 .zap-flutuante .zap-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); font-size: 18px; }
@@ -2201,6 +2203,8 @@ button.plano-card { cursor: pointer; }
 /* convite da Corrida do Ligeiro: o mesmo cartao do "Quer saber quando sair?", com o mascote no lugar do icone */
 /* em destaque: o mesmo cartao, com o fundo verde-limao e a borda do botao principal */
 .jogo-convite { background: linear-gradient(135deg, var(--lime-suave) 0%, #FFFFFF 85%); border-color: #C9E7A1; }
+/* Corrida e Pulo, um embaixo do outro: a mesma altura com ou sem a etiqueta do recorde (que e 4 px mais alta que a frase) */
+.jogo-convite .aviso-cel-pedido-texto { min-height: 48px; justify-content: center; }
 /* o icone da Corrida: uma arte de app (ceu, rua e a motinho), com o canto dos cartoes */
 .jogo-convite-ico { flex: none; width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(14, 31, 20, 0.12), 0 2px 6px rgba(14, 31, 20, 0.16); }
 .jogo-convite-ico svg { display: block; width: 100%; height: 100%; }
@@ -2260,9 +2264,8 @@ button.plano-card { cursor: pointer; }
 .bolinha { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .salvar-estado .bolinha { margin-right: 6px; vertical-align: 1px; }
 .selo > .selo-google-estrela svg { width: 15px; height: 15px; stroke-width: 2.2; }
-.estrela .ico-traco svg, .plano-fundador b .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.2; }
-.plano-fundador b { display: inline-flex; align-items: center; gap: 4px; }
-.plano-fundador b .ico-traco, .selo-fundador .ico-traco, .adm-pc-fund .ico-traco { color: #D97706; }
+.estrela .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.2; }
+.selo-fundador .ico-traco, .adm-pc-fund .ico-traco { color: #D97706; }
 .opcao .marcador .ico-traco svg, .forma-marca .ico-traco svg { width: 16px; height: 16px; stroke-width: 3; }
 .hub-cidade-seletor .seta .ico-traco svg { width: 0.62em; height: 0.62em; stroke-width: 3; }
 .som-tocar .ico-traco svg { width: 16px; height: 16px; }
@@ -2274,8 +2277,6 @@ button.plano-card { cursor: pointer; }
 .antes-depois .lado p .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.6; }
 .plano-check .ico-traco { margin-top: 3px; }
 .plano-check .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.6; }
-.plano-marca { gap: 6px; }
-.plano-marca .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.6; }
 .adm-estrela { display: inline-flex; vertical-align: -2px; }
 .adm-estrela .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.2; }
 .adm-fund .ico-traco svg { width: 11px; height: 11px; stroke-width: 2.6; }

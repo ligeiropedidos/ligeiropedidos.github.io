@@ -44,7 +44,9 @@ service cloud.firestore {
     function planoDoAdminIntacto(novo, velho) {
       return pagoIgual(novo, velho)
           && novo.get('planoPago', '') == velho.get('planoPago', '')
-          && novo.get('fundador', false) == velho.get('fundador', false)
+          /* o preco de fundador: ninguem liga. Desligar so junto com encerrar (os termos: travado enquanto nao cancelar) */
+          && (novo.get('fundador', false) == velho.get('fundador', false)
+              || (novo.get('fundador', false) == false && novo.get('status', '') == 'cancelado'))
           && novo.get('desde', '') == velho.get('desde', '');
     }
     /* status: o dono so pode manter, encerrar (cancelado) ou reativar (teste); 'ativo' e 'pausado' so o admin */
@@ -58,8 +60,13 @@ service cloud.firestore {
        Todo o resto (pagoAte, planoPago, fundador, desde, ultimoPagamentoEm, pagamentoParcial, pagamentos...) e do
        admin e dos mensageiros. Antes era lista negra, e campo novo ficava aberto sem ninguem ver */
     function planoSoDoDono(novo, velho) {
-      return novo.diff(velho).affectedKeys().hasOnly(['planoId', 'tipo', 'status', 'avisoPagamentoEm', 'avisoValor', 'reativadoEm', 'canceladoEm'])
+      return novo.diff(velho).affectedKeys().hasOnly(['planoId', 'tipo', 'status', 'avisoPagamentoEm', 'avisoValor', 'reativadoEm', 'canceladoEm', 'fundador'])
+          /* as datas de encerrar e reativar: texto curto (a data do toISOString), nunca um mapa ou um texto enorme */
+          && novo.get('reativadoEm', '') is string && novo.get('reativadoEm', '').size() <= 40
+          && novo.get('canceladoEm', '') is string && novo.get('canceladoEm', '').size() <= 40
           && novo.get('tipo', 'mensal') in ['mensal', 'anual']
+          /* plano unico: 1 loja por conta. O dono so escolhe o de 1 loja (conta antiga pode ficar no que tinha) */
+          && (novo.get('planoId', 'uma') == velho.get('planoId', 'uma') || novo.get('planoId', '') == 'uma')
           && novo.get('avisoValor', 0) is int && novo.get('avisoValor', 0) >= 0 && novo.get('avisoValor', 0) <= 10000000;
     }
     /* Com assinatura viva no Asaas (assinaturaAsaas, que so os mensageiros gravam), trocar de plano e encerrar passam pelo
@@ -89,6 +96,9 @@ service cloud.firestore {
         /* so os campos do cadastro, e o plano so com os campos do comeco */
         && request.resource.data.keys().hasOnly(['email', 'nome', 'criadoEm', 'atualizadoEm', 'plano'])
         && planoDe(request.resource.data).keys().hasOnly(['planoId', 'tipo', 'status', 'desde'])
+        /* plano unico: a conta nasce no plano de 1 loja, mensal ou anual */
+        && planoDe(request.resource.data).get('planoId', 'uma') == 'uma'
+        && planoDe(request.resource.data).get('tipo', 'mensal') in ['mensal', 'anual']
         && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
         /* o campo email e o do proprio dono (o e-mail do Ligeiro ali daria cortesia) */
         && request.resource.data.get('email', email) == email
@@ -107,6 +117,8 @@ service cloud.firestore {
         /* LISTA BRANCA: o dono so muda o plano (nos campos dele), o nome e a hora. "pagamentos" (o controle do Asaas de
            pagamento ja contado), "donoEmail" e o resto nao: apagar a lista dava dias de assinatura em dobro */
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plano', 'nome', 'atualizadoEm'])
+        /* o nome com o mesmo limite do cadastro (antes, na edicao, cabia um texto de 100 mil letras) */
+        && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
         && planoSoDoDono(planoDe(request.resource.data), planoDe(resource.data))
         && request.resource.data.get('email', email) == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))

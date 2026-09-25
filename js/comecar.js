@@ -63,33 +63,30 @@
       /* conta da senha da equipe: nao cria loja (so o dono, com a conta dele) */
       if (D.lojaDaEquipe(u.email)) { window.LigeiroApp.ir('conta'); return; }
       /* vagas fechadas ou limite batido: ninguem abre loja nova (nem quem ja e cliente); o Ligeiro sempre pode.
-         Vem antes de tudo: sem vaga, nao adianta mandar trocar de plano. As lojas que ja existem continuam normais. */
+         Vem antes de tudo. As lojas que ja existem continuam normais. */
       if (fechado && !R.ehDoLigeiro({ email: u.email })) { listaDeEspera(); return; }
-      /* conta no limite do plano (ou vencida): guia pra trocar de plano em vez de mostrar o formulario */
+      /* conta que ja tem a sua loja (ou vencida): guia pelo caminho certo em vez de mostrar o formulario */
       var pedidos = [store.obterConta ? store.obterConta(u.email) : Promise.resolve(null), store.listarMinhasLojas ? store.listarMinhasLojas(u.email) : Promise.resolve([])];
       Promise.all(pedidos).catch(function () { return [null, []]; }).then(function (r) {
         if (!vivo) return;
         var conta = r[0], minhas = r[1] || [];
-        var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email; }).length;
+        /* so as lojas no ar contam (a mesma conta do servidor) */
+        var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email && l.ativa !== false; }).length;
         if (conta && conta.plano) {
           var sit = R.assinatura(conta).estado;
-          var valendo = R.planoPorId(R.planoQueVale(conta));
-          var escolhido = R.planoPorId(conta.plano.planoId);
-          if (sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') {
+          /* quem ja tem a sua loja ouve o caminho para outra (outra conta); a assinatura dela se ve em Minha conta */
+          if ((sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') && reais < R.limiteDeLojas(conta)) {
             UI.limpar(raiz);
-            raiz.appendChild(telaAviso('Sua assinatura precisa de atenção', sit === 'pausada' ? 'Ela está pausada. Fale com o Ligeiro para criar outra loja.' : (sit === 'cancelada' ? 'Ela está encerrada. Reative em "Minha conta" para criar outra loja.' : 'Ela está vencida. Pague em "Minha conta" e a loja nova sai na hora.'), [
+            raiz.appendChild(telaAviso('Sua assinatura precisa de atenção', sit === 'pausada' ? 'Ela está pausada. Fale com o Ligeiro.' : (sit === 'cancelada' ? 'Ela está encerrada. Reative em "Minha conta" e crie a sua loja em seguida.' : 'Ela está vencida. Pague em "Minha conta" e crie a sua loja em seguida.'), [
               el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Ir para Minha conta' }),
             ]));
             return;
           }
+          /* 1 loja por conta: outra loja ganha a propria conta, com outro e-mail */
           if (reais >= R.limiteDeLojas(conta)) {
             UI.limpar(raiz);
-            var texto = escolhido.id !== valendo.id
-              ? 'Seu plano pago (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. O ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado.'
-              : 'Seu plano (' + valendo.nome + ') permite ' + valendo.lojas + (valendo.lojas === 1 ? ' loja' : ' lojas') + ', e você já tem ' + reais + '. Para abrir mais uma, escolha um plano maior. A troca vale para todas as suas lojas.';
-            raiz.appendChild(telaAviso('Para criar outra loja, mude de plano', texto, [
-              escolhido.id !== valendo.id ? el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Pagar o ' + escolhido.nome }) : el('a', { class: 'btn btn-principal btn-largo', href: '#/assinar', text: 'Ver planos e mudar' }),
-              el('a', { class: 'btn btn-fantasma btn-largo', href: '#/conta', text: 'Ir para Minha conta' }),
+            raiz.appendChild(telaAviso('Esta conta já tem a sua loja', 'Cada conta tem uma loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá: ela tem a própria assinatura e os próprios ' + ((((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis) || 7) + ' dias grátis.', [
+              el('a', { class: 'btn btn-principal btn-largo', href: '#/conta', text: 'Ir para Minha conta' }),
             ]));
             return;
           }
@@ -143,10 +140,10 @@
    * O login fica por ultimo (quem ja respondeu tudo nao desiste na porta). A loja nasce igual a antes.
    */
   function montar(raiz, opcoes, usuario) {
-    var precos = Object.assign({ mensal: 7900, anual: 79000, diasGratis: 7 }, (window.LIGEIRO_CONFIG || {}).precos || {});
+    var precos = Object.assign({ mensal: 8900, anual: 89000, diasGratis: 7 }, (window.LIGEIRO_CONFIG || {}).precos || {});
     var o = opcoes || {};
-    /* #/comecar/<plano>/<tipo>; links antigos #/comecar/anual continuam valendo */
-    var planoId = R.planos().some(function (p) { return p.id === o.plano; }) ? o.plano : R.planos()[0].id;
+    /* #/comecar/uma/<tipo>; links antigos #/comecar/anual continuam valendo. Um plano so (1 loja por conta) */
+    var planoId = 'uma';
     var planoTipo = (o.tipo === 'anual' || o.plano === 'anual') && R.planoPorId(planoId).anual > 0 ? 'anual' : 'mensal';
     /* visitante: fundador so com vaga confirmada; a conta e refeita a cada tela (as vagas se conferem por tras) */
     function precoPlanoAgora() { return R.precoDoPlano(planoId, planoTipo); }
@@ -385,15 +382,10 @@
           if (sit.estado === 'vencida' || sit.estado === 'bloqueada') throw new Error('Sua assinatura está vencida. Pague em "Minha conta" para criar outra loja.');
           if (sit.estado === 'cancelada') throw new Error('Sua assinatura está encerrada. Reative em "Minha conta" para criar outra loja.');
           if (sit.estado === 'pausada') throw new Error('Sua assinatura está pausada. Fale com o Ligeiro para criar outra loja.');
-          var valendo = R.planoPorId(R.planoQueVale(c));
           var limite = R.limiteDeLojas(c);
           return store.listarMinhasLojas(emailConta).then(function (minhas) {
             var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === emailConta; }).length;
-            if (reais >= limite) {
-              var escolhido = R.planoPorId(c.plano.planoId);
-              if (escolhido.id !== valendo.id) throw new Error('Seu plano pago (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. O plano ' + escolhido.nome + ' libera mais lojas assim que o Pix dele for confirmado: pague em "Minha conta".');
-              throw new Error('Seu plano (' + valendo.nome + ') permite ' + limite + (limite === 1 ? ' loja' : ' lojas') + '. Para abrir mais uma, mude o plano em Assinar.');
-            }
+            if (reais >= limite) throw new Error('Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.');
             dados.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || planoTipo, planoId: c.plano.planoId || planoId, planoPago: c.plano.planoPago || '', fundador: c.plano.fundador === true, desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
           });
         }

@@ -30,9 +30,9 @@ tudo fica só naquele navegador.
 | Tela do entregador | `#/entrega/dom-conizza` | `1234` |
 | Central do Ligeiro | `#/admin` | `ligeiro` |
 | O dono cria a própria loja | `#/comecar` | — |
-| Escolher plano | `#/assinar` | — |
+| Mensal ou anual | `#/assinar` | — |
 | Entrar na conta (só Google) | `#/entrar` | — |
-| Minha conta: lojas do dono e assinatura | `#/conta` | — |
+| Minha conta: a loja do dono e a assinatura | `#/conta` | — |
 | Termos de uso e privacidade | `#/termos`, `#/privacidade` | — |
 
 No site de verdade, a Central entra só com o Google do `adminEmail`, e cozinha e
@@ -40,16 +40,20 @@ entregador usam a senha da equipe (seção abaixo).
 
 ## Preço de fundador
 
-- `config.fundador.vagas` (5) e o campo `fundador` de cada plano em `config.planos`.
+- `config.fundador.vagas` (5) e o campo `fundador` do plano em `config.planos` (um plano só).
   Visitante e conta que nunca pagou veem o preço de fundador **enquanto houver vaga**
   (`R.vagasFundador`, `R.ehPrecoFundador`, `R.precoDoPlano(plano, tipo, conta)`).
-- A vaga é ocupada no **primeiro pagamento confirmado**: o admin grava
-  `contas/{email}.plano.fundador = true` (só o admin muda, pelas regras) e soma 1 em
-  `publico/fundadores.usados` (público pra ler). Daí em diante a conta paga o preço
-  de fundador enquanto não cancelar (`fundador.jaOcupadas` fica 0: a Dom Conizza não conta); o site mostra "Restam X de 5", número de verdade.
-- Acabando as vagas, tudo passa a mostrar o preço normal (R$ 89), sempre abaixo do Anota AI.
-- Links do Asaas: `cobranca.linksFundador` (preço de fundador) e `cobranca.links` (normal).
-  No `worker-asaas.js`, o segredo `PLANOS` precisa listar os dois preços de cada plano.
+- A vaga é ocupada no **primeiro pagamento confirmado**: o mensageiro do Asaas (ou o admin, na Central) grava
+  `contas/{email}.plano.fundador = true` e soma 1 em `publico/fundadores.usados` na mesma gravação, com trava (dois
+  pagamentos disputando a última vaga: só um fica com ela). Daí em diante a conta paga o preço de fundador enquanto não
+  cancelar: encerrar tira o preço (mensageiro, site e o Cron de todo dia). `fundador.jaOcupadas` fica 0 (a Dom Conizza
+  não conta); o site mostra "Restam X de 5", número de verdade.
+- Acabando as vagas, tudo passa a mostrar o preço normal (R$ 89), sempre abaixo do Anota AI. Quem já é fundador vê
+  "Fundador, travado" nos cartões.
+- Links do Asaas: `cobranca.linksFundador` (preço de fundador) e `cobranca.links` (normal). Pagar pelo link de fundador
+  sem vaga vale dias proporcionais, e o mensageiro passa a assinatura para o preço normal.
+- No `worker-asaas.js`, o segredo `PLANOS` lista os dois preços do plano:
+  `{"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}`.
 
 ## Senha da equipe (cozinha, entregador, balcão)
 
@@ -200,92 +204,58 @@ fim do endereço a toda hora.
   cartão e lista de pedidos).
 - **Fontes da Dom Conizza** servidas pelo site (`fontes/`), sem o Google Fonts.
 
-## Assinatura e cobrança
+## Assinatura e cobrança (plano único, 25/09/2026)
 
-- **Teste grátis de 7 dias** (`config.precos.diasGratis`), sem cartão. No período
-  grátis o estado é `gratis` até o último dia (nunca "vencendo") e, acabou, vira
-  `bloqueada` no mesmo dia: sem tolerância. Quem já pagou tem 7 dias de aviso e
-  10 de tolerância depois do vencimento.
-- **Três jeitos de pagar** (`js/cobranca.js`, usado pelo painel e por `#/conta`):
-  cartão de crédito com cobrança automática e boleto, pelos **links de
-  assinatura do Asaas** em `config.cobranca.links` (um por plano e tipo), e Pix
-  na hora pra `config.pixLigeiro` com "Já paguei" (o admin confirma).
-- **Confirmação automática:** `ferramentas/worker-asaas.js` recebe o webhook do
-  Asaas (pagamento confirmado), acha a conta pelo e-mail do cliente e grava
-  `status: 'ativo'`, `pagoAte` (+30 ou +365 dias), `planoPago` e o espelho nas
-  lojas e na vitrine, pela REST do Firestore com a conta de serviço. Segredos:
-  `ASAAS_KEY`, `ASAAS_WEBHOOK`, `FIREBASE_SA`, `PLANOS`. Regra de ouro: o e-mail
-  do cliente no Asaas é o mesmo do login no Ligeiro.
-- Sem link cadastrado, tudo continua funcionando só com o Pix manual.
-
-### Troca de plano, encerrar e a rede de segurança (25/09/2026)
-
-Uma assinatura só por conta no Asaas (`contas/{email}.assinaturaAsaas`, gravada
-quando uma assinatura PAGA). Com ela viva, trocar de plano e encerrar passam pelo
-mensageiro (`POST /plano/simular`, `/plano/trocar`, `/plano/encerrar`, com o login
-do dono), e as regras do banco não deixam mudar direto (`escolhaPeloMensageiro`).
-
-- **Mais lojas:** paga só a diferença dos dias que faltam, pelo que foi pago no
-  ciclo (`cicloPago`), numa cobrança avulsa do Asaas (`troca|email|plano`, guardada
-  em `trocaPlano`). As lojas a mais liberam quando ela cai. Menos de R$ 5 libera na
-  hora. A mesma assinatura muda de valor na hora (`PUT /subscriptions`).
-- **Menos lojas:** o limite desce na hora (as lojas abertas têm que caber) e o valor
-  menor vem na próxima fatura, sem devolução. Voltar a subir no mesmo ciclo, até o
-  plano já pago, não cobra de novo. **Mensal/anual:** na próxima fatura.
-- **Pago adiantado** (período que ainda vai começar): o plano novo fica em
-  `planoProximo` e o Cron de todo dia vira quando chega a hora (`virarPlanos`).
-- **Encerrar** cancela a assinatura no Asaas. Cobrança que cair depois é devolvida
-  sozinha (cartão e Pix; boleto avisa o admin por e-mail). O Cron cancela a
-  assinatura de conta encerrada pela Central.
-- **Assinatura nova paga** cancela a velha (nunca duas cobrando). Pagamento com
-  e-mail sem conta no Ligeiro não cria conta: o admin recebe e-mail.
-- Testes: `node testes/asaas.test.mjs` (101, com os cenários da revisão
-  independente) e as regras no emulador local do Firestore (12 checagens).
-
-### Como era (Pix manual)
-
-- **A assinatura é da conta, não da loja.** `config.planos` define os planos por
-  quantidade de lojas (1, até 2, até 5 e até 8), com preço mensal e anual.
-  `contas/{email}.plano` é a verdade (`planoId`, `tipo`, `status`, `desde`,
-  `pagoAte`, `avisoPagamentoEm`); `lojas/{slug}.plano` é um espelho que o admin
-  atualiza ao confirmar (`store.espelharPlanoNasLojas`). O site da loja e o
-  painel leem o espelho; `#/conta` e o admin leem a conta.
-- Limite de lojas: `#/comecar` conta as lojas do e-mail e recusa acima do plano
-  **que vale** (`R.planoQueVale`): enquanto a conta está paga, vale o
-  `plano.planoPago` (gravado pelo admin ao confirmar o Pix); no período grátis
-  vale o `planoId` escolhido. Assim ninguém sobe pro plano de 8 lojas de graça
-  no meio de um mês pago: o plano novo libera lojas quando o Pix dele cai.
-- Conta vencida, bloqueada, pausada ou encerrada não cria loja nova.
-- Trocar pra um plano menor só com lojas dentro do novo limite.
-- O dono pode encerrar (`cancelado`) e reativar (`teste`) pela regra; o app
-  espelha isso nas lojas dele (`salvarConta` chama `espelharPlanoNasLojas`,
-  primeiro nas lojas, depois na vitrine).
-- Cidades homônimas em estados diferentes ainda dividem o mesmo endereço
-  (`#/bom-jesus`). Hoje o Ligeiro é regional (Vale do Ribeira); se um dia
-  precisar, o `cidadeSlug` passa a levar a UF.
-- Limitação conhecida sem servidor: o total do pedido é calculado no
-  navegador. A regra impede pedido "já pago" no Pix e lixo grande, mas um
-  pedido com preço adulterado ainda pode entrar; o painel mostra o total e o
-  dono confere no Pix (o Pix leva o valor certo do cardápio). Pra fechar isso de
-  vez, ligue o **App Check** (reCAPTCHA v3, grátis) no projeto Firebase.
-
-- Preços em `config.precos` (mensal, anual, diasGratis). `#/assinar` escolhe o
-  plano e manda pro `#/comecar/<tipo>`; a loja nasce com
-  `plano: { status: 'teste', tipo, desde }`.
-- `R.assinatura(loja)` diz o estado: **gratis** (dias grátis), **ativa** (paga,
-  ou cortesia = status `ativo` sem `pagoAte`), **vencendo** (7 dias),
-  **vencida** (10 dias de tolerância, loja no ar) e **bloqueada** (o site
-  para de aceitar pedidos e `montarPedido` recusa).
-- Pagar: o painel mostra em "Assinatura" um Pix copia e cola pra chave de
-  `config.pixLigeiro` (vazia = manda chamar no WhatsApp). "Já paguei" grava
-  `plano.avisoPagamentoEm`; no `#/admin` o cartão da loja fica em destaque com
-  "✓ Pagou (+30 dias)" ou "(+1 ano)", que grava `pagoAte`, `planoPago` e `status: 'ativo'`.
-- Nas regras do Firestore (bloco completo mais abaixo), o dono pode gravar
-  `plano.avisoPagamentoEm`, mas só o admin muda `plano.pagoAte`, `plano.status`
-  e `ativa` (função `planoIntacto`).
-
-- `#/entrar` acha o painel pelo link da loja; `#/termos` e `#/privacidade`
-  usam `config.empresa` (nome, CNPJ, e-mail) quando preenchido.
+- **Um plano só: 1 loja por conta**, mensal (R$ 89) ou anual (R$ 890, 2 meses grátis). Outra loja é outra conta (outro
+  e-mail do Google), com a própria assinatura e os próprios 7 dias grátis. `config.planos` tem só o `uma`; conta antiga
+  com `duas` ou `tres` cai no de 1 loja (`R.planoPorId`). O mensageiro do Mercado Pago (`/loja-nova`) recusa a segunda.
+- **Teste grátis de 7 dias** (`config.precos.diasGratis`), sem cartão. No período grátis o estado é `gratis` até o
+  último dia (nunca "vencendo") e, acabou, vira `bloqueada` no mesmo dia: sem tolerância. Quem já pagou tem 7 dias de
+  aviso e 10 de tolerância depois do vencimento.
+- **Como paga:** pelos links de assinatura do Asaas (`config.cobranca.links`; `linksFundador` para quem tem a vaga), no
+  cartão (cobra sozinho todo mês ou ano), boleto ou Pix. A fatura do mês aparece no painel e em Minha conta, e os
+  lembretes vão por e-mail (Apps Script, `ferramentas/lembrete-email.gs`).
+- **A verdade é a conta:** `contas/{email}.plano` (`planoId` `uma`, `tipo`, `status`, `desde`, `pagoAte`, `fundador`...).
+  `lojas/{slug}.plano` e `vitrine/{slug}.plano` são espelho, com os mesmos campos no mensageiro e no site (a regra do banco
+  compara os dois). `R.assinatura(...)` diz o estado: **gratis**, **ativa** (paga, ou cortesia = `ativo` sem `pagoAte`),
+  **vencendo** (7 dias), **vencida** (10 dias de tolerância, loja no ar) e **bloqueada** (o site para de aceitar pedidos).
+- **Confirmação automática** (`ferramentas/worker-asaas.js`): o webhook do Asaas avisa, o mensageiro lê a cobrança de
+  novo pela chave da API, acha a conta pelo e-mail do cliente e grava `status`, `pagoAte` (+30 ou +365 dias) e o espelho.
+  Segredos: `ASAAS_KEY`, `ASAAS_WEBHOOK`, `FIREBASE_SA`, `PLANOS` (e `EMAIL_URL`/`EMAIL_TOKEN` dos lembretes). Regra de
+  ouro: o e-mail do cliente no Asaas é o mesmo do login no Ligeiro.
+- **Mensal ou anual:** com assinatura viva, passa pelo mensageiro (`POST /plano/simular` e `/plano/trocar`, com o login
+  do dono), que muda a MESMA assinatura no Asaas (valor e ciclo) e vale na próxima fatura: sem diferença para pagar, sem
+  cobrança avulsa. Sem assinatura (teste grátis), só marca a escolha. Com assinatura viva, as regras do banco não deixam
+  mudar direto (`escolhaPeloMensageiro`).
+- **Encerrar** (`POST /plano/encerrar`): cancela a assinatura no Asaas (e a pendente e a extra), a loja fica no ar até o
+  fim do que foi pago e o preço de fundador acaba. Cobrança que cair depois é devolvida sozinha (cartão e Pix; boleto
+  avisa o admin por e-mail). O Cron de todo dia cancela o que sobrou de conta encerrada pela Central.
+- **Rede de segurança do dinheiro** (pentest do plano único, 25/09/2026):
+  - Uma assinatura só por conta: a nova paga cancela a velha, mas nunca toma o lugar de uma viva com dias pela frente (ela
+    vira `assinaturasExtras` e o admin recebe e-mail).
+  - Pagamento com e-mail sem conta no Ligeiro não cria conta; cobrança avulsa fora do preço do plano (a loja
+    personalizada, por exemplo) não vira dias. Nos dois casos o admin recebe e-mail.
+  - Pagou dentro da tolerância (a loja ainda no ar): os dias contam do vencimento, e não de hoje (no mensageiro e na
+    Central). Antes, cada atraso de 9 dias virava 9 dias de graça.
+  - Estorno ou contestação: os dias daquele pagamento saem (`creditos`) e a conta pausa; pagar outra coisa não tira a
+    pausa (só a Central). Estorno de uma assinatura extra só tira os dias dela, sem pausar o dono.
+  - Link de fundador sem vaga: dias proporcionais, e a assinatura passa para o preço normal.
+  - Multa e juros de atraso não mudam o plano (vale o `originalValue` da cobrança).
+  - Gravação com trava (`gravarJuntos`, pela hora da última mudança do documento): o dono encerrando bem na hora de um
+    pagamento, ou dois pagamentos disputando a última vaga de fundador, refazem a conta com os dados novos.
+  - Loja nova com trava na conta (`lojaCriadaEm`): pedidos juntos (duas abas, vários workers) não criam duas lojas.
+  - Aviso repetido do Asaas regrava o espelho nas lojas (se da outra vez a cópia falhou no meio).
+- **Regras do banco:** o dono só mexe em `planoId` (só `uma`), `tipo`, `status` (encerrar e reativar), no aviso de
+  pagamento, nas datas de encerrar e reativar (texto curto) e pode desligar o próprio `fundador` junto com encerrar (nunca
+  ligar). `pagoAte`, `planoPago`, `pagamentos`, as assinaturas e o resto são do admin e dos mensageiros.
+- Pix manual (`config.pixLigeiro` com "Já paguei", o admin confirma na Central) fica de reserva.
+- Limitação conhecida sem servidor: o total do pedido é calculado no navegador. A regra impede pedido "já pago" no Pix
+  e lixo grande, mas um pedido com preço adulterado ainda pode entrar; o painel mostra o total e o dono confere no Pix.
+  Para fechar isso de vez, ligue o **App Check** (reCAPTCHA v3, grátis) no projeto Firebase.
+- `#/entrar` acha o painel pelo link da loja; `#/termos` e `#/privacidade` usam `config.empresa` (nome, CNPJ, e-mail)
+  quando preenchido.
+- Testes: `node testes/asaas.test.mjs` (101, com um cenário para cada furo do pentest), `node testes/worker.test.mjs`
+  (229, com a corrida da loja nova) e as regras no emulador local do Firestore.
 
 ## Cardápio: controle total do dono
 
@@ -395,6 +365,16 @@ aparelho, e o arquivo só baixa quando o cliente toca em Jogar. Se o pedido anda
 fica pronto). O lojista desliga em Ajustes, "No seu site" (campo `jogoDesligado`); de fábrica vem ligado.
 O teste (`testes/jogo.test.mjs`) roda 12 km de rua e confere que sempre existe um caminho.
 
+## Pulo do Ligeiro (o segundo joguinho, embaixo da Corrida)
+
+`js/pulo.js`, no mesmo esquema da Corrida: só baixa quando o cliente toca em "Jogar", roda no aparelho, zero banco, e o
+recorde fica no celular (`ligeiro:pulo:recorde`). O ratinho pula sozinho de tábua em tábua; o cliente segura o dedo do
+lado para onde quer ir (ou as setas). Tábua verde, azul (anda de lado), caixa de papelão (rasga) e mola; gato e pombo
+derrubam, menos se ele cair por cima. Os 3 primeiros lanches da loja viram turbo, ímã e capacete, e o fim mostra o
+"Bateu fome?" com o lanche. O céu vai do dia ao espaço. O mesmo interruptor `jogoDesligado` desliga os dois jogos.
+O teste (`testes/pulo.test.mjs`) confere que o maior vão entre tábuas firmes é menor que o pulo, e um robô sobe 3 km sem
+cair em 8 partidas seguidas.
+
 ## Pentest de 25/09/2026 (5 revisores: mensageiro, dinheiro, regras do banco, navegador, lógica)
 
 - **Loja nova nasce no mensageiro** (`POST /loja-nova`): ele confere a conta, a assinatura, o limite do plano (lojas no ar
@@ -433,6 +413,10 @@ node testes/asaas.test.mjs
 
 ```bash
 node testes/jogo.test.mjs
+```
+
+```bash
+node testes/pulo.test.mjs
 ```
 
 Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em `TEMAS.md`.

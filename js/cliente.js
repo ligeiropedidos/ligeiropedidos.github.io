@@ -2247,8 +2247,8 @@
     }
 
     /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
-    /* Corrida do Ligeiro: o joguinho enquanto o pedido fica pronto. So depois de pago (antes, o certo e pagar) e ate
-       sair ou ficar pronto. Zero banco: roda no aparelho, e o codigo so baixa quando a pessoa toca em Jogar */
+    /* Corrida e Pulo do Ligeiro: os joguinhos enquanto o pedido fica pronto. So depois de pago (antes, o certo e pagar) e
+       ate sair ou ficar pronto. Zero banco: rodam no aparelho, e o codigo de cada um so baixa quando a pessoa toca em Jogar */
     /* arte do icone da Corrida: ceu, sol, morro, a rua em perspectiva com as faixas e a motinho do Ligeiro de costas */
     var ARTE_CORRIDA = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
       '<defs><linearGradient id="arteCorridaCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FB6EE"/><stop offset="1" stop-color="#D4F0FF"/></linearGradient></defs>' +
@@ -2273,28 +2273,59 @@
       '<rect x="22.4" y="42.7" width="3.2" height="1.2" rx=".5" fill="#FF3B30"/>' +
       '<rect x="22.5" y="44.9" width="3" height="3.1" rx="1.2" fill="#1D1F22"/>' +
       '</svg>';
-    function desenharConviteJogo(pedido, esconder) {
-      var caixa = $('jogoConvite');
+    /* arte do icone do Pulo: ceu, nuvens, as tabuas (verde, azul e a caixa de papelao), a moeda e o ratinho no ar */
+    var ARTE_PULO = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
+      '<defs><linearGradient id="artePuloCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FB6EE"/><stop offset="1" stop-color="#D4F0FF"/></linearGradient></defs>' +
+      '<rect width="48" height="48" fill="url(#artePuloCeu)"/>' +
+      '<g fill="#fff" opacity=".9"><rect x="4" y="9" width="13" height="4" rx="2"/><circle cx="8.5" cy="9.2" r="2.6"/><circle cx="12.4" cy="8.4" r="3.2"/><rect x="33" y="26" width="11" height="3.6" rx="1.8"/><circle cx="36.8" cy="26.2" r="2.3"/><circle cx="40" cy="25.6" r="2.7"/></g>' +
+      '<circle cx="39" cy="11" r="3" fill="#F7C325" stroke="#D9A109" stroke-width=".8"/><path d="M38.2 9.6v2.8h1.8" stroke="#0F3D2E" stroke-width=".8" fill="none"/>' +
+      '<rect x="3" y="40" width="17" height="4.4" rx="2.2" fill="#84CC16"/><rect x="3" y="42.6" width="17" height="1.8" rx=".9" fill="#5E9A0C"/>' +
+      '<rect x="29" y="35" width="15" height="4" rx="2" fill="#3BA3E8"/><rect x="29" y="37.3" width="15" height="1.7" rx=".85" fill="#1E78B8"/>' +
+      '<rect x="6" y="24" width="12" height="3.6" rx=".8" fill="#C8955A"/><rect x="11.2" y="24" width="1.6" height="3.6" fill="#E8D3A8"/>' +
+      '<path d="M13 39.4C14.5 33 17.5 31.5 20.5 31" stroke="#fff" stroke-width="1" stroke-dasharray="1.4 1.6" fill="none" opacity=".95"/>' +
+      '<g transform="translate(24 12.5)">' +
+      '<circle cx="-4.6" cy="4.2" r="3.1" fill="#E6E1E8"/><circle cx="4.6" cy="4.2" r="3.1" fill="#E6E1E8"/><circle cx="-4.6" cy="4.2" r="1.7" fill="#F4A7B9"/><circle cx="4.6" cy="4.2" r="1.7" fill="#F4A7B9"/>' +
+      '<path d="M-3.4 14.4-6 10.2M3.4 14.4 6 10.2" stroke="#E6E1E8" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<rect x="-3.5" y="12" width="7" height="7" rx="2.6" fill="#84CC16"/><rect x="-3.5" y="16.8" width="7" height="2.2" rx="1" fill="#5E9A0C"/>' +
+      '<ellipse cx="-1.8" cy="19.6" rx="1.7" ry="1" fill="#F4A7B9"/><ellipse cx="1.8" cy="19.6" rx="1.7" ry="1" fill="#F4A7B9"/>' +
+      '<circle cx="0" cy="7" r="4.9" fill="#ECE8EE" stroke="#C9C1CE" stroke-width=".5"/>' +
+      '<circle cx="-1.7" cy="6.8" r=".8" fill="#1D1F22"/><circle cx="1.7" cy="6.8" r=".8" fill="#1D1F22"/><circle cx="0" cy="8.7" r=".7" fill="#F07A9A"/>' +
+      '<circle cx="-1.8" cy="-.4" r="1.8" fill="#fff"/><circle cx="0" cy="-1.2" r="2.1" fill="#fff"/><circle cx="1.8" cy="-.4" r="1.8" fill="#fff"/><rect x="-2.8" y="-.2" width="5.6" height="2.6" rx=".7" fill="#fff"/><rect x="-2.8" y="1.5" width="5.6" height=".9" fill="#2E9D4F"/>' +
+      '</g>' +
+      '</svg>';
+    /* os dois joguinhos da espera: a Corrida e, embaixo dela, o Pulo. Cada um no seu arquivo, que so baixa no "Jogar" */
+    var JOGOS = [
+      { caixa: 'jogoConvite', global: 'LigeiroJogo', arquivo: 'js/jogo.js', nome: 'Corrida do Ligeiro', chamada: 'Jogue enquanto espera', recorde: 'ligeiro:jogo:recorde', arte: ARTE_CORRIDA },
+      { caixa: 'puloConvite', global: 'LigeiroPulo', arquivo: 'js/pulo.js', nome: 'Pulo do Ligeiro', chamada: 'Pule até o céu', recorde: 'ligeiro:pulo:recorde', arte: ARTE_PULO },
+    ];
+    function cadaJogoAberto(fn) { JOGOS.forEach(function (g) { var M = window[g.global]; if (M && M.aberto()) fn(M); }); }
+    function desenharConviteJogo(pedido, esconder) { JOGOS.forEach(function (g) { desenharConvite(g, pedido, esconder); }); }
+    function desenharConvite(g, pedido, esconder) {
+      var caixa = $(g.caixa);
       if (!caixa) return;
       UI.limpar(caixa);
       var andando = pedido.status === R.STATUS.PAGO || pedido.status === R.STATUS.PRODUCAO || (pedido.status === R.STATUS.PRONTO && pedido.tipoEntrega === 'entrega');
       if (esconder || !andando || estado.loja.jogoDesligado === true) { caixa.hidden = true; return; }
       caixa.hidden = false;
-      var recorde = Number(UI.lerLocal('ligeiro:jogo:recorde')) || 0;
-      caixa.appendChild(el('span', { class: 'jogo-convite-ico', 'aria-hidden': 'true', html: ARTE_CORRIDA }));
+      var recorde = Number(UI.lerLocal(g.recorde)) || 0;
+      caixa.appendChild(el('span', { class: 'jogo-convite-ico', 'aria-hidden': 'true', html: g.arte }));
       /* textos curtos: cada um numa linha so, ate no celular estreito (o do lado, "Quer saber quando sair?", tambem) */
       caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [
-        el('b', { text: 'Corrida do Ligeiro' }),
+        el('b', { text: g.nome }),
         /* o recorde numa etiqueta com o trofeu (e o que chama para jogar de novo) */
         recorde > 0
           ? el('span', { class: 'jogo-recorde-selo' }, [UI.iconeLinha('trofeu'), 'Recorde ' + recorde.toLocaleString('pt-BR')])
-          : el('span', { text: 'Jogue enquanto espera' }),
+          : el('span', { text: g.chamada }),
       ]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function () {
         btn.disabled = true;
-        carregarJogo().then(function (J) {
+        carregarJogo(g).then(function (J) {
           btn.disabled = false;
           if (!vivo || !estado.pedido) return;
+          /* um jogo por vez */
+          var outro = false;
+          cadaJogoAberto(function () { outro = true; });
+          if (outro) return;
           J.abrir({
             cidade: estado.loja.cidade,
             logo: D.logoSrc ? D.logoSrc(estado.loja) : null,
@@ -2321,18 +2352,19 @@
       var comFoto = lista.filter(function (p) { return D.fotoSrc(p, estado.fotos); }), semFoto = lista.filter(function (p) { return !D.fotoSrc(p, estado.fotos); });
       return comFoto.concat(semFoto).slice(0, 3).map(function (p) { return { id: p.id, nome: p.nome, preco: p.preco, emoji: p.emoji || '', foto: D.fotoSrc(p, estado.fotos) || '' }; });
     }
-    function carregarJogo() {
-      if (window.LigeiroJogo) return Promise.resolve(window.LigeiroJogo);
-      if (estado.jogoBaixando) return estado.jogoBaixando;
+    function carregarJogo(g) {
+      if (window[g.global]) return Promise.resolve(window[g.global]);
+      estado.jogosBaixando = estado.jogosBaixando || {};
+      if (estado.jogosBaixando[g.global]) return estado.jogosBaixando[g.global];
       var tag = (((document.querySelector('script[src*="js/cliente.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
-      estado.jogoBaixando = new Promise(function (ok, falhou) {
+      estado.jogosBaixando[g.global] = new Promise(function (ok, falhou) {
         var s = document.createElement('script');
-        s.src = 'js/jogo.js?v=' + tag;
-        s.onload = function () { if (window.LigeiroJogo) ok(window.LigeiroJogo); else falhou(new Error('jogo')); };
-        s.onerror = function () { estado.jogoBaixando = null; if (s.parentNode) s.parentNode.removeChild(s); falhou(new Error('jogo')); };
+        s.src = g.arquivo + '?v=' + tag;
+        s.onload = function () { if (window[g.global]) ok(window[g.global]); else falhou(new Error('jogo')); };
+        s.onerror = function () { estado.jogosBaixando[g.global] = null; if (s.parentNode) s.parentNode.removeChild(s); falhou(new Error('jogo')); };
         document.body.appendChild(s);
       });
-      return estado.jogoBaixando;
+      return estado.jogosBaixando[g.global];
     }
 
     function desenharAvisoCelPedido(pedido, esconder) {
@@ -2402,8 +2434,7 @@
         if (codigoNovo && !mudou && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
         if (!mudou) return;
         /* jogando: a etiqueta do jogo muda; saiu, ficou pronto, chegou ou foi cancelado, o jogo pausa e pergunta */
-        var J = window.LigeiroJogo;
-        if (J && J.aberto()) J.pedidoMudou(novo, 'Senha ' + novo.senha + ' · ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0);
+        cadaJogoAberto(function (J) { J.pedidoMudou(novo, 'Senha ' + novo.senha + ' · ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0); });
         if ($('tela-cartao').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { desmontarCartao(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
         if ($('tela-pagamento').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { pararVigia(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
         if ($('tela-senha').classList.contains('ativa')) {
@@ -2542,7 +2573,7 @@
 
     return function () {
       vivo = false;
-      if (window.LigeiroJogo && window.LigeiroJogo.aberto()) window.LigeiroJogo.fechar();
+      cadaJogoAberto(function (J) { J.fechar(); });
       tirarSplash();
       UI.limparTemaOficial(raiz); /* a mesma limpeza das outras telas (tira o tema das janelas tambem) */
       UI.limparTema();
@@ -2745,6 +2776,7 @@
         '<div class="avaliar-google" id="avaliarGoogle" hidden></div>' +
         '<div class="aviso-cel-pedido" id="avisoCelPedido" hidden></div>' +
         '<div class="aviso-cel-pedido jogo-convite" id="jogoConvite" hidden></div>' +
+        '<div class="aviso-cel-pedido jogo-convite" id="puloConvite" hidden></div>' +
         '<button class="btn btn-fantasma btn-largo" id="btnVoltarPix" style="max-width:420px" hidden>Ver o código Pix de novo</button>' +
         '<a class="btn btn-whats btn-largo" id="btnWhatsCliente" style="max-width:420px" href="#" target="_blank" rel="noopener"><span class="icone-zap" aria-hidden="true"></span>Falar com a loja</a>' +
         '<button class="btn btn-fantasma btn-largo" id="btnNovoPedido" style="max-width:420px">' + (balcao ? 'Próximo cliente' : 'Fazer outro pedido') + '</button>' +

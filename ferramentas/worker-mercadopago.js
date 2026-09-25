@@ -17,7 +17,8 @@
  *                               por loja): as regras do banco reconhecem o dono por ela, sem ler a loja a cada pedido.
  *                  { email }  + login do admin -> refaz a marca desse e-mail pelas lojas dele de verdade (troca de dono).
  *   POST /loja-nova { loja, vitrine } + Authorization: Bearer <idToken do dono> -> CRIA a loja (o banco nao aceita loja
- *                               de fora): confere a conta, o limite do plano, as vagas do Ligeiro e o endereco livre.
+ *                               de fora): confere a conta, 1 loja por conta (com trava: duas abas nao criam duas),
+ *                               as vagas do Ligeiro e o endereco livre.
  *
  * 2) PIX AUTOMATICO pela conta Mercado Pago de cada loja
  *   POST /criar    { loja, pedido }  -> cria o Pix no Mercado Pago com o token da loja e grava o "copia e cola" no pedido.
@@ -1088,7 +1089,7 @@ const REGRAS = (function () {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     if (Array.isArray(cfg.planos) && cfg.planos.length) return cfg.planos;
     var pr = cfg.precos || {};
-    return [{ id: 'uma', nome: 'Uma loja', lojas: 1, mensal: pr.mensal || 7900, anual: pr.anual == null ? 79000 : pr.anual }];
+    return [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: pr.mensal || 8900, anual: pr.anual == null ? 89000 : pr.anual }];
   }
   function planoPorId(id) {
     var lista = planos();
@@ -1101,7 +1102,8 @@ const REGRAS = (function () {
     var l = links[planoPorId(planoId).id] || {};
     return String(l[tipo === 'anual' ? 'anual' : 'mensal'] || '').trim();
   }
-  /* Qual plano vale pra contar lojas: pago = o que o admin confirmou (planoPago); no gratis = o escolhido. */
+  /* Qual plano vale pra contar lojas. Hoje ha um plano so (1 loja por conta): qualquer id que nao existe mais (conta antiga
+     com 'duas' ou 'tres') cai no de 1 loja pelo planoPorId. A regra do pago ficou para a lista de planos de config.planos */
   function planoQueVale(conta) {
     var p = (conta && conta.plano) || {};
     /* enquanto houver periodo pago correndo, vale o plano que foi PAGO, seja qual for o status
@@ -1840,7 +1842,8 @@ export default {
         if (!conta) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
         const email = conta.email;
         if (EMAIL_EQUIPE.test(email) || conta.marca.equipe) return json({ ok: false, erro: 'A senha da equipe não cria loja. Entre com a conta do dono.' }, 403);
-        const docConta = await fb.get('contas/' + email);
+        /* com a hora da ultima mudanca: a loja nova so grava se a conta nao mudou desde aqui (a trava das duas abas) */
+        let docConta = await fb.get('contas/' + email, true);
         if (!docConta || !ehMapa(docConta.plano)) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
         const agora = new Date();
         if (email !== ADMIN) {
@@ -1852,15 +1855,9 @@ export default {
           const noAr = (await fb.listar('vitrine')).filter((l) => REGRAS.ocupaVaga(l, agora)).length;
           const max = cap.max != null ? Number(cap.max) || 0 : 11;
           if (cap.fechado === true || (max > 0 && noAr >= max)) return json({ ok: false, vagas: false, erro: 'As vagas de loja estão fechadas agora. Fale com o Ligeiro para entrar na lista de espera.' }, 409);
-          /* limite do plano da conta (lojas no ar dela) */
-          /* o plano que vale: o pago enquanto corre, senao o escolhido (igual ao planoQueVale do site; a tabela de planos
-             mora no config do site, entao o numero de lojas de cada um fica aqui) */
-          const pl = docConta.plano;
-          const pagoCorrendo = !!(pl.planoPago && pl.pagoAte && new Date(pl.pagoAte).getTime() > agora.getTime());
-          const vale = pl.planoPago && (pl.status === 'ativo' || pagoCorrendo) ? pl.planoPago : pl.planoId;
-          const LOJAS_DO_PLANO = { uma: 1, duas: 2, tres: 3, cinco: 5, oito: 8 };
+          /* 1 loja por conta (plano unico, 25/09/2026): outra loja ganha a propria conta, com outro e-mail e a propria assinatura */
           const minhas = await fb.lojasDoDonoAtivas(email);
-          if (minhas >= (LOJAS_DO_PLANO[vale] || 1)) return json({ ok: false, erro: 'Seu plano não permite mais lojas. Para abrir mais uma, escolha um plano maior em Minha conta.' }, 409);
+          if (minhas >= 1) return json({ ok: false, erro: 'Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.' }, 409);
         }
         /* o documento: o que o dono preencheu, com os campos que so o Ligeiro decide postos aqui */
         const l = c.loja;
@@ -1891,8 +1888,20 @@ export default {
           if (await fb.get('lojas/' + slug)) continue;
           if ((await fb.get('lojas/' + slug + '/privado/mercadopago')) || (await fb.get('lojas/' + slug + '/contadores/senha'))) continue;
           doc.slug = slug; vit.slug = slug;
-          const gravou = await fb.gravarJuntos([{ caminho: 'lojas/' + slug, dados: doc, trava: { exists: false } }, { caminho: 'vitrine/' + slug, dados: vit }]);
-          if (!gravou) continue; /* alguem pegou o mesmo endereco agora: tenta o proximo */
+          const escritas = [{ caminho: 'lojas/' + slug, dados: doc, trava: { exists: false } }, { caminho: 'vitrine/' + slug, dados: vit }];
+          /* 1 loja por conta: a conta e marcada no mesmo lote, travada na leitura. Dois pedidos juntos (duas abas, ou
+             varios de uma vez) contavam zero lojas os dois e criavam duas: agora so o primeiro grava */
+          if (email !== ADMIN) escritas.push({ caminho: 'contas/' + email, dados: { lojaCriadaEm: agora.toISOString() }, mascara: ['lojaCriadaEm'], trava: { updateTime: docConta._atualizadoNoBanco } });
+          const gravou = await fb.gravarJuntos(escritas);
+          if (!gravou) {
+            /* a trava falhou: outra loja nasceu nesta conta agora, ou alguem pegou o mesmo endereco. Confere de novo */
+            if (email !== ADMIN) {
+              if ((await fb.lojasDoDonoAtivas(email)) >= 1) return json({ ok: false, erro: 'Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.' }, 409);
+              docConta = await fb.get('contas/' + email, true);
+              if (!docConta) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
+            }
+            continue;
+          }
           /* copia da borda e vitrine: a loja aparece na hora */
           if (env.CARDAPIO) {
             await atualizarLoja(env, slug).catch(() => null);
@@ -3236,6 +3245,8 @@ async function firebase(env) {
       const nomeBase = 'projects/' + sa.project_id + '/databases/(default)/documents/';
       const writes = escritas.map((e) => {
         const x = { update: { name: nomeBase + seguro(e.caminho), fields: camposFirestore(e.dados) } };
+        /* mascara: grava so esses campos (o resto do documento fica como esta) */
+        if (e.mascara) x.updateMask = { fieldPaths: e.mascara };
         if (e.trava && e.trava.exists === false) x.currentDocument = { exists: false };
         else if (e.trava && e.trava.updateTime) x.currentDocument = { updateTime: e.trava.updateTime };
         return x;

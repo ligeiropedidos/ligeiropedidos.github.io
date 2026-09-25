@@ -1196,7 +1196,10 @@
         var precos = (window.LIGEIRO_CONFIG || {}).precos || {};
         /* Confirmar pagamento: soma os dias a partir do fim atual (ou de hoje, se ja venceu). */
         var confirmarLoja = function (dias) {
-          var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
+          /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): conta do vencimento, e nao de hoje (a mesma
+             regra do mensageiro do Asaas; antes, os dias de atraso vinham de graca) */
+          var lim = a.limite ? new Date(a.limite).getTime() || 0 : 0;
+          var base = lim && a.estado !== 'cancelada' && Date.now() - lim <= (a.tolerancia || 0) * 864e5 ? lim : Math.max(Date.now(), lim);
           var novo = new Date(base + dias * 864e5).toISOString();
           executar(trava, marca, function () {
             return store.salvarLoja({ slug: l.slug, plano: Object.assign({}, plano, { status: 'ativo', tipo: dias > 31 ? 'anual' : (plano.tipo || 'mensal'), pagoAte: novo, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() }), ativa: true });
@@ -1204,7 +1207,7 @@
         };
         corpo.appendChild(el('div', { class: 'adm-caixa adm-plano' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Situação' }), sel]),
-          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', onclick: function () { confirmarLoja(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(precos.mensal || 7900) + ' (+30 dias)']),
+          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', onclick: function () { confirmarLoja(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(precos.mensal || 8900) + ' (+30 dias)']),
         ]));
       } else {
         /* loja com dono: o plano e da conta dele, aqui so aponta pra ficha da conta */
@@ -1267,10 +1270,12 @@
       var trava = travaDe('conta:' + String(c.email || '').toLowerCase()); /* um clique por vez: clique duplo contaria a vaga de fundador duas vezes */
       function confirmar(dias) {
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
-        var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
+        /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): conta do vencimento, e nao de hoje (a mesma
+           regra do mensageiro do Asaas; antes, os dias de atraso vinham de graca) */
+        var lim = a.limite ? new Date(a.limite).getTime() || 0 : 0;
+        var base = lim && a.estado !== 'cancelada' && Date.now() - lim <= (a.tolerancia || 0) * 864e5 ? lim : Math.max(Date.now(), lim);
         var novo = new Date(base + dias * 864e5).toISOString();
-        /* o ciclo pago acompanha (a troca de plano calcula a diferenca por ele) e um plano agendado pelo Asaas sai */
-        store.salvarConta(c.email, { cicloPago: { plano: plano.id, tipo: dias > 31 ? 'anual' : 'mensal' }, planoProximo: null, plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
+        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
           .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
@@ -1307,8 +1312,7 @@
           + (novo.pagoAte ? 'A conta perde os dias que ele somou e fica paga até ' + dataBR(novo.pagoAte) + '.' : 'Era o primeiro pagamento: a conta volta para o teste grátis e sai da receita.')
           + (novo.fundador === false ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
         comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function () {
-          /* desfeito: o ciclo pago some (a proxima troca volta a ler do plano) */
-          return store.salvarConta(c.email, { plano: novo, cicloPago: null }).then(function () {
+          return store.salvarConta(c.email, { plano: novo }).then(function () {
             return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null;
           });
         }, 'Pagamento desfeito');

@@ -979,7 +979,7 @@
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     if (Array.isArray(cfg.planos) && cfg.planos.length) return cfg.planos;
     var pr = cfg.precos || {};
-    return [{ id: 'uma', nome: 'Uma loja', lojas: 1, mensal: pr.mensal || 7900, anual: pr.anual == null ? 79000 : pr.anual }];
+    return [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: pr.mensal || 8900, anual: pr.anual == null ? 89000 : pr.anual }];
   }
   function planoPorId(id) {
     var lista = planos();
@@ -992,7 +992,8 @@
     var l = links[planoPorId(planoId).id] || {};
     return String(l[tipo === 'anual' ? 'anual' : 'mensal'] || '').trim();
   }
-  /* Qual plano vale pra contar lojas: pago = o que o admin confirmou (planoPago); no gratis = o escolhido. */
+  /* Qual plano vale pra contar lojas. Hoje ha um plano so (1 loja por conta): qualquer id que nao existe mais (conta antiga
+     com 'duas' ou 'tres') cai no de 1 loja pelo planoPorId. A regra do pago ficou para a lista de planos de config.planos */
   function planoQueVale(conta) {
     var p = (conta && conta.plano) || {};
     /* enquanto houver periodo pago correndo, vale o plano que foi PAGO, seja qual for o status

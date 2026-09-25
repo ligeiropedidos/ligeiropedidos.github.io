@@ -46,7 +46,7 @@ const ordens = new Map();
 const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com' };
+const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com', 'tok-corrida': 'corrida@x.com' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
@@ -131,6 +131,9 @@ globalThis.fetch = async (url, op) => {
     const q = JSON.parse(o.body).structuredQuery;
     const valor = q.where.fieldFilter.value.stringValue;
     const achadas = [...db.entries()].filter(([k, d]) => /^lojas\/[^/]+$/.test(k) && d.donoEmail === valor);
+    /* o banco demorando para responder a contagem (o retrato e da hora do pedido): os pedidos que chegam juntos contam
+       todos zero antes de alguem gravar */
+    if (globalThis.__consultaLenta) await new Promise((ok) => setTimeout(ok, 30));
     return resposta(achadas.length ? achadas.map(([k]) => ({ document: { name: 'projects/proj/databases/(default)/documents/' + k } })) : [{ readTime: 'x' }]);
   }
   if (url === BASE.slice(0, -1) + ':commit' && metodo === 'POST') {
@@ -148,7 +151,8 @@ globalThis.fetch = async (url, op) => {
       const cam = wr.update.name.slice(prefixo.length);
       const obj = {};
       Object.keys(wr.update.fields || {}).forEach((k) => { obj[k] = deFs(wr.update.fields[k]); });
-      db.set(cam, obj);
+      /* com mascara, so esses campos mudam (o resto do documento fica) */
+      if (wr.updateMask) { const atual = db.get(cam) || {}; (wr.updateMask.fieldPaths || []).forEach((f) => { atual[f] = obj[f]; }); db.set(cam, atual); } else db.set(cam, obj);
       versoes.set(cam, (versoes.get(cam) || 0) + 1);
       conta.gravacoes += 1;
     }
@@ -1171,11 +1175,13 @@ console.log('Loja nova (so pelo mensageiro)');
   ok(nasceu.donoEmail === 'novo@x.com' && nasceu.verificada !== true && !('email' in nasceu) && nasceu.plano.status === 'teste' && nasceu.plano.planoPago === '' && nasceu.plano.pagoAte === '', 'o que o dono nao decide (dono, selo, plano pago, e-mail do Ligeiro) sai do documento');
   ok(JSON.stringify(vitNova.plano) === JSON.stringify(nasceu.plano) && !('email' in vitNova) && !('donoEmail' in vitNova) && vitNova.verificada !== true, 'a vitrine nasce com o mesmo plano da loja e sem e-mail');
   r = await criarLoja('tok-novo');
-  ok(r.status === 409, 'plano de 1 loja: a segunda e recusada (antes o banco deixava criar sem fim)');
+  ok(r.status === 409 && /já tem a sua loja/.test((await r.json()).erro), '1 loja por conta: a segunda e recusada, com o caminho (outra conta)');
   db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'duas', planoPago: 'duas', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });
-  r = await criarLoja('tok-novo'); j = await r.json();
-  ok(r.status === 200 && j.slug === 'pastel-da-vila-2', 'plano pago de 2 lojas: a segunda nasce, com o endereco seguinte');
-  db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'oito', planoPago: 'oito', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });
+  r = await criarLoja('tok-novo');
+  ok(r.status === 409, 'conta com plano antigo de 2 lojas: tambem 1 loja por conta');
+  /* o endereco seguinte: as lojas de mesmo nome sao de outros donos, e a -3 foi apagada mas deixou o token do Mercado Pago */
+  db.set('lojas/pastel-da-vila', Object.assign(db.get('lojas/pastel-da-vila'), { donoEmail: 'outro@x.com' }));
+  db.set('lojas/pastel-da-vila-2', { slug: 'pastel-da-vila-2', nome: 'Pastel da Vila', donoEmail: 'outro2@x.com' });
   db.set('lojas/pastel-da-vila-3/privado/mercadopago', { token: 'token-da-loja-apagada' });
   r = await criarLoja('tok-novo'); j = await r.json();
   ok(r.status === 200 && j.slug === 'pastel-da-vila-4' && !db.has('lojas/pastel-da-vila-3'), 'endereco com sobra de loja apagada (token do Mercado Pago): pulado, ninguem herda');
@@ -1192,8 +1198,20 @@ console.log('Loja nova (so pelo mensageiro)');
   ok(r.status === 409, 'sem conta: pede para criar a conta antes');
   r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova(), vitrine: {} } });
   ok(r.status === 401, 'sem login: recusado');
+  db.set('lojas/pastel-da-vila-4', Object.assign(db.get('lojas/pastel-da-vila-4'), { donoEmail: 'outro3@x.com' }));
   r = await criarLoja('tok-novo', lojaNova({ categorias: Array.from({ length: 21 }, (_, i) => ({ id: 'c' + i, nome: 'C' + i })) }));
   ok(r.status === 400, 'cardapio acima do limite (21 categorias): recusado');
+  /* corrida: a mesma conta pede 6 lojas ao mesmo tempo, em workers diferentes (a contagem em memoria nao ajuda):
+     todas contam zero lojas, mas so a primeira grava; as outras veem a trava da conta e ouvem "ja tem a sua loja" */
+  db.set('contas/corrida@x.com', { email: 'corrida@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: hoje } });
+  const workers = await Promise.all([1, 2, 3].map(() => workerNovo()));
+  const pedidos = Array.from({ length: 6 }, (_, i) => chamar(workers[i % 3], '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Corrida ' + i }), vitrine: { nome: 'Corrida ' + i, horarios: {} } }, headers: bearer('tok-corrida') }));
+  globalThis.__consultaLenta = true;
+  const respostas = await Promise.all(pedidos);
+  globalThis.__consultaLenta = false;
+  const criadas = [...db.entries()].filter(([k, d]) => /^lojas\/[^/]+$/.test(k) && d.donoEmail === 'corrida@x.com').length;
+  ok(criadas === 1 && respostas.filter((x) => x.status === 200).length === 1 && respostas.filter((x) => x.status === 409).length === 5, '6 pedidos de loja nova ao mesmo tempo da mesma conta: 1 loja criada, 5 recusados (' + criadas + ' criadas)');
+  ok(typeof db.get('contas/corrida@x.com').lojaCriadaEm === 'string' && db.get('contas/corrida@x.com').plano.status === 'teste', 'a marca na conta so mexe no lojaCriadaEm (o plano fica como estava)');
 }
 
 console.log('Banco no limite do dia');

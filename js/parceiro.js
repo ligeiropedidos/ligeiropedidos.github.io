@@ -434,7 +434,20 @@
       el('div', { class: 'kicker', text: 'Preço' }),
       el('h2', { text: 'Um plano só. Tudo incluso.' }),
       el('p', { class: 'muted', text: 'Pedidos ilimitados, cardápio, painel, cozinha, entregador, Pix e cartão automáticos. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.' }),
-      (function () { var t = 'mensal'; var caixa = el('div', { class: 'pilha' }); function d() { UI.limpar(caixa); caixa.appendChild(el('div', { class: 'centro' }, seletorTipo(t, function (n) { t = n; d(); }))); caixa.appendChild(cartoesPlanos(false, null, null, t)); caixa.appendChild(linhaLojaExtra()); } d(); return caixa; })(),
+      (function () {
+        var t = 'mensal';
+        var caixa = el('div', { class: 'pilha planos-venda' });
+        function d() {
+          UI.limpar(caixa);
+          caixa.appendChild(cartoesPlanos(t, function (n) { t = n; d(); }));
+          /* um botao so, grande: vai direto criar a loja com o que foi escolhido (a tela Assinar repetiria os cartoes) */
+          caixa.appendChild(R.capacidadeLojas().fechado
+            ? el('button', { class: 'btn btn-principal btn-gigante btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { abrirContato('lista-espera'); } })
+            : el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/uma/' + t, text: 'Começar grátis' }));
+        }
+        d();
+        return caixa;
+      })(),
       tabelaConcorrentes(pr),
     ]));
 
@@ -534,142 +547,111 @@
     return function () { window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
-  /* "Tem mais de uma loja?": a loja a mais, numa linha so, embaixo do plano */
-  function linhaLojaExtra() {
-    var extra = Number((cfg() || {}).lojaExtra) || 0;
-    if (!extra) return el('span');
-    return el('p', { class: 'plano-extra' }, ['Tem mais de uma loja? ', el('b', { class: 'sem-quebra', text: '+ ' + reais(extra) + ' por mês' }), ' cada loja a mais, na mesma conta e na mesma cobrança.']);
-  }
-
-  /* Cartoes de plano. tipo = 'mensal' | 'anual'. Na pagina de vendas, so o plano de uma loja; em #/assinar viram escolha
-     (1, 2 ou 3 lojas). Plano escondido (oculto) so vale para conta antiga que ja tinha escolhido. */
-  function cartoesPlanos(selecionavel, escolhidoId, aoEscolher, tipo, ehCliente) {
-    /* vagas cheias so mudam a tela de quem ainda nao e cliente (quem ja tem conta so troca de plano) */
+  /* Mensal e anual lado a lado (1 loja por conta), com o que vem incluso uma vez so, embaixo: da para comparar sem tocar
+     em nada. O toque escolhe (borda verde e o check); o botao grande fica fora, embaixo (na pagina de vendas "Começar
+     grátis", em #/assinar o "Mudar para"). conta: o preco dela (fundador fica travado mesmo depois que as vagas acabam) */
+  function cartoesPlanos(escolhido, aoEscolher, conta) {
+    var ehCliente = !!conta;
+    /* vagas cheias so mudam a tela de quem ainda nao e cliente (quem ja tem conta so troca mensal/anual) */
     var fechado = R.capacidadeLojas().fechado && !ehCliente;
     var pr = precos();
-    var t = tipo === 'anual' ? 'anual' : 'mensal';
-    var lista = R.planos().filter(function (p) { return !p.oculto && (selecionavel || p.lojas === 1); });
-    var grade = el('div', { class: 'planos planos-' + lista.length }, lista.map(function (p, i) {
-      var preco = R.precoDoPlano(p.id, t);
-      var normal = t === 'anual' && p.anual > 0 ? p.anual : p.mensal;
-      var deFundador = preco < normal;
-      var cadaUm = preco / (t === 'anual' ? 12 : 1) / p.lojas;
-      var porLoja = Math.ceil(cadaUm / 100) * 100;
-      var sai = cadaUm % 100 === 0 ? 'Sai por ' : 'Sai por menos de '; /* R$ 74 certinho nao e "menos de R$ 74" */
-      /* anual: quanto sai mais barato que pagar 12 meses no mensal (mesmo preco, de fundador ou nao) */
-      var economia = t === 'anual' ? R.precoDoPlano(p.id, 'mensal') * 12 - preco : 0;
-      var destaque = ''; /* nada de "mais escolhido" sem cliente para provar */
-      var linhas = [
-        p.lojas === 1 ? '1 loja na sua conta' : 'Até ' + p.lojas + ' lojas na mesma conta',
-        pr.diasGratis + ' dias grátis, sem cartão',
-        p.lojas === 1 ? 'Pedidos ilimitados, tudo incluso' : (t === 'anual' ? 'Uma cobrança por ano para todas as lojas' : 'Uma cobrança por mês para todas as lojas'),
-        'Cartão, boleto ou Pix',
-        'Suporte 24 horas',
-      ];
-      /* o valor nunca parte no meio ("R$" numa linha e "70,00" na outra) */
-      var sub = p.lojas > 1 ? [sai, el('span', { class: 'sem-quebra', text: reais(porLoja) }), ' por loja no mês']
-        : (t === 'anual' ? [sai, el('span', { class: 'sem-quebra', text: reais(porLoja) }), ' por mês'] : (p.frase || ''));
-      var card = el(selecionavel ? 'button' : 'div', { class: 'plano-card' + (destaque ? ' com-destaque' : '') + (selecionavel && escolhidoId === p.id ? ' escolhido' : ''), type: selecionavel ? 'button' : null }, [
-        destaque ? el('span', { class: 'plano-etiqueta', text: destaque }) : null,
-        el('div', { class: 'plano-titulo', text: p.nome }),
-        el('div', { class: 'plano-preco-caixa' }, el('div', { class: 'plano-preco' }, [dinheiro(preco), el('small', { text: t === 'anual' ? ' /ano' : ' /mês' })])),
-        economia > 0 ? el('div', { class: 'plano-economia' }, [el('b', { text: 'Economize ' + dinheiro(economia) }), ' no ano']) : null,
-        deFundador ? el('div', { class: 'plano-fundador' }, [el('b', {}, [UI.iconeLinha('estrela'), 'Fundador']), ' · acabando as vagas, ' + dinheiro(normal)]) : null,
+    var p = R.planoPorId('uma');
+    var tipos = p.anual > 0 ? ['mensal', 'anual'] : ['mensal'];
+    var deFundador = R.precoDoPlano(p.id, 'mensal', conta) < p.mensal;
+    var jaFundador = !!(conta && conta.plano && conta.plano.fundador === true);
+    var cartoes = tipos.map(function (t) {
+      var preco = R.precoDoPlano(p.id, t, conta);
+      var normal = t === 'anual' ? p.anual : p.mensal;
+      /* anual: quanto sai por mes, com os centavos (R$ 74,17 e nao "R$ 74") */
+      var sub = t === 'anual' ? el('span', { class: 'sem-quebra', text: dinheiro(Math.round(preco / 12)) + '/mês' }) : 'Sem fidelidade';
+      /* preco de fundador: o normal riscado em cima (a faixa de cima explica as vagas); quem ja e fundador: "travado" */
+      var antes = !deFundador ? null
+        : jaFundador ? el('div', { class: 'plano-antes' }, [UI.iconeLinha('estrela'), 'Fundador, travado'])
+        : el('div', { class: 'plano-antes' }, [el('s', { text: reais(normal) }), el('span', { class: 'plano-antes-rotulo' }, [UI.iconeLinha('estrela'), 'Fundador'])]);
+      var card = el('button', { class: 'plano-card' + (escolhido === t ? ' escolhido' : ''), type: 'button', 'aria-pressed': String(escolhido === t) }, [
+        t === 'anual' ? el('span', { class: 'plano-etiqueta', text: '2 meses grátis' }) : null,
+        /* o circulo de escolha nos dois (vazio ou verde com o check): mostra que da para tocar */
+        el('span', { class: 'plano-visto', 'aria-hidden': 'true' }, escolhido === t ? [UI.iconeLinha('check')] : []),
+        el('div', { class: 'plano-titulo', text: p.nome + (t === 'anual' ? ' Anual' : ' Mensal') }),
+        antes,
+        el('div', { class: 'plano-preco-caixa' }, el('div', { class: 'plano-preco' }, [reais(preco), el('small', { text: t === 'anual' ? '/ano' : '/mês' })])),
         el('div', { class: 'plano-sub' }, sub),
-        el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]), el('span', { text: x })]); })),
-        selecionavel ? el('span', { class: 'plano-marca' }, escolhidoId === p.id ? [UI.iconeLinha('check'), 'Escolhido'] : ['Escolher'])
-          : (fechado
-            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Lista de espera', onclick: function () { abrirContato('lista-espera'); } })
-            : el('a', { class: 'btn btn-principal btn-pequeno', href: '#/assinar/' + p.id + '/' + t, text: 'Começar grátis' })),
       ]);
-      if (selecionavel) card.addEventListener('click', function () { aoEscolher(p.id); });
-      /* quantas partes o cartao tem (a etiqueta flutua e nao conta): vira as linhas do subgrid */
-      card.style.setProperty('--partes', [].filter.call(card.children, function (f) { return !f.classList.contains('plano-etiqueta'); }).length);
+      if (aoEscolher) card.addEventListener('click', function () { aoEscolher(t); });
+      /* quantas partes o cartao tem (a etiqueta e o visto flutuam e nao contam): vira as linhas do subgrid, para as partes
+         dos dois cartoes ficarem na mesma altura */
+      card.style.setProperty('--partes', [].filter.call(card.children, function (f) { return !f.classList.contains('plano-etiqueta') && !f.classList.contains('plano-visto'); }).length);
       return card;
-    }));
-    var temFundador = lista.some(function (p) { var n = t === 'anual' && p.anual > 0 ? p.anual : p.mensal; return R.precoDoPlano(p.id, t) < n; });
-    var faixa = fechado ? faixaEspera() : (temFundador ? faixaFundador() : null);
-    if (faixa) grade.insertBefore(faixa, grade.firstChild);
-    return grade;
-  }
-
-  /* Mensal | Anual (paga 10 meses, usa 12: o selo mostra isso antes de tocar) */
-  function seletorTipo(tipo, aoMudar) {
-    var pr = precos();
-    if (!(pr.anual > 0)) return el('span');
-    var caixa = el('div', { class: 'estilo-linha seletor-tipo' });
-    [['mensal', 'Mensal'], ['anual', 'Anual', '2 meses grátis']].forEach(function (op) {
-      caixa.appendChild(el('button', { type: 'button', class: 'aba-painel' + (tipo === op[0] ? ' ativa' : ''), onclick: function () { aoMudar(op[0]); } },
-        [op[1], op[2] ? el('span', { class: 'tipo-selo', text: op[2] }) : null]));
     });
-    return caixa;
+    var linhas = ['1 loja na sua conta', pr.diasGratis + ' dias grátis, sem cartão', 'Pedidos ilimitados, sem comissão', 'Cartão, boleto ou Pix', 'Suporte 24 horas'];
+    /* a faixa das vagas: so para quem ainda pode virar fundador (quem ja e, ja tem o preco) */
+    var faixa = fechado ? faixaEspera() : (deFundador && !jaFundador ? faixaFundador() : null);
+    return el('div', { class: 'pilha planos-caixa' }, [
+      faixa,
+      el('div', { class: 'planos planos-lado' + (cartoes.length === 1 ? ' planos-um' : ''), role: 'group', 'aria-label': 'Mensal ou anual' }, cartoes),
+      el('div', { class: 'plano-incluso' }, [
+        el('b', { class: 'plano-incluso-titulo', text: p.frase || 'Tudo incluso' }),
+        el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]), el('span', { text: x })]); })),
+      ]),
+    ]);
   }
 
   /* ============================================================ #/assinar */
+  /* Um plano so (1 loja por conta): aqui se escolhe mensal ou anual. #/assinar/uma/anual (e o antigo #/assinar/anual)
+     abre no anual; o plano do endereco nao importa mais */
   function assinar(raiz, planoInicial, tipoInicial) {
     var pr = precos();
-    var lista = R.planos().filter(function (p) { return !p.oculto; });
-    var escolhido = R.planos().some(function (p) { return p.id === planoInicial; }) ? planoInicial : lista[0].id;
-    var tipo = tipoInicial === 'anual' && pr.anual > 0 ? 'anual' : 'mensal';
-    /* compatibilidade com links antigos #/assinar/anual */
-    if (planoInicial === 'anual' && pr.anual > 0) { tipo = 'anual'; escolhido = lista[0].id; }
+    var plano = R.planoPorId('uma');
+    var linkTipo = (tipoInicial === 'anual' || tipoInicial === 'mensal' || planoInicial === 'anual');
+    var tipo = (tipoInicial === 'anual' || planoInicial === 'anual') && pr.anual > 0 ? 'anual' : 'mensal';
     var conta = null;
     document.title = 'Assinar o Ligeiro';
     raiz.appendChild(barraTopo());
     var corpo = el('div', { class: 'conteudo vender assinar' });
     raiz.appendChild(corpo);
-    var caixaTipo = el('div', { class: 'centro' });
     var caixaPlanos = el('div');
     var resumo = el('div', { class: 'cartao destaque resumo-assinatura' });
-    var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + escolhido + '/' + tipo, text: 'Criar minha loja' });
+    var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + plano.id + '/' + tipo, text: 'Criar minha loja' });
     /* so a duvida: o "Entrar" ja esta no topo, e quem tem conta e reconhecido no login de "Criar minha loja" */
     var linhaAjuda = el('p', { class: 'muted pequeno centro' }, ['Dúvida? ', el('a', { href: '#/lojas', text: 'Veja como funciona' }), '.']);
+    var porExtenso = function (t) { return t === 'anual' ? 'anual' : 'mensal'; };
 
     function desenhar() {
-      UI.limpar(caixaTipo); caixaTipo.appendChild(seletorTipo(tipo, function (t) { tipo = t; desenhar(); }));
       UI.limpar(caixaPlanos);
-      caixaPlanos.appendChild(cartoesPlanos(true, escolhido, function (id) { escolhido = id; desenhar(); }, tipo, !!conta));
-      var plano = R.planoPorId(escolhido);
-      var valor = R.precoDoPlano(escolhido, tipo);
+      caixaPlanos.appendChild(cartoesPlanos(tipo, function (t) { tipo = t; desenhar(); }, conta));
+      var valor = R.precoDoPlano(plano.id, tipo, conta);
       var fim = new Date(Date.now() + pr.diasGratis * 864e5);
       UI.limpar(resumo);
-      resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Plano' }), el('b', { text: plano.nome + ' · ' + (tipo === 'anual' ? 'anual' : 'mensal') })]));
+      resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Plano' }), el('b', { text: plano.nome + ' · ' + porExtenso(tipo) })]));
       if (conta) {
         var pc = conta.plano || {};
-        var atual = R.planoPorId(pc.planoId);
-        var tipoAtual = pc.tipo === 'anual' ? 'anual' : 'mensal';
-        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: atual.nome + ' · ' + tipoAtual })]));
-        /* o mesmo plano que ja tem: nada para trocar, o caminho e pagar ou ver o vencimento em Minha conta */
-        if (atual.id === plano.id && tipoAtual === tipo) {
+        var tipoAtual = porExtenso(pc.tipo);
+        resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: plano.nome + ' · ' + tipoAtual })]));
+        /* o mesmo que ja tem: nada para trocar, o caminho e pagar ou ver o vencimento em Minha conta */
+        if (tipoAtual === tipo) {
           resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Este já é o seu plano. Para pagar ou ver quando vence, vá em Minha conta.' }));
           continuar.textContent = 'Ir para Minha conta';
           continuar.setAttribute('href', '#/conta');
           continuar.onclick = null;
           return;
         }
-        /* com assinatura no Asaas, a troca passa pelo mensageiro: mais lojas pagam so a diferenca, o resto vale na proxima fatura */
+        /* com assinatura no Asaas, a troca passa pelo mensageiro (muda a mesma assinatura): vale na proxima fatura */
         var C = window.LigeiroCobranca;
         var comAssinatura = !D().modoDemo && !!(C && C.assinaturaAtiva && C.assinaturaAtiva(conta));
-        resumo.appendChild(el('p', { class: 'muted pequeno', text: comAssinatura
-          ? 'Para mais lojas, você paga só a diferença dos dias que faltam, e elas liberam assim que ela cair. Menos lojas, ou trocar entre mensal e anual, vale na próxima fatura.'
-          : 'A troca vale a partir do próximo pagamento: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
-        continuar.textContent = 'Mudar para este plano';
+        resumo.appendChild(el('p', { class: 'muted pequeno', text: 'A troca vale a partir do próximo pagamento: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
+        continuar.textContent = tipo === 'anual' ? 'Mudar para o anual' : 'Mudar para o mensal';
         continuar.setAttribute('href', '#');
         continuar.onclick = function (ev) {
           ev.preventDefault();
-          var st = D().store;
-          st.listarMinhasLojas(conta.email).then(function (minhas) {
-            var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === conta.email; }).length;
-            if (reais > plano.lojas) throw new Error('Você tem ' + reais + ' lojas e esse plano permite ' + plano.lojas + '. Para descer de plano, fale com o Ligeiro e diga qual loja fechar.');
-            /* encerrada, mas a assinatura do Asaas ainda nao saiu (o Cron tira): primeiro reativa */
-            if ((conta.assinaturaAsaas || conta.assinaturaPendente) && (conta.plano || {}).status === 'cancelado') throw new Error('Reative a assinatura em Minha conta antes de trocar de plano.');
-            if (comAssinatura) return C.trocarPlano({ planoId: escolhido, tipo: tipo, nomePlano: plano.nome, aoTerminar: function () { window.LigeiroApp.ir('conta'); } }).then(function () { return 'feito'; });
-            return st.salvarConta(conta.email, { plano: { planoId: escolhido, tipo: tipo } });
-          }).then(function (c) {
-            if (c === 'feito') return;
+          /* encerrada, mas a assinatura do Asaas ainda nao saiu (o Cron tira): primeiro reativa */
+          if ((conta.assinaturaAsaas || conta.assinaturaPendente) && (conta.plano || {}).status === 'cancelado') { UI.avisar('Reative a assinatura em Minha conta antes de trocar.'); return; }
+          if (comAssinatura) {
+            C.trocarPlano({ tipo: tipo, nomePlano: plano.nome + ' ' + porExtenso(tipo), aoTerminar: function () { window.LigeiroApp.ir('conta'); } }).catch(function (e) { UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
+            return;
+          }
+          D().store.salvarConta(conta.email, { plano: { planoId: plano.id, tipo: tipo } }).then(function () {
             UI.soar('sucesso');
-            var pago = c && c.plano && c.plano.status === 'ativo' && c.plano.planoPago && c.plano.planoPago !== escolhido;
-            UI.avisar(pago ? 'Plano trocado para ' + plano.nome + '. Vale assim que o Pix dele for confirmado.' : 'Plano trocado: ' + plano.nome + '.');
+            UI.avisar('Pronto: ' + porExtenso(tipo) + ' a partir do próximo pagamento.');
             window.LigeiroApp.ir('conta');
           }).catch(function (e) { UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
         };
@@ -678,7 +660,7 @@
         /* curto para caber numa linha no celular ("A partir de 02/10/2026 (7 dias)" e "R$ 79,00 por mes" quebravam) */
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'A partir de ' + fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }), el('b', { text: dinheiro(valor) + (tipo === 'anual' ? '/ano' : '/mês') })]));
         resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Sem cartão agora. Quando o período grátis terminar, o Pix aparece na sua conta e no painel. Não gostou? Não paga e pronto.' }));
-        continuar.setAttribute('href', '#/comecar/' + escolhido + '/' + tipo);
+        continuar.setAttribute('href', '#/comecar/' + plano.id + '/' + tipo);
         continuar.textContent = 'Criar minha loja';
         continuar.onclick = null;
         if (R.capacidadeLojas().fechado) {
@@ -691,17 +673,15 @@
     desenhar();
     D().store.usuarioAtual().then(function (u) {
       if (!u || !raiz.isConnected) return;
-      /* o plano da conta so vale quando o link nao escolheu ("Começar grátis" do anual abre no anual, mesmo logado) */
-      var linkEscolheu = lista.some(function (p) { return p.id === planoInicial; }), linkTipo = tipoInicial === 'anual' || tipoInicial === 'mensal' || planoInicial === 'anual';
-      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; if (!linkEscolheu) escolhido = (c.plano && c.plano.planoId) || escolhido; if (!linkTipo) tipo = (c.plano && c.plano.tipo) || tipo; desenhar(); } });
+      /* o tipo da conta so vale quando o link nao escolheu ("Começar grátis" do anual abre no anual, mesmo logado) */
+      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; if (!linkTipo) tipo = porExtenso((c.plano && c.plano.tipo) || tipo); desenhar(); } });
     });
 
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Assinar' }),
-      el('h2', { text: 'Escolha o seu plano' }),
-      el('p', { class: 'muted', text: 'A assinatura é da sua conta e vale para todas as lojas dela. Escolha pela quantidade de lojas e se paga por mês ou por ano, no cartão, boleto ou Pix.' }),
+      el('h2', { text: 'Mensal ou anual' }),
+      el('p', { class: 'muted', text: 'Cada conta tem uma loja. Escolha se paga por mês ou por ano, no cartão, boleto ou Pix. Tem outra loja? Ela ganha a própria conta, com outro e-mail.' }),
     ]));
-    corpo.appendChild(caixaTipo);
     corpo.appendChild(caixaPlanos);
     corpo.appendChild(resumo);
     corpo.appendChild(continuar);
@@ -735,7 +715,7 @@
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Conta do dono' }),
       el('h2', { text: 'Entrar no Ligeiro' }),
-      el('p', { class: 'muted', text: 'Uma conta só, e dentro dela todas as suas lojas: painel, cozinha, entregador, assinatura.' }),
+      el('p', { class: 'muted', text: 'A conta da sua loja: painel, cozinha, entregador e assinatura, tudo num lugar só.' }),
     ]));
     /* So Google: sem senha para decorar nem para esquecer. Dentro do Instagram, o aviso de abrir no navegador vem antes */
     corpo.appendChild(el('div', { class: 'cartao login-caixa' }, [
@@ -789,7 +769,7 @@
     return paginaLegal(raiz, 'Termos de uso', [
       ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos para lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha e entrega, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
       ['Quem pode usar', ['Qualquer estabelecimento que venda comida ou bebida e tenha um responsável maior de 18 anos. Ao criar a loja, você confirma que tem direito de vender o que cadastra e que as informações (nome, endereço, WhatsApp) são suas ou da sua empresa.']],
-      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(normal.mensal) + ' por mês' + (normal.anual > 0 ? ' e o anual ' + dinheiro(normal.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Cada loja a mais na mesma conta custa ' + dinheiro(cfg().lojaExtra || 6900) + ' por mês.' + (vagas > 0 && fund.mensal ? ' Preço de fundador: as ' + ((cfg().fundador || {}).vagas || 5) + ' primeiras lojas que pagarem pagam ' + dinheiro(fund.mensal) + ' por mês' + (fund.anual > 0 ? ' (' + dinheiro(fund.anual) + ' por ano)' : '') + ', travado enquanto não cancelarem. Se as vagas acabarem antes do seu primeiro pagamento, vale o preço normal.' : '') + ' Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago nem para o preço de fundador travado.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
+      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(normal.mensal) + ' por mês' + (normal.anual > 0 ? ' e o anual ' + dinheiro(normal.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Cada conta tem uma loja: outra loja ganha a própria conta, com a própria assinatura.' + (vagas > 0 && fund.mensal ? ' Preço de fundador: as ' + ((cfg().fundador || {}).vagas || 5) + ' primeiras lojas que pagarem pagam ' + dinheiro(fund.mensal) + ' por mês' + (fund.anual > 0 ? ' (' + dinheiro(fund.anual) + ' por ano)' : '') + ', travado enquanto não cancelarem. Se as vagas acabarem antes do seu primeiro pagamento, vale o preço normal.' : '') + ' Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago nem para o preço de fundador travado.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
       ['Aceite', ['Você aceita estes termos ao marcar "Li e aceito" no cadastro da loja ou no painel. O Ligeiro guarda qual versão foi aceita e quando. Quando o texto muda de um jeito que importa, o painel pede um novo aceite antes de continuar.']],
       ['Cancelamento', ['Não tem fidelidade. Para cancelar, basta parar de pagar ou pedir no WhatsApp. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],
       ['O dinheiro do cliente', ['O Pix e o cartão de crédito do cliente vão para a conta Mercado Pago da loja, que confirma o pagamento e libera o pedido. O Ligeiro não recebe, não guarda e não repassa dinheiro de pedido. Valem as regras e taxas do Mercado Pago. Os números do cartão são digitados no formulário do próprio Mercado Pago e não passam pelo Ligeiro nem pela loja.', 'Quando a loja cancela um pedido pago pelo site, o valor volta ao cliente pelo Mercado Pago. Maquininha e dinheiro são cobrados pela própria loja na entrega ou no balcão.']],
