@@ -46,7 +46,7 @@ const ordens = new Map();
 const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br' };
+const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
@@ -614,8 +614,11 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 401, 'pedido "do balcao" sem o login da equipe: 401');
   r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe' } }); j = await r.json();
   ok(r.status === 200 && j.pedido.origem === 'balcao', 'com o login da equipe, o balcao pede sem WhatsApp');
-  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha' } }); j = await r.json();
-  ok(r.status === 200 && j.pedido.origem === 'balcao', 'login da equipe ainda no e-mail velho (antes de o dono salvar a senha de novo): continua pedindo');
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha' } });
+  ok(r.status === 401, 'conta criada por fora com cara de equipe (equipe-<loja>@..., sem a marca do mensageiro): barrada');
+  marcas['equipe-dom-conizza@equipe.ligeiro.app.br'] = JSON.stringify({ equipe: 'dom-conizza' });
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha2' } });
+  ok(r.status === 401, 'login velho da equipe (ligeiro.app.br), mesmo com a marca: barrado ate o dono salvar a senha de novo');
   r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-outra' } });
   ok(r.status === 401 || r.status === 403, 'equipe de outra loja nao pede pelo balcao desta');
   /* o aviso no celular so com endereco de servico de aviso de verdade */
@@ -694,6 +697,26 @@ console.log('Mercado Pago: quando algo da errado');
   ok(r.status >= 500, 'Pix: banco falhou depois do Mercado Pago, o cliente ve o erro');
   r = await criarPix(P3); j = await r.json();
   ok(r.status === 200 && ordens.size === antes + 1 && db.get(caminhoDe(P3)).pixCodigo === j.codigo, 'Pix: na nova tentativa, o mesmo Pix de antes (o Mercado Pago nao cria outro)');
+
+  /* 3b. cobranca aprovada a mais para o mesmo pedido (Pix pago duas vezes, cartao repetido): volta sozinha */
+  const PDup = 'mpduplicada000000001'; novo(PDup, 'pix', 74);
+  orderPaga('ORD990101', PDup); orderPaga('ORD990102', PDup);
+  await aviso('ORD990101', PDup);
+  const devAntesD = devolucoes.length;
+  await aviso('ORD990102', PDup);
+  const pd = db.get(caminhoDe(PDup));
+  const ultimaDev = devolucoes[devolucoes.length - 1] || {};
+  ok(pd.status === 'pago' && pd.pagoPor === 'ORD990101' && devolucoes.length === devAntesD + 1 && ultimaDev.id === 'ORD990102' && ultimaDev.chave === 'duplicada-ORD990102', 'segunda cobranca aprovada do mesmo pedido: devolvida sozinha (a que pagou fica)');
+  ok(pd.cobrancas.indexOf('ORD990101') >= 0 && pd.cobrancas.indexOf('ORD990102') >= 0, 'as duas cobrancas ficam anotadas no pedido');
+  await aviso('ORD990102', PDup);
+  ok(devolucoes.length === devAntesD + 1, 'o Mercado Pago avisando de novo: nao devolve duas vezes');
+  await aviso('ORD990101', PDup);
+  ok(devolucoes.length === devAntesD + 1 && db.get(caminhoDe(PDup)).status === 'pago', 'o aviso repetido da cobranca que pagou: nada muda');
+  const PL = 'mpantigo000000000001'; db.set(caminhoDe(PL), pedidoDe(1, { status: 'pago', pagamentoStatus: 'pago', formaPagamento: 'pix', senha: 75, mp: { id: 'ORD990103' } }));
+  orderPaga('ORD990104', PL);
+  const devAntesL = devolucoes.length;
+  await aviso('ORD990104', PL);
+  ok(devolucoes.length === devAntesL, 'pedido pago antes desta anotacao: a cobranca a mais so e anotada, nunca devolvida sozinha');
 
   /* 4. o aviso de pago chega antes do codigo ser gravado (corrida) */
   const P4 = 'mpfalhapix0000000004'; novo(P4, 'pix', 73);
@@ -1020,7 +1043,7 @@ const vPainel = abrirAviso(avisos.filter((a) => a.url === doPainel.inscricao.end
 const vCozinha = abrirAviso(avisos.filter((a) => a.url === daCozinha.inscricao.endpoint)[0], daCozinha);
 ok(vPainel.titulo === 'Pedido novo! Senha 21' && vPainel.texto === 'R$ 35,00 · Entrega · Toque para abrir' && vPainel.fixo === true, 'o aviso diz a senha, o valor e se e entrega');
 ok(vPainel.url === '#/painel/dom-conizza' && vCozinha.url === '#/cozinha/dom-conizza', 'tocar no aviso abre a tela certa de cada aparelho');
-ok(conta.leituras === 0 && conta.gravacoes === 0, 'pedido novo avisado: 0 leituras e 0 gravacoes no banco');
+ok(conta.leituras === 1 && conta.gravacoes === 0, 'pedido novo avisado: 1 leitura (confere o pedido) e 0 gravacoes no banco');
 zerar(); avisos.length = 0;
 r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, resumo: RESUMO_NOVO } });
 ok(avisos.length === 0, 'o mesmo pedido avisado de novo: a loja apita uma vez so');
@@ -1029,8 +1052,16 @@ db.set('lojas/poucas/pedidos/' + NOVO, { status: 'pago', total: 100, senha: 1, c
 r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'poucas', pedido: NOVO, resumo: RESUMO_NOVO } }); j = await r.json();
 ok(j.enviados === 0 && conta.leituras === 0, 'loja sem aviso ligado: nada a fazer, nenhuma leitura');
 zerar(); avisos.length = 0;
-r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'pixpixpixpix01234567', resumo: { senha: 'xingamento', total: 2000 } } });
-ok(r.status === 400 && avisos.length === 0, 'resumo com texto no lugar da senha: recusado (o aviso so leva numeros)');
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'pixpixpixpix01234567', resumo: { senha: 999999, total: 10000000 } } });
+ok(r.status === 404 && avisos.length === 0, 'pedido que nao existe, com senha e valor inventados: a loja nao apita');
+db.set('lojas/dom-conizza/pedidos/mentiramentira012345', { status: 'pago', total: 1200, senha: 26, tipoEntrega: 'retirada', cliente: { nome: 'Lia' } });
+avisos.length = 0;
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'mentiramentira012345', resumo: { senha: 999999, total: 10000000, tipoEntrega: 'entrega' } } });
+ok(avisos.length === 2 && abrirAviso(avisos.filter((a) => a.url === doPainel.inscricao.endpoint)[0], doPainel).titulo === 'Pedido novo! Senha 26', 'o aviso usa a senha e o valor gravados, nunca os que vieram junto');
+db.set('lojas/dom-conizza/pedidos/naopagonaopago012345', { status: 'aguardando_pagamento', total: 1200, senha: 27, cliente: { nome: 'Rui' } });
+avisos.length = 0;
+r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'naopagonaopago012345', resumo: RESUMO_NOVO } });
+ok(avisos.length === 0, 'pedido que ainda nao foi pago: nao apita');
 r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'inventado', resumo: RESUMO_NOVO } });
 ok(r.status === 400, 'pedido com id inventado: recusado');
 let devagar = false;
@@ -1041,7 +1072,15 @@ zerar();
 r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, cidade: 'juquia', inscricao: doCliente.inscricao } });
 const comAviso = db.get('lojas/dom-conizza/pedidos/' + NOVO);
 ok(r.status === 200 && comAviso.aviso && comAviso.aviso.u === '#/juquia/dom-conizza/pedido/', 'cliente liga o aviso: fica guardado no proprio pedido');
-ok(conta.leituras === 0 && conta.gravacoes === 1, 'cliente ligar o aviso: 0 leituras e 1 gravacao no banco');
+ok(conta.leituras === 1 && conta.gravacoes === 1, 'cliente ligar o aviso: 1 leitura e 1 gravacao no banco');
+const ladrao = aparelho('https://fcm.googleapis.com/fcm/send/ladrao-do-aviso');
+w = await workerNovo();
+r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, cidade: 'juquia', inscricao: ladrao.inscricao } });
+ok(r.status === 409 && db.get('lojas/dom-conizza/pedidos/' + NOVO).aviso.e === doCliente.inscricao.endpoint, 'outro celular com o link do pedido nao desvia os avisos do cliente');
+r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, remover: true } });
+ok(r.status === 409 && db.get('lojas/dom-conizza/pedidos/' + NOVO).aviso, 'nem desliga os avisos do cliente');
+r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, cidade: 'juquia', inscricao: doCliente.inscricao } });
+ok(r.status === 200, 'o proprio celular do cliente liga de novo sem problema');
 zerar();
 r = await chamar(w, '/inscrever', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'naoexistenaoexiste12', cidade: 'juquia', inscricao: doCliente.inscricao } });
 ok(r.status === 404 && !db.has('lojas/dom-conizza/pedidos/naoexistenaoexiste12'), 'pedido que nao existe: recusado, sem criar pedido fantasma');
@@ -1089,6 +1128,7 @@ await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', pap
 const entradaDono = JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).filter((a) => a.e === doDono.inscricao.endpoint);
 ok(entradaDono.length === 1 && entradaDono[0].p.join(',') === 'painel,entregas', 'o mesmo celular fica com os dois papeis (painel e entregas), numa entrada so');
 avisos.length = 0;
+db.set('lojas/dom-conizza/pedidos/donoentregadono01234', { status: 'pago', total: 2000, senha: 30, tipoEntrega: 'entrega', cliente: { nome: 'Nina' } });
 await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'donoentregadono01234', resumo: { senha: 30, total: 2000, tipoEntrega: 'entrega' } } });
 const doDonoNovo = avisos.filter((a) => a.url === doDono.inscricao.endpoint);
 ok(doDonoNovo.length === 1 && abrirAviso(doDonoNovo[0], doDono).url === '#/painel/dom-conizza', 'pedido novo chega nele como painel');
@@ -1117,6 +1157,44 @@ db.set('lojas/dom-conizza/pedidos/outronovooutronovo01', { status: 'pago', total
 r = await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'outronovooutronovo01', resumo: { senha: 25, total: 1500 } } });
 ok(JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).every((a) => a.e !== daCozinha.inscricao.endpoint), 'aparelho que saiu (410) e tirado da lista');
 delete codigoAviso[daCozinha.inscricao.endpoint];
+
+console.log('Loja nova (so pelo mensageiro)');
+{
+  w = await workerNovo();
+  const hoje = new Date().toISOString();
+  db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: hoje } });
+  const lojaNova = (extra) => Object.assign({ nome: 'Pastel da Vila', cidade: 'Juquiá', tipo: 'Lanchonete', categorias: [{ id: 'c1', nome: 'Pastéis' }], produtos: [], horarios: { seg: ['18:00-23:00'] } }, extra || {});
+  const criarLoja = (tok, loja, vit) => chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: loja || lojaNova(), vitrine: vit || { nome: 'Pastel da Vila', horarios: {} } }, headers: bearer(tok) });
+  r = await criarLoja('tok-novo', lojaNova({ verificada: true, email: 'ligeiro.pedidos@gmail.com', ativa: true, plano: { status: 'ativo', pagoAte: '2099-01-01T00:00:00.000Z', planoPago: 'oito' }, donoEmail: 'outro@x.com' }), { nome: 'x', verificada: true, email: 'y', donoEmail: 'z' }); j = await r.json();
+  const nasceu = db.get('lojas/pastel-da-vila'), vitNova = db.get('vitrine/pastel-da-vila');
+  ok(r.status === 200 && j.slug === 'pastel-da-vila' && nasceu && vitNova, 'conta nova cria a primeira loja pelo mensageiro (loja e vitrine juntas)');
+  ok(nasceu.donoEmail === 'novo@x.com' && nasceu.verificada !== true && !('email' in nasceu) && nasceu.plano.status === 'teste' && nasceu.plano.planoPago === '' && nasceu.plano.pagoAte === '', 'o que o dono nao decide (dono, selo, plano pago, e-mail do Ligeiro) sai do documento');
+  ok(JSON.stringify(vitNova.plano) === JSON.stringify(nasceu.plano) && !('email' in vitNova) && !('donoEmail' in vitNova) && vitNova.verificada !== true, 'a vitrine nasce com o mesmo plano da loja e sem e-mail');
+  r = await criarLoja('tok-novo');
+  ok(r.status === 409, 'plano de 1 loja: a segunda e recusada (antes o banco deixava criar sem fim)');
+  db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'duas', planoPago: 'duas', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });
+  r = await criarLoja('tok-novo'); j = await r.json();
+  ok(r.status === 200 && j.slug === 'pastel-da-vila-2', 'plano pago de 2 lojas: a segunda nasce, com o endereco seguinte');
+  db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'oito', planoPago: 'oito', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });
+  db.set('lojas/pastel-da-vila-3/privado/mercadopago', { token: 'token-da-loja-apagada' });
+  r = await criarLoja('tok-novo'); j = await r.json();
+  ok(r.status === 200 && j.slug === 'pastel-da-vila-4' && !db.has('lojas/pastel-da-vila-3'), 'endereco com sobra de loja apagada (token do Mercado Pago): pulado, ninguem herda');
+  db.set('publico/fundadores', { capacidade: { fechado: true } });
+  r = await criarLoja('tok-novo');
+  ok(r.status === 409 && (await r.json()).vagas === false, 'vagas fechadas: ninguem cria loja');
+  db.set('publico/fundadores', { capacidade: { max: 3 } });
+  r = await criarLoja('tok-novo');
+  ok(r.status === 409, 'teto de lojas do Ligeiro batido (conta pelas lojas no ar da vitrine): recusado');
+  db.delete('publico/fundadores');
+  r = await criarLoja('tok-equipe');
+  ok(r.status === 403, 'login da equipe nao cria loja');
+  r = await criarLoja('tok-semconta');
+  ok(r.status === 409, 'sem conta: pede para criar a conta antes');
+  r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova(), vitrine: {} } });
+  ok(r.status === 401, 'sem login: recusado');
+  r = await criarLoja('tok-novo', lojaNova({ categorias: Array.from({ length: 21 }, (_, i) => ({ id: 'c' + i, nome: 'C' + i })) }));
+  ok(r.status === 400, 'cardapio acima do limite (21 categorias): recusado');
+}
 
 console.log('Banco no limite do dia');
 w = await workerNovo();

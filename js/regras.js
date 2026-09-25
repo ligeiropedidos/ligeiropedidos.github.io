@@ -83,6 +83,22 @@
       .slice(0, 40);
   }
 
+  /* Endereco da cidade (#/juquia): o nome, e com o estado junto quando o nome se repete no Brasil (240 nomes do IBGE,
+     como Rio Branco AC e MT) ou bate com uma tela do site ("Painel", em SC, abria o painel do dono). Sem isso, duas
+     cidades dividiam a mesma lista de lojas */
+  var CIDADES_REPETIDAS = null;
+  var ROTAS_DO_SITE = ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro', 'pedido'];
+  function slugDaCidade(nome, uf) {
+    var s = slug(nome || '');
+    var u = String(uf || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 2);
+    if (!CIDADES_REPETIDAS) {
+      CIDADES_REPETIDAS = {};
+      'agua-boa|agua-branca|alagoinha|alto-alegre|alto-paraiso|alvorada|amparo|anchieta|antonio-carlos|aparecida|aracoiaba|araguana|arapua|araruna|areia-branca|atalaia|aurora|bandeirantes|barauna|barra-bonita|barra-de-sao-miguel|barracao|barro-alto|batalha|belem|belmonte|boa-esperanca|boa-vista|bocaina|bom-jardim|bom-jesus|bom-jesus-do-tocantins|bom-sucesso|bonfim|bonito|borborema|brejinho|buritis|cachoeira-dourada|cachoeirinha|cafelandia|caicara|campestre|campo-alegre|campo-grande|canapolis|canarana|candeias|cantagalo|capanema|capela|caracol|caraubas|cascavel|catanduvas|cedral|cedro|centenario|colinas|colorado|condado|conde|cruzeiro-do-sul|davinopolis|douradina|eldorado|entre-rios|esperantina|estrela-do-norte|fatima|feira-nova|filadelfia|floresta|formoso|general-carneiro|goiana|guaira|guaraci|guaraciaba|hidrolandia|humaita|iguatu|inaja|independencia|indianopolis|ipira|ipora|ipueiras|iracema|irati|itabaiana|itaja|itambe|itapeva|itapiranga|itaporanga|jaborandi|jacutinga|jandaira|japura|jardim|jardinopolis|jatoba|jundia|jurema|jussara|lagoa-grande|lagoa-santa|lajeado|laranjal|marau|maravilha|massaranduba|mesquita|milagres|mirador|monte-alegre|monte-castelo|morrinhos|mulungu|mundo-novo|natividade|nazare|nova-aurora|nova-fatima|nova-olimpia|nova-olinda|nova-santa-rita|nova-uniao|nova-veneza|novo-horizonte|novo-santo-antonio|ouro-branco|ouro-verde|pacatuba|palestina|palmas|palmeira|palmital|paraiso|parana|parnamirim|passagem|pau-d-arco|paulista|pedra-branca|pedra-preta|petrolandia|pilar|piloes|pinhalzinho|pinhao|piranhas|pitangueiras|planalto|praia-grande|prata|presidente-bernardes|presidente-dutra|presidente-juscelino|presidente-kennedy|presidente-medici|primavera|queimadas|quixaba|redencao|riachao|riachinho|riacho-de-santana|riachuelo|rio-branco|rio-claro|rio-negro|ruy-barbosa|salgadinho|saltinho|santa-barbara|santa-cecilia|santa-cruz|santa-filomena|santa-helena|santa-ines|santa-isabel|santa-lucia|santa-luzia|santa-maria|santa-rita|santa-rosa-de-lima|santa-terezinha|santana|santo-andre|sao-bento|sao-carlos|sao-domingos|sao-francisco|sao-francisco-de-paula|sao-gabriel|sao-goncalo-do-amarante|sao-joao|sao-joao-batista|sao-joao-do-paraiso|sao-jose-do-divino|sao-martinho|sao-pedro|sao-sebastiao|sao-simao|sao-tome|sao-vicente|sao-vicente-ferrer|sapucaia|sarandi|serrinha|sertaozinho|sitio-novo|sobradinho|soledade|tabatinga|tangara|tapejara|taperoa|tapira|tapirai|tavares|teodoro-sampaio|terra-nova|terra-roxa|toledo|trindade|triunfo|turmalina|turvo|valenca|vargem|vargem-bonita|varzea|varzea-grande|vera-cruz|viana|vicosa|wenceslau-braz'.split('|').forEach(function (c) { CIDADES_REPETIDAS['c:' + c] = true; });
+    }
+    if (u.length === 2 && (CIDADES_REPETIDAS['c:' + s] || ROTAS_DO_SITE.indexOf(s) >= 0)) return s + '-' + u;
+    return s;
+  }
+
   function validarTelefone(bruto) {
     var digitos = String(bruto || '').replace(/\D/g, '');
     var semPais = digitos.indexOf('55') === 0 && digitos.length > 11 ? digitos.slice(2) : digitos;
@@ -521,7 +537,7 @@
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
     };
-    var formaPagamento = formas.hasOwnProperty(dados.formaPagamento) ? dados.formaPagamento : 'pix';
+    var formaPagamento = typeof dados.formaPagamento === 'string' && formas.hasOwnProperty(dados.formaPagamento) ? dados.formaPagamento : 'pix';
     if (!formas[formaPagamento]) {
       var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
       if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
@@ -1324,6 +1340,7 @@
     semAcento: semAcento,
     mencionaCidade: mencionaCidade,
     slug: slug,
+    slugDaCidade: slugDaCidade,
     validarTelefone: validarTelefone,
     formatarTelefone: formatarTelefone,
     lojaAberta: lojaAberta,

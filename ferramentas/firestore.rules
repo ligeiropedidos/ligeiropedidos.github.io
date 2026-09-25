@@ -30,7 +30,10 @@ service cloud.firestore {
        quando o dono define a senha da equipe. Quem se cadastra sozinho nao consegue essa marca.
        Publique o mensageiro novo ANTES destas regras; depois, cada dono salva a senha da equipe de novo
        (6 numeros), fora do horario de movimento. Ate salvar, a equipe daquela loja fica sem ver os pedidos. */
-    function isEquipe(loja) { return logado() && request.auth.token.get('equipe', '') == loja; }
+    /* e o e-mail do nosso dominio: o login velho (equipe.ligeiro.app.br, dominio que nao e nosso) poderia ser tomado pelo
+       "esqueci a senha". O dono salva a senha da equipe de novo e o mensageiro passa o login para o e-mail novo */
+    function isEquipe(loja) { return logado() && request.auth.token.get('equipe', '') == loja
+        && request.auth.token.get('email', '') == 'equipe-' + loja + '@equipe.ligeiropedidos.com.br'; }
     /* login da senha da equipe (qualquer loja): nao cria conta nem loja */
     function ehLoginDeEquipe() { return logado() && request.auth.token.get('equipe', '') != ''; }
     function planoDe(d) { return d.get('plano', {}); }
@@ -67,27 +70,8 @@ service cloud.firestore {
           && request.resource.data.get('verificada', false) == resource.data.get('verificada', false)
           && request.resource.data.donoEmail == resource.data.donoEmail;
     }
-    /* endereco da loja: letras minusculas, numeros e hifen; nunca um nome que o site ou o JavaScript usam por dentro
-       ("constructor" virava "loja oficial" no site) */
-    function slugValido(loja) {
-      return loja.matches('^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$')
-          && !(loja in ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro']);
-    }
+    /* endereco valido, vagas do Ligeiro e plano copiado da conta: conferidos no mensageiro (/loja-nova), onde a loja nasce */
     function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
-    /* vagas de loja fechadas (limite do banco gratis, fechado pela Central ou na mao): ninguem cria loja nova */
-    function vagasFechadas() {
-      return exists(/databases/$(db)/documents/publico/fundadores)
-          && get(/databases/$(db)/documents/publico/fundadores).data.get('capacidade', {}).get('fechado', false) == true;
-    }
-    /* o plano da loja e copia fiel do plano da conta do dono (status, pagoAte, planoPago, desde) */
-    function planoCopiaDaConta(p) {
-      return exists(/databases/$(db)/documents/contas/$(request.auth.token.email))
-          && pagoIgual(p, planoDe(minhaConta()))
-          && p.get('status', 'teste') == planoDe(minhaConta()).get('status', 'teste')
-          && p.get('planoPago', '') == planoDe(minhaConta()).get('planoPago', '')
-          && p.get('fundador', false) == planoDe(minhaConta()).get('fundador', false)
-          && p.get('desde', '') == planoDe(minhaConta()).get('desde', '');
-    }
 
     /* conta do dono: a assinatura e daqui. Dono le, escolhe plano, avisa pagamento, encerra e reativa; pagoAte, planoPago, desde e 'ativo' so o admin */
     match /contas/{email} {
@@ -182,7 +166,8 @@ service cloud.firestore {
     function cardapioNoLimite() {
       return (!('categorias' in request.resource.data) || request.resource.data.categorias.size() <= 20)
         && (!('produtos' in request.resource.data) || request.resource.data.produtos.size() <= 300)
-        && (!('grupos' in request.resource.data) || !(request.resource.data.grupos is map) || request.resource.data.grupos.size() <= 30);
+        /* grupos so como mapa (em lista, o limite de 30 era pulado) */
+        && (!('grupos' in request.resource.data) || (request.resource.data.grupos is map && request.resource.data.grupos.size() <= 30));
     }
 
     match /lojas/{loja} {
@@ -192,18 +177,10 @@ service cloud.firestore {
          nao deixa uma lista de cupons voltar para ca (qualquer um le este documento) */
       allow get: if true;
       allow list: if isAdmin() || (conferido() && resource.data.donoEmail == request.auth.token.email);
-      /* o dono cria a propria loja em #/comecar, sempre depois de ter conta; o plano nasce copiado da conta */
-      allow create: if isAdmin()
-        || (conferido() && request.resource.data.donoEmail == request.auth.token.email
-            && !ehLoginDeEquipe()
-            && !vagasFechadas()
-            && slugValido(loja)
-            && request.resource.data.get('slug', loja) == loja
-            && request.resource.data.get('verificada', false) == false
-            /* campo email na loja daria cortesia do Ligeiro: so o admin grava */
-            && !request.resource.data.keys().hasAny(['email'])
-            && cardapioNoLimite()
-            && planoCopiaDaConta(planoDe(request.resource.data)));
+      /* loja nova nasce no mensageiro (/loja-nova, conta de servico): ele confere o limite do plano da conta, as vagas do
+         Ligeiro e o endereco livre (sem sobra de loja apagada). Direto do site, qualquer conta conferida criava lojas sem
+         fim (so o admin, pela Central) */
+      allow create: if isAdmin();
       allow update: if isAdmin() || (conferido() && request.auth.token.email == resource.data.donoEmail && planoIntacto()
         /* o slug e o endereco: uma loja nao se passa por outra (trocar o slug abria a pagina com o tema e o selo da outra) */
         && request.resource.data.get('slug', loja) == loja
@@ -248,13 +225,19 @@ service cloud.firestore {
         /* a equipe vem primeiro: ela se reconhece pela marca do login, sem ler a loja (isDonoDaLoja le a loja inteira,
            e a leitura conta no plano gratis a cada toque da cozinha e do entregador) */
         /* a loja e a equipe dela listam a fila; a equipe sempre com limite (nunca o historico inteiro de clientes) */
-        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300);
+        /* a equipe (senha de 6 numeros, compartilhada) ve so a fila e os pedidos dos ultimos 2 dias: paginando, antes ela
+           chegava ao historico inteiro de clientes (nome, telefone, endereco) */
+        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300
+          && (resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto']
+              || resource.data.criadoEm >= dataISO(request.time - duration.value(2, 'd'))));
         allow update: if
           /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
           (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm'])
               && request.resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto', 'finalizado', 'cancelado']
               /* pedido cancelado ou concluido nao volta (nem um cancelado e devolvido vira "pago" de novo) */
-              && (!(resource.data.status in ['cancelado', 'finalizado']) || request.resource.data.status == resource.data.status))
+              && (!(resource.data.status in ['cancelado', 'finalizado']) || request.resource.data.status == resource.data.status)
+              /* cancelado e devolvido nao volta a "pago" pela mao da equipe (reaparecia em "Falta devolver") */
+              && (resource.data.status != 'cancelado' || request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', '')))
           || isDonoDaLoja(loja) || isAdmin()
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])

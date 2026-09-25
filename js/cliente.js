@@ -526,7 +526,9 @@
         raiz.appendChild(UI.erroCarregar('Não deu para abrir a loja agora.'));
         return;
       }
-      if (!dados || dados.ativa === false) {
+      /* link de acompanhar um pedido: abre o pedido mesmo com a loja desativada ou parada (o cliente que esta esperando a
+         entrega nao pode cair em "fora do ar" com o pedido dele andando) */
+      if (!dados || (dados.ativa === false && !o.pedidoId)) {
         raiz.innerHTML = '';
         raiz.appendChild(el('div', { class: 'vazio', style: { paddingTop: '80px' } }, [
           el('div', { class: 'icone' }, [UI.iconeLinha('busca')]),
@@ -535,7 +537,7 @@
         ]));
         return;
       }
-      if (R.lojaBloqueada(dados)) {
+      if (R.lojaBloqueada(dados) && !o.pedidoId) {
         tirarSplash();
         raiz.innerHTML = '';
         /* loja parada (teste acabou ou parou de pagar): a mesma tela de vidro da pausa, em vermelho. O cliente nao fica
@@ -585,7 +587,7 @@
       if (balcao) return;
       try {
         if (estado.carrinho.length === 0 && !estado.cupom.codigo) sessionStorage.removeItem(CHAVE_RASCUNHO);
-        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, cupom: estado.cupom }));
+        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, cupom: estado.cupom, cuponsExtra: estado.cuponsExtra || [] }));
       } catch (_) { /* sem espaco: segue sem rascunho */ }
     }
     function restaurarRascunho() {
@@ -596,6 +598,10 @@
         estado.carrinho = r.carrinho;
         estado.tipoEntrega = r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
         estado.cupom = r.cupom || { codigo: '', percentual: 0, desconto: 0 };
+        /* a regra do cupom que o mensageiro confirmou volta junto (a copia publica da loja nao traz a lista de cupons:
+           sem ela, o cupom valido virava "Esse codigo nao existe" depois de recarregar). O desconto de verdade quem
+           decide e o mensageiro, ao criar o pedido */
+        if (Array.isArray(r.cuponsExtra) && r.cuponsExtra.length) { estado.cuponsExtra = r.cuponsExtra.slice(0, 5); estado.loja = juntarCupons(estado.loja); }
       } catch (_) { /* rascunho ilegivel: ignora */ }
     }
     function limparRascunho() { try { sessionStorage.removeItem(CHAVE_RASCUNHO); } catch (_) { /* ignora */ } }
@@ -642,9 +648,11 @@
       if (primeira && !estado.oficial) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
       UI.lembrarCor(dados.slug, dados.cor || '#84CC16');
       montarInicio();
+      /* o carrinho guardado volta ANTES de montar o fluxo: se a loja desligou a entrega enquanto a pessoa estava em outro
+         app, o fluxo corrige para a retirada (antes a entrega voltava sem endereco e sem como trocar) */
+      if (primeira) restaurarRascunho();
       configurarFluxo();
       if (primeira) {
-        restaurarRascunho();
         montarAbas();
         montarGrade(dados.categorias[0] && dados.categorias[0].id);
       } else {
@@ -2430,8 +2438,15 @@
         estado.pedido = p;
         if (p.status === R.STATUS.AGUARDANDO && meu) mostrarPagar(p);
         else mostrarSenha(p);
-      }).catch(function () { if (vivo) UI.avisar('Não deu para abrir o pedido agora. Confira a internet e tente de novo.'); });
+      }).catch(function (e) {
+        if (!vivo) return;
+        /* passou dos 3 dias do link: o banco nao mostra mais o pedido (nome, telefone, endereco) para quem so tem o link */
+        var semAcesso = e && (e.code === 'permission-denied' || /permission/i.test(String(e.message || '')));
+        UI.avisar(semAcesso ? PEDIDO_SO_COM_A_LOJA : 'Não deu para abrir o pedido agora. Confira a internet e tente de novo.');
+      });
     }
+    var PEDIDO_SO_COM_A_LOJA = 'Os detalhes desse pedido agora ficam só com a loja (o link vale por 3 dias). Para saber dele, fale com a loja.';
+    function pedidoVelho(p) { var t = new Date(p.criadoEm || 0).getTime(); return !!t && Date.now() - t > 3 * 864e5; }
 
     /* pedido "andando" de mais de 12 horas atras ja acabou (a aba fechou antes do ultimo status) */
     function andandoAgora(p) {
@@ -2471,12 +2486,13 @@
         var andando = R.EM_ANDAMENTO.indexOf(p.status) >= 0;
         var sabido = !andando || andandoAgora(p);
         var cancelado = p.status === R.STATUS.CANCELADO;
-        lista.appendChild(el('button', { class: 'escolha-grande', onclick: function () { abrirPedidoSalvo(p.id); } }, [
+        var velho = pedidoVelho(p);
+        lista.appendChild(el('button', { class: 'escolha-grande', onclick: function () { if (velho) UI.avisar(PEDIDO_SO_COM_A_LOJA); else abrirPedidoSalvo(p.id); } }, [
           el('span', { class: 'icone' }, [UI.iconeLinha(!sabido ? 'recibo' : cancelado ? 'fechar' : andando ? 'relogio' : 'feito')]),
           el('span', {}, [
             el('span', { class: 'rotulo', text: 'Senha ' + p.senha }),
             el('span', { class: 'detalhe', text: UI.dataCurta(p.criadoEm) + ' ' + UI.horaCurta(p.criadoEm) + ' · ' + dinheiro(p.total) }),
-            el('span', { class: 'meu-status' + (!sabido ? '' : cancelado ? ' cancelado' : andando ? ' andando' : ''), text: sabido ? R.rotuloStatusCliente(p) : 'Toque para ver como ficou' }),
+            el('span', { class: 'meu-status' + (!sabido || velho ? '' : cancelado ? ' cancelado' : andando ? ' andando' : ''), text: velho ? 'Detalhes com a loja' : (sabido ? R.rotuloStatusCliente(p) : 'Toque para ver como ficou') }),
           ]),
           el('span', { class: 'seta', text: '→' }),
         ]));

@@ -16,6 +16,8 @@
  *   POST /dono     { loja } + Authorization: Bearer <idToken do dono> -> grava a marca "lojas" no login do dono (uma vez
  *                               por loja): as regras do banco reconhecem o dono por ela, sem ler a loja a cada pedido.
  *                  { email }  + login do admin -> refaz a marca desse e-mail pelas lojas dele de verdade (troca de dono).
+ *   POST /loja-nova { loja, vitrine } + Authorization: Bearer <idToken do dono> -> CRIA a loja (o banco nao aceita loja
+ *                               de fora): confere a conta, o limite do plano, as vagas do Ligeiro e o endereco livre.
  *
  * 2) PIX AUTOMATICO pela conta Mercado Pago de cada loja
  *   POST /criar    { loja, pedido }  -> cria o Pix no Mercado Pago com o token da loja e grava o "copia e cola" no pedido.
@@ -70,8 +72,8 @@ const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.co
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 /* e-mails de mentira (login da equipe e pagador do Mercado Pago) ficam no nosso dominio: num dominio de outro, quem o
-   registrasse receberia o "esqueci a senha" da equipe e os recibos. O ligeiro.app.br (que nao e nosso) so vale na troca:
-   o login e renomeado quando o dono salva a senha da equipe de novo */
+   registrasse receberia o "esqueci a senha" da equipe e os recibos. O login no ligeiro.app.br (que nao e nosso) nao entra
+   em nada: so e renomeado para o dominio novo quando o dono salva a senha da equipe de novo */
 const EMAIL_EQUIPE = /^equipe-([a-z0-9-]+)@equipe\.(ligeiropedidos\.com\.br|ligeiro\.app\.br)$/i;
 const emailEquipe = (slug) => 'equipe-' + slug + '@equipe.ligeiropedidos.com.br';
 const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + '.ligeiropedidos.com.br';
@@ -188,6 +190,22 @@ const REGRAS = (function () {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 40);
+  }
+
+  /* Endereco da cidade (#/juquia): o nome, e com o estado junto quando o nome se repete no Brasil (240 nomes do IBGE,
+     como Rio Branco AC e MT) ou bate com uma tela do site ("Painel", em SC, abria o painel do dono). Sem isso, duas
+     cidades dividiam a mesma lista de lojas */
+  var CIDADES_REPETIDAS = null;
+  var ROTAS_DO_SITE = ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro', 'pedido'];
+  function slugDaCidade(nome, uf) {
+    var s = slug(nome || '');
+    var u = String(uf || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 2);
+    if (!CIDADES_REPETIDAS) {
+      CIDADES_REPETIDAS = {};
+      'agua-boa|agua-branca|alagoinha|alto-alegre|alto-paraiso|alvorada|amparo|anchieta|antonio-carlos|aparecida|aracoiaba|araguana|arapua|araruna|areia-branca|atalaia|aurora|bandeirantes|barauna|barra-bonita|barra-de-sao-miguel|barracao|barro-alto|batalha|belem|belmonte|boa-esperanca|boa-vista|bocaina|bom-jardim|bom-jesus|bom-jesus-do-tocantins|bom-sucesso|bonfim|bonito|borborema|brejinho|buritis|cachoeira-dourada|cachoeirinha|cafelandia|caicara|campestre|campo-alegre|campo-grande|canapolis|canarana|candeias|cantagalo|capanema|capela|caracol|caraubas|cascavel|catanduvas|cedral|cedro|centenario|colinas|colorado|condado|conde|cruzeiro-do-sul|davinopolis|douradina|eldorado|entre-rios|esperantina|estrela-do-norte|fatima|feira-nova|filadelfia|floresta|formoso|general-carneiro|goiana|guaira|guaraci|guaraciaba|hidrolandia|humaita|iguatu|inaja|independencia|indianopolis|ipira|ipora|ipueiras|iracema|irati|itabaiana|itaja|itambe|itapeva|itapiranga|itaporanga|jaborandi|jacutinga|jandaira|japura|jardim|jardinopolis|jatoba|jundia|jurema|jussara|lagoa-grande|lagoa-santa|lajeado|laranjal|marau|maravilha|massaranduba|mesquita|milagres|mirador|monte-alegre|monte-castelo|morrinhos|mulungu|mundo-novo|natividade|nazare|nova-aurora|nova-fatima|nova-olimpia|nova-olinda|nova-santa-rita|nova-uniao|nova-veneza|novo-horizonte|novo-santo-antonio|ouro-branco|ouro-verde|pacatuba|palestina|palmas|palmeira|palmital|paraiso|parana|parnamirim|passagem|pau-d-arco|paulista|pedra-branca|pedra-preta|petrolandia|pilar|piloes|pinhalzinho|pinhao|piranhas|pitangueiras|planalto|praia-grande|prata|presidente-bernardes|presidente-dutra|presidente-juscelino|presidente-kennedy|presidente-medici|primavera|queimadas|quixaba|redencao|riachao|riachinho|riacho-de-santana|riachuelo|rio-branco|rio-claro|rio-negro|ruy-barbosa|salgadinho|saltinho|santa-barbara|santa-cecilia|santa-cruz|santa-filomena|santa-helena|santa-ines|santa-isabel|santa-lucia|santa-luzia|santa-maria|santa-rita|santa-rosa-de-lima|santa-terezinha|santana|santo-andre|sao-bento|sao-carlos|sao-domingos|sao-francisco|sao-francisco-de-paula|sao-gabriel|sao-goncalo-do-amarante|sao-joao|sao-joao-batista|sao-joao-do-paraiso|sao-jose-do-divino|sao-martinho|sao-pedro|sao-sebastiao|sao-simao|sao-tome|sao-vicente|sao-vicente-ferrer|sapucaia|sarandi|serrinha|sertaozinho|sitio-novo|sobradinho|soledade|tabatinga|tangara|tapejara|taperoa|tapira|tapirai|tavares|teodoro-sampaio|terra-nova|terra-roxa|toledo|trindade|triunfo|turmalina|turvo|valenca|vargem|vargem-bonita|varzea|varzea-grande|vera-cruz|viana|vicosa|wenceslau-braz'.split('|').forEach(function (c) { CIDADES_REPETIDAS['c:' + c] = true; });
+    }
+    if (u.length === 2 && (CIDADES_REPETIDAS['c:' + s] || ROTAS_DO_SITE.indexOf(s) >= 0)) return s + '-' + u;
+    return s;
   }
 
   function validarTelefone(bruto) {
@@ -628,7 +646,7 @@ const REGRAS = (function () {
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
     };
-    var formaPagamento = formas.hasOwnProperty(dados.formaPagamento) ? dados.formaPagamento : 'pix';
+    var formaPagamento = typeof dados.formaPagamento === 'string' && formas.hasOwnProperty(dados.formaPagamento) ? dados.formaPagamento : 'pix';
     if (!formas[formaPagamento]) {
       var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
       if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
@@ -1431,6 +1449,7 @@ const REGRAS = (function () {
     semAcento: semAcento,
     mencionaCidade: mencionaCidade,
     slug: slug,
+    slugDaCidade: slugDaCidade,
     validarTelefone: validarTelefone,
     formatarTelefone: formatarTelefone,
     lojaAberta: lojaAberta,
@@ -1562,9 +1581,11 @@ export default {
         if (!id || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return json({ ok: true, ignorado: true });
         if (slug && !SLUG.test(slug)) return json({ ok: true, ignorado: 'loja' });
         /* com o segredo do webhook (MP_WEBHOOK_SECRET) guardado, so aceita aviso assinado pelo Mercado Pago */
-        if (env.MP_WEBHOOK_SECRET && !(await assinaturaMpConfere(request, env.MP_WEBHOOK_SECRET, url.searchParams.get('data.id') || id))) {
-          /* aviso do app da propria loja (?loja=): a chave e a dela. Nada muda sem o Mercado Pago confirmar com o token da loja */
-          if (!slug) return json({ ok: false, erro: 'assinatura' }, 401);
+        const assinado = !!env.MP_WEBHOOK_SECRET && (await assinaturaMpConfere(request, env.MP_WEBHOOK_SECRET, url.searchParams.get('data.id') || id));
+        if (!assinado) {
+          /* aviso do app da propria loja (?loja=): a chave e a dela. Nada muda sem o Mercado Pago confirmar com o token da loja.
+             Sem assinatura, sempre com limite por endereco (cada aviso consulta o Mercado Pago e le o banco) */
+          if (env.MP_WEBHOOK_SECRET && !slug) return json({ ok: false, erro: 'assinatura' }, 401);
           if (demais('aviso:' + (request.headers.get('CF-Connecting-IP') || 'sem-ip'), 120, 60 * 1000)) return json({ ok: false, erro: 'devagar' }, 429);
         }
         let pedidoId = null;
@@ -1658,12 +1679,9 @@ export default {
         const c = await request.json().catch(() => ({}));
         if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
         if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
-        /* zero leitura no banco: o aviso so leva numeros (senha, valor) e o tipo, nunca texto de quem pediu.
-           Quem inventar um pedido so faz o painel apitar a toa (e no maximo 20 vezes por minuto) */
-        const r = c.resumo && typeof c.resumo === 'object' ? c.resumo : {};
-        const senha = String(r.senha == null ? '' : r.senha);
-        const total = Number(r.total);
-        if (!/^\d{1,6}$/.test(senha) || !Number.isInteger(total) || total < 0 || total > 10000000) return json({ ok: false, erro: 'faltou o resumo do pedido' }, 400);
+        /* so chega aqui pedido que nao passou pelo /pedido (esse ja apita sozinho). O aviso sai do pedido gravado (1 leitura,
+           so quando a loja tem aparelho), nunca do resumo que veio junto: senha e valor inventados nao apitam a loja */
+        if (demais('novo-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 60, 10 * 60 * 1000)) return json({ ok: true, enviados: 0, devagar: true });
         const marca = c.loja + '/' + c.pedido;
         if (MEM.avisados[marca]) return json({ ok: true, repetido: true });
         lembrar(MEM.avisados, marca);
@@ -1672,7 +1690,10 @@ export default {
         if (++ritmo.n > 20) return json({ ok: true, enviados: 0, devagar: true });
         const aparelhos = ((await aparelhosDaLoja(env, c.loja).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || temPapel(a, 'cozinha'));
         if (!aparelhos.length) return json({ ok: true, enviados: 0 });
-        const p = { id: c.pedido, senha: senha, total: total, tipoEntrega: r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: r.origem === 'balcao' ? 'balcao' : '' };
+        const gravado = await (await firebase(env)).get('lojas/' + c.loja + '/pedidos/' + c.pedido);
+        if (!gravado) return json({ ok: false, erro: 'pedido não existe' }, 404);
+        if (gravado.status !== 'pago') return json({ ok: true, enviados: 0 });
+        const p = { id: c.pedido, senha: String(gravado.senha == null ? '' : gravado.senha).replace(/\D/g, '').slice(0, 6), total: Math.max(0, Math.round(Number(gravado.total) || 0)), tipoEntrega: gravado.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: gravado.origem === 'balcao' ? 'balcao' : '' };
         const enviados = await avisarAparelhos(env, c.loja, aparelhos, (a) => avisoDaLoja(p, c.loja, temPapel(a, 'painel') ? 'painel' : 'cozinha', false));
         return json({ ok: true, enviados: enviados });
       }
@@ -1682,6 +1703,7 @@ export default {
         if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
         const marca = c.loja + '/' + c.pedido + (c.remover ? '/sai' : '');
         if (MEM.inscritos[marca] && Date.now() - MEM.inscritos[marca] < 10 * 1000) return json({ ok: true, repetido: true });
+        if (demais('inscrever-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 30, 10 * 60 * 1000)) return json({ ok: false, erro: 'muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         let aviso = null;
         if (!c.remover) {
           const insc = limparInscricao(c.inscricao);
@@ -1689,8 +1711,15 @@ export default {
           aviso = { e: insc.endpoint, k: insc.p256dh, a: insc.auth, u: '#/' + c.cidade + '/' + c.loja + '/pedido/' };
         }
         const fb = await firebase(env);
-        /* grava no proprio pedido (1 gravacao, sem ler): o painel ja recebe junto e sabe que o cliente e avisado sozinho */
-        const existe = await fb.mergeSeExiste('lojas/' + c.loja + '/pedidos/' + c.pedido, { aviso: aviso });
+        const caminhoPedido = 'lojas/' + c.loja + '/pedidos/' + c.pedido;
+        const atual = await fb.get(caminhoPedido);
+        if (!atual) return json({ ok: false, erro: 'pedido não existe' }, 404);
+        /* o aviso fica com o primeiro celular que ligou; so ele troca as chaves ou desliga. Quem so tem o link do pedido
+           nao desvia o "Pagamento confirmado" para outro aparelho */
+        const ja = atual.aviso && atual.aviso.e ? String(atual.aviso.e) : '';
+        if (ja && ja !== (aviso ? aviso.e : String(c.remover))) return json({ ok: false, erro: 'os avisos deste pedido já estão ligados em outro celular' }, 409);
+        /* grava no proprio pedido (1 leitura e 1 gravacao): o painel ja recebe junto e sabe que o cliente e avisado sozinho */
+        const existe = await fb.mergeSeExiste(caminhoPedido, { aviso: aviso });
         if (!existe) return json({ ok: false, erro: 'pedido não existe' }, 404);
         lembrar(MEM.inscritos, marca);
         return json({ ok: true });
@@ -1796,6 +1825,85 @@ export default {
       }
 
       /* ---- senha da equipe: o dono (logado) define; criamos/trocamos o usuario de equipe da loja ---- */
+      /* ---- loja nova: nasce aqui, nunca direto do site. O banco so confere o que esta no pedido de gravacao; quantas lojas
+         a conta ja tem e quantas o Ligeiro aguenta, so daqui (antes, qualquer conta criava lojas sem fim pelo banco) ---- */
+      if (caminho === '/loja-nova' && request.method === 'POST') {
+        const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        if (!idToken || idToken.length > 4000) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        if (demais('loja-nova:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 10, 60 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere um pouco.' }, 429);
+        const c = await request.json().catch(() => ({}));
+        const ehMapa = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+        if (!ehMapa(c.loja) || !ehMapa(c.vitrine)) return json({ ok: false, erro: 'faltou a loja' }, 400);
+        if (JSON.stringify(c.loja).length > 700000 || JSON.stringify(c.vitrine).length > 60000) return json({ ok: false, erro: 'A loja ficou grande demais. Troque a logo por uma imagem menor e tente de novo.' }, 413);
+        const fb = await firebase(env);
+        const conta = await contaDoToken(fb, idToken);
+        if (!conta) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        const email = conta.email;
+        if (EMAIL_EQUIPE.test(email) || conta.marca.equipe) return json({ ok: false, erro: 'A senha da equipe não cria loja. Entre com a conta do dono.' }, 403);
+        const docConta = await fb.get('contas/' + email);
+        if (!docConta || !ehMapa(docConta.plano)) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
+        const agora = new Date();
+        if (email !== ADMIN) {
+          const sit = REGRAS.assinatura(docConta, agora).estado;
+          if (['vencida', 'bloqueada', 'cancelada', 'pausada'].indexOf(sit) >= 0) return json({ ok: false, erro: 'Sua assinatura precisa de atenção. Veja em Minha conta.' }, 409);
+          /* vagas do Ligeiro (limite do banco gratis): as mesmas contas da Central e do cadastro */
+          const pub = (await fb.get('publico/fundadores')) || {};
+          const cap = ehMapa(pub.capacidade) ? pub.capacidade : {};
+          const noAr = (await fb.listar('vitrine')).filter((l) => REGRAS.ocupaVaga(l, agora)).length;
+          const max = cap.max != null ? Number(cap.max) || 0 : 11;
+          if (cap.fechado === true || (max > 0 && noAr >= max)) return json({ ok: false, vagas: false, erro: 'As vagas de loja estão fechadas agora. Fale com o Ligeiro para entrar na lista de espera.' }, 409);
+          /* limite do plano da conta (lojas no ar dela) */
+          /* o plano que vale: o pago enquanto corre, senao o escolhido (igual ao planoQueVale do site; a tabela de planos
+             mora no config do site, entao o numero de lojas de cada um fica aqui) */
+          const pl = docConta.plano;
+          const pagoCorrendo = !!(pl.planoPago && pl.pagoAte && new Date(pl.pagoAte).getTime() > agora.getTime());
+          const vale = pl.planoPago && (pl.status === 'ativo' || pagoCorrendo) ? pl.planoPago : pl.planoId;
+          const LOJAS_DO_PLANO = { uma: 1, duas: 2, tres: 3, cinco: 5, oito: 8 };
+          const minhas = await fb.lojasDoDonoAtivas(email);
+          if (minhas >= (LOJAS_DO_PLANO[vale] || 1)) return json({ ok: false, erro: 'Seu plano não permite mais lojas. Para abrir mais uma, escolha um plano maior em Minha conta.' }, 409);
+        }
+        /* o documento: o que o dono preencheu, com os campos que so o Ligeiro decide postos aqui */
+        const l = c.loja;
+        const nome = typeof l.nome === 'string' ? l.nome.trim().slice(0, 80) : '';
+        if (!nome) return json({ ok: false, erro: 'Falta o nome da loja.' }, 400);
+        if ((Array.isArray(l.categorias) && l.categorias.length > 20) || (Array.isArray(l.produtos) && l.produtos.length > 300)
+          || ('grupos' in l && (!ehMapa(l.grupos) || Object.keys(l.grupos).length > 30))) return json({ ok: false, erro: 'O cardápio passou do limite (20 categorias, 300 itens, 30 grupos de opções).' }, 400);
+        const doc = Object.assign({}, l);
+        ['email', 'verificada', 'senhaEquipeEm', 'cupons', 'plano', 'donoEmail', 'ativa', 'slug', 'cidadeSlug', 'criadoEm', 'atualizadoEm', 'senhaPainel'].forEach((k) => { delete doc[k]; });
+        const p = docConta.plano;
+        doc.nome = nome;
+        doc.donoEmail = email;
+        doc.plano = { status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agora.toISOString(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0 };
+        doc.cidadeSlug = REGRAS.slugDaCidade(typeof l.cidade === 'string' && l.cidade ? l.cidade : 'Juquiá', typeof l.uf === 'string' ? l.uf : 'SP') || 'juquia';
+        doc.criadoEm = doc.atualizadoEm = agora.toISOString();
+        const vit = Object.assign({}, c.vitrine);
+        ['email', 'donoEmail', 'ativa', 'verificada'].forEach((k) => { delete vit[k]; });
+        if (Object.keys(vit).length > 55) return json({ ok: false, erro: 'faltou a loja' }, 400);
+        Object.assign(vit, { nome: nome, cidadeSlug: doc.cidadeSlug, plano: doc.plano });
+        if (!ehMapa(vit.horarios)) vit.horarios = {};
+        /* endereco: o nome, e se estiver ocupado, nome-2, nome-3... Endereco com sobra de loja apagada (conexao do Mercado
+           Pago, senhas) fica queimado: quem chega depois nunca herda o token nem os pedidos de outra loja */
+        const RESERVADOS = ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro'];
+        const base = REGRAS.slug(nome) || 'loja';
+        for (let n = 1; n <= 12; n++) {
+          const slug = (n === 1 ? base : base + '-' + n).slice(0, 60);
+          if (!/^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$/.test(slug) || RESERVADOS.indexOf(slug) >= 0) continue;
+          if (await fb.get('lojas/' + slug)) continue;
+          if ((await fb.get('lojas/' + slug + '/privado/mercadopago')) || (await fb.get('lojas/' + slug + '/contadores/senha'))) continue;
+          doc.slug = slug; vit.slug = slug;
+          const gravou = await fb.gravarJuntos([{ caminho: 'lojas/' + slug, dados: doc, trava: { exists: false } }, { caminho: 'vitrine/' + slug, dados: vit }]);
+          if (!gravou) continue; /* alguem pegou o mesmo endereco agora: tenta o proximo */
+          /* copia da borda e vitrine: a loja aparece na hora */
+          if (env.CARDAPIO) {
+            await atualizarLoja(env, slug).catch(() => null);
+            MEM.vitrine = null;
+            if (ctx && ctx.waitUntil) ctx.waitUntil(env.CARDAPIO.delete('vitrine').catch(() => {}));
+          }
+          return json({ ok: true, slug: slug, loja: doc });
+        }
+        return json({ ok: false, erro: 'Não achamos um endereço livre para esse nome. Mude um pouco o nome e tente de novo.' }, 409);
+      }
+
       if (caminho === '/equipe' && request.method === 'POST') {
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         const { loja, pin } = await request.json().catch(() => ({}));
@@ -2118,11 +2226,13 @@ export default {
         if (aprovadoNoMp && typeof travou === 'string') {
           let pagou = false;
           try {
-            pagou = await fb.mergeSeIgual(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrandoEm: '', cobrancaIncerta: '', status: 'pago', pagamentoStatus: 'pago', pagoEm: agoraMp, confirmadoPor: 'mercadopago', atualizadoEm: agoraMp }, travou);
+            pagou = await fb.mergeSeIgual(caminhoPedido, { mp: idMp, cobrancas: cobrancas, pagoPor: String(ord.id), cobrandoEm: '', cobrancaIncerta: '', status: 'pago', pagamentoStatus: 'pago', pagoEm: agoraMp, confirmadoPor: 'mercadopago', atualizadoEm: agoraMp }, travou);
           } catch (e) {
             /* o banco falhou agora: o pagamento esta aprovado no Mercado Pago. O cliente ouve "aprovado", a trava fica
-               (nenhum toque cobra de novo) e o aviso do Mercado Pago marca o pedido pago daqui a pouco */
+               (nenhum toque cobra de novo) e o aviso do Mercado Pago marca o pedido pago daqui a pouco. Antes, tenta ao
+               menos anotar a cobranca (sem ela, uma segunda cobranca nao seria reconhecida) */
             console.error('cartao aprovado, banco falhou', loja, pedido, e && e.message);
+            await fb.merge(caminhoPedido, { mp: idMp, cobrancas: cobrancas, cobrancaIncerta: agoraMp }).catch(() => {});
             return json({ status: 'aprovado' });
           }
           if (pagou) {
@@ -2148,10 +2258,9 @@ export default {
         const fb = await firebase(env);
         const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
-        /* o dono vem da copia da borda (sem ler o banco); loja sem copia: le uma vez */
-        const copia = await lerKv(env, 'loja:' + loja, 'text');
-        let dono = copia && copia.metadata ? String(copia.metadata.dono || '') : '';
-        if (!dono) { const item = await atualizarLoja(env, loja).catch(() => null); dono = item && item.meta ? String(item.meta.dono || '') : ''; }
+        /* o dono vem do banco (1 leitura numa acao rara): a copia da borda pode ter o dono antigo por ate 6 h */
+        const docLoja = await fb.get('lojas/' + loja);
+        const dono = docLoja ? String(docLoja.donoEmail || '').toLowerCase() : '';
         if (!dono || (dono !== quem && quem !== ADMIN)) return json({ ok: false, erro: 'só o dono da loja devolve pagamentos' }, 403);
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido);
         if (!p) return json({ ok: false, erro: 'pedido não existe' }, 404);
@@ -2595,29 +2704,32 @@ function temPapel(a, papel) { return papeisDe(a).indexOf(papel) >= 0; }
 /* no maximo 8 aparelhos por loja (os mais novos ficam): cada aviso cifrado gasta um pouco dos 10 ms do plano gratis */
 function gravarAparelhos(env, slug, lista) { return gravarKv(env, 'aparelhos:' + slug, JSON.stringify(lista.slice(-8)), { em: Date.now() }); }
 
-/* quem chamou (login do Firebase), guardado 20 min: o painel nao confere o login a cada pedido que anda */
+/* quem chamou (login do Firebase): e-mail e a marca de equipe, guardados 20 min (o painel nao confere o login a cada
+   pedido que anda). null = sem login valido */
 async function quemChamou(env, request) {
   const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!idToken || idToken.length > 4000) return '';
+  if (!idToken || idToken.length > 4000) return null;
   const m = MEM.quem[idToken];
-  if (m && Date.now() - m.em < 20 * 60 * 1000 && Date.now() < m.vence) return m.email;
-  const email = (await usuarioDoToken(await firebase(env), idToken)).toLowerCase();
-  if (email) {
-    const chaves = Object.keys(MEM.quem);
-    if (chaves.length > 200) chaves.forEach((k) => { if (Date.now() - MEM.quem[k].em > 20 * 60 * 1000) delete MEM.quem[k]; });
-    MEM.quem[idToken] = { email: email, em: Date.now(), vence: venceDoToken(idToken) };
-  }
-  return email;
+  if (m && Date.now() - m.em < 20 * 60 * 1000 && Date.now() < m.vence) return m;
+  const conta = await contaDoToken(await firebase(env), idToken);
+  if (!conta) return null;
+  const quem = { email: conta.email, equipe: typeof conta.marca.equipe === 'string' ? conta.marca.equipe : '', em: Date.now(), vence: venceDoToken(idToken) };
+  const chaves = Object.keys(MEM.quem);
+  if (chaves.length > 200) chaves.forEach((k) => { if (Date.now() - MEM.quem[k].em > 20 * 60 * 1000) delete MEM.quem[k]; });
+  MEM.quem[idToken] = quem;
+  return quem;
 }
-/* dono (pela copia da borda, sem ler o banco), equipe da loja ou o admin */
-async function ehDaLoja(env, slug, email) {
-  if (!email) return false;
-  const equipe = EMAIL_EQUIPE.exec(email);
-  if (email === ADMIN || (equipe && equipe[1].toLowerCase() === slug)) return true;
+/* dono (pela copia da borda, sem ler o banco), equipe da loja ou o admin. A equipe vale pela marca {equipe: loja}, que
+   so o mensageiro grava (igual as regras do banco): pelo texto do e-mail, qualquer um criaria uma conta com cara de equipe */
+async function ehDaLoja(env, slug, quem) {
+  if (!quem || !quem.email) return false;
+  /* e o e-mail tem que ser o do nosso dominio: um login velho (ligeiro.app.br) poderia ser tomado pelo "esqueci a senha"
+     por quem registrasse aquele dominio. O dono salva a senha da equipe de novo e o login passa para o e-mail novo */
+  if (quem.email === ADMIN || (quem.equipe && quem.equipe === slug && quem.email === emailEquipe(slug))) return true;
   const meta = await etiquetaDaLoja(env, slug);
   let dono = meta ? String(meta.dono || '') : '';
   if (!dono) { const item = await atualizarLoja(env, slug); dono = item.existe ? item.meta.dono : ''; }
-  return !!dono && dono === email;
+  return !!dono && dono === quem.email;
 }
 
 function reais(centavos) {
@@ -2712,13 +2824,34 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
     if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
     const agora3 = new Date().toISOString();
+    const idPg = String(idPagamento);
+    const cobrancasAntes = Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : [];
+    /* toda cobranca aprovada fica anotada (a devolucao alcanca todas) e o pedido guarda qual delas pagou */
+    const anotar = { cobrancas: cobrancasAntes.concat([idPg]).filter((x, i, l) => l.indexOf(x) === i).slice(-10), pagoPor: idPg };
+    if (!p.mp || !p.mp.id) anotar.mp = { id: idPg, criadoEm: agora3, cartao: p.formaPagamento === 'cartao_online' };
+    const pagador = String(p.pagoPor || ''); /* pedido de antes desta anotacao: so anota, nunca devolve sozinho */
     let entrou = true;
+    if (p.pagamentoStatus === 'pago' && pagador && idPg !== pagador) {
+      /* segunda cobranca aprovada do mesmo pedido (resposta do banco que nao chegou e o cliente tentou de novo, Pix
+         gerado duas vezes e pago duas vezes): o pedido ja estava pago por outra, entao esta volta sozinha para o cliente */
+      const devolvidas = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];
+      if (devolvidas.indexOf(idPg) < 0) {
+        try {
+          await mp(token, ehOrder ? '/v1/orders/' + encodeURIComponent(idPg) + '/refund' : '/v1/payments/' + encodeURIComponent(idPg) + '/refunds', { method: 'POST', body: ehOrder ? '' : '{}', headers: { 'X-Idempotency-Key': 'duplicada-' + idPg } });
+        } catch (e) {
+          /* ja devolvida antes (a resposta se perdeu): segue. Outro erro: o aviso falha e o Mercado Pago manda de novo */
+          if (!(e && e.status === 409)) throw e;
+        }
+        await fb.merge('lojas/' + slug + '/pedidos/' + id, { cobrancas: anotar.cobrancas, duplicadasDevolvidas: devolvidas.concat([idPg]).slice(-10), atualizadoEm: agora3 });
+      }
+      return 'pago';
+    }
     if (p.status === 'aguardando_pagamento') {
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 });
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', atualizadoEm: agora3 }, anotar));
     } else if (p.status === 'cancelado' && (p.canceladoPor === 'cliente' || p.canceladoPor === 'pix-vencido') && !p.pagoEm) {
       /* pagou e o pedido ja tinha sido cancelado (desistiu depois de copiar o codigo, ou o Pix "venceu" pelo relogio do aparelho):
          o dinheiro entrou, entao o pedido volta pra fila, marcado pra loja ver */
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ status: 'pago', pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar));
     } else if (p.status === 'cancelado' && p.canceladoPor === 'pix-vencido' && p.pagoEm && !p.pagoAposCancelar) {
       /* o painel cancelou por vencimento em cima do "pago" que o mensageiro tinha acabado de gravar:
          o dinheiro entrou, entao volta pra fila do mesmo jeito (mantem o pagoEm de quando caiu) */
@@ -2726,7 +2859,7 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env) {
     } else if (p.status === 'cancelado' && p.pagamentoStatus !== 'pago') {
       /* a loja cancelou e o pagamento caiu depois: o pedido continua cancelado, mas fica "pago" para o painel mostrar o
          "Devolver" (antes o dinheiro ficava parado sem ninguem saber) */
-      await fb.merge('lojas/' + slug + '/pedidos/' + id, { pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 });
+      await fb.merge('lojas/' + slug + '/pedidos/' + id, Object.assign({ pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar));
       entrou = false;
     } else entrou = false;
     /* o pedido acabou de entrar na fila: avisa a loja e o cliente (aviso que falha nunca derruba o pagamento) */
@@ -3075,6 +3208,14 @@ async function firebase(env) {
       if (!r.ok) { recusou(r); throw new Error('Firestore consulta ' + r.status); }
       const linhas = await r.json();
       return (Array.isArray(linhas) ? linhas : []).filter((l) => l.document).map((l) => l.document.name.split('/').pop());
+    },
+    /* quantas lojas no ar (ativa diferente de false) o dono tem: 1 leitura por loja achada */
+    async lojasDoDonoAtivas(email) {
+      const q = { structuredQuery: { from: [{ collectionId: 'lojas' }], where: { fieldFilter: { field: { fieldPath: 'donoEmail' }, op: 'EQUAL', value: { stringValue: email } } }, select: { fields: [{ fieldPath: 'ativa' }] }, limit: 50 } };
+      const r = await fetch(base.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) });
+      if (!r.ok) { recusou(r); throw new Error('Firestore consulta ' + r.status); }
+      const linhas = await r.json();
+      return (Array.isArray(linhas) ? linhas : []).filter((l) => l.document && !(l.document.fields && l.document.fields.ativa && l.document.fields.ativa.booleanValue === false)).length;
     },
     async merge(caminho, dados) {
       const mask = Object.keys(dados).map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');

@@ -371,6 +371,28 @@ aparelho, e o arquivo só baixa quando o cliente toca em Jogar. Se o pedido anda
 fica pronto). O lojista desliga em Ajustes, "No seu site" (campo `jogoDesligado`); de fábrica vem ligado.
 O teste (`testes/jogo.test.mjs`) roda 12 km de rua e confere que sempre existe um caminho.
 
+## Pentest de 25/09/2026 (5 revisores: mensageiro, dinheiro, regras do banco, navegador, lógica)
+
+- **Loja nova nasce no mensageiro** (`POST /loja-nova`): ele confere a conta, a assinatura, o limite do plano (lojas no ar
+  da conta), as vagas do Ligeiro (vitrine + `publico/fundadores`) e um endereço livre, sem sobra de loja apagada (token do
+  Mercado Pago, senhas). As regras do banco só deixam o admin criar loja direto. Antes, qualquer conta conferida criava
+  lojas sem fim.
+- **Equipe só pela marca e pelo e-mail do nosso domínio** (`equipe-<loja>@equipe.ligeiropedidos.com.br`), no mensageiro
+  e nas regras. Login antigo (`ligeiro.app.br`) ouve "o dono precisa salvar a senha da equipe de novo" e, quando o dono
+  salva, o mensageiro troca o e-mail do mesmo usuário. A equipe vê a fila e os pedidos dos últimos 2 dias, não o histórico.
+- **Cobrança a mais do mesmo pedido volta sozinha**: o pedido guarda `pagoPor` (a cobrança que pagou); outra aprovada
+  para ele é devolvida pelo mensageiro (`duplicadasDevolvidas`). Pedido de antes disso só anota.
+- **Asaas**: estorno e contestação pausam a conta até o admin olhar (eventos novos no webhook, ver o worker-asaas.js).
+- `/novo` só apita pedido gravado e pago (senha e valor do banco); `/inscrever` fica com o primeiro celular do cliente;
+  `/devolver` confere o dono no banco; aviso do Mercado Pago sem assinatura sempre com limite.
+- Site: foto e logo só do próprio site; página não abre dentro de outro site; cache do banco no aparelho só nas telas
+  da loja (no celular do cliente o antigo é apagado); vendas por dia de trabalho (5 h às 5 h); link do pedido abre com a
+  loja parada; cidade com nome repetido no Brasil ganha o estado no endereço (`rio-branco-ac`).
+- **Ordem de publicar:** site (git push), depois `worker-mercadopago.js`, depois `firestore.rules`, depois salvar a senha
+  da equipe de novo em cada loja. O `worker-asaas.js` vai quando o Asaas for ligado.
+- Ficaram para depois (baixo): uso de cupom com limite contado já no pedido não pago; lojas fora do horário de Brasília;
+  e-mail do dono no documento público da loja (precisa separar a parte pública); App Check (conta do Firebase).
+
 ## Testes
 
 ```bash

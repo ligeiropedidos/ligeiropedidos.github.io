@@ -2643,7 +2643,7 @@
         descricao: f.descricao.input.value.trim(),
         avisoTopo: f.avisoTopo.input.value.trim(),
         cidade: (f.cidade.valor() || { nome: estado.loja.cidade }).nome,
-        cidadeSlug: R.slug((f.cidade.valor() || { nome: estado.loja.cidade }).nome),
+        cidadeSlug: R.slugDaCidade((f.cidade.valor() || { nome: estado.loja.cidade }).nome, (f.cidade.valor() || { uf: estado.loja.uf }).uf),
         uf: (f.cidade.valor() || { uf: estado.loja.uf }).uf,
         endereco: f.endereco.input.value.trim(),
         whatsapp: f.whatsapp.input.value.replace(/\D/g, ''),

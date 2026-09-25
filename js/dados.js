@@ -51,11 +51,18 @@
     });
     if (dados.cidadeSlug && !/^[a-z0-9-]{1,60}$/.test(dados.cidadeSlug)) dados.cidadeSlug = '';
     /* imagem so do proprio site ou em dados (nada de endereco de fora para rastrear quem abre a loja) */
-    ['logoUrl', 'capaUrl'].forEach(function (k) { if (dados[k] && !imagemSegura(dados[k])) dados[k] = ''; });
+    ['logoUrl', 'capaUrl', 'logoDados'].forEach(function (k) { if (dados[k] && !imagemSegura(dados[k])) dados[k] = ''; });
     if (Array.isArray(dados.produtos)) dados.produtos.forEach(function (p) { if (p && p.fotoUrl && !imagemSegura(p.fotoUrl)) p.fotoUrl = ''; });
     return dados;
   }
   function imagemSegura(url) { var t = String(url || ''); return /^data:image\/(jpeg|png|webp|gif);/i.test(t) || /^img\/[A-Za-z0-9_\/.-]+$/.test(t); }
+  /* o que pode ir para <img src> e url(): imagem segura ou foto servida pelo proprio mensageiro */
+  function srcSeguro(v) {
+    if (!v || typeof v !== 'string') return null;
+    if (imagemSegura(v)) return v;
+    var borda = enderecoBorda();
+    return borda && v.indexOf(borda + '/foto/') === 0 ? v : null;
+  }
 
   function idAleatorio(tamanho) {
     var letras = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -105,8 +112,12 @@
    * Vendas de um periodo sem ler todos os pedidos: cada dia que ja fechou vira um resumo guardado
    * (lojas/{slug}/resumos/{AAAA-MM-DD}). O relatorio de 30 dias le 30 documentos pequenos
    * e so os pedidos do que ainda esta aberto (hoje; e ontem ate as 6 h, que pizzaria fecha tarde).
+   * O dia e o dia de trabalho, das 5 h as 5 h, igual ao da fila e da cozinha: o pedido das 00:20 conta no dia que comecou
+   * na vespera (antes, "Hoje" zerava a meia-noite, no meio do fechamento do caixa).
    * fontes: { lerDias(dias), listarPedidos(desde), gravarDia(dia, resumo) }
    */
+  var VIRADA_DO_DIA = 5 * 36e5;
+  function diaDeTrabalho(ms) { return R.diaLocal(new Date(ms - VIRADA_DO_DIA)); }
   function diaFechado(k, agora) {
     var p = k.split('-');
     return agora >= new Date(+p[0], +p[1] - 1, +p[2] + 1, 6, 0, 0, 0).getTime();
@@ -114,7 +125,7 @@
   function vendasDoPeriodo(fontes, dias, agora) {
     agora = agora || Date.now();
     var chaves = [];
-    for (var i = dias - 1; i >= 0; i--) { var d = new Date(agora); d.setDate(d.getDate() - i); chaves.push(R.diaLocal(d)); }
+    for (var i = dias - 1; i >= 0; i--) { var d = new Date(agora - VIRADA_DO_DIA); d.setDate(d.getDate() - i); chaves.push(R.diaLocal(d)); }
     var fechados = chaves.filter(function (k) { return diaFechado(k, agora); });
     var lerDias = fechados.length ? fontes.lerDias(fechados).catch(function () { return {}; }) : Promise.resolve({});
     return lerDias.then(function (docs) {
@@ -126,11 +137,11 @@
       var juntar = function () { var escolhidos = {}; chaves.forEach(function (k) { if (guardados[k]) escolhidos[k] = guardados[k]; }); return R.juntarResumos(escolhidos); };
       if (!lerDe.length) return juntar();
       var p0 = lerDe[0].split('-');
-      var desde = new Date(+p0[0], +p0[1] - 1, +p0[2], 0, 0, 0, 0).toISOString();
+      var desde = new Date(+p0[0], +p0[1] - 1, +p0[2], 5, 0, 0, 0).toISOString();
       return fontes.listarPedidos(desde).then(function (pedidos) {
         var porDia = {};
         lerDe.forEach(function (k) { porDia[k] = []; });
-        (pedidos || []).forEach(function (x) { var k = R.diaLocal(new Date(x.criadoEm)); if (porDia[k] && new Date(x.criadoEm).getTime() <= agora) porDia[k].push(x); });
+        (pedidos || []).forEach(function (x) { var t = new Date(x.criadoEm).getTime(); var k = diaDeTrabalho(t); if (porDia[k] && t <= agora) porDia[k].push(x); });
         var novos = {};
         faltam.forEach(function (k) { novos[k] = guardados[k] = R.resumoDoDia(porDia[k]); });
         abertos.forEach(function (k) { guardados[k] = R.resumoDoDia(porDia[k]); });
@@ -550,7 +561,7 @@
     while (db.lojas[slug]) slug = base + '-' + (n++);
     var loja = Object.assign(modeloDeLoja(), clonar(dados), {
       slug: slug,
-      cidadeSlug: R.slug(dados.cidade || 'Juquiá'),
+      cidadeSlug: R.slugDaCidade(dados.cidade || 'Juquiá', dados.uf || 'SP'),
       criadoEm: agoraISO(),
       atualizadoEm: agoraISO(),
     });
@@ -801,6 +812,13 @@
         eu.db = window.firebase.firestore();
         eu.auth = window.firebase.auth();
         eu.auth.onAuthStateChanged(function (u) { lembrarSessao(!!usuarioDoFirebase(u)); });
+        /* cache do banco no aparelho (IndexedDB) so nas telas de quem trabalha na loja. No celular do cliente, o pedido
+           acompanhado (nome, telefone, endereco) ficava guardado ali, e o "Apagar meus dados" nao alcancava: la o cache
+           antigo e apagado ao abrir (antes de qualquer leitura, como o Firebase exige) e nada novo e guardado */
+        var rota = String(location.hash || '').replace(/^#\/?/, '').split('/')[0];
+        if (['painel', 'cozinha', 'entrega', 'balcao', 'admin', 'conta'].indexOf(rota) < 0) {
+          return eu.db.clearPersistence().catch(function () { /* outra aba aberta usando o cache: fica para a proxima */ });
+        }
         return eu.db.enablePersistence({ synchronizeTabs: true }).catch(function () { /* ok sem cache */ });
       });
   };
@@ -1378,13 +1396,37 @@
   FirebaseStore.prototype.criarLoja = function (dados) {
     var eu = this;
     return this._pronto.then(function () {
+      /* o dono: a loja nasce no mensageiro, que confere o plano da conta, as vagas e o endereco (o banco nao deixa criar
+         direto). O admin, pela Central, grava direto como antes */
+      var admin = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
+      var u = eu.auth.currentUser;
+      var borda = enderecoBorda();
+      if (u && borda && String(u.email || '').toLowerCase() !== admin) {
+        var nova = Object.assign(modeloDeLoja(), clonar(dados), { cidadeSlug: R.slugDaCidade(dados.cidade || 'Juquiá', dados.uf || 'SP') });
+        return resumoLeve(nova).then(function (r) {
+          return u.getIdToken().then(function (t) {
+            return fetch(borda + '/loja-nova', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ loja: paraNuvem(nova), vitrine: paraNuvem(r) }) });
+          });
+        }).then(function (resp) {
+          /* mensageiro de antes desta rota (404): cai no caminho antigo, direto no banco */
+          if (resp.status === 404) return null;
+          return resp.json().catch(function () { return {}; }).then(function (j) {
+            if (!resp.ok || !j.ok || !j.loja) { var e = new Error(j.erro || 'Não deu para criar a loja agora. Tente de novo.'); e.publico = true; throw e; }
+            limparCacheVitrine();
+            return daNuvem(j.loja, j.slug);
+          });
+        }).then(function (criada) { return criada || criarDireto(); });
+      }
+      return criarDireto();
+    });
+    function criarDireto() {
       var base = R.slug(dados.nome) || 'loja';
       var col = eu.db.collection('lojas');
       var tentar = function (slug, n) {
         return col.doc(slug).get().then(function (d) {
           if (d.exists) return tentar(base + '-' + n, n + 1);
           var loja = Object.assign(modeloDeLoja(), clonar(dados), {
-            slug: slug, cidadeSlug: R.slug(dados.cidade || 'Juquiá'), criadoEm: agoraISO(), atualizadoEm: agoraISO(),
+            slug: slug, cidadeSlug: R.slugDaCidade(dados.cidade || 'Juquiá', dados.uf || 'SP'), criadoEm: agoraISO(), atualizadoEm: agoraISO(),
           });
           /* primeiro a loja, depois a vitrine: a regra da vitrine le a loja pra saber quem e o dono */
           return col.doc(slug).set(paraNuvem(loja)).then(function () {
@@ -1393,7 +1435,7 @@
         });
       };
       return tentar(base, 2);
-    });
+    }
   };
 
   /*
@@ -1409,6 +1451,7 @@
     return this._pronto.then(function () {
       return this.db.collection('lojas').doc(lojaSlug).collection('fotos').doc(id).get().then(function (d) {
         var dados = d.exists ? (d.data().dados || null) : null;
+        if (dados && !imagemSegura(dados)) dados = null;
         if (dados) { try { localStorage.setItem(chave, dados); } catch (_) { /* sem espaco: segue sem guardar */ } }
         return dados;
       });
@@ -1743,7 +1786,15 @@
     return eu.auth.signInWithEmailAndPassword(emailEquipe(slug), 'LIG-' + pin).catch(function (e) {
       var c = (e && e.code) || '';
       if (c === 'auth/network-request-failed' || c === 'auth/too-many-requests') throw e;
-      return eu.auth.signInWithEmailAndPassword('equipe-' + slug + '@equipe.ligeiro.app.br', 'LIG-' + pin);
+      /* login de antes da troca de dominio (ligeiro.app.br, que nao e nosso): a senha confere, mas ele nao vale mais.
+         Sai na hora e diz o que fazer (sem isso, a equipe ouviria "senha errada" com a senha certa) */
+      return eu.auth.signInWithEmailAndPassword('equipe-' + slug + '@equipe.ligeiro.app.br', 'LIG-' + pin).then(function () {
+        return eu.auth.signOut().catch(function () { /* segue */ }).then(function () {
+          var aviso = new Error('A senha está certa, mas o dono precisa salvar a senha da equipe de novo no painel (Minha loja, Senha da equipe). Depois é só entrar com a mesma senha.');
+          aviso.publico = true;
+          throw aviso;
+        });
+      }, function () { throw e; });
     });
   }
   FirebaseStore.prototype.entrarPainel = function (lojaSlug, senha) {
@@ -1754,6 +1805,7 @@
     return this._pronto.then(function () {
       return entrarEquipe(eu, lojaSlug, pin).then(function () { return true; });
     }).catch(function (e1) {
+      if (e1 && e1.publico) throw e1;
       /* sem internet ou tentativas demais: dizer "Senha errada." fazia a equipe achar que o dono trocou a senha */
       var c1 = (e1 && e1.code) || '';
       if (c1 === 'auth/network-request-failed' || c1 === 'auth/too-many-requests') throw erroDeLogin(e1);
@@ -1943,15 +1995,16 @@
   var store = config.firebase ? new FirebaseStore(config.firebase) : new DemoStore();
 
   /* Qual imagem mostrar: foto enviada pelo painel, ou um link, ou nada. */
+  /* endereco de fora (pixel de rastreio posto pelo dono de uma loja) nunca chega na tela de quem abre */
   function fotoSrc(objeto, fotos) {
     if (!objeto) return null;
-    if (objeto.foto && fotos && fotos[objeto.foto]) return fotos[objeto.foto];
-    if (objeto.fotoUrl) return objeto.fotoUrl;
+    if (objeto.foto && fotos && fotos[objeto.foto]) return srcSeguro(fotos[objeto.foto]);
+    if (objeto.fotoUrl) return srcSeguro(objeto.fotoUrl);
     return null;
   }
   function logoSrc(loja) {
     if (!loja) return null;
-    return loja.logoDados || loja.logoUrl || null;
+    return srcSeguro(loja.logoDados) || srcSeguro(loja.logoUrl) || null;
   }
 
   /* o banco gratis chegou no limite do dia (leituras ou gravacoes)? */

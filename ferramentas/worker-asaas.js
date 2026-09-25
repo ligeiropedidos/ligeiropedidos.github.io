@@ -20,7 +20,9 @@
  *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
  *      (o mesmo do ligeiro-mp). Com ele, a loja destrava para o cliente na hora em que o pagamento cai.
  *   3. No Asaas: Integracoes > Webhooks > Adicionar: URL do worker, token = ASAAS_WEBHOOK,
- *      eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED. Fila sincrona, versao 3.
+ *      eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED, e tambem os de estorno e contestacao: PAYMENT_REFUNDED,
+ *      PAYMENT_REFUND_IN_PROGRESS, PAYMENT_CHARGEBACK_REQUESTED, PAYMENT_CHARGEBACK_DISPUTE e
+ *      PAYMENT_AWAITING_CHARGEBACK_REVERSAL (a conta fica pausada ate o admin olhar). Fila sincrona, versao 3.
  *   4. O e-mail do cliente no Asaas tem que ser o MESMO e-mail com que o dono entra no Ligeiro
  *      (o link de assinatura ja pede o e-mail; confira em Clientes).
  *
@@ -37,11 +39,14 @@ export default {
     try { corpo = await request.json(); } catch (_) { return json({ ok: false, erro: 'json' }, 400); }
     const evento = corpo.event || '';
     const pag = corpo.payment || {};
-    /* so pagamento confirmado interessa; o resto responde 200 pra fila do Asaas nao travar */
-    if (['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].indexOf(evento) < 0) return json({ ok: true, ignorado: evento });
+    /* so pagamento confirmado, estorno e contestacao interessam; o resto responde 200 pra fila do Asaas nao travar */
+    if (['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].concat(EVENTOS_DE_ESTORNO).indexOf(evento) < 0) return json({ ok: true, ignorado: evento });
     if (!pag.id || !pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
 
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.id)) || !/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.customer))) return json({ ok: false, erro: 'sem pagamento' }, 400);
+    if (EVENTOS_DE_ESTORNO.indexOf(evento) >= 0) {
+      try { return await pausarPorEstorno(env, pag); } catch (e) { console.error('asaas estorno', e && e.message || e); return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500); }
+    }
 
     try {
       /* o aviso diz o que foi pago, mas quem manda e o Asaas: le a cobranca de novo pela chave da API (valor, cliente e
@@ -117,6 +122,41 @@ export default {
     }
   },
 };
+
+/* Estorno ou contestacao (chargeback) de uma cobranca que ja liberou dias: a conta fica pausada ate o admin olhar na
+   Central (o dono nao tira a pausa sozinho; as regras do banco nao deixam). Antes, o plano seguia pago o ano inteiro
+   com o dinheiro devolvido. Quem manda e o Asaas: a cobranca e lida de novo pela chave da API */
+const EVENTOS_DE_ESTORNO = ['PAYMENT_REFUNDED', 'PAYMENT_REFUND_IN_PROGRESS', 'PAYMENT_CHARGEBACK_REQUESTED', 'PAYMENT_CHARGEBACK_DISPUTE', 'PAYMENT_AWAITING_CHARGEBACK_REVERSAL'];
+async function pausarPorEstorno(env, pag) {
+  const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+  if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
+  const st = String(real.status || '');
+  if (['REFUNDED', 'REFUND_IN_PROGRESS', 'CHARGEBACK_REQUESTED', 'CHARGEBACK_DISPUTE', 'AWAITING_CHARGEBACK_REVERSAL'].indexOf(st) < 0) return json({ ok: true, ignorado: 'status ' + st });
+  const cliente = await asaas(env, '/customers/' + encodeURIComponent(real.customer || pag.customer));
+  const email = String(cliente.email || '').trim().toLowerCase();
+  if (!email) return json({ ok: false, erro: 'cliente sem e-mail' }, 200);
+  const fb = await firebase(env);
+  const conta = await fb.get('contas/' + encodeURIComponent(email));
+  /* so cobranca que liberou dias (esta nos pagamentos da conta) pausa alguma coisa */
+  if (!conta || !Array.isArray(conta.pagamentos) || conta.pagamentos.indexOf(pag.id) < 0) return json({ ok: true, ignorado: 'cobranca que nao liberou dias' });
+  const estornos = Array.isArray(conta.estornos) ? conta.estornos : [];
+  if (estornos.some((x) => x && x.id === pag.id)) return json({ ok: true, repetido: pag.id });
+  const agora = new Date().toISOString();
+  const p = conta.plano || {};
+  await fb.merge('contas/' + encodeURIComponent(email), {
+    plano: Object.assign({}, p, { status: 'pausado', pausadoEm: agora, motivoPausa: 'estorno' }),
+    estornos: estornos.concat([{ id: pag.id, status: st, em: agora }]).slice(-20), atualizadoEm: agora,
+  });
+  const espelho = { status: 'pausado', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', desde: p.desde || agora, pagoAte: p.pagoAte || '', avisoPagamentoEm: '', avisoValor: 0 };
+  const lojas = await fb.query('lojas', 'donoEmail', email);
+  for (const slug of lojas) {
+    await fb.merge('lojas/' + slug, { plano: espelho, atualizadoEm: agora });
+    await fb.merge('vitrine/' + slug, { plano: espelho, atualizadoEm: agora });
+    if (env.CARDAPIO) await env.CARDAPIO.delete('loja:' + slug).catch(() => {});
+  }
+  if (env.CARDAPIO && lojas.length) await env.CARDAPIO.delete('vitrine').catch(() => {});
+  return json({ ok: true, pausada: email, lojas: lojas.length });
+}
 
 /* compara o token sem parar na primeira letra diferente (ninguem descobre o token pelo tempo da resposta) */
 function igual(a, b) {

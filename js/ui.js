@@ -25,6 +25,7 @@
       else if (k === 'html') e.innerHTML = v; /* so para HTML que a gente mesmo escreveu */
       else if (k === 'class') e.className = v;
       else if (k.indexOf('on') === 0 && typeof v === 'function') e.addEventListener(k.slice(2), v);
+      else if (/^on/i.test(k)) return; /* evento so como funcao: texto viraria codigo na pagina */
       else if (k === 'dataset') Object.keys(v).forEach(function (d) { e.dataset[d] = v[d]; });
       else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v);
       else if (v === true) e.setAttribute(k, '');
