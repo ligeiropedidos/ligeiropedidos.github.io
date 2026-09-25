@@ -68,13 +68,47 @@
       ]));
       corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     } else if (link) {
-      corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
+      var botoes = [
         el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
         el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Pix ou boleto']),
-      ]));
+      ];
       /* o pagamento acha a conta pelo e-mail que a pessoa digita no Asaas: com outro e-mail, o dinheiro entra e a loja nao
-         libera sozinha */
-      if (o.email) corpo.appendChild(el('p', { class: 'centro' }, ['Na página do ' + provedor + ', use o e-mail ', el('b', { text: o.email }), '. É por ele que suas lojas são liberadas sozinhas.']));
+         libera sozinha. Por isso o e-mail vem antes dos botoes, com Copiar, e os botoes so abrem depois do "Li" */
+      if (o.email) {
+        var confirmou = false;
+        var campoLi = el('input', { type: 'checkbox', class: 'aceite-campo', id: 'liEmailCobranca' });
+        var li = el('label', { class: 'aceite-termos', for: 'liEmailCobranca' }, [
+          campoLi,
+          el('span', { class: 'aceite-caixa', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]),
+          el('span', { class: 'aceite-texto', text: 'Li e vou usar este e-mail no ' + provedor + '.' }),
+        ]);
+        var travar = function () {
+          botoes.forEach(function (b) {
+            b.classList.toggle('btn-travado', !confirmou);
+            if (confirmou) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true');
+          });
+        };
+        campoLi.addEventListener('change', function () { confirmou = campoLi.checked; li.classList.remove('falta'); travar(); });
+        botoes.forEach(function (b) {
+          b.addEventListener('click', function (e) {
+            if (confirmou) return;
+            e.preventDefault();
+            li.classList.remove('falta'); void li.offsetWidth; li.classList.add('falta');
+            UI.avisar('Confira o e-mail e marque a caixinha antes de pagar.');
+          });
+        });
+        travar();
+        corpo.appendChild(el('div', { class: 'cobranca-email' }, [
+          el('div', { class: 'cobranca-email-topo' }, [UI.iconeLinha('alerta'), el('b', { text: 'Use este e-mail no ' + provedor })]),
+          el('div', { class: 'cobranca-email-linha' }, [
+            el('span', { class: 'cobranca-email-valor', text: o.email }),
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(o.email).then(function () { UI.avisar('E-mail copiado. Cole na página do ' + provedor + '.'); }); } }, [UI.iconeLinha('copiar'), 'Copiar e-mail']),
+          ]),
+          el('p', { class: 'pequeno', text: 'É por ele que suas lojas são liberadas sozinhas. Com outro e-mail, o pagamento entra, mas a liberação fica esperando o Ligeiro conferir.' }),
+          li,
+        ]));
+      }
+      corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, botoes));
       corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a página segura do ' + provedor + '. Você cadastra uma vez e não precisa lembrar de pagar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     }
 

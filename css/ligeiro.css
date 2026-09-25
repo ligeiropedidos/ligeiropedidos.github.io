@@ -1138,6 +1138,18 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* modal de pagar assinatura: cartao/boleto em cima, Pix embaixo */
 .cobranca-opcoes { display: flex; flex-direction: column; gap: 10px; }
 .cobranca-pix { padding-top: 6px; border-top: 1px solid var(--line); margin-top: 4px; }
+/* o e-mail que o dono tem que usar no Asaas: antes dos botoes, com Copiar e o "Li" que destrava os botoes.
+   Ritmo: 12 entre os blocos, 8 entre o e-mail e o Copiar, 16 de respiro. O e-mail fica inteiro numa linha
+   (lado a lado com o Copiar ele quebrava no meio: "gmail.co" / "m") */
+.cobranca-email { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1.5px solid #F7D2B8; border-radius: 14px; background: var(--orange-suave); color: #7A3B10; text-align: left; }
+.cobranca-email-topo { display: flex; align-items: center; gap: 8px; }
+.cobranca-email-topo b { font-family: var(--display); font-size: 16px; line-height: 1.25; }
+.cobranca-email-linha { display: flex; flex-direction: column; gap: 8px; }
+.cobranca-email-valor { display: block; padding: 12px 14px; border-radius: 12px; background: var(--card); border: 1px solid #F7D2B8; font-weight: 800; font-size: 17px; line-height: 1.3; color: var(--ink); text-align: center; overflow-wrap: anywhere; }
+.cobranca-email-linha .btn { width: 100%; min-height: 44px; }
+.cobranca-email .pequeno { margin: 0; line-height: 1.4; }
+.cobranca-email .aceite-termos { border-color: #F7D2B8; }
+.btn.btn-travado { opacity: 0.45; filter: saturate(0.6); cursor: not-allowed; }
 /* comparativo com concorrentes (pagina de vendas) */
 .comparativo { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
