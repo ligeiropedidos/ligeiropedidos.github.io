@@ -370,12 +370,25 @@
 
   var J = null;   /* o jogo aberto (so um por vez) */
   var audio = null;
+  /* o som volta sempre que nao esta tocando: 'suspended' (o jogo foi fechado) e tambem 'interrupted' (iPhone depois de
+     uma ligacao ou do alarme), que antes ficava mudo ate recarregar a pagina */
+  function acordarSom() {
+    if (!audio || audio.state === 'running' || audio.state === 'closed') return;
+    try { var p = audio.resume(); if (p && p.catch) p.catch(function () { /* o proximo toque tenta de novo */ }); } catch (_) { /* sem som */ }
+  }
+  /* fechou o jogo: o som dorme depois que a musica some (nao fica segurando o audio do celular na tela do pedido) */
+  function dormirSom() {
+    setTimeout(function () {
+      if (J || !audio || audio.state !== 'running') return; /* abriu de novo: segue tocando */
+      try { var p = audio.suspend(); if (p && p.catch) p.catch(function () { /* segue */ }); } catch (_) { /* segue */ }
+    }, 450);
+  }
 
   function som(tipo) {
     if (!J || !J.som) return;
     try {
       if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
+      acordarSom();
       var t = audio.currentTime;
       /* [onda, freq inicial, freq final, duracao, volume]; as notas tocam uma depois da outra */
       var notas = {
@@ -438,7 +451,7 @@
     if (!J || !J.som || !J.comMusica || J.musica) return;
     try {
       if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
+      acordarSom();
       var saida = audio.createGain();
       saida.gain.setValueAtTime(0.0001, audio.currentTime); saida.gain.exponentialRampToValueAtTime(1, audio.currentTime + 0.4);
       saida.connect(audio.destination);
@@ -470,7 +483,7 @@
     J.cam = -70; J.topo = 0; J.bonus = 0; J.moedas = 0; J.pulos = 0; J.bichos = 0; J.pegos = {};
     J.tempo = 0; J.tremor = 0; J.conta = 0; J.caiuEm = 0; J.motivo = '';
     J.plats = []; J.moe = []; J.pod = []; J.bic = []; J.ped = []; J.part = []; J.textos = [];
-    J.ultimaY = 0; J.evitar = null; J.proxPoder = 1400; J.proxBicho = 3200; J.proxMarco = MARCO;
+    J.ultimaY = 0; J.evitar = null; J.caminho = []; J.proxPoder = 1400; J.proxBicho = 3200; J.proxMarco = MARCO;
     J.novoRecorde = false;
     gerarAte(J.cam + (J.visH || 900) + 300);
   }
@@ -486,6 +499,29 @@
     return Math.min(LARG - m, Math.max(m, embrulhar(longeDe + LARG / 2)));
   }
   function plataforma(tipo, x, y) { var p = { tipo: tipo, x: x, y: y, vx: 0, mola: false, molaX: 0, molaT: 0, quebrou: false }; J.plats.push(p); return p; }
+  /* as ultimas tabuas firmes paradas do caminho (a que anda nao tem coluna fixa): o gato foge da coluna delas */
+  function lembrarCaminho(p) { if (p.tipo === 'movel') return; J.caminho.push({ x: p.x, y: p.y }); if (J.caminho.length > 6) J.caminho.shift(); }
+  /* o lugar do gato: longe da tabua logo abaixo dele (110, como sempre) e das outras tabuas do caminho que ainda
+     alcancam ele num pulo. Antes so a de baixo contava: 16% dos gatos ficavam na coluna da tabua de dois degraus abaixo,
+     e quem pulava dela reto batia no gato. 80 de folga = meia tabua com o pe (42) + o gato (36): de qualquer ponto dessa
+     tabua, o pulo reto passa do lado. Olha a largura toda de 2 em 2: sorteia entre os lugares com folga; se nenhum tem
+     (tabuas espalhadas demais), fica o de mais folga, a pelo menos 100 da tabua logo abaixo */
+  function lugarDoGato(xAbaixo, gy) {
+    var m = PLAT_L / 2 + 4, bons = [], melhor = null, folga = -1;
+    for (var x = m; x <= LARG - m; x += 2) {
+      var dAbaixo = Math.abs(distX(x, xAbaixo));
+      if (dAbaixo < 100) continue;
+      var f = LARG;
+      for (var k = 0; k < J.caminho.length; k++) {
+        var c = J.caminho[k];
+        if (c.y + 30 + ALTURA_PULO > gy + 22 - 36) f = Math.min(f, Math.abs(distX(x, c.x)));
+      }
+      if (f >= 80 && dAbaixo >= 110) bons.push(x);
+      if (f > folga) { folga = f; melhor = x; }
+    }
+    if (bons.length) return bons[Math.floor(Math.random() * bons.length)];
+    return melhor === null ? sorteioX(xAbaixo) : melhor;
+  }
   function poeMoeda(x, y) { J.moe.push({ x: embrulhar(x), y: y, pego: false }); }
 
   /* o proximo degrau: uma plataforma firme (verde, azul ou com mola) a um vao que da para pular, e em volta dela as
@@ -504,7 +540,8 @@
     /* caixa de papelao no meio do vao: parece o caminho, mas nao segura */
     if (y > 900 && vao > 60 && Math.random() < 0.18 + 0.3 * d) plataforma('quebra', sorteioX(null), y0 + vao * (0.35 + Math.random() * 0.3));
     /* no comeco, mais tabuas (quem ainda esta aprendendo nao cai logo) */
-    if (y < 3000 && vao > 60 && Math.random() < 0.35) plataforma('normal', sorteioX(p.x), y0 + vao * 0.5);
+    if (y < 3000 && vao > 60 && Math.random() < 0.35) lembrarCaminho(plataforma('normal', sorteioX(p.x), y0 + vao * 0.5));
+    lembrarCaminho(p);
     /* moedas em arco em cima da tabua */
     if (Math.random() < 0.3) { poeMoeda(p.x - 24, y + 34); poeMoeda(p.x, y + 50); poeMoeda(p.x + 24, y + 34); }
     else if (Math.random() < 0.15) poeMoeda(sorteioX(null), y0 + vao * 0.5);
@@ -519,7 +556,7 @@
       if (y > 7000 && Math.random() < 0.45) {
         J.bic.push({ tipo: 'pombo', x: Math.random() * LARG, y: y + 70, vx: (Math.random() < 0.5 ? -1 : 1) * (60 + 70 * d), caindo: false, rot: 0 });
       } else {
-        var gx = sorteioX(p.x), gy = y + 70 + Math.random() * 30;
+        var gy = y + 70 + Math.random() * 30, gx = lugarDoGato(p.x, gy);
         var casa = plataforma('normal', gx, gy);
         J.bic.push({ tipo: 'gato', x: gx, y: gy, plat: casa, caindo: false, rot: 0 });
         J.evitar = { x: gx, ate: gy + 30 }; /* as proximas tabuas do caminho tambem ficam longe do gato */
@@ -998,6 +1035,8 @@
   function pedirQuadro() { if (J && J.vivo && !J.raf && !document.hidden) J.raf = requestAnimationFrame(quadro); }
 
   function medir() {
+    /* girar o celular enquanto a foto do lanche ainda carrega (os desenhos e as tabuas nao existem): o comeco mede depois */
+    if (!J || !J.pronto) return;
     var r = J.raiz.getBoundingClientRect();
     J.w = Math.max(200, r.width); J.h = Math.max(300, r.height);
     J.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1078,7 +1117,7 @@
 
   function comecar() {
     /* o som so pode nascer num toque (regra do iPhone) */
-    if (J.som) { try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === 'suspended') audio.resume(); } catch (_) { /* sem som */ } }
+    if (J.som) { try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); acordarSom(); } catch (_) { /* sem som */ } }
     novaSubida();
     J.elTopo.hidden = false;
     J.pontosVistos = -1; J.moedasVistas = -1;
@@ -1226,7 +1265,7 @@
     acertarLado();
   }
   function aoEsconder() {
-    if (!J) return;
+    if (!J || !J.pronto) return; /* ainda carregando: nada para pausar nem desenhar */
     if (document.hidden) { pausar(); soltarTudo(); if (J && J.raf) { cancelAnimationFrame(J.raf); J.raf = 0; } }
     else { J.ult = 0; desenhar(); pedirQuadro(); }
   }
@@ -1289,12 +1328,16 @@
     try { history.pushState({ ligeiroPulo: true }, ''); J.empurrou = true; } catch (_) { J.empurrou = false; }
     window.addEventListener('popstate', aoVoltarNavegador);
 
-    /* os desenhos dependem da loja (a logo no peito e a cidade na placa): refeitos so quando a loja muda */
+    /* os desenhos dependem da loja (a logo no peito e a cidade na placa): refeitos so quando a loja muda.
+       Na chave vai tudo o que aparece do lanche (nome, preco, emoji e a foto): so o id e "tem foto" deixava o lanche,
+       o preco e a foto da loja anterior quando duas lojas da mesma cidade tinham o mesmo id */
     var novos = (Array.isArray(op.produtos) ? op.produtos : []).slice(0, 3).map(function (p) { return { id: String(p.id), nome: String(p.nome || ''), preco: Number(p.preco) || 0, emoji: p.emoji || '', foto: p.foto || '' }; });
-    var chave = (op.cidade || '') + '|' + (op.logo || '') + '|' + novos.map(function (p) { return p.id + ':' + (p.foto ? 1 : 0); }).join(',');
+    var chave = (op.cidade || '') + '|' + (op.logo || '') + '|' + JSON.stringify(novos.map(function (p) { return [p.id, p.nome, p.preco, p.emoji, p.foto]; }));
+    var este = J;
     var comeco = function () {
-      if (!J) return;
+      if (!J || J !== este) return; /* fechou (ou ja abriu em outra loja) enquanto a foto carregava */
       if (!SP || SP.chave !== chave) { montarDesenhos(op.cidade); poderesDaLoja(); SP.chave = chave; }
+      J.pronto = true;
       novaSubida();
       medir();
       telaInicio();
@@ -1345,6 +1388,7 @@
     if (!J) return;
     var aoFechar = J.aoFechar;
     musicaParar();
+    dormirSom();
     J.vivo = false;
     if (J.raf) cancelAnimationFrame(J.raf);
     clearTimeout(J.tempoAviso);

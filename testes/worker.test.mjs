@@ -603,9 +603,9 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 200 && j.pedido.desconto > 0 && db.get('lojas/dom-conizza/contadores/cupom-PROMO').usos === 1, 'cupom de verdade: aplica e conta o uso');
   r = await pedir(dados({ cupom: 'PROMO', telefone: '13988887777' })); j = await r.json();
   ok(r.status === 422 && /todo usado/.test(j.erro || ''), 'cupom com limite 1 no segundo uso: recusado no servidor');
-  /* forma de pagamento que a loja nao aceita cai na que ela aceita; loja fechada nao recebe */
+  /* forma de pagamento que a loja nao aceita e recusada (antes virava outra calada: "Pix" chegava como maquininha); loja fechada nao recebe */
   r = await pedir(dados({ formaPagamento: 'cartao_entrega', telefone: '13977776666' })); j = await r.json();
-  ok(r.status === 200 && j.pedido.formaPagamento !== 'cartao_entrega', 'maquininha desligada: o pedido nao nasce como maquininha');
+  ok(r.status === 422 && /forma de pagamento não está disponível/.test(j.erro || ''), 'maquininha desligada: o pedido na maquininha e recusado, nao vira outra forma');
   loja.aberta = false; await recarregar();
   r = await pedir(dados({ telefone: '13966665555' })); j = await r.json();
   ok(r.status === 422 && /fechada/.test(j.erro || ''), 'loja fechada: o pedido nao nasce');

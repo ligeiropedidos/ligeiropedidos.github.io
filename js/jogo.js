@@ -327,12 +327,25 @@
 
   var J = null;   /* o jogo aberto (so um por vez) */
   var audio = null;
+  /* o som volta sempre que nao esta tocando: 'suspended' (o jogo foi fechado) e tambem 'interrupted' (iPhone depois de
+     uma ligacao ou do alarme), que antes ficava mudo ate recarregar a pagina */
+  function acordarSom() {
+    if (!audio || audio.state === 'running' || audio.state === 'closed') return;
+    try { var p = audio.resume(); if (p && p.catch) p.catch(function () { /* o proximo toque tenta de novo */ }); } catch (_) { /* sem som */ }
+  }
+  /* fechou o jogo: o som dorme depois que a musica some (nao fica segurando o audio do celular na tela do pedido) */
+  function dormirSom() {
+    setTimeout(function () {
+      if (J || !audio || audio.state !== 'running') return; /* abriu de novo: segue tocando */
+      try { var p = audio.suspend(); if (p && p.catch) p.catch(function () { /* segue */ }); } catch (_) { /* segue */ }
+    }, 450);
+  }
 
   function som(tipo) {
     if (!J || !J.som) return;
     try {
       if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
+      acordarSom();
       var t = audio.currentTime;
       /* [onda, freq inicial, freq final, duracao, volume]; as notas tocam uma depois da outra (menos na batida) */
       var notas = {
@@ -407,7 +420,7 @@
     if (!J || !J.som || !J.comMusica || J.musica) return;
     try {
       if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
+      acordarSom();
       if (!chiado) {
         chiado = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.06), audio.sampleRate);
         var d = chiado.getChannelData(0);
@@ -588,9 +601,10 @@
       t = OBSTACULOS[o.tipo];
       if (t) {
         if (o.z < -t.comp - 3) { J.obj.splice(i, 1); continue; }
-        /* o cachorro comeca a atravessar uns 2 segundos antes de chegar na moto */
+        /* o cachorro comeca a atravessar 1,2 segundo antes de chegar na moto: chega no meio da rua junto com ela (com
+           2,3 s ele ja tinha saido da rua do outro lado e nunca batia). Da tempo de ouvir o latido e trocar de faixa ou pular */
         if (o.tipo === 'cachorro') {
-          if (!o.anda && o.z < J.vel * 2.3 + 4) { o.anda = true; som('latido'); }
+          if (!o.anda && o.z < J.vel * 1.2) { o.anda = true; som('latido'); }
           if (o.anda) o.faixa += o.vx * dt;
         }
         var naRua = t.todas || Math.abs(o.faixa) <= 1.4;
@@ -1075,6 +1089,8 @@
   function pedirQuadro() { if (J && J.vivo && !J.raf && !document.hidden) J.raf = requestAnimationFrame(quadro); }
 
   function medir() {
+    /* girar o celular enquanto a foto do lanche ainda carrega (os desenhos nao existem): o comeco mede depois */
+    if (!J || !J.pronto) return;
     var r = J.raiz.getBoundingClientRect();
     J.w = Math.max(200, r.width); J.h = Math.max(300, r.height);
     J.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1154,7 +1170,7 @@
 
   function comecar(semContagem) {
     /* o som so pode nascer num toque (regra do iPhone) */
-    if (J.som) { try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === 'suspended') audio.resume(); } catch (_) { /* sem som */ } }
+    if (J.som) { try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); acordarSom(); } catch (_) { /* sem som */ } }
     novaCorrida();
     J.elTopo.hidden = false;
     J.pontosVistos = -1; J.moedasVistas = -1; J.multVisto = -1;
@@ -1286,7 +1302,7 @@
     } else if (k === 'Escape') { if (J.fase === 'pausa') continuar(); else fechar(); e.preventDefault(); }
   }
   function aoEsconder() {
-    if (!J) return;
+    if (!J || !J.pronto) return; /* ainda carregando: nada para pausar nem desenhar */
     if (document.hidden) { pausar(); if (J && J.raf) { cancelAnimationFrame(J.raf); J.raf = 0; } }
     else { J.ult = 0; desenhar(); pedirQuadro(); }
   }
@@ -1347,12 +1363,16 @@
     try { history.pushState({ ligeiroJogo: true }, ''); J.empurrou = true; } catch (_) { J.empurrou = false; }
     window.addEventListener('popstate', aoVoltarNavegador);
 
-    /* os desenhos dependem da loja (a logo na caixa e a cidade na placa): refeitos so quando a loja muda */
+    /* os desenhos dependem da loja (a logo na caixa e a cidade na placa): refeitos so quando a loja muda.
+       Na chave vai tudo o que aparece do lanche (nome, preco, emoji e a foto): so o id e "tem foto" deixava o lanche,
+       o preco e a foto da loja anterior quando duas lojas da mesma cidade tinham o mesmo id */
     var novos = (Array.isArray(op.produtos) ? op.produtos : []).slice(0, 3).map(function (p) { return { id: String(p.id), nome: String(p.nome || ''), preco: Number(p.preco) || 0, emoji: p.emoji || '', foto: p.foto || '' }; });
-    var chave = (op.cidade || '') + '|' + (op.logo || '') + '|' + novos.map(function (p) { return p.id + ':' + (p.foto ? 1 : 0); }).join(',');
+    var chave = (op.cidade || '') + '|' + (op.logo || '') + '|' + JSON.stringify(novos.map(function (p) { return [p.id, p.nome, p.preco, p.emoji, p.foto]; }));
+    var este = J;
     var comeco = function () {
-      if (!J) return;
+      if (!J || J !== este) return; /* fechou (ou ja abriu em outra loja) enquanto a foto carregava */
       if (!SP || SP.chave !== chave) { montarDesenhos(op.cidade); poderesDaLoja(); SP.chave = chave; }
+      J.pronto = true;
       medir();
       telaInicio();
     };
@@ -1407,6 +1427,7 @@
     if (!J) return;
     var aoFechar = J.aoFechar;
     musicaParar();
+    dormirSom();
     J.vivo = false;
     if (J.raf) cancelAnimationFrame(J.raf);
     clearTimeout(J.tempoAviso);

@@ -94,10 +94,11 @@ while (J().dist < 12000 && seguro++ < 200000) {
   for (const o of J().obj) {
     if (vistos.has(o)) continue;
     vistos.add(o);
-    const tipo = { cone: [true, 0.5], buraco: [true, 1.4], lombada: [true, 0.9], carro: [false, 3.8], caminhao: [false, 6.5] }[o.tipo];
+    const tipo = { cone: [true, 0.5], buraco: [true, 1.4], lombada: [true, 0.9], cachorro: [true, 1.0], carro: [false, 3.8], caminhao: [false, 6.5] }[o.tipo];
     if (!tipo) continue;
     const de = o.z + J().dist;
-    const faixas = o.tipo === 'lombada' ? [-1, 0, 1] : [o.faixa];
+    /* o vira-lata nasce na beira da rua e chega na moto quando esta no meio dela */
+    const faixas = o.tipo === 'lombada' ? [-1, 0, 1] : o.tipo === 'cachorro' ? [0] : [o.faixa];
     faixas.forEach((f) => bloqueios.push({ faixa: f, de, ate: de + tipo[1], pula: tipo[0] }));
   }
 }
@@ -217,6 +218,34 @@ j.obj.push({ tipo: 'cachorro', faixa: 0, z: j.vel * 0.3, alt: 0, vx: 0, anda: tr
 T.pular();
 for (let i = 0; i < 90 && j.fase === 'jogando'; i++) T.passo(dt);
 ok(j.fase === 'jogando', 'da para pular o vira-lata');
+/* o vira-lata como a rua gera (na beira da rua, la no fundo): antes ele comecava a atravessar 2,3 s antes e ja tinha
+   saido da rua do outro lado quando chegava na moto (nunca batia). Agora chega no meio da rua junto com a moto */
+{
+  let bateu = 0, desviou = 0, casos = 0;
+  for (const dist of [250, 3000, 12000]) {
+    for (const lado of [-1, 1]) {
+      for (const troca of [0, -1, 1]) {
+        j = corridaLimpa();
+        j.dist = dist;
+        T.passo(dt); /* acerta a velocidade */
+        j.obj.push({ tipo: 'cachorro', faixa: lado * 1.9, z: 100, alt: 0, vx: -lado * 1.55 });
+        let latiu = -1;
+        for (let i = 0; i < 60 * 12 && j.fase === 'jogando'; i++) {
+          const c = j.obj.find((o) => o.tipo === 'cachorro');
+          if (c && c.anda && latiu < 0) latiu = i;
+          /* quem ouve o latido troca de faixa 0,3 s depois */
+          if (troca && latiu >= 0 && i === latiu + 18) T.faixa(troca);
+          T.passo(dt);
+        }
+        casos++;
+        if (!troca && j.fase !== 'jogando') bateu++;
+        if (troca && j.fase === 'jogando') desviou++;
+      }
+    }
+  }
+  ok(bateu === 6, 'o vira-lata bate em quem fica parado no meio da rua (' + bateu + ' de 6)');
+  ok(desviou === 12, 'quem ouve o latido e troca de faixa desvia, para qualquer lado (' + desviou + ' de 12)');
+}
 j = corridaLimpa();
 for (let k = 0; k < 17; k++) j.obj.push({ tipo: 'moeda', faixa: 0, z: 2 + k * 1.5, alt: 0.7 });
 for (let i = 0; i < 200; i++) T.passo(dt);
@@ -281,6 +310,92 @@ for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
 await new Promise((r) => setTimeout(r, 900));
 ok(J().fase === 'fim' && !acha(J().painel, 'jogo-fome'), 'loja fechou durante a corrida: sem "Bateu fome?"');
 LJ.fechar();
+
+/* ---- 6. outra loja da mesma cidade com um lanche de mesmo id: o jogo mostra o lanche dela, nao o da anterior ---- */
+console.log('Troca de loja, foto carregando e som');
+const textoDe = (no) => (no.textContent || '') + ' ' + (no.children || []).map(textoDe).join(' ');
+LJ.abrir({ cidade: 'Registro', nomeLoja: 'Lanche do Zé', aoVerProduto() {}, podePedir: () => true, produtos: [{ id: 'x-bacon', nome: 'X-Bacon', preco: 2400, emoji: '🍔' }] });
+await new Promise((r) => setTimeout(r, 20));
+LJ.fechar();
+LJ.abrir({ cidade: 'Registro', nomeLoja: 'Burguer da Praça', aoVerProduto() {}, podePedir: () => true, produtos: [{ id: 'x-bacon', nome: 'X-Bacon Duplo', preco: 3900, emoji: '🌭' }] });
+await new Promise((r) => setTimeout(r, 20));
+ok(/X-Bacon Duplo\s+dá turbo/.test(textoDe(J().painel)), 'tela de inicio da outra loja: o lanche dela');
+j = corridaLimpa();
+j.obj.push({ tipo: 'turbo', faixa: 0, z: 0.5, alt: 0.9 });
+T.passo(dt);
+j.turbo = 0; j.imune = 0;
+j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+await new Promise((r) => setTimeout(r, 900));
+const fomeB = acha(J().painel, 'jogo-fome');
+ok(j.textos.some((t) => t.t === 'X-Bacon Duplo: turbo!') && fomeB && /🌭/.test(textoDe(fomeB)) && /X-Bacon Duplo por R\$ 39,00/.test(textoDe(fomeB)), 'fim na outra loja: "Bateu fome?" com o nome, o emoji e o preco dela');
+LJ.fechar();
+
+/* um jogo novo (sem desenhos ainda, como na primeira vez), com a foto que demora a carregar, o som de mentira e os
+   eventos da janela guardados para disparar na hora que o teste quiser */
+function jogoNovo(atrasoFoto) {
+  const ouvintes = {};
+  const por = (tipo, fn) => { (ouvintes[tipo] = ouvintes[tipo] || []).push(fn); };
+  const tirar = (tipo, fn) => { ouvintes[tipo] = (ouvintes[tipo] || []).filter((f) => f !== fn); };
+  const audios = [];
+  const no = () => ({ connect() {}, disconnect() {}, start() {}, stop() {}, type: '', frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, gain: { value: 1, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, buffer: null });
+  const jan = Object.assign({}, janela, {
+    document: Object.assign({}, documento, { addEventListener: por, removeEventListener: tirar }),
+    addEventListener: por, removeEventListener: tirar,
+    Image: function () {
+      const img = { complete: false, naturalWidth: 0, naturalHeight: 0, dataset: {} };
+      let src = '';
+      Object.defineProperty(img, 'src', { get() { return src; }, set(v) { src = v; setTimeout(() => { img.complete = true; img.naturalWidth = img.naturalHeight = 192; if (img.onload) img.onload(); }, atrasoFoto); } });
+      return img;
+    },
+    AudioContext: function () {
+      const a = { state: 'running', currentTime: 0, sampleRate: 44100, destination: {}, createOscillator: no, createGain: no, createBufferSource: no, createBuffer: (c, n) => ({ getChannelData: () => new Float32Array(n) }) };
+      a.resume = () => { a.state = 'running'; return Promise.resolve(); };
+      a.suspend = () => { a.state = 'suspended'; return Promise.resolve(); };
+      audios.push(a);
+      return a;
+    },
+  });
+  jan.window = jan;
+  vm.createContext(jan);
+  vm.runInContext(codigo, jan);
+  return { M: jan.LigeiroJogo, audios, disparar: (tipo) => (ouvintes[tipo] || []).slice().forEach((f) => f({})) };
+}
+
+/* girar o celular ou voltar para a aba enquanto a foto do lanche carrega (a primeira vez): antes dava TypeError */
+{
+  const n = jogoNovo(300);
+  n.M.abrir({ cidade: 'Juquiá', produtos: [{ id: 'a', nome: 'A', preco: 100, foto: 'data:image/png;base64,AAAA' }] });
+  let erro = null;
+  try { n.disparar('resize'); n.disparar('visibilitychange'); } catch (e) { erro = e; }
+  await new Promise((r) => setTimeout(r, 800));
+  ok(!erro && n.M._teste.estado() && n.M._teste.estado().fase === 'inicio', 'girar o celular ou voltar para a aba com a foto carregando: sem erro, e o jogo abre depois' + (erro ? ' (' + erro.message + ')' : ''));
+  n.M.fechar();
+}
+
+/* o som dorme quando fecha e acorda de qualquer parada (inclusive a "interrupted" do iPhone) */
+{
+  const n = jogoNovo(0);
+  n.M.abrir({ cidade: 'Juquiá' });
+  await new Promise((r) => setTimeout(r, 20));
+  n.M._teste.comecar();
+  const a = n.audios[0];
+  n.M.fechar();
+  await new Promise((r) => setTimeout(r, 600));
+  ok(a && a.state === 'suspended', 'fechou o jogo: o som dorme');
+  n.M.abrir({ cidade: 'Juquiá' });
+  await new Promise((r) => setTimeout(r, 20));
+  n.M._teste.comecar();
+  ok(a.state === 'running' && n.audios.length === 1, 'abriu de novo e jogou: o mesmo som acorda');
+  a.state = 'interrupted';
+  n.M._teste.pular();
+  ok(a.state === 'running', 'depois de uma ligacao no iPhone (interrupted): o proximo som acorda');
+  n.M.fechar();
+  n.M.abrir({ cidade: 'Juquiá' });
+  await new Promise((r) => setTimeout(r, 600));
+  ok(a.state === 'running', 'fechou e abriu logo em seguida: o som nao dorme por cima do jogo aberto');
+  n.M.fechar();
+}
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
