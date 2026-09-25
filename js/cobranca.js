@@ -114,7 +114,7 @@
     if (!fatura && o.assinatura && !o.atrasada) {
       UI.abrirModal({
         titulo: 'Assinatura em dia',
-        corpo: el('p', { class: 'muted', text: 'Sua assinatura já está ativa. No cartão, a mensalidade cai sozinha. No Pix ou boleto, a fatura aparece aqui e chega por e-mail uns dias antes de vencer.' }),
+        corpo: el('p', { class: 'muted', text: 'Sua assinatura já está ativa. No cartão, a ' + (o.tipo === 'anual' ? 'renovação' : 'mensalidade') + ' cai sozinha. No Pix ou boleto, a fatura aparece aqui e chega por e-mail uns dias antes de vencer.' }),
         rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Fechar', onclick: UI.fecharModal })],
       });
       return;
@@ -139,7 +139,8 @@
         : fatura.dias === 0 ? 'Vence hoje'
         : 'Vence em ' + fatura.dias + (fatura.dias === 1 ? ' dia' : ' dias') + (dia ? ' · ' + dia : '');
       corpo.appendChild(el('div', { class: 'fatura-cartao' + (fatura.vencida ? ' vencida' : '') }, [
-        el('span', { class: 'fatura-rotulo', text: 'Mensalidade do Ligeiro' }),
+        /* plano anual: "Fatura" (a aberta pode ser a anual, ou a ultima mensal de quem acabou de trocar) */
+        el('span', { class: 'fatura-rotulo', text: o.tipo === 'anual' ? 'Fatura do Ligeiro' : 'Mensalidade do Ligeiro' }),
         el('b', { class: 'fatura-valor', text: R.dinheiro(fatura.valor) }),
         el('span', { class: 'fatura-quando' }, [UI.iconeLinha(fatura.vencida ? 'alerta' : 'relogio'), quando]),
         el('div', { class: 'fatura-formas' }, ['Pix', 'Boleto', 'Cartão'].map(function (t) { return el('span', { class: 'fatura-forma', text: t }); })),
@@ -214,7 +215,7 @@
     if (!link && !pixL.chave) {
       corpo.appendChild(el('p', { text: 'Combine o pagamento de ' + R.dinheiro(o.valor) + ' (' + o.periodo + ') direto com o Ligeiro.' }));
       if (cfg.whatsappLigeiro) corpo.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero pagar a assinatura de ' + o.quem + ' (' + R.dinheiro(o.valor) + ').'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'Chamar o Ligeiro']));
-      else corpo.appendChild(el('p', { class: 'muted pequeno', text: 'O Ligeiro ainda não cadastrou como receber a mensalidade.' }));
+      else corpo.appendChild(el('p', { class: 'muted pequeno', text: 'O Ligeiro ainda não cadastrou como receber a assinatura.' }));
       UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Fechar', onclick: UI.fecharModal })] });
       return;
     }

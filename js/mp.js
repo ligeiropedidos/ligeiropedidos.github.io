@@ -47,7 +47,9 @@
   function lerConexao(slug) {
     /* nunca fica "Conferindo…" para sempre (internet fraca, banco parado): em 12 s vira "Tentar de novo" */
     var limite = new Promise(function (_, falhou) { setTimeout(function () { falhou(new Error('A conferência demorou demais.')); }, 12000); });
-    return Promise.race([D().store.lerSegredo(slug, SEGREDO), limite]).then(function (seg) {
+    /* leitura que falhou vira erro (o painel mostra "Tentar de novo" e salvar nao mexe no Pix), e nao "desconectado":
+       com "desconectado" na tela, o proximo "Salvar tudo" desligava o Pix de uma loja conectada */
+    return Promise.race([D().store.lerSegredo(slug, SEGREDO, true), limite]).then(function (seg) {
       if (!seg || !seg.token) return null;
       return { token: String(seg.token), conectadoEm: seg.conectadoEm || seg.atualizadoEm || '', mpUserId: seg.mpUserId || '', viaOauth: !!seg.refresh };
     });
@@ -59,9 +61,10 @@
     if (D().modoDemo) {
       return guardarToken(slug, 'SIMULACAO').then(function () { return 'demo'; });
     }
-    if (!cfg.mercadoPagoClientId || !cfg.proxyMercadoPago) return Promise.reject(new Error('O Ligeiro ainda não ligou a conexão com o Mercado Pago. Cole o token por enquanto.'));
+    if (!cfg.mercadoPagoClientId || !cfg.proxyMercadoPago) { var semApp = new Error('O Ligeiro ainda não ligou a conexão com o Mercado Pago. Cole o token por enquanto.'); semApp.publico = true; return Promise.reject(semApp); }
     var nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    return D().store.lerSegredo(slug, SEGREDO).then(function (seg) {
+    /* leitura que falhou (internet, banco) para aqui: seguir com "nada lido" gravava o codigo por cima e apagava o token */
+    return D().store.lerSegredo(slug, SEGREDO, true).then(function (seg) {
       var novo = Object.assign({}, seg || {}, { oauthNonce: nonce, oauthEm: new Date().toISOString() });
       return D().store.guardarSegredo(slug, SEGREDO, novo);
     }).then(function () {
@@ -169,7 +172,9 @@
     }
 
     function aprovar(p) {
-      return store.atualizarPedido(slug, p.id, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', pagoEm: new Date().toISOString(), confirmadoPor: 'mercadopago' })
+      /* pagoPor: qual cobranca pagou (como o mensageiro anota). Com ele, a segunda cobranca aprovada do mesmo pedido volta
+         sozinha para o cliente, e a devolucao alcanca a certa */
+      return store.atualizarPedido(slug, p.id, { status: R.STATUS.PAGO, pagamentoStatus: 'pago', pagoEm: new Date().toISOString(), confirmadoPor: 'mercadopago', pagoPor: String(p.mp.id) })
         .then(function () {
           if (window.LigeiroUI) { window.LigeiroUI.soar('sucesso'); window.LigeiroUI.avisar('Pix da senha ' + p.senha + ' caiu. Pedido liberado.'); }
           /* a cozinha e o cliente (se quis) ficam sabendo, mesmo com a tela apagada */
