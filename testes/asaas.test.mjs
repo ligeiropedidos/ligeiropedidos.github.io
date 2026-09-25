@@ -43,6 +43,8 @@ globalThis.fetch = async (u, o) => {
   o = o || {};
   const endereco = String(u);
   if (endereco === 'https://oauth2.googleapis.com/token') return resposta({ access_token: 'tok' });
+  /* como o Asaas de verdade nas contas novas: sem User-Agent, 400 */
+  if (endereco.indexOf('https://api.asaas.com/') === 0 && !((o.headers || {})['User-Agent'])) return resposta({ errors: [{ code: 'invalid_user_agent' }] }, 400);
   if (endereco.indexOf('https://api.asaas.com/v3/payments/') === 0) {
     const c = cobrancas.get(decodeURIComponent(endereco.split('/').pop()));
     return c ? resposta(c) : resposta({ errors: [] }, 404);

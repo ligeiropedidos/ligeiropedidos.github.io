@@ -183,9 +183,14 @@ function descobrirPlano(env, centavos, pag) {
   return { id: id, tipo: tipo, preco: '' };
 }
 
+/* o Asaas exige o User-Agent nas contas novas (sem ele, responde 400 a tudo; o fetch da Cloudflare nao manda nenhum).
+   O motivo que o Asaas der vai para o registro do Cloudflare (nunca para a resposta): o proximo erro se le de primeira */
 async function asaas(env, caminho) {
-  const r = await fetch('https://api.asaas.com/v3' + caminho, { headers: { access_token: env.ASAAS_KEY, accept: 'application/json' } });
-  if (!r.ok) { const e = new Error('Asaas ' + r.status + ' em ' + caminho); e.status = r.status; throw e; }
+  const r = await fetch('https://api.asaas.com/v3' + caminho, { headers: { access_token: String(env.ASAAS_KEY || '').trim(), accept: 'application/json', 'User-Agent': 'Ligeiro/1.0 (ligeiropedidos.com.br)' } });
+  if (!r.ok) {
+    const motivo = (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200);
+    const e = new Error('Asaas ' + r.status + ' em ' + caminho + (motivo ? ': ' + motivo : '')); e.status = r.status; throw e;
+  }
   return r.json();
 }
 
