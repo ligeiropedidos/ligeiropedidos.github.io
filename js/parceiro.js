@@ -583,7 +583,7 @@
       card.style.setProperty('--partes', [].filter.call(card.children, function (f) { return !f.classList.contains('plano-etiqueta') && !f.classList.contains('plano-visto'); }).length);
       return card;
     });
-    var linhas = ['1 loja na sua conta', pr.diasGratis + ' dias grátis, sem cartão', 'Pedidos ilimitados, sem comissão', 'Cartão, boleto ou Pix', 'Suporte 24 horas'];
+    var linhas = ['1 loja na sua conta', pr.diasGratis + ' dias grátis, sem cartão', 'Pedidos ilimitados, sem comissão', 'Cartão, boleto ou Pix', 'Suporte pelo WhatsApp'];
     /* a faixa das vagas: so para quem ainda pode virar fundador (quem ja e, ja tem o preco) */
     var faixa = fechado ? faixaEspera() : (deFundador && !jaFundador ? faixaFundador() : null);
     return el('div', { class: 'pilha planos-caixa' }, [
