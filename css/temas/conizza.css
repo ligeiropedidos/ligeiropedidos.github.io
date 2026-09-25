@@ -253,7 +253,10 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .lista-simples .linha { border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-branco); }
 .tema-conizza .pedido-card .senha, .tema-conizza .ficha-cozinha .senha, .tema-conizza .bloco-titulo, .tema-conizza .metrica .v { font-family: var(--cz-display); font-weight: 800; color: var(--cz-tinta); }
 .tema-conizza .pedido-card .senha, .tema-conizza .ficha-cozinha .senha { background: var(--cz-tinta); color: var(--cz-creme); box-shadow: 0 3px 0 rgba(36, 23, 8, 0.25); padding-top: 8.5px; padding-bottom: 8.5px; } /* ficha da senha nas cores da casa; 45px, a altura dos selos da casa */
-.tema-conizza .pedido-card .senha small, .tema-conizza .ficha-cozinha .senha small { color: var(--cz-ouro-claro); }
+.tema-conizza .pedido-card .senha small, .tema-conizza .ficha-cozinha .senha small { color: var(--cz-ouro-claro); position: relative; top: 1px; }
+/* a Baloo desenha os numeros 2px acima do meio da caixa (e o "SENHA" 1px): desce cada um o que falta, a tinta fica no meio
+   exato da ficha (medido no painel, na cozinha e no entregador) */
+.tema-conizza .pedido-card .senha b, .tema-conizza .ficha-cozinha .senha b { position: relative; top: 2px; }
 /* cozinha atrasada: o cartao da casa fica pessego e o tempo na cor do atraso */
 .tema-conizza .ficha-cozinha.atrasado { background: #fdebd3; }
 .tema-conizza .ficha-cozinha .tempo.laranja { background: #fdebd3; color: #8a3d0c; }
