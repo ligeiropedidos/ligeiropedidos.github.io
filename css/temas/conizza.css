@@ -221,6 +221,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .passos-feitos summary .ico-traco, .tema-conizza .passo-feito .ico-traco { color: var(--cz-verde); }
 .tema-conizza .progresso-passos span { background: var(--cz-vermelho); }
 .tema-conizza .passo-pix .numero { background: var(--cz-vermelho); color: var(--cz-creme); border: 3px solid var(--cz-tinta); }
+/* numeros nas bolinhas (Seus dados 1 a 4 e os passos do Pix): a Baloo e a Nunito desenham o numero 1px acima do meio;
+   2px de respiro em cima descem ele o que falta (a bolinha segue do mesmo tamanho) */
+.tema-conizza .bloco-numero, .tema-conizza .passo-pix .numero { padding-top: 2px; }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }
