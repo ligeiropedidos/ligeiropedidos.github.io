@@ -707,7 +707,7 @@
         return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); });
       }
       window.LigeiroCobranca.abrir({
-        valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome,
+        valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome, email: (estado.conta && estado.conta.email) || estado.loja.donoEmail || '',
         txid: 'LIG' + slug.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro ' + estado.loja.nome, avisar: avisar,
       });
     }

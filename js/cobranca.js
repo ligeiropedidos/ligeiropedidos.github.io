@@ -15,7 +15,7 @@
   var el = UI.el;
 
   /*
-   * o = { valor, periodo ('30 dias' | '12 meses'), planoId, tipo, quem (nome da loja ou e-mail),
+   * o = { valor, periodo ('30 dias' | '12 meses'), planoId, tipo, quem (nome da loja ou e-mail), email (login do dono),
    *       txid, descricao, avisar: function () -> Promise (grava "ja paguei") }
    */
   function abrir(o) {
@@ -37,8 +37,11 @@
     if (link) {
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
         el('a', { class: 'btn btn-principal btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('cartao'), 'Cartão de crédito · cai sozinho todo ' + (o.tipo === 'anual' ? 'ano' : 'mês')]),
-        el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Boleto']),
+        el('a', { class: 'btn btn-fantasma btn-largo', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('boleto'), 'Pix ou boleto']),
       ]));
+      /* o pagamento acha a conta pelo e-mail que a pessoa digita no Asaas: com outro e-mail, o dinheiro entra e a loja nao
+         libera sozinha */
+      if (o.email) corpo.appendChild(el('p', { class: 'centro' }, ['Na página do ' + provedor + ', use o e-mail ', el('b', { text: o.email }), '. É por ele que suas lojas são liberadas sozinhas.']));
       corpo.appendChild(el('p', { class: 'muted pequeno', text: 'Abre a página segura do ' + provedor + '. Você cadastra uma vez e não precisa lembrar de pagar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, suas lojas são liberadas sozinhas.' }));
     }
 

@@ -75,11 +75,16 @@ window.LIGEIRO_CONFIG = {
   cobranca: {
     provedor: 'Asaas',
     /* linksFundador: os mesmos oito links, com o preco de fundador (so quem tem a vaga ve esses) */
-    linksFundador: { uma: { mensal: '', anual: '' }, duas: { mensal: '', anual: '' }, tres: { mensal: '', anual: '' } },
+    linksFundador: {
+      uma: { mensal: 'https://www.asaas.com/c/0ecl013dsndt48ta', anual: 'https://www.asaas.com/c/ijf1apwcx3f7q5e3' },
+      duas: { mensal: 'https://www.asaas.com/c/drodvoyhdsrkb17v', anual: 'https://www.asaas.com/c/70ne7ywzer6hp1rl' },
+      tres: { mensal: 'https://www.asaas.com/c/ul9xy8c7wsgicnus', anual: 'https://www.asaas.com/c/6xnkfdc0brmlxan8' },
+    },
+    /* conferidos na pagina publica de cada link em 25/09/2026: nome, valor e frequencia batem com os planos acima */
     links: {
-      uma: { mensal: '', anual: '' },
-      duas: { mensal: '', anual: '' },
-      tres: { mensal: '', anual: '' },
+      uma: { mensal: 'https://www.asaas.com/c/7fqf0ii8xsgy70el', anual: 'https://www.asaas.com/c/xlpz69ezcezhvn0q' },
+      duas: { mensal: 'https://www.asaas.com/c/ujhac7dxappwv8dt', anual: 'https://www.asaas.com/c/1xhh4phhrp4hpdq1' },
+      tres: { mensal: 'https://www.asaas.com/c/ok0ynj1japf1utqy', anual: 'https://www.asaas.com/c/g42d9b920f14y0p3' },
     },
   },
 

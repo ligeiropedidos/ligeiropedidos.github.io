@@ -214,7 +214,7 @@
           .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); });
       }
       window.LigeiroCobranca.abrir({
-        valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, sufixo: ', todas as suas lojas',
+        valor: valor, periodo: periodo, planoId: p.planoId || 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, email: conta.email, sufixo: ', todas as suas lojas',
         txid: 'LIG' + conta.email.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro assinatura', avisar: avisar,
       });
     }
