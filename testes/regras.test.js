@@ -929,3 +929,14 @@ test('tipo "Outro": emoji de comida (vira o emoji da loja)', () => {
   assert.deepEqual(outro, ['Outro', '🍴']);
   assert.ok(R.TIPOS_DE_LOJA.every((t) => t[1] !== '🛵'));
 });
+
+test('dias gratis: config das telas, regras e worker do Asaas dizem o mesmo', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const raiz = path.join(__dirname, '..');
+  const cfg = /diasGratis:\s*(\d+)/.exec(fs.readFileSync(path.join(raiz, 'js/config.js'), 'utf8'));
+  const asaas = /const DIAS_GRATIS = (\d+);/.exec(fs.readFileSync(path.join(raiz, 'ferramentas/worker-asaas.js'), 'utf8'));
+  assert.ok(cfg && asaas, 'achou os dois numeros');
+  assert.equal(Number(cfg[1]), R.DIAS_GRATIS);
+  assert.equal(Number(asaas[1]), R.DIAS_GRATIS);
+});

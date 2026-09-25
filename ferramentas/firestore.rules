@@ -275,12 +275,8 @@ service cloud.firestore {
               && !(resource.data.get('mp', null) != null && resource.data.status == 'aguardando_pagamento'
                    && (request.resource.data.status == 'pago' || request.resource.data.get('pagamentoStatus', '') == 'pago')))
           || isDonoDaLoja(loja) || isAdmin()
-          /* cliente: "ja paguei" (so marca, nunca muda status) */
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
-              && request.resource.data.clientePagou == true
-              && resource.data.status == 'aguardando_pagamento' && resource.data.formaPagamento == 'pix'
-              && request.resource.data.get('clientePagouEm', '') is string && request.resource.data.get('clientePagouEm', '').size() <= 30
-              && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30)
+          /* (o "ja paguei" do cliente saiu: o Pix confirma sozinho e o aviso deixava o pedido laranja, "Diz que pagou", com
+             qualquer print) */
           /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix (nunca com o cartao em analise no banco:
              ele pode passar depois, e o cliente pagaria de novo por outro pedido) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])

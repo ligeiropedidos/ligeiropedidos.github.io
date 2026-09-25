@@ -43,7 +43,9 @@ window.LIGEIRO_CONFIG = {
      "Conectar com Mercado Pago" no painel. O Client Secret vai so no worker (MP_CLIENT_SECRET). */
   mercadoPagoClientId: '4386028316883153',
 
-  /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou). */
+  /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou).
+     So o texto das telas le daqui: quem decide e ASSINATURA.diasGratis em js/regras.js (o mensageiro usa a mesma) e o
+     DIAS_GRATIS do worker-asaas. Mudar um, mudar os tres (um teste confere). */
   precos: { mensal: 8900, anual: 89000, diasGratis: 7 },
   /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo enquanto nao cancelarem (campo "fundador" de cada plano).
      A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
