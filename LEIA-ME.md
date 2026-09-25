@@ -396,8 +396,12 @@ Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em 
 1. Crie um repositório no GitHub e suba a pasta `app` inteira.
 2. Em *Settings > Pages*, escolha a branch e a pasta. O endereço fica
    `https://SEU-USUARIO.github.io/NOME-DO-REPO/`.
-3. Domínio próprio (opcional): `ligeiro.app.br` no Registro.br apontando para o
-   GitHub Pages.
+3. Domínio próprio (desde 24/09/2026): **ligeiropedidos.com.br**, comprado no Registro.br (no CPF, vence em
+   24/09/2027). Zona DNS no modo avançado: 4 registros A (185.199.108.153 a 185.199.111.153) e o CNAME
+   `www` para `ligeiropedidos.github.io`. O arquivo `CNAME` do repositório liga o domínio no GitHub Pages; o
+   certificado é da Let's Encrypt (o GitHub renova). O endereço antigo manda para o novo sozinho, e o `sw.js` segue
+   essa mudança e se desliga do endereço velho. Também foram atualizados: `ORIGENS` do mensageiro, "Domínios
+   autorizados" do Firebase Authentication e o final dos comerciais.
 
 O Firebase está ligado desde 18/09/2026 (projeto `ligeiro-18df1`). Os passos
 abaixo ficam como referência.
