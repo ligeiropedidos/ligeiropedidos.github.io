@@ -190,7 +190,9 @@ const REGRAS = (function () {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 40);
+      /* o corte em 40 pode cair num hifen: sem tirar, "nome-longo-" virava "nome-longo--2" no mensageiro */
+      .slice(0, 40)
+      .replace(/-+$/, '');
   }
 
   /* Endereco da cidade (#/juquia): o nome, e com o estado junto quando o nome se repete no Brasil (240 nomes do IBGE,
@@ -294,27 +296,31 @@ const REGRAS = (function () {
   }
 
   /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
+     Faixas que se cruzam ou se encostam (11:00-15:00 e 14:00-23:00) contam como uma so: fecha as 23:00, nao as 15:00.
      null se nao usa horario ou se esta fora de qualquer faixa. */
   function fechamentoDeHoje(loja, agora) {
     if (!loja || !loja.usarHorarios || !loja.horarios) return null;
     var data = agora || new Date();
     var atual = data.getHours() * 60 + data.getMinutes();
-    var hoje = loja.horarios[DIAS[data.getDay()]];
-    var ontem = loja.horarios[DIAS[(data.getDay() + 6) % 7]];
-    var fim = null, i, f;
-    if (Array.isArray(hoje)) {
-      for (i = 0; i < hoje.length && fim === null; i++) {
-        f = faixaMinutos(hoje[i]);
-        if (f && (f[1] <= f[0] ? atual >= f[0] : atual >= f[0] && atual < f[1])) fim = f[1];
+    /* as faixas de ontem, de hoje e de amanha em minutos contados da meia-noite de hoje (a que vira a noite passa das 24 h) */
+    var faixas = [], fim = null, i, k, f, lista, mudou;
+    for (k = -1; k <= 1; k++) {
+      lista = loja.horarios[DIAS[(data.getDay() + k + 7) % 7]];
+      if (!Array.isArray(lista)) continue;
+      for (i = 0; i < lista.length; i++) {
+        f = faixaMinutos(lista[i]);
+        if (f) faixas.push([f[0] + k * 1440, f[1] + k * 1440 + (f[1] <= f[0] ? 1440 : 0)]);
       }
     }
-    if (fim === null && Array.isArray(ontem)) {
-      for (i = 0; i < ontem.length && fim === null; i++) {
-        f = faixaMinutos(ontem[i]);
-        if (f && f[1] <= f[0] && atual < f[1]) fim = f[1];
-      }
+    for (i = 0; i < faixas.length; i++) {
+      if (faixas[i][0] <= atual && atual < faixas[i][1] && (fim === null || faixas[i][1] > fim)) fim = faixas[i][1];
     }
     if (fim === null) return null;
+    /* emenda a faixa que comeca antes (ou na hora) em que esta acaba */
+    do {
+      mudou = false;
+      for (i = 0; i < faixas.length; i++) if (faixas[i][0] <= fim && faixas[i][1] > fim) { fim = faixas[i][1]; mudou = true; }
+    } while (mudou);
     var h = Math.floor(fim / 60) % 24, m = fim % 60;
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
@@ -598,15 +604,19 @@ const REGRAS = (function () {
    * Devolve o objeto pronto para gravar (sem id e sem senha - isso e o
    * banco quem da). Lanca ErroDoCliente com mensagem legivel se algo
    * estiver errado.
+   *
+   * agora: o relogio da loja, para o horario de abrir e fechar (o mensageiro, que roda em UTC, passa a hora de Brasilia).
+   * instante (opcional): o momento de verdade, para a assinatura (ela conta o dia em Brasilia sozinha) e para o criadoEm.
+   * Sem ele vale o agora, que no site e o mesmo relogio.
    * ---------------------------------------------------------- */
 
-  function montarPedido(loja, dados, agora) {
+  function montarPedido(loja, dados, agora, instante) {
     if (!lojaAberta(loja, agora)) {
       throw ErroDoCliente('A loja está fechada no momento. Volte mais tarde!');
     }
 
     var noBalcao = dados.origem === 'balcao';
-    if (lojaBloqueada(loja, agora)) throw ErroDoCliente('Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.');
+    if (lojaBloqueada(loja, instante || agora)) throw ErroDoCliente('Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.');
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     if (tipoEntrega === 'entrega' && loja.aceitaEntrega === false) {
       throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar no balcão.');
@@ -647,17 +657,20 @@ const REGRAS = (function () {
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
     };
-    var formaPagamento = typeof dados.formaPagamento === 'string' && formas.hasOwnProperty(dados.formaPagamento) ? dados.formaPagamento : 'pix';
-    if (!formas[formaPagamento]) {
-      var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
-      if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
-      formaPagamento = primeira;
-    }
+    var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
+    if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
+    var pediu = typeof dados.formaPagamento === 'string' ? dados.formaPagamento : '';
+    /* forma que a loja nao aceita agora (ex.: desligou o Mercado Pago enquanto o cliente fechava no Pix): recusa. Antes
+       virava a primeira que ela aceita, e um pedido "no Pix" chegava na cozinha como maquininha. Pedido sem forma
+       (tela antiga) segue como antes: Pix, ou a primeira que a loja aceita */
+    if (pediu && !(formas.hasOwnProperty(pediu) && formas[pediu])) throw ErroDoCliente('Essa forma de pagamento não está disponível agora. Escolha outra.');
+    var formaPagamento = pediu || primeira;
     var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento });
     if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
     /* pagar na porta: maquininha ou dinheiro. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
     var naPorta = formaPagamento === 'cartao_entrega' || formaPagamento === 'dinheiro_entrega';
-    if (naPorta && tipoEntrega !== 'entrega' && !loja.aceitaPagarNoBalcao && !noBalcao) {
+    /* "Quem retira pode pagar no balcao": sem o campo gravado vale ligado, como o painel mostra (so false desliga) */
+    if (naPorta && tipoEntrega !== 'entrega' && loja.aceitaPagarNoBalcao === false && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
       throw ErroDoCliente('Para retirar no balcão, pague no Pix.');
     }
@@ -682,7 +695,7 @@ const REGRAS = (function () {
     }
 
     var pagoNaHora = orcamento.total === 0;
-    var quando = (agora || new Date()).toISOString();
+    var quando = (instante || agora || new Date()).toISOString();
 
     var pedido = {
       lojaSlug: loja.slug,
@@ -1049,10 +1062,37 @@ const REGRAS = (function () {
    *   vencida   -> passou, mas ainda no ar (10 dias de tolerancia)
    *   bloqueada -> o site para de aceitar pedidos ate confirmar o pagamento
    */
+  /* diasGratis mora so aqui: o mensageiro (worker) nao tem o config.js, e com o numero em dois lugares o site e o
+     mensageiro discordavam de quando o teste gratis acaba. As telas leem LigeiroRegras.DIAS_GRATIS */
   var ASSINATURA = { diasGratis: 7, diasAviso: 7, diasTolerancia: 10 };
+
+  /* O dia do calendario em Brasilia (America/Sao_Paulo), em dias desde 01/01/1970, seja qual for o fuso do aparelho:
+     o site no celular e o mensageiro no Cloudflare (UTC) contam o mesmo dia para o mesmo instante. Recebe o instante
+     de verdade (nunca a hora ja deslocada em -3 h). Sem o fuso no Intl (aparelho antigo), conta -3 h fixo (o Brasil
+     nao tem mais horario de verao). */
+  var FORMATO_DIA_BR = null;
+  function diaEmBrasilia(data) {
+    var t = new Date(data).getTime();
+    if (isNaN(t)) return NaN;
+    if (FORMATO_DIA_BR === null) {
+      try { FORMATO_DIA_BR = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }); }
+      catch (_) { FORMATO_DIA_BR = false; }
+    }
+    if (FORMATO_DIA_BR) {
+      try {
+        var v = {};
+        if (FORMATO_DIA_BR.formatToParts) FORMATO_DIA_BR.formatToParts(t).forEach(function (p) { v[p.type] = p.value; });
+        else { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(FORMATO_DIA_BR.format(t)) || []; v = { year: m[1], month: m[2], day: m[3] }; }
+        var dia = Date.UTC(Number(v.year), Number(v.month) - 1, Number(v.day)) / 864e5;
+        if (isFinite(dia)) return dia;
+      } catch (_) { /* cai no -3 h fixo */ }
+    }
+    var br = new Date(t - 3 * 3600e3);
+    return Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate()) / 864e5;
+  }
+
   function assinatura(loja, agora) {
-    var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
-    var diasGratis = (cfg.precos && cfg.precos.diasGratis) || ASSINATURA.diasGratis;
+    var diasGratis = ASSINATURA.diasGratis;
     var p = (loja && loja.plano) || null;
     var hoje = agora || new Date();
     /* conta e lojas do proprio Ligeiro (adminEmail): cortesia permanente, nunca vence nem bloqueia */
@@ -1067,9 +1107,10 @@ const REGRAS = (function () {
     if (isNaN(inicio.getTime())) inicio = new Date(0);
     var fimGratis = new Date(inicio.getTime() + diasGratis * 864e5);
     var limite = pagoAte && pagoAte > fimGratis ? pagoAte : fimGratis;
-    /* conta em dias de calendario (meia-noite local), pra bater com a data que aparece na tela */
-    function meiaNoite(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
-    var dias = Math.round((meiaNoite(limite) - meiaNoite(hoje)) / 864e5);
+    /* conta em dias de calendario de Brasilia, para bater com a data que aparece na tela e com o mensageiro (que roda
+       em UTC: antes ele contava o dia do fim em UTC e aceitava pedido um dia a mais, ou recusava criar a loja no
+       ultimo dia depois das 21 h) */
+    var dias = Math.round(diaEmBrasilia(limite) - diaEmBrasilia(hoje));
     var gratis = !pagoAte || pagoAte <= fimGratis;
     /* quem ja pagou ganha uns dias de tolerancia (banco atrasa); o periodo gratis acaba no dia */
     var tolerancia = gratis ? 0 : ASSINATURA.diasTolerancia;
@@ -1160,6 +1201,8 @@ const REGRAS = (function () {
     var m = /^https?:\/\/([^\/?#@:]+)(?::\d+)?([\/?#].*)?$/i.exec(t);
     if (!m) return '';
     var host = m[1].toLowerCase();
+    /* o link de avaliar que o proprio Google da (search.google.com/local/writereview?placeid=...): so o /local/ */
+    if (host === 'search.google.com') return /^\/local\/(writereview|reviews)\b/i.test(m[2] || '') ? 'https://' + host + m[2] : '';
     if (!HOSTS_GOOGLE.test(host)) return '';
     if (host === 'goo.gl' && !/^\/maps\//i.test(m[2] || '')) return ''; /* goo.gl sozinho encurtava qualquer site; so o /maps e do Google */
     var caminho = m[2] || '/';
@@ -1174,8 +1217,10 @@ const REGRAS = (function () {
      O selo da loja ("Avaliacoes no Google") mostra o perfil (sem o /review); o convite depois da entrega leva ao /review.
      Link do Maps (Compartilhar) vale para os dois: abre a loja no Google, onde tem o botao Avaliar. */
   var G_PAGE = /^(https:\/\/g\.page\/r\/[^\/?#]+)(?:\/review)?\/?(?=[?#]|$)/i;
-  function linkGooglePerfil(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] : l; }
-  function linkGoogleAvaliar(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] + '/review' : l; }
+  /* o mesmo no link do Google com placeid: /local/reviews mostra as avaliacoes, /local/writereview abre a tela de avaliar */
+  var G_LOCAL = /^(https:\/\/search\.google\.com\/local\/)(?:writereview|reviews)\b/i;
+  function linkGooglePerfil(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] : l.replace(G_LOCAL, '$1reviews'); }
+  function linkGoogleAvaliar(texto) { var l = linkGoogle(texto); var m = G_PAGE.exec(l); return m ? m[1] + '/review' : l.replace(G_LOCAL, '$1writereview'); }
 
   /* CNPJ: devolve os 14 numeros se for valido (confere os dois digitos verificadores), senao ''. */
   function cnpjValido(texto) {
@@ -1428,11 +1473,13 @@ const REGRAS = (function () {
     return aoReceber ? 'paga ao receber' : 'paga na loja';
   }
 
-  /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central */
-  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🛵']];
+  /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central.
+     O emoji vira o da loja: sempre de comida (o "Outro" era uma moto, que nao e comida) */
+  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🍴']];
 
   return {
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
+    DIAS_GRATIS: ASSINATURA.diasGratis,
     frasePagamento: frasePagamento,
     cartaoPeloSite: cartaoPeloSite,
     taxaCartaoRepassada: taxaCartaoRepassada,

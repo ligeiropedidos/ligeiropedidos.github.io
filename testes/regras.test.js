@@ -708,9 +708,9 @@ test('cartão pelo site: espera o pagamento como o Pix e só vale com a loja lig
   assert.equal(p.pagoEm, null);
   /* retirada com cartao pelo site passa mesmo sem "pagar no balcao" (paga antes, como o Pix) */
   assert.equal(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: false }), dados).formaPagamento, 'cartao_online');
-  /* sem a chave publica (conectou antes do cartao existir) ou com o cartao desligado: nao vira cartao */
-  assert.notEqual(R.montarPedido(Object.assign({}, loja, { mpChavePublica: '' }), dados).formaPagamento, 'cartao_online');
-  assert.notEqual(R.montarPedido(Object.assign({}, loja, { aceitaCartaoOnline: false }), dados).formaPagamento, 'cartao_online');
+  /* sem a chave publica (conectou antes do cartao existir) ou com o cartao desligado: nao vira cartao (e nem outra forma calada) */
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { mpChavePublica: '' }), dados), /forma de pagamento não está disponível/);
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { aceitaCartaoOnline: false }), dados), /forma de pagamento não está disponível/);
   /* vence como o Pix: 35 min sem pagar */
   const velho = Object.assign({}, p, { criadoEm: new Date(Date.now() - 40 * 60 * 1000).toISOString() });
   assert.equal(R.pixVencido(velho), true);
@@ -760,4 +760,128 @@ test('texto do cliente nunca cria linha falsa na ficha (quebra de linha e invers
   assert.ok(ficha.indexOf('\u202E') < 0 && ficha.indexOf('\u2028') < 0);
   const zap = R.pedidoParaWhatsapp(loja, Object.assign({}, p, { observacao: 'a\nTotal: R$ 0,00' }));
   assert.equal(zap.split('\n').filter((l) => /^Total:/.test(l)).length, 1);
+});
+
+/* roda as regras num processo com outro fuso: o site no celular (Brasil) e o mensageiro no Cloudflare (UTC).
+   preparo: codigo que roda antes (ex.: aparelho sem o Intl) */
+function emFuso(tz, corpo, preparo) {
+  const { execFileSync } = require('node:child_process');
+  const regras = JSON.stringify(require('node:path').join(__dirname, '..', 'js', 'regras.js'));
+  const codigo = 'process.env.TZ=' + JSON.stringify(tz) + ';' + (preparo || '') +
+    'const R=require(' + regras + ');console.log(JSON.stringify((function(){' + corpo + '})()));';
+  return JSON.parse(execFileSync(process.execPath, ['-e', codigo], { encoding: 'utf8' }));
+}
+
+test('assinatura: o site no Brasil e o mensageiro em UTC contam o mesmo dia para o mesmo instante', () => {
+  const corpo = `
+    const pago = { plano: { status: 'ativo', desde: '2026-08-01T12:00:00.000Z', pagoAte: '2026-10-01T02:00:00.000Z' } }; /* 30/09 23:00 de Brasilia */
+    const teste = { plano: { status: 'teste', desde: '2026-09-18T15:00:00.000Z', pagoAte: '' } }; /* gratis ate 25/09 */
+    const r = {};
+    ['2026-10-10T13:00:00.000Z', '2026-10-11T02:59:00.000Z', '2026-10-11T03:00:00.000Z'].forEach((i) => { const a = R.assinatura(pago, new Date(i)); r['pago ' + i] = a.estado + ' ' + a.dias; });
+    ['2026-09-26T00:30:00.000Z', '2026-09-26T02:59:00.000Z', '2026-09-26T03:00:00.000Z'].forEach((i) => { const a = R.assinatura(teste, new Date(i)); r['teste ' + i] = a.estado + ' ' + a.dias; r['vaga ' + i] = R.ocupaVaga(teste, new Date(i)); });
+    /* /pedido do mensageiro: a hora de Brasilia para o horario da loja e o instante de verdade para a assinatura */
+    const loja = Object.assign({ slug: 'l', nome: 'L', aberta: true, mpAtivo: true, categorias: [{ id: 'c' }], produtos: [{ id: 'x', nome: 'X', categoria: 'c', preco: 2500 }] }, pago);
+    const dados = { itens: [{ produtoId: 'x', quantidade: 1 }], nome: 'Ana', telefone: '13999999999', tipoEntrega: 'retirada', formaPagamento: 'pix' };
+    ['2026-10-11T02:59:00.000Z', '2026-10-11T03:00:00.000Z'].forEach((i) => {
+      const agora = new Date(i);
+      try { const p = R.montarPedido(loja, dados, new Date(agora.getTime() - 3 * 3600e3), agora); r['pedido ' + i] = 'aceito ' + p.criadoEm; } catch (e) { r['pedido ' + i] = e.message; }
+    });
+    return r;`;
+  const esperado = {
+    'pago 2026-10-10T13:00:00.000Z': 'vencida -10',
+    'pago 2026-10-11T02:59:00.000Z': 'vencida -10', /* 10/10 23:59 de Brasilia: ultimo dia de tolerancia */
+    'pago 2026-10-11T03:00:00.000Z': 'bloqueada -11', /* 11/10 00:00 de Brasilia */
+    'teste 2026-09-26T00:30:00.000Z': 'gratis 0', /* 25/09 21:30: "Minha conta" diz que ainda da e o mensageiro cria a loja */
+    'vaga 2026-09-26T00:30:00.000Z': true,
+    'teste 2026-09-26T02:59:00.000Z': 'gratis 0',
+    'vaga 2026-09-26T02:59:00.000Z': true,
+    'teste 2026-09-26T03:00:00.000Z': 'bloqueada -1',
+    'vaga 2026-09-26T03:00:00.000Z': false,
+    'pedido 2026-10-11T02:59:00.000Z': 'aceito 2026-10-11T02:59:00.000Z', /* o pedido nasce com a hora de verdade */
+    'pedido 2026-10-11T03:00:00.000Z': 'Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.',
+  };
+  assert.deepEqual(emFuso('UTC', corpo), esperado, 'mensageiro (UTC)');
+  assert.deepEqual(emFuso('America/Sao_Paulo', corpo), esperado, 'site em Brasilia');
+  assert.deepEqual(emFuso('America/Rio_Branco', corpo), esperado, 'celular no Acre (UTC-5) conta o dia de Brasilia');
+  assert.deepEqual(emFuso('UTC', corpo, 'globalThis.Intl = undefined;'), esperado, 'sem o Intl: -3 h fixo');
+  assert.deepEqual(emFuso('UTC', corpo, 'Intl.DateTimeFormat.prototype.formatToParts = undefined;'), esperado, 'Intl sem o formatToParts: le o texto AAAA-MM-DD');
+});
+
+test('forma de pagamento que a loja nao aceita agora e recusada; pedido sem forma segue como antes', () => {
+  const semPix = Object.assign(lojaDeTeste(), { mpAtivo: false });
+  const base = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', endereco: { rua: 'Rua A', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }] };
+  /* a loja desligou o Mercado Pago enquanto o cliente fechava no Pix: nada de virar maquininha calado */
+  assert.throws(() => R.montarPedido(semPix, Object.assign({}, base, { formaPagamento: 'pix' })), /Essa forma de pagamento não está disponível agora. Escolha outra./);
+  assert.throws(() => R.montarPedido(semPix, Object.assign({}, base, { formaPagamento: 'boleto' })), /não está disponível/);
+  assert.throws(() => R.montarPedido(Object.assign(lojaDeTeste(), { aceitaDinheiroEntrega: false }), Object.assign({}, base, { formaPagamento: 'dinheiro_entrega' })), /não está disponível/);
+  assert.equal(R.montarPedido(semPix, Object.assign({}, base, { formaPagamento: 'dinheiro_entrega' })).formaPagamento, 'dinheiro_entrega');
+  /* tela antiga, sem a forma: Pix se tiver, senao a primeira que a loja aceita */
+  assert.equal(R.montarPedido(lojaDeTeste(), base).formaPagamento, 'pix');
+  assert.equal(R.montarPedido(semPix, base).formaPagamento, 'cartao_entrega');
+  const nenhuma = Object.assign(lojaDeTeste(), { mpAtivo: false, aceitaCartaoEntrega: false, aceitaDinheiroEntrega: false });
+  assert.throws(() => R.montarPedido(nenhuma, Object.assign({}, base, { formaPagamento: 'pix' })), /sem forma de pagamento configurada/);
+});
+
+test('"quem retira pode pagar no balcao": sem o campo vale ligado, como o painel mostra', () => {
+  const loja = lojaDeTeste();
+  delete loja.aceitaPagarNoBalcao;
+  const dados = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'dinheiro_entrega', itens: [{ produtoId: 'x', quantidade: 1 }] };
+  assert.equal(R.montarPedido(loja, dados).formaPagamento, 'dinheiro_entrega');
+  assert.equal(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: true }), dados).status, R.STATUS.PAGO);
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: false }), dados), /Para retirar no balcão, pague no Pix/);
+});
+
+test('dias gratis: um numero so, nas regras (o config do site nao muda o que o mensageiro conta)', () => {
+  const antes = global.window;
+  const loja = { plano: { status: 'teste', desde: '2026-09-15T15:00:00.000Z', pagoAte: '' } };
+  const agora = new Date('2026-09-25T15:00:00.000Z'); /* 10 dias depois */
+  try {
+    assert.equal(R.DIAS_GRATIS, 7);
+    delete global.window;
+    const mensageiro = R.assinatura(loja, agora).estado;
+    global.window = { LIGEIRO_CONFIG: { precos: { mensal: 8900, anual: 89000, diasGratis: 14 } } };
+    assert.equal(R.assinatura(loja, agora).estado, mensageiro);
+    assert.equal(mensageiro, 'bloqueada');
+  } finally { global.window = antes; }
+});
+
+test('endereco da loja: o corte em 40 letras nao deixa hifen no fim', () => {
+  assert.equal(R.slug('Restaurante e Churrascaria Bom Sabor do Vale Ribeira'), 'restaurante-e-churrascaria-bom-sabor-do');
+  assert.equal(R.slug('Lanchonete e Pastelaria do Seu Joao da Esquina'), 'lanchonete-e-pastelaria-do-seu-joao-da-e');
+  assert.ok(/^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$/.test(R.slug('Restaurante e Churrascaria Bom Sabor do Vale Ribeira')), 'passa na regra de endereco do mensageiro');
+});
+
+test('fecha as: faixas que se cruzam ou se encostam contam como uma so', () => {
+  const seg = (hh, mm) => new Date(2026, 8, 28, hh, mm); /* segunda */
+  const cruzam = { usarHorarios: true, horarios: { seg: ['11:00-15:00', '14:00-23:00'] } };
+  assert.equal(R.fechamentoDeHoje(cruzam, seg(14, 30)), '23:00');
+  assert.equal(R.fechamentoDeHoje(cruzam, seg(12, 0)), '23:00');
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: true, horarios: { seg: ['14:00-23:00', '11:00-15:00'] } }, seg(12, 0)), '23:00', 'a ordem das faixas nao importa');
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: true, horarios: { seg: ['11:00-14:00', '14:00-23:00'] } }, seg(13, 0)), '23:00', 'coladas');
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: true, horarios: { seg: ['11:00-14:00', '14:30-23:00'] } }, seg(13, 0)), '14:00', 'com intervalo, fecha no intervalo');
+  /* a de hoje vai ate a meia-noite e a de amanha comeca nela: aberta direto ate as 02:00 */
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: true, horarios: { seg: ['18:00-00:00'], ter: ['00:00-02:00'] } }, seg(23, 0)), '02:00');
+  /* a madrugada de ontem que emenda na faixa de hoje */
+  assert.equal(R.fechamentoDeHoje({ usarHorarios: true, horarios: { dom: ['18:00-02:00'], seg: ['02:00-06:00'] } }, seg(1, 0)), '06:00');
+});
+
+test('link do Google de avaliar com placeid (o que o proprio Google da) vale', () => {
+  const avaliar = 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4';
+  assert.equal(R.linkGoogle(avaliar), avaliar);
+  assert.equal(R.linkGoogle('search.google.com/local/writereview?placeid=abc'), 'https://search.google.com/local/writereview?placeid=abc');
+  assert.equal(R.linkGooglePerfil(avaliar), 'https://search.google.com/local/reviews?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4');
+  assert.equal(R.linkGoogleAvaliar(avaliar), avaliar);
+  assert.equal(R.linkGoogleAvaliar('https://search.google.com/local/reviews?placeid=abc'), 'https://search.google.com/local/writereview?placeid=abc');
+  assert.match(R.mensagemParaCliente({ nome: 'L', googleUrl: avaliar }, { status: R.STATUS.FINALIZADO, cliente: { nome: 'Ana' } }), /writereview\?placeid=/);
+  /* no search.google.com, so o /local/ de avaliacoes */
+  assert.equal(R.linkGoogle('https://search.google.com/url?q=https://golpe.com'), '');
+  assert.equal(R.linkGoogle('https://search.google.com/'), '');
+  assert.equal(R.linkGoogle('https://search.google.com/local/writereviewx'), '');
+  assert.equal(R.linkGoogle('https://search.google.com.golpe.com/local/writereview?placeid=a'), '');
+});
+
+test('tipo "Outro": emoji de comida (vira o emoji da loja)', () => {
+  const outro = R.TIPOS_DE_LOJA.filter((t) => t[0] === 'Outro')[0];
+  assert.deepEqual(outro, ['Outro', '🍴']);
+  assert.ok(R.TIPOS_DE_LOJA.every((t) => t[1] !== '🛵'));
 });
