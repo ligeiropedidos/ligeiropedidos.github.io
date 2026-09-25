@@ -50,6 +50,12 @@
   function reaisInteiros(centavos) { return String(Math.round((Number(centavos) || 0) / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
   function normal(t) { return R.semAcento(String(t || '')).toLowerCase(); }
   function mesmoEmail(a, b) { return String(a || '').toLowerCase() === String(b || '').toLowerCase(); }
+  /* a copia do plano na loja bate com a da conta? (o que decide se a loja recebe pedido e o preco) */
+  function mesmoPlano(a, b) {
+    var x = a || {}, y = b || {};
+    return (x.status || 'teste') === (y.status || 'teste') && String(x.pagoAte || '') === String(y.pagoAte || '')
+      && String(x.planoPago || '') === String(y.planoPago || '') && (x.tipo || 'mensal') === (y.tipo || 'mensal') && (x.fundador === true) === (y.fundador === true);
+  }
   function cidadeUF(l) { return (l.cidade || 'Sem cidade') + (l.uf ? '/' + l.uf : ''); }
   function erroTexto(e, padrao) { return D.erroAmigavel(e, padrao); }
   function lerAba() {
@@ -462,6 +468,7 @@
       if (b && b.disabled) return;
       if (b) b.disabled = true;
       estado.hoje = null;
+      estado.hojeFresco = true; /* o Atualizar sempre soma de novo no banco */
       estado.pedidosLoja = {};
       conferirBorda();
       desenhar().then(function (ok) {
@@ -470,20 +477,37 @@
       });
     }
 
-    /* Pedidos de hoje de todas as lojas ativas: uma leitura so do dia, nada ao vivo (economiza o banco). */
+    /* Pedidos de hoje de todas as lojas ativas: uma leitura so do dia, nada ao vivo (economiza o banco).
+       Cada pedido do dia e uma leitura. A contagem do banco (count) nao existe no Firebase "compat" que o site usa, entao
+       a soma fica guardada 5 minutos neste aparelho: abrir a Central de novo nesse meio tempo nao le tudo outra vez
+       (o Atualizar soma na hora) */
+    var CHAVE_HOJE = 'ligeiro:admin:hoje';
     function carregarHoje() {
       var ativas = (estado.lojas || []).filter(function (l) { return l.ativa !== false; });
       var desde = inicioDoDia(0).toISOString();
+      var fresco = estado.hojeFresco;
+      estado.hojeFresco = false;
+      if (!fresco && !D.modoDemo) {
+        var guardado = null;
+        try { guardado = JSON.parse(localStorage.getItem(CHAVE_HOJE) || 'null'); } catch (_) { guardado = null; }
+        if (guardado && guardado.desde === desde && Date.now() - guardado.em < 5 * 60 * 1000 && guardado.qtd != null) {
+          estado.hoje = { qtd: Number(guardado.qtd) || 0, total: Number(guardado.total) || 0, todos: Number(guardado.todos) || 0 };
+          if (estado.aba === 'geral') pintar();
+          return;
+        }
+      }
       var vez = ++estado.vezHoje;
       estado.hoje = 'carregando';
+      var faltou = false; /* alguma loja nao respondeu: mostra o que veio, mas nao guarda */
       Promise.all(ativas.map(function (l) {
-        return store.listarPedidos(l.slug, { desde: desde }).catch(function () { return []; });
+        return store.listarPedidos(l.slug, { desde: desde }).catch(function () { faltou = true; return []; });
       })).then(function (listas) {
         if (!vivo || vez !== estado.vezHoje) return;
         var todos = [];
         listas.forEach(function (x) { todos = todos.concat(x || []); });
         estado.hoje = somarPedidos(todos, desde);
         estado.hoje.todos = todos.length;
+        if (!faltou && !D.modoDemo) { try { localStorage.setItem(CHAVE_HOJE, JSON.stringify({ desde: desde, em: Date.now(), qtd: estado.hoje.qtd, total: estado.hoje.total, todos: estado.hoje.todos })); } catch (_) { /* sem espaco: segue sem guardar */ } }
         if (estado.aba === 'geral') pintar();
       }).catch(function () {
         if (!vivo || vez !== estado.vezHoje) return;
@@ -929,6 +953,17 @@
     }
 
     /* ---------- LGPD: ver e apagar os dados de uma pessoa ---------- */
+    /* quanto a busca custa no banco gratis: a lista das lojas e a busca pelo telefone em cada uma (2 por loja), ate 1 por
+       dia de vida de cada loja (os relatorios do dia) e os contatos. Os pedidos da pessoa somam por cima */
+    function custoTitular() {
+      var agora = Date.now();
+      var n = 0;
+      (estado.lojas || []).forEach(function (l) {
+        var criada = new Date(l.criadoEm || 0).getTime() || agora;
+        n += 2 + Math.max(0, Math.ceil((agora - criada) / 864e5));
+      });
+      return n + (estado.leads || []).length;
+    }
     function abrirTitular() {
       var campo = el('input', { id: 'titularTel', type: 'tel', inputmode: 'tel', autocomplete: 'off', placeholder: '(13) 99999-9999' });
       var situacao = el('p', { class: 'titular-situacao', 'aria-live': 'polite', text: '' });
@@ -952,6 +987,7 @@
         ]),
         el('label', { class: 'titular-rotulo', for: 'titularTel', text: 'WhatsApp da pessoa' }),
         el('div', { class: 'titular-busca' }, [campo, btn]),
+        D.modoDemo ? null : el('p', { class: 'titular-nota', text: 'A busca lê só os pedidos com esse WhatsApp, os relatórios de cada dia e os contatos: custa perto de ' + custoTitular().toLocaleString('pt-BR') + ' leituras do banco (o plano grátis dá 50 mil por dia).' }),
         situacao,
         resultado,
       ]) });
@@ -1005,7 +1041,7 @@
       } catch (_) { UI.avisar('Não deu para gerar o arquivo neste navegador.'); }
     }
     function apagarTitular(a) {
-      var texto = 'Apagar nome, telefone, endereço e observação de ' + plural(a.pedidos.length, 'pedido', 'pedidos') + ', tirar a pessoa de ' + plural(a.resumos.length, 'dia', 'dias') +
+      var texto = 'Apagar nome, telefone, endereço e observações (do pedido e dos itens) de ' + plural(a.pedidos.length, 'pedido', 'pedidos') + ', tirar a pessoa de ' + plural(a.resumos.length, 'dia', 'dias') +
         ' do relatório e apagar ' + plural(a.leads.length, 'contato', 'contatos') + '? Os valores das vendas das lojas continuam. Não dá para desfazer: se a pessoa pediu uma cópia, baixe o arquivo antes.';
       UI.perguntar(texto, { titulo: 'Apagar os dados desta pessoa?', sim: 'Apagar', perigo: true }).then(function (sim) {
         if (!sim) return;
@@ -1096,14 +1132,16 @@
       if (marca.tipo === 'loja') abrirLoja(marca.slug);
       else abrirConta(marca.email);
     }
-    /* acao simples de uma ficha: trava o toque duplo, avisa e reabre a ficha atualizada */
+    /* acao simples de uma ficha: trava o toque duplo, avisa e reabre a ficha atualizada.
+       textoOk pode ser uma funcao (o texto depende do que o banco devolveu, como a data nova do Pagou) */
     function executar(trava, marca, fazer, textoOk) {
       if (trava.ocupado) return;
       trava.ocupado = true;
       trava.voando = true;
-      Promise.resolve().then(fazer).then(function () {
+      Promise.resolve().then(fazer).then(function (r) {
         trava.voando = false;
-        if (textoOk) UI.avisar(textoOk);
+        var texto = typeof textoOk === 'function' ? textoOk(r) : textoOk;
+        if (texto) UI.avisar(texto);
         concluir(marca, trava);
       }, function (e) {
         trava.voando = false;
@@ -1188,22 +1226,29 @@
         var sel = el('select', { 'aria-label': 'Situação do plano' }, ['teste', 'ativo', 'pausado', 'cancelado'].map(function (v) { var o = el('option', { value: v, text: rotulos[v] }); if (plano.status === v) o.selected = true; return o; }));
         sel.addEventListener('change', function () {
           if (trava.ocupado) { sel.value = plano.status; return; }
-          /* so os campos que mudam: a loja pode ter sido editada no painel enquanto isso */
+          var novo = sel.value;
+          /* so os campos que mudam, sobre a loja lida agora (a ficha pode estar velha). Loja desativada continua
+             desativada: so o "Reativar loja" poe de volta no site (antes qualquer troca de situacao reativava) */
           executar(trava, marca, function () {
-            return store.salvarLoja({ slug: l.slug, plano: Object.assign({}, plano, { status: sel.value, desde: sel.value === plano.status ? plano.desde : new Date().toISOString() }), ativa: sel.value !== 'cancelado' });
-          }, 'Plano de ' + l.nome + ': ' + rotulos[sel.value]);
+            return store.mudarPlanoDaLoja(l.slug, function (atual) {
+              var pa = atual.plano || { status: 'teste' };
+              return { plano: Object.assign({}, pa, { status: novo, desde: novo === pa.status ? pa.desde : new Date().toISOString() }), ativa: novo === 'cancelado' ? false : atual.ativa !== false };
+            });
+          }, 'Plano de ' + l.nome + ': ' + rotulos[novo] + (l.ativa === false && novo !== 'cancelado' ? '. A loja continua desativada: toque em Reativar loja para voltar ao site.' : ''));
         });
         var precos = (window.LIGEIRO_CONFIG || {}).precos || {};
-        /* Confirmar pagamento: soma os dias a partir do fim atual (ou de hoje, se ja venceu). */
+        /* Confirmar pagamento: soma os dias a partir do fim atual (ou de hoje, se ja venceu), com a loja lida agora (a
+           mesma conta do mensageiro do Asaas: dentro da tolerancia conta do vencimento). Se o plano mudou desde que a
+           ficha abriu (outro Pagou, em outro aparelho), nao grava: somaria os dias duas vezes */
         var confirmarLoja = function (dias) {
-          /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): conta do vencimento, e nao de hoje (a mesma
-             regra do mensageiro do Asaas; antes, os dias de atraso vinham de graca) */
-          var lim = a.limite ? new Date(a.limite).getTime() || 0 : 0;
-          var base = lim && a.estado !== 'cancelada' && Date.now() - lim <= (a.tolerancia || 0) * 864e5 ? lim : Math.max(Date.now(), lim);
-          var novo = new Date(base + dias * 864e5).toISOString();
+          var esperado = { pagoAte: plano.pagoAte || '', ultimoPagamentoEm: plano.ultimoPagamentoEm || '' };
           executar(trava, marca, function () {
-            return store.salvarLoja({ slug: l.slug, plano: Object.assign({}, plano, { status: 'ativo', tipo: dias > 31 ? 'anual' : (plano.tipo || 'mensal'), pagoAte: novo, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString() }), ativa: true });
-          }, l.nome + ' liberada até ' + dataBR(novo));
+            return store.mudarPlanoDaLoja(l.slug, function (atual) {
+              var k = D.contas.pagou(atual, dias, null, { esperado: esperado, oQue: 'loja' });
+              var m = k.plano;
+              return { pagoAte: k.pagoAte, plano: Object.assign({}, atual.plano || {}, { status: m.status, tipo: m.tipo, pagoAte: m.pagoAte, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: m.ultimoPagamentoEm }), ativa: true };
+            });
+          }, function (r) { return l.nome + ' liberada até ' + dataBR(r && r.pagoAte); });
         };
         corpo.appendChild(el('div', { class: 'adm-caixa adm-plano' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Situação' }), sel]),
@@ -1268,61 +1313,59 @@
       var primeiroPagamento = !p.ultimoPagamentoEm; /* cortesia nao conta como pagamento */
       var viraFundador = p.fundador !== true && primeiroPagamento && R.vagasFundador() > 0;
       var trava = travaDe('conta:' + String(c.email || '').toLowerCase()); /* um clique por vez: clique duplo contaria a vaga de fundador duas vezes */
+      /* o pagamento que a ficha mostra: se o banco tiver outro na hora de gravar (Asaas, outra aba), o Pagou e o Desfazer
+         nao gravam e pedem para atualizar */
+      var esperado = { pagoAte: p.pagoAte || '', ultimoPagamentoEm: p.ultimoPagamentoEm || '' };
+      /* Toda mudanca da Central na conta passa pelo store.mudarConta: le a conta e o contador de fundadores na hora, numa
+         transacao, e grava os dois juntos (as contas de cada acao ficam em D.contas). Depois copia o plano nas lojas; se
+         so a copia falhar, avisa que a conta ja ficou salva (tocar no Pagou de novo somaria os dias duas vezes) */
+      function mudar(fazer, textoSalvo) {
+        return store.mudarConta(c.email, fazer).then(function (r) {
+          window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: r.usados });
+          return Promise.resolve().then(function () { return store.espelharPlanoNasLojas(c.email); }).then(function (ok) {
+            if (ok === false) throw new Error('copia'); /* na nuvem, false e a conta que nao deu para ler */
+            return r;
+          }).catch(function () {
+            var e = new Error(textoSalvo + '; falta atualizar a loja. Toque em "Atualizar as lojas" na ficha da conta.');
+            e.publico = true;
+            throw e;
+          });
+        });
+      }
       function confirmar(dias) {
-        if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
-        /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): conta do vencimento, e nao de hoje (a mesma
-           regra do mensageiro do Asaas; antes, os dias de atraso vinham de graca) */
-        var lim = a.limite ? new Date(a.limite).getTime() || 0 : 0;
-        var base = lim && a.estado !== 'cancelada' && Date.now() - lim <= (a.tolerancia || 0) * 864e5 ? lim : Math.max(Date.now(), lim);
-        var novo = new Date(base + dias * 864e5).toISOString();
-        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
-          .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
-          .then(function () { return store.espelharPlanoNasLojas(c.email); })
-          .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
-          .catch(function (e) { trava.voando = false; UI.avisar(D.erroAmigavel(e, 'Não deu para confirmar.')); concluir(marca, trava); });
+        executar(trava, marca, function () {
+          return mudar(function (atual, vagas) { return D.contas.pagou(atual, dias, vagas, { esperado: esperado }); }, 'Pagamento salvo');
+        }, function (r) {
+          var k = (r && r.feito) || {};
+          return c.email + ' liberada até ' + dataBR(k.pagoAte) + (k.viraFundador ? ', agora fundador' : '') + ' (' + plural(minhas.length, 'loja', 'lojas') + ')';
+        });
       }
       function tornarFundador() {
-        if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
-        store.salvarConta(c.email, { plano: { fundador: true } })
-          .then(function () { return store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
-          .then(function () { return store.espelharPlanoNasLojas(c.email); })
-          .then(function () { trava.voando = false; UI.avisar(c.email + ' agora é fundador'); concluir(marca, trava); })
-          .catch(function (e) { trava.voando = false; UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); concluir(marca, trava); }); /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
+        /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
+        executar(trava, marca, function () { return mudar(function (atual, vagas) { return D.contas.virouFundador(atual, vagas); }, 'Fundador salvo'); }, c.email + ' agora é fundador');
       }
-      /* Desfaz o ultimo "Pagou" (teste ou toque sem querer): so tira os dias que ele somou, nunca da dias a mais.
-         Se o que sobra cai dentro dos dias gratis, era o primeiro pagamento: volta pro gratis e sai da receita. */
-      var podeDesfazer = !!(p.ultimoPagamentoEm && p.pagoAte && !(p.pagamentoDesfeitoEm && p.pagamentoDesfeitoEm >= p.ultimoPagamentoEm));
-      function semUltimoPagamento() {
-        var pago = new Date(p.pagoAte).getTime();
-        var dias = p.ultimoPagamentoDias === 30 || p.ultimoPagamentoDias === 365 ? p.ultimoPagamentoDias
-          : (pago - new Date(p.ultimoPagamentoEm).getTime() >= 364 * 864e5 ? 365 : 30); /* Pagou de antes desse campo existir */
-        var antes = pago - dias * 864e5;
-        var diasGratis = ((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis || 7;
-        var fimGratis = new Date(p.desde || c.criadoEm || 0).getTime() + diasGratis * 864e5;
-        var agora = new Date().toISOString();
-        if (antes > fimGratis + 60e3) return { pagoAte: new Date(antes).toISOString(), pagamentoDesfeitoEm: agora };
-        var r = { pagoAte: '', planoPago: '', ultimoPagamentoEm: '', ultimoPagamentoDias: 0, pagamentoDesfeitoEm: agora };
-        if (p.status === 'ativo') r.status = 'teste';
-        if (p.fundador === true && p.fundadorPeloPagamento === true) { r.fundador = false; r.fundadorPeloPagamento = false; }
-        return r;
-      }
+      /* Desfaz o ultimo "Pagou" da Central (teste ou toque sem querer): volta exatamente ao que estava antes dele (datas,
+         situacao, plano pago e fundador), pela foto que o Pagou guardou. Pagamento do Asaas nao desfaz por aqui */
+      var fotoDoPagamento = p.antesDoPagamento;
+      var podeDesfazer = !!(fotoDoPagamento && fotoDoPagamento.de && fotoDoPagamento.de === p.ultimoPagamentoEm);
       function desfazerPagamento() {
-        var novo = semUltimoPagamento();
+        /* previa com a ficha aberta; a gravacao refaz tudo com a conta lida agora */
+        var previa = null;
+        try { previa = D.contas.desfez(c, window.LigeiroFundadores || { usados: 0 }, {}); } catch (_) { previa = null; }
+        var volta = previa ? situacao(R.assinatura(Object.assign({}, c, { plano: Object.assign({}, p, previa.plano) })), null) : null;
         var texto = 'Desfazer o pagamento marcado em ' + dataBR(p.ultimoPagamentoEm) + '? Use só se foi teste ou toque sem querer. '
-          + (novo.pagoAte ? 'A conta perde os dias que ele somou e fica paga até ' + dataBR(novo.pagoAte) + '.' : 'Era o primeiro pagamento: a conta volta para o teste grátis e sai da receita.')
-          + (novo.fundador === false ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
-        comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function () {
-          return store.salvarConta(c.email, { plano: novo }).then(function () {
-            return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null;
-          });
-        }, 'Pagamento desfeito');
+          + (volta ? 'A conta volta a ficar como estava antes dele: ' + volta.texto.toLowerCase() + (volta.data ? ', ' + volta.data : '') + '.' : '')
+          + (previa && previa.liberouVaga ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
+        comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function (atual, vagas) {
+          return D.contas.desfez(atual, vagas, { esperado: esperado });
+        }, 'Pagamento desfeito', 'Pagamento desfeito');
       }
-      /* pergunta antes (a pergunta ocupa o modal); "Voltar" reabre a ficha */
-      function comPergunta(texto, opcoes, fazer, textoOk) {
+      /* pergunta antes (a pergunta ocupa o modal); "Voltar" reabre a ficha. fazer(conta, vagas) e a conta da acao */
+      function comPergunta(texto, opcoes, fazer, textoOk, textoSalvo) {
         if (trava.ocupado) return;
         UI.perguntar(texto, opcoes).then(function (sim) {
           if (!sim) { reabrir(marca); return; }
-          executar(trava, marca, function () { return fazer().then(function () { return store.espelharPlanoNasLojas(c.email); }); }, textoOk);
+          executar(trava, marca, function () { return mudar(fazer, textoSalvo || 'Conta salva'); }, textoOk);
         });
       }
       var valorMensal = R.precoDoPlano(plano.id, 'mensal', c);
@@ -1339,6 +1382,11 @@
         sit.data ? el('span', { class: 'adm-data', text: sit.data }) : null,
       ]));
       if (p.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(p.avisoValor || 0) + ' em ' + dataBR(p.avisoPagamentoEm) + '. Confira no banco e confirme.'));
+      /* a copia do plano nas lojas nao bate com a conta (a conta salvou e a copia falhou, ou loja da conta do Ligeiro de
+         antes da cortesia): o botao "Atualizar as lojas" copia de novo */
+      var planoCerto = D.planoDaLoja(c.email, p);
+      var desencontradas = minhas.filter(function (l) { return !mesmoPlano(planoCerto, l.plano); });
+      if (desencontradas.length) corpo.appendChild(alerta(plural(desencontradas.length, 'loja desta conta está', 'lojas desta conta estão') + ' com o plano diferente do da conta. Toque em "Atualizar as lojas".'));
 
       corpo.appendChild(el('h3', { text: 'Resumo' }));
       corpo.appendChild(dados([
@@ -1360,31 +1408,36 @@
       corpo.appendChild(el('div', { class: 'adm-acoes-linha' }, [
         el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { confirmar(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)']),
         temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', onclick: function () { confirmar(365); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)']) : null,
-        podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: tira os dias que o último Pagou somou', onclick: desfazerPagamento }, [UI.iconeLinha('desfazer'), 'Desfazer o último pagamento']) : null,
+        podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: a conta volta a ficar como estava antes do último Pagou', onclick: desfazerPagamento }, [UI.iconeLinha('desfazer'), 'Desfazer o último pagamento']) : null,
       ]));
       corpo.appendChild(grade([
+        desencontradas.length ? el('button', { class: 'btn btn-principal', type: 'button', title: 'Copia o plano da conta para as lojas dela', text: 'Atualizar as lojas', onclick: function () {
+          executar(trava, marca, function () {
+            return store.espelharPlanoNasLojas(c.email).then(function (ok) {
+              if (ok === false) { var e = new Error('Não deu para ler a conta agora. Tente de novo.'); e.publico = true; throw e; }
+            });
+          }, 'Plano copiado para ' + plural(minhas.length, 'loja', 'lojas'));
+        } }) : null,
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Libera a conta sem data para vencer', text: 'Cortesia', onclick: function () {
+          /* cortesia nao e pagamento: o Desfazer do ultimo Pagou deixa de valer (voltaria a data e tiraria a cortesia) */
           comPergunta('Dar cortesia para ' + c.email + '? A conta fica liberada sem data para vencer, até você mudar.', { titulo: 'Cortesia', sim: 'Dar cortesia' }, function () {
-            return store.salvarConta(c.email, { plano: { status: 'ativo', pagoAte: '', planoPago: plano.id } });
+            return { plano: { status: 'ativo', pagoAte: '', planoPago: plano.id, antesDoPagamento: null } };
           }, c.email + ' em cortesia');
         } }),
         parada
           ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Volta a assinatura, do jeito que o dono faz em Minha conta', text: 'Reativar', onclick: function () {
-            executar(trava, marca, function () {
-              var aindaPago = p.pagoAte && new Date(p.pagoAte).getTime() > Date.now();
-              return store.salvarConta(c.email, { plano: { status: aindaPago ? 'ativo' : 'teste', reativadoEm: new Date().toISOString() } })
-                .then(function () { return store.espelharPlanoNasLojas(c.email); });
-            }, c.email + ' reativada');
+            /* volta para o que era antes da pausa (cortesia continua cortesia), com a conta lida agora */
+            executar(trava, marca, function () { return mudar(function (atual) { return D.contas.reativou(atual); }, 'Conta reativada'); }, c.email + ' reativada');
           } })
           : el('button', { class: 'btn btn-erro', type: 'button', text: 'Pausar', onclick: function () {
-            comPergunta('Pausar a assinatura de ' + c.email + '? ' + (minhas.length ? 'As lojas dela param de receber pedidos na hora.' : 'A conta fica parada até você reativar.'), { titulo: 'Pausar assinatura?', sim: 'Pausar', perigo: true }, function () {
-              return store.salvarConta(c.email, { plano: { status: 'pausado' } });
-            }, c.email + ' pausada');
+            comPergunta('Pausar a assinatura de ' + c.email + '? ' + (minhas.length ? 'As lojas dela param de receber pedidos na hora.' : 'A conta fica parada até você reativar.'), { titulo: 'Pausar assinatura?', sim: 'Pausar', perigo: true }, function (atual) {
+              return D.contas.pausou(atual);
+            }, c.email + ' pausada', 'Conta pausada');
           } }),
         p.fundador === true
           ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Use quando a conta cancelar: ela perde o preço travado', text: 'Tirar fundador', onclick: function () {
             comPergunta('Tirar o preço de fundador de ' + c.email + '? A vaga não volta para o contador sozinha.', { sim: 'Tirar', perigo: true }, function () {
-              return store.salvarConta(c.email, { plano: { fundador: false } });
+              return { plano: { fundador: false } };
             }, c.email + ' sem preço de fundador');
           } })
           : (R.vagasFundador() > 0 ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Trava o preço de fundador nesta conta e ocupa uma vaga', text: 'Tornar fundador', onclick: tornarFundador }) : null),
@@ -1450,12 +1503,30 @@
         /* trava o botao ate o banco responder: toque duplo cadastrava a loja duas vezes */
         var botao = this;
         botao.disabled = true; botao.textContent = 'Salvando…';
+        var dono = dadosLoja.donoEmail;
+        var doLigeiro = !!dono && R.ehDoLigeiro({ email: dono });
+        /* uma loja por conta (so a conta do Ligeiro tem varias): confere no banco agora, antes de criar a conta. Antes a
+           Central dava uma segunda loja para quem ja tinha a sua */
+        var livre = dono && !doLigeiro && store.listarMinhasLojas
+          ? store.listarMinhasLojas(dono).then(function (minhas) {
+            var dele = (minhas || []).filter(function (l) { return mesmoEmail(l.donoEmail, dono) && l.ativa !== false; });
+            if (!dele.length) return;
+            var e = new Error('O e-mail ' + dono + ' já tem uma loja (' + (dele[0].nome || dele[0].slug) + '). Cada conta tem uma loja só: para outra loja, use outro e-mail do Google.');
+            e.publico = true;
+            throw e;
+          })
+          : Promise.resolve();
         /* loja com e-mail do dono: garante a conta dele (a assinatura mora la) */
-        var conta = dadosLoja.donoEmail && store.obterConta
-          ? store.obterConta(dadosLoja.donoEmail).then(function (c) { return c || store.salvarConta(dadosLoja.donoEmail, { plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: new Date().toISOString() } }); })
-          : Promise.resolve(null);
+        var conta = livre.then(function () {
+          return dono && store.obterConta
+            ? store.obterConta(dono).then(function (c) { return c || store.salvarConta(dono, { plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: new Date().toISOString() } }); })
+            : null;
+        });
         conta.then(function (c) {
           if (c && c.plano) dadosLoja.plano = { status: c.plano.status || 'teste', tipo: c.plano.tipo || 'mensal', planoId: c.plano.planoId || 'uma', planoPago: c.plano.planoPago || '', desde: c.plano.desde || new Date().toISOString(), pagoAte: c.plano.pagoAte || '' };
+          /* loja da conta do Ligeiro: cortesia de verdade na loja (a copia publica nao leva o e-mail do dono, e com o
+             teste da conta ela aparecia bloqueada para o cliente depois dos dias gratis) */
+          if (c && c.plano && doLigeiro) dadosLoja.plano = D.planoDaLoja(dono, c.plano);
           return store.criarLoja(dadosLoja);
         }).then(function (loja) {
           UI.fecharModal();
