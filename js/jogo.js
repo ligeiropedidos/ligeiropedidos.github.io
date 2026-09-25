@@ -1207,7 +1207,7 @@
     return el('div', { class: 'jogo-fome' }, [
       foto,
       el('div', { class: 'jogo-fome-texto' }, [el('b', { text: 'Bateu fome?' }), el('span', { text: fav.nome + ' por ' + precoEmReais(fav.preco) })]),
-      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { var ir = J.aoVerProduto; fechar(); ir(fav.id); } }, 'Ver no cardápio'),
+      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { var ir = J.aoVerProduto, id = fav.id; fecharEDepois(function () { ir(id); }); } }, 'Ver no cardápio'),
     ]);
   }
 
@@ -1382,6 +1382,25 @@
     };
     img.src = op.logo || 'img/mascote-192.webp';
     }
+  }
+
+  /* Sai do jogo e so depois faz o que foi pedido. O fechar volta uma casa no historico (e o que faz o voltar do celular
+     fechar o jogo), e esse voltar chega um instante depois: abrir o lanche antes dele fazia o voltar trazer a tela da
+     senha de volta, por cima do cardapio. Agora espera o voltar chegar (ou 600 ms, se o navegador nao avisar) */
+  function fecharEDepois(fn) {
+    var vaiVoltar = !!(J && J.empurrou && history.state && history.state.ligeiroJogo);
+    if (!vaiVoltar) { fechar(); fn(); return; }
+    var feito = false, tempo = null;
+    var seguir = function () {
+      if (feito) return;
+      feito = true;
+      window.removeEventListener('popstate', seguir);
+      clearTimeout(tempo);
+      fn();
+    };
+    tempo = setTimeout(seguir, 600);
+    window.addEventListener('popstate', seguir);
+    fechar();
   }
 
   function fechar(peloVoltar) {

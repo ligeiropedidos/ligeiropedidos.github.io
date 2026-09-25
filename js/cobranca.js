@@ -44,11 +44,123 @@
     return 'vence em ' + f.dias + (f.dias === 1 ? ' dia' : ' dias') + (data ? ' (' + data + ')' : '');
   }
 
+  /* Assinatura viva no Asaas (o mensageiro guarda em contas/{email}.assinaturaAsaas). Com ela, trocar de plano e encerrar
+     passam pelo mensageiro (que muda a mesma assinatura) e o link de assinatura nao aparece: criaria outra assinatura,
+     cobrando em dobro no cartao */
+  function assinaturaAtiva(conta) {
+    var p = (conta && conta.plano) || {};
+    /* a pendente (so fatura, ainda nao pagou) conta: trocar e encerrar mudam ou cancelam ela junto */
+    return !!(conta && (conta.assinaturaAsaas || conta.assinaturaPendente)) && p.status !== 'cancelado' && p.status !== 'pausado';
+  }
+  /* diferenca de uma troca de plano esperando pagamento (so link do Asaas) */
+  function diferencaPendente(conta) {
+    var t = conta && conta.trocaPlano;
+    return t && t.id && /^https:\/\/(www\.)?asaas\.com\//.test(String(t.url || '')) ? { url: t.url, valor: Number(t.valor) || 0, para: t.para, dias: Number(t.dias) || 0 } : null;
+  }
+  /* as rotas do dono no mensageiro do Asaas (/plano/simular, /plano/trocar, /plano/encerrar), com o login do Google */
+  function pedirAoMensageiro(rota, corpo) {
+    var cfg = window.LIGEIRO_CONFIG || {};
+    var base = String((cfg.cobranca && cfg.cobranca.mensageiro) || '').replace(/\/+$/, '');
+    var D = window.LigeiroDados;
+    var falha = function (texto) { var e = new Error(texto); e.publico = true; return e; };
+    if (!base || !D || !D.store || !D.store.obterIdToken) return Promise.reject(falha('Não deu agora. Tente de novo em instantes.'));
+    return D.store.obterIdToken().then(function (t) {
+      return fetch(base + '/plano/' + rota, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(corpo || {}) })
+        .catch(function () { throw falha('Sem internet agora. Confira a conexão e toque de novo.'); });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw falha(j.erro || 'Não deu agora. Tente de novo em instantes.');
+        return j;
+      });
+    });
+  }
+  function porPeriodo(tipo) { return tipo === 'anual' ? ' por ano' : ' por mês'; }
+  function diaCurto(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; }
+
+  /* Trocar de plano com a assinatura ativa: primeiro mostra o que acontece (o mensageiro calcula, sem mexer em nada),
+     depois troca. o = { planoId, tipo, nomePlano, aoTerminar(resposta) } */
+  function trocarPlano(o) {
+    return pedirAoMensageiro('simular', { planoId: o.planoId, tipo: o.tipo }).then(function (s) {
+      if (s.acao === 'igual') { UI.avisar('Este já é o seu plano.'); return null; }
+      var depois = R.dinheiro(s.valorNovo) + porPeriodo(s.tipo);
+      var quando = s.proxima ? 'A partir de ' + diaCurto(s.proxima) : 'Na próxima fatura';
+      var linhas, nota, botao = 'Confirmar troca';
+      if (s.acao === 'diferenca') {
+        linhas = [['Hoje, só a diferença', R.dinheiro(s.diferenca)], [quando, depois]];
+        nota = 'É a diferença dos ' + s.dias + (s.dias === 1 ? ' dia' : ' dias') + ' que faltam no plano de agora. As lojas a mais liberam assim que ela cair.';
+        botao = 'Continuar';
+      } else if (s.acao === 'agora') {
+        linhas = [['Hoje', 'Sem cobrança'], [quando, depois]];
+        nota = 'Faltam poucos dias no plano de agora: as lojas a mais liberam na hora.';
+      } else if (s.acao === 'proxima' && s.desce) {
+        linhas = [[quando, depois]];
+        nota = 'O plano menor já vale agora. A mensalidade menor começa na próxima fatura, sem devolução do que já foi pago.';
+      } else if (s.acao === 'proxima') {
+        linhas = [[quando, depois]];
+        nota = 'Até lá, vale o plano de agora, sem cobrança a mais e sem devolução.';
+      } else {
+        linhas = [['Próximo pagamento', depois]];
+        nota = 'O próximo pagamento já é do plano novo.';
+      }
+      return new Promise(function (fim) {
+        var confirmar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, type: 'button', text: botao });
+        confirmar.addEventListener('click', function () {
+          if (confirmar.disabled) return;
+          confirmar.disabled = true;
+          pedirAoMensageiro('trocar', { planoId: o.planoId, tipo: o.tipo }).then(function (t) {
+            UI.fecharModal();
+            var seguir = function () { if (o.aoTerminar) o.aoTerminar(t); };
+            /* com diferenca, a janela dela fica aberta (mudar de tela fecharia) e o site segue quando ela fecha */
+            if (t.url) mostrarDiferenca({ url: t.url, valor: t.diferenca, para: t.planoId, dias: t.dias }, seguir);
+            else { UI.avisar(t.acao === 'agora' ? 'Pronto: ' + o.nomePlano + ' liberado.' : t.desce ? 'Pronto: plano trocado. A mensalidade menor começa na próxima fatura.' : t.acao === 'proxima' ? 'Pronto: a troca vale a partir da próxima fatura.' : 'Plano trocado: ' + o.nomePlano + '.'); seguir(); }
+            fim(t);
+          }).catch(function (e) { confirmar.disabled = false; UI.avisar(e.message); });
+        });
+        UI.abrirModal({
+          titulo: 'Trocar para ' + o.nomePlano,
+          corpo: el('div', { class: 'pilha' }, [
+            el('div', { class: 'resumo-assinatura resumo-troca' }, linhas.map(function (l) { return el('div', { class: 'linha' }, [el('span', { text: l[0] }), el('b', { text: l[1] })]); })),
+            el('p', { class: 'muted pequeno', text: nota }),
+          ]),
+          rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Voltar', onclick: function () { UI.fecharModal(); fim(null); } }), confirmar],
+        });
+      });
+    });
+  }
+  /* a diferenca da troca, no mesmo cartao da fatura: valor grande, o que libera, as formas e o botao do Asaas */
+  function mostrarDiferenca(d, aoFechar) {
+    var nome = R.planoPorId(d.para || 'uma').nome;
+    UI.abrirModal({
+      titulo: 'Falta a diferença',
+      corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
+        el('div', { class: 'fatura-cartao' }, [
+          el('span', { class: 'fatura-rotulo', text: 'Diferença da troca' }),
+          el('b', { class: 'fatura-valor', text: R.dinheiro(d.valor) }),
+          el('span', { class: 'fatura-quando' }, [UI.iconeLinha('loja'), 'Libera o ' + nome]),
+          el('div', { class: 'fatura-formas' }, ['Pix', 'Boleto', 'Cartão'].map(function (t) { return el('span', { class: 'fatura-forma', text: t }); })),
+        ]),
+        el('div', { class: 'cobranca-opcoes' }, [el('a', { class: 'btn btn-principal btn-largo', href: d.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a diferença'])]),
+        el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do Asaas. Ela também fica em Minha conta até você pagar.' }),
+      ]),
+      rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Fechar', onclick: function () { UI.fecharModal(); if (aoFechar) aoFechar(); } })],
+    });
+  }
+
   function abrir(o) {
     var cfg = window.LIGEIRO_CONFIG || {};
     var pixL = cfg.pixLigeiro || {};
     var Pix = window.LigeiroPix;
     var fatura = o.fatura && o.fatura.url ? o.fatura : null;
+    /* assinatura ativa e nenhuma fatura em aberto: nada a pagar agora (o link criaria outra assinatura). So a atrasada sem
+       fatura (sumiu no Asaas) cai no link: o mensageiro cancela a velha quando a nova pagar */
+    if (!fatura && o.assinatura && !o.atrasada) {
+      UI.abrirModal({
+        titulo: 'Assinatura em dia',
+        corpo: el('p', { class: 'muted', text: 'Sua assinatura já está ativa. No cartão, a mensalidade cai sozinha. No Pix ou boleto, a fatura aparece aqui e chega por e-mail uns dias antes de vencer.' }),
+        rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Fechar', onclick: UI.fecharModal })],
+      });
+      return;
+    }
     var link = fatura ? fatura.url : R.linkDeCobranca(o.planoId, o.tipo, !!o.fundador);
     /* ainda sem link de cartao/boleto e sem Pix do Ligeiro: vai direto para o WhatsApp com a mensagem pronta (antes abria
        uma janela so para mostrar esse mesmo botao) */
@@ -154,5 +266,5 @@
     UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: rodape });
   }
 
-  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura };
+  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura, assinaturaAtiva: assinaturaAtiva, diferencaPendente: diferencaPendente, pedirAoMensageiro: pedirAoMensageiro, trocarPlano: trocarPlano, mostrarDiferenca: mostrarDiferenca };
 })();

@@ -190,11 +190,26 @@
       var qr = lib(0, 'M');
       qr.addData(codigo);
       qr.make();
-      var celulas = qr.getModuleCount();
-      var px = Math.max(2, Math.floor((tamanho || 240) / celulas));
-      elemento.innerHTML = qr.createSvgTag({ cellSize: px, margin: 2, scalable: true });
+      /* Cada quadradinho com um numero INTEIRO de pixels. Esticado para caber (5,45 px, por exemplo), o celular arredonda
+         uns para cima e outros para baixo e o QR fica torto. O QR leva 1 quadradinho de margem branca, e a caixa
+         (.qr-caixa, branca, com respiro e borda) abraca o QR do tamanho exato (fit-content), seja qual for a borda do tema.
+         Nunca passa do espaco que tem: diminui 1 px por quadradinho ate caber */
+      var celulas = qr.getModuleCount() + 2;
+      var px = Math.max(2, Math.round(((tamanho || 240) - 27) / celulas));
+      var pai = elemento.parentElement ? elemento.parentElement.clientWidth : 0;
+      while (pai > 0 && px > 2 && px * celulas + 30 > pai) px--;
+      var lado = px * celulas;
+      elemento.style.width = 'fit-content';
+      elemento.innerHTML = qr.createSvgTag({ cellSize: px, margin: px, scalable: true });
       var svg = elemento.querySelector('svg');
-      if (svg) { svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%'); }
+      if (svg) {
+        svg.setAttribute('width', String(lado));
+        svg.setAttribute('height', String(lado));
+        svg.setAttribute('shape-rendering', 'crispEdges');
+        svg.style.width = lado + 'px';
+        svg.style.height = lado + 'px';
+        svg.style.maxWidth = '100%';
+      }
       return true;
     } catch (_) {
       return false;
@@ -217,6 +232,8 @@
       var svg = elemento && elemento.querySelector('svg');
       if (!svg || typeof XMLSerializer === 'undefined') { falhou(new Error('sem qr')); return; }
       var copia = svg.cloneNode(true);
+      /* a imagem para imprimir sai grande (o tamanho da tela fica no estilo da copia, que sai) */
+      copia.removeAttribute('style');
       copia.setAttribute('width', '900');
       copia.setAttribute('height', '900');
       var img = new Image();

@@ -1128,7 +1128,7 @@
         sit.data ? el('span', { class: 'adm-data', text: sit.data }) : null,
       ]));
       corpo.appendChild(el('div', { class: 'adm-link' }, [
-        el('div', { class: 'caixa-link', text: linkLoja }),
+        el('div', { class: 'caixa-link' }, UI.pedacosDeLink(linkLoja)),
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }, [UI.iconeLinha('copiar'), 'Copiar']),
       ]));
       if (!l.donoEmail && plano.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(plano.avisoValor || 0) + ' em ' + dataBR(plano.avisoPagamentoEm) + '. Confira no banco e confirme.'));
@@ -1269,7 +1269,8 @@
         if (trava.ocupado) return; trava.ocupado = true; trava.voando = true;
         var base = Math.max(Date.now(), a.limite ? new Date(a.limite).getTime() : 0);
         var novo = new Date(base + dias * 864e5).toISOString();
-        store.salvarConta(c.email, { plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
+        /* o ciclo pago acompanha (a troca de plano calcula a diferenca por ele) e um plano agendado pelo Asaas sai */
+        store.salvarConta(c.email, { cicloPago: { plano: plano.id, tipo: dias > 31 ? 'anual' : 'mensal' }, planoProximo: null, plano: { status: 'ativo', tipo: dias > 31 ? 'anual' : (p.tipo || 'mensal'), pagoAte: novo, planoPago: plano.id, fundador: p.fundador === true || viraFundador, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: new Date().toISOString(), ultimoPagamentoDias: dias, fundadorPeloPagamento: viraFundador, pagamentoDesfeitoEm: '' } })
           .then(function () { return viraFundador && store.ocuparVagaFundador ? store.ocuparVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null; })
           .then(function () { return store.espelharPlanoNasLojas(c.email); })
           .then(function () { trava.voando = false; UI.avisar(c.email + ' liberada até ' + dataBR(novo) + ' (' + minhas.length + (minhas.length === 1 ? ' loja' : ' lojas') + ')'); concluir(marca, trava); })
@@ -1306,7 +1307,8 @@
           + (novo.pagoAte ? 'A conta perde os dias que ele somou e fica paga até ' + dataBR(novo.pagoAte) + '.' : 'Era o primeiro pagamento: a conta volta para o teste grátis e sai da receita.')
           + (novo.fundador === false ? ' O preço de fundador sai e a vaga volta para o contador.' : '');
         comPergunta(texto, { titulo: 'Desfazer pagamento?', sim: 'Desfazer', perigo: true }, function () {
-          return store.salvarConta(c.email, { plano: novo }).then(function () {
+          /* desfeito: o ciclo pago some (a proxima troca volta a ler do plano) */
+          return store.salvarConta(c.email, { plano: novo, cicloPago: null }).then(function () {
             return novo.fundador === false && store.liberarVagaFundador ? store.liberarVagaFundador().then(function (f) { window.LigeiroFundadores = Object.assign({}, window.LigeiroFundadores, { usados: f.usados }); }) : null;
           });
         }, 'Pagamento desfeito');
@@ -1465,8 +1467,8 @@
       estado.ficha = null;
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
         el('p', { text: 'Pronto! Entregue estes dois links para o dono:' }),
-        el('div', {}, [el('b', { text: 'Cardápio (para o cliente)' }), el('div', { class: 'caixa-link', text: UI.linkDaLoja(loja) })]),
-        el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link', text: UI.linkDoPainel(loja) }), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
+        el('div', {}, [el('b', { text: 'Cardápio (para o cliente)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDaLoja(loja)))]),
+        el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDoPainel(loja))), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
       ]);
       UI.abrirModal({ titulo: loja.nome + ' cadastrado', corpo: corpo, rodape: [
         el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Copiar tudo', onclick: function () {

@@ -361,6 +361,24 @@
     return location.origin + location.pathname.replace(/[^/]*$/, '');
   }
   function linkDaLoja(loja) { return baseUrl() + '#/' + loja.cidadeSlug + '/' + loja.slug; }
+  /* link em pedacos que so quebram depois de uma "/" (antes quebrava no meio da palavra: "j / uquia"). O "https://"
+     nunca parte */
+  function pedacosDeLink(link) {
+    var t = String(link || '');
+    var i = t.indexOf('://');
+    var inicio = i >= 0 ? t.slice(0, i + 3) : '';
+    var partes = t.slice(inicio.length).split('/');
+    var filhos = [];
+    partes.forEach(function (p, n) {
+      var ultimo = n === partes.length - 1;
+      var texto = (n === 0 ? inicio : '') + p + (ultimo ? '' : '/');
+      /* cada pedaco inteiro numa linha (senao o navegador parte no hifen: "dom-" / "conizza"); pedaco comprido demais
+         para a caixa fica livre para quebrar, em vez de vazar */
+      filhos.push(texto.length <= 30 ? el('span', { style: { whiteSpace: 'nowrap' }, text: texto }) : texto);
+      if (!ultimo) filhos.push(document.createElement('wbr'));
+    });
+    return filhos;
+  }
   function linkDoBalcao(loja) { return baseUrl() + '#/balcao/' + loja.slug; }
   function linkDoPainel(loja) { return baseUrl() + '#/painel/' + loja.slug; }
   function linkDoPedido(loja, pedidoId) { return baseUrl() + '#/' + loja.cidadeSlug + '/' + loja.slug + '/pedido/' + pedidoId; }
@@ -846,7 +864,7 @@
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem,

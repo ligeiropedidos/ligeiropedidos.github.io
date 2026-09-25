@@ -2600,7 +2600,7 @@
         '<div id="enderecoLoja"></div>' +
         '<div class="rodape-legal" id="legalLoja"></div>' +
         '<div class="contatos" id="contatosLoja"></div>' +
-        '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;width:100%"></button>' +
+        '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;justify-content:center;width:100%"></button>' +
         '<div class="ligeiro"><a href="#/lojas">Feito com Ligeiro · quero isso na minha loja →</a></div>' +
       '</footer>' +
     '</section>' +

@@ -62,6 +62,15 @@ service cloud.firestore {
           && novo.get('tipo', 'mensal') in ['mensal', 'anual']
           && novo.get('avisoValor', 0) is int && novo.get('avisoValor', 0) >= 0 && novo.get('avisoValor', 0) <= 10000000;
     }
+    /* Com assinatura viva no Asaas (assinaturaAsaas, que so os mensageiros gravam), trocar de plano e encerrar passam pelo
+       mensageiro, que muda a assinatura junto. Mudar direto no banco deixava o cartao cobrando o plano velho, ou cobrando
+       depois de encerrar. Reativar (cancelado -> teste) continua livre: nao cobra nada a mais */
+    function escolhaPeloMensageiro(novo, velho, conta) {
+      return ((conta.get('assinaturaAsaas', '') == '' || conta.get('assinaturaAsaas', '') == null)
+              && (conta.get('assinaturaPendente', '') == '' || conta.get('assinaturaPendente', '') == null))
+          || (novo.get('planoId', '') == velho.get('planoId', '') && novo.get('tipo', 'mensal') == velho.get('tipo', 'mensal')
+              && (novo.get('status', '') == velho.get('status', '') || novo.get('status', '') == 'teste'));
+    }
     function planoIntacto() {
       return planoSoDoDono(planoDe(request.resource.data), planoDe(resource.data))
           && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
@@ -102,6 +111,7 @@ service cloud.firestore {
         && request.resource.data.get('email', email) == email
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
         && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
+        && escolhaPeloMensageiro(planoDe(request.resource.data), planoDe(resource.data), resource.data)
         /* ultimo pagamento decide se a conta ainda ganha o preco de fundador: so o admin mexe */
         && planoDe(request.resource.data).get('ultimoPagamentoEm', '') == planoDe(resource.data).get('ultimoPagamentoEm', ''));
       allow delete: if isAdmin();

@@ -218,6 +218,30 @@ fim do endereço a toda hora.
   do cliente no Asaas é o mesmo do login no Ligeiro.
 - Sem link cadastrado, tudo continua funcionando só com o Pix manual.
 
+### Troca de plano, encerrar e a rede de segurança (25/09/2026)
+
+Uma assinatura só por conta no Asaas (`contas/{email}.assinaturaAsaas`, gravada
+quando uma assinatura PAGA). Com ela viva, trocar de plano e encerrar passam pelo
+mensageiro (`POST /plano/simular`, `/plano/trocar`, `/plano/encerrar`, com o login
+do dono), e as regras do banco não deixam mudar direto (`escolhaPeloMensageiro`).
+
+- **Mais lojas:** paga só a diferença dos dias que faltam, pelo que foi pago no
+  ciclo (`cicloPago`), numa cobrança avulsa do Asaas (`troca|email|plano`, guardada
+  em `trocaPlano`). As lojas a mais liberam quando ela cai. Menos de R$ 5 libera na
+  hora. A mesma assinatura muda de valor na hora (`PUT /subscriptions`).
+- **Menos lojas:** o limite desce na hora (as lojas abertas têm que caber) e o valor
+  menor vem na próxima fatura, sem devolução. Voltar a subir no mesmo ciclo, até o
+  plano já pago, não cobra de novo. **Mensal/anual:** na próxima fatura.
+- **Pago adiantado** (período que ainda vai começar): o plano novo fica em
+  `planoProximo` e o Cron de todo dia vira quando chega a hora (`virarPlanos`).
+- **Encerrar** cancela a assinatura no Asaas. Cobrança que cair depois é devolvida
+  sozinha (cartão e Pix; boleto avisa o admin por e-mail). O Cron cancela a
+  assinatura de conta encerrada pela Central.
+- **Assinatura nova paga** cancela a velha (nunca duas cobrando). Pagamento com
+  e-mail sem conta no Ligeiro não cria conta: o admin recebe e-mail.
+- Testes: `node testes/asaas.test.mjs` (101, com os cenários da revisão
+  independente) e as regras no emulador local do Firestore (12 checagens).
+
 ### Como era (Pix manual)
 
 - **A assinatura é da conta, não da loja.** `config.planos` define os planos por

@@ -74,6 +74,8 @@ window.LIGEIRO_CONFIG = {
    */
   cobranca: {
     provedor: 'Asaas',
+    /* o mensageiro do Asaas: troca de plano (so a diferenca) e encerrar (cancela a assinatura) passam por ele */
+    mensageiro: 'https://ligeiro-asaas.ligeiro-pedidos.workers.dev',
     /* linksFundador: os mesmos oito links, com o preco de fundador (so quem tem a vaga ve esses) */
     linksFundador: {
       uma: { mensal: 'https://www.asaas.com/c/0ecl013dsndt48ta', anual: 'https://www.asaas.com/c/ijf1apwcx3f7q5e3' },

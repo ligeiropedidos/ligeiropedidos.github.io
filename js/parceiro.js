@@ -647,7 +647,12 @@
           continuar.onclick = null;
           return;
         }
-        resumo.appendChild(el('p', { class: 'muted pequeno', text: 'A troca vale a partir do próximo pagamento: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
+        /* com assinatura no Asaas, a troca passa pelo mensageiro: mais lojas pagam so a diferenca, o resto vale na proxima fatura */
+        var C = window.LigeiroCobranca;
+        var comAssinatura = !D().modoDemo && !!(C && C.assinaturaAtiva && C.assinaturaAtiva(conta));
+        resumo.appendChild(el('p', { class: 'muted pequeno', text: comAssinatura
+          ? 'Para mais lojas, você paga só a diferença dos dias que faltam, e elas liberam assim que ela cair. Menos lojas, ou trocar entre mensal e anual, vale na próxima fatura.'
+          : 'A troca vale a partir do próximo pagamento: o valor passa a ser ' + dinheiro(valor) + (tipo === 'anual' ? ' por ano' : ' por mês') + '.' }));
         continuar.textContent = 'Mudar para este plano';
         continuar.setAttribute('href', '#');
         continuar.onclick = function (ev) {
@@ -655,9 +660,13 @@
           var st = D().store;
           st.listarMinhasLojas(conta.email).then(function (minhas) {
             var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === conta.email; }).length;
-            if (reais > plano.lojas) throw new Error('Você tem ' + reais + ' lojas e esse plano permite ' + plano.lojas + '. Feche uma loja em "Minha conta" antes de trocar.');
+            if (reais > plano.lojas) throw new Error('Você tem ' + reais + ' lojas e esse plano permite ' + plano.lojas + '. Para descer de plano, fale com o Ligeiro e diga qual loja fechar.');
+            /* encerrada, mas a assinatura do Asaas ainda nao saiu (o Cron tira): primeiro reativa */
+            if ((conta.assinaturaAsaas || conta.assinaturaPendente) && (conta.plano || {}).status === 'cancelado') throw new Error('Reative a assinatura em Minha conta antes de trocar de plano.');
+            if (comAssinatura) return C.trocarPlano({ planoId: escolhido, tipo: tipo, nomePlano: plano.nome, aoTerminar: function () { window.LigeiroApp.ir('conta'); } }).then(function () { return 'feito'; });
             return st.salvarConta(conta.email, { plano: { planoId: escolhido, tipo: tipo } });
           }).then(function (c) {
+            if (c === 'feito') return;
             UI.soar('sucesso');
             var pago = c && c.plano && c.plano.status === 'ativo' && c.plano.planoPago && c.plano.planoPago !== escolhido;
             UI.avisar(pago ? 'Plano trocado para ' + plano.nome + '. Vale assim que o Pix dele for confirmado.' : 'Plano trocado: ' + plano.nome + '.');

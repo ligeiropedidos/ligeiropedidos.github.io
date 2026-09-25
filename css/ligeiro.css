@@ -242,7 +242,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .hub-conteudo > .busca { margin-top: -43px; }
 .hub-conteudo .busca { min-height: 58px; font-size: 17px; border-color: transparent; box-shadow: 0 14px 34px rgba(14, 31, 20, 0.18); background-color: #fff; }
 .hub-conteudo .busca:focus { outline: 3px solid var(--lime); }
-.hub-secao { display: flex; align-items: center; gap: 10px; font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--deep2); margin-top: 6px; }
+.hub-secao { display: flex; align-items: center; gap: 12px; font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--deep2); margin-top: 6px; }
 .hub-lista { gap: 12px; }
 .hub-secao::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
 
@@ -911,7 +911,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 .linha-painel-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
 .linha-painel-link .btn { flex: none; }
-.divulgar { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; }
+.divulgar { display: flex; gap: 16px; align-items: flex-start; margin-top: 4px; } /* 12 do bloco + 4 = 16 do texto ao QR, igual aos 16 do QR ao link */
 .divulgar-acoes { flex: 1; min-width: 0; }
 .divulgar-acoes .caixa-link { margin: 0; }
 @media (max-width: 600px) { .divulgar { flex-direction: column; align-items: center; } .divulgar-acoes { width: 100%; } }
@@ -1185,7 +1185,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   /* td:first-child junto: a barra do computador (td:first-child) tem mais forca que so "td" e voltava no nome */
   .tabela-concorrentes tr.destaque td, .tabela-concorrentes tr.destaque td:first-child { background: transparent; box-shadow: none; }
 }
-.caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; word-break: break-all; }
+.caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; } /* quebra depois das "/" (UI.pedacosDeLink); no meio so se um pedaco nao couber */
 .grade-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
 /* ---------- Campo de foto (painel) ---------- */
@@ -1410,6 +1410,8 @@ button.plano-card { cursor: pointer; }
 .resumo-assinatura .linha > span { min-width: 0; }
 .resumo-assinatura .linha > b { flex: none; white-space: nowrap; text-align: right; }
 .resumo-assinatura .linha:last-of-type { border-bottom: 0; }
+/* janela da troca de plano: hoje e depois, na caixa verde da fatura */
+.resumo-troca { padding: 4px 16px; border: 1.5px solid #D5ECB0; border-radius: 14px; background: var(--lime-suave); }
 .rodape-vendas .contatos a { color: var(--body); font-weight: 600; text-decoration: none; padding: 6px 4px; }
 .texto-legal { max-width: 720px; margin: 0 auto; width: 100%; gap: 8px; }
 /* login e conta do dono */

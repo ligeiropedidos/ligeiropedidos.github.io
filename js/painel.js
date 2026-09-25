@@ -668,6 +668,9 @@
       /* a fatura do mes (Pix ou boleto) perto de vencer, ou vencida: o aviso e daqui (sem os avisos pagos do Asaas) */
       var C = window.LigeiroCobranca;
       var fatura = estado.conta && C && C.faturaAberta ? C.faturaAberta(estado.conta) : null;
+      /* assinatura viva no Asaas: renova sozinha. Perto de vencer sem fatura aberta nao pede nada (o link abriria outra) */
+      var comAssinatura = !D.modoDemo && !!(estado.conta && C && C.assinaturaAtiva && C.assinaturaAtiva(estado.conta));
+      if (comAssinatura && a.estado === 'vencendo') tranquila = true;
       if (fatura) tranquila = false;
       if (!sempre && tranquila) return null;
       var textos = {
@@ -698,6 +701,7 @@
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
           fatura
             ? el('a', { class: 'btn btn-principal btn-pequeno', href: fatura.url, target: '_blank', rel: 'noopener', text: 'Pagar a fatura · ' + dinheiro(fatura.valor) })
+            : (comAssinatura && !alerta) ? null
             : el('button', { class: 'btn ' + (tranquila ? 'btn-fantasma' : 'btn-principal') + ' btn-pequeno', type: 'button', text: (a.gratis ? 'Assinar · ' : 'Pagar ') + dinheiro(valor), onclick: abrirPagamentoAssinatura }),
         ]));
       }
@@ -718,6 +722,7 @@
       }
       window.LigeiroCobranca.abrir({
         fatura: estado.conta && window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(estado.conta, { todas: true }) : null,
+        assinatura: !D.modoDemo && !!(estado.conta && window.LigeiroCobranca.assinaturaAtiva && window.LigeiroCobranca.assinaturaAtiva(estado.conta)), atrasada: a.estado === 'vencida' || a.estado === 'bloqueada',
         valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome, email: (estado.conta && estado.conta.email) || estado.loja.donoEmail || '',
         txid: 'LIG' + slug.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro ' + estado.loja.nome, avisar: avisar,
       });
@@ -2870,7 +2875,7 @@
         el('div', { class: 'divulgar' }, [
           qr,
           el('div', { class: 'pilha divulgar-acoes' }, [
-            el('div', { class: 'caixa-link', text: linkLoja }),
+            el('div', { class: 'caixa-link' }, UI.pedacosDeLink(linkLoja)),
             el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link do ' + R.catalogo(estado.loja).nome]),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Cole em Ferramentas comerciais, Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
