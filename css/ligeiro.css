@@ -63,6 +63,9 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 h1, h2, h3, .display { font-family: var(--display); font-weight: 700; line-height: 1.15; margin: 0; letter-spacing: -0.2px; }
+/* titulos em linhas do mesmo tamanho e paragrafo sem palavra sozinha na ultima linha (navegador que nao sabe, ignora) */
+h1, h2, h3, .kicker, summary { text-wrap: balance; }
+p, li { text-wrap: pretty; }
 h1 { font-size: 28px; }
 h2 { font-size: 22px; }
 h3 { font-size: 19px; }
@@ -264,10 +267,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .cidade-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cidade-linha .cidade-nome { font-family: var(--display); font-size: 19px; font-weight: 700; line-height: 1.15; color: var(--ink); }
 .cidade-linha .cidade-nome small { font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.06em; }
-.cidade-detalhe { font-size: 14px; color: var(--deep2); font-weight: 600; }
+.cidade-detalhe { font-size: 14px; color: var(--deep2); font-weight: 600; text-wrap: balance; }
 .cidade-acao { flex: none; font-size: 14px; font-weight: 700; color: var(--deep2); background: var(--lime-suave); padding: 8px 12px; border-radius: 999px; }
 .cidade-linha.minha .cidade-acao { background: var(--lime); color: var(--ink); }
-@media (max-width: 400px) { .cidade-acao { display: none; } }
+@media (max-width: 479px) { .cidade-acao { display: none; } }
 /* quadrados de cidade (pagina inicial) */
 
 .cidade-nome { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.15; color: var(--ink); }
@@ -280,6 +283,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aba-painel.ativa .chip-qtd { background: var(--lime); color: var(--ink); }
 .hub-lista { display: flex; flex-direction: column; gap: 12px; }
 .hub-lista > .hub-secao:first-child { margin-top: 8px; } /* 16 do vao + 8 = 24 antes da secao */
+.hub-lista > .hub-secao:not(:first-child) { margin-top: 12px; } /* 12 do vao + 12 = 24 */
 .hub-secao { font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--deep2); margin-top: 6px; }
 
   
@@ -310,6 +314,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .como-funciona { display: flex; gap: 8px; width: 100%; max-width: 440px; }
 .como-passo { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px 8px; font-size: 13.5px; line-height: 1.3; color: var(--body); }
 .como-passo .n { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin: 0 auto 8px; border-radius: 50%; background: var(--lime-suave); font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--deep2); } /* numero na bolinha, como no tema da Dom Conizza */
+/* celular estreito: cada passo em duas linhas, as tres caixas iguais (com a letra do iPhone "ou ao receber" descia para
+   uma terceira linha no 320 e no 360) */
+@media (max-width: 360px) { .como-funciona { gap: 6px; } .como-passo { min-width: 0; padding: 10px 6px; font-size: 12.5px; } }
+@media (max-width: 340px) { .como-passo { padding: 10px 4px; font-size: 12px; } }
 /* recado da loja no topo ("Hoje: feijoada"): icone e texto como os outros avisos, no amarelo de novidade (o laranja e o
    dos problemas). Entra deslizando e o sino balanca uma vez: chama o olho sem ficar mexendo. Uma linha fica no centro;
    texto longo quebra alinhado a esquerda, ao lado do sino */
@@ -413,7 +421,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* barra de rolagem fina, com lugar reservado; o padding da direita desconta a largura dela (--barra, medida no abrirModal)
    pra sobrar a mesma margem dos dois lados */
 .modal-corpo { scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--line-forte) transparent; padding-right: max(0px, calc(var(--margem) - var(--barra, 0px))); }
-.modal-rodape { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px var(--margem) calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+.modal-rodape { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; padding: 12px var(--margem) calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
 .modal-rodape .btn { min-width: 0; }
 .modal-rodape .contador { flex: none; }
 .contador { display: flex; align-items: center; gap: 4px; border: 1.5px solid var(--line-forte); border-radius: 14px; padding: 4px; }
@@ -649,7 +657,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .pedido-card .acoes .btn-pequeno { flex: none; min-height: 54px; }
 /* entregador: colunas exatamente iguais (em flex a borda do "Mapa" deixava ele 2px mais largo) */
 .pedido-card .acoes-entrega { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.pedido-card .acoes-entrega .btn { min-width: 0; }
+.pedido-card .acoes-entrega .btn { min-width: 0; padding-left: 14px; padding-right: 14px; gap: 8px; }
 /* celular: o proximo passo ("Comecar a fazer") ganha a linha inteira; embaixo 💬 e 🖨️ em quadrados iguais e Cancelar no resto */
 @media (max-width: 640px) {
   .pedido-card .acoes-pedido .btn-principal { flex: 1 1 100%; }
@@ -679,8 +687,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .previa-icones svg { fill: currentColor; }
 .previa-site.com-capa .previa-status { color: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55)); }
 .previa-ilha { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 78px; height: 22px; background: #0B0F0D; border-radius: 12px; z-index: 3; }
-.previa-capa { position: relative; height: 150px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
-.previa-site.capa-alta .previa-capa { height: 190px; }
+.previa-capa { position: relative; height: auto; aspect-ratio: 390 / 200; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
+.previa-site.capa-alta .previa-capa { aspect-ratio: 390 / 280; } /* a capa corta igual a do celular (antes cortava o dobro dos lados) */
 .previa-capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .previa-capa.sem-capa::before { content: "Sua capa aqui"; position: absolute; inset: 36px 0 0; display: flex; align-items: center; justify-content: center; color: var(--deep2); font-weight: 700; font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
 .previa-corpo { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 16px 10px; margin-top: -40px; gap: 8px; }
@@ -751,7 +759,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* barra fixa de salvar (aba Ajustes) */
 .salvar-fixo { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); }
 .salvar-fixo .salvar-estado { font-size: 14.5px; font-weight: 600; color: var(--muted); min-width: 0; }
-.salvar-fixo .btn { flex: none; white-space: nowrap; }
+.salvar-fixo .btn { flex: none; min-height: 48px; white-space: nowrap; } /* 48, a altura dos botoes do painel */
 @media (max-width: 480px) { .salvar-fixo .salvar-estado { font-size: 13px; line-height: 1.25; } .salvar-fixo .btn { padding-left: 16px; padding-right: 16px; } }
 .salvar-fixo .salvar-estado.pendente { color: #B4501A; }
 #secaoPainel.com-salvar { padding-bottom: 84px; }
@@ -843,7 +851,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
 .linha-produto.desligado { opacity: 0.55; }
-.linha-produto .editar { min-width: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.linha-produto .editar { min-width: 44px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; } /* na altura do campo de preco do lado (48) */
 .linha-produto .editar.apagar { border-color: #F3C9C2; background: #FFF6F4; }
 /* celular: item e opcao em duas linhas, em grade (nada quebra pra terceira linha, por mais estreita que a tela seja).
    Em cima a foto e o nome inteiro; embaixo preco, botao e liga/desliga sempre nas mesmas colunas. */
@@ -862,6 +870,13 @@ a.selo-google:hover { background: var(--lime-suave); }
   .linha-produto.item .editar.apagar { grid-column: 3; }
   .linha-produto.opcao .editar { grid-column: 2; }
   .linha-produto.item .chave, .linha-produto.opcao .chave { grid-row: 2; grid-column: -2 / -1; }
+}
+/* 320: o preco inteiro ("R$ 22,00") na caixa, com vao e botoes um pouco menores (no tema de borda grossa cortava) */
+@media (max-width: 340px) {
+  .linha-produto.item { column-gap: 6px; grid-template-columns: 40px minmax(0, 1fr) 44px 44px auto; }
+  .linha-produto.item > :first-child { width: 40px; height: 40px; line-height: 40px; font-size: 24px; }
+  .linha-produto.item .editar { width: 44px; }
+  .linha-produto.item input.preco { padding: 8px 4px; font-size: 15px; }
 }
 
 .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -911,15 +926,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .tela-card .linha-botoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 6px; white-space: nowrap; font-size: 15px; }
 @media (max-width: 360px) {
   .tela-card .linha-botoes { grid-template-columns: minmax(0, 1fr); } /* um botao por linha: "Copiar link" inteiro */
-  .divulgar-acoes .btn, .linha-painel-link .btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; }
+  .divulgar-acoes .btn, .linha-painel-link .btn.btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; } /* .btn.btn: vale sobre o 15px padrao de mais abaixo */
   .aparencia-controles .estilo-linha .aba-painel { font-size: 13px; }
   .mp-conexao .btn { font-size: 15px; }
 }
 .linha-painel-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-.linha-painel-link .btn { flex: none; }
+.linha-painel-link .btn { flex: none; min-height: 48px; font-size: 15px; } /* igual aos botoes dos cartoes das telas logo abaixo */
+@media (max-width: 480px) { .linha-painel-link .btn { flex: 1 1 100%; } } /* celular: a largura toda, alinhado com os cartoes de baixo */
 .divulgar { display: flex; gap: 16px; align-items: flex-start; margin-top: 4px; } /* 12 do bloco + 4 = 16 do texto ao QR, igual aos 16 do QR ao link */
 .divulgar-acoes { flex: 1; min-width: 0; }
 .divulgar-acoes .caixa-link { margin: 0; }
+.divulgar-acoes > .btn { min-height: 48px; } /* 48, como os outros botoes desta aba */
 @media (max-width: 600px) { .divulgar { flex-direction: column; align-items: center; } .divulgar-acoes { width: 100%; } }
 /* ---------- hub da cidade estilo console: trilho de lojas + palco que muda com a escolhida ---------- */
 .ps-palco { position: relative; isolation: isolate; overflow: hidden; overflow: clip; min-width: 0; border-radius: 24px; background: var(--deep); color: #fff; box-shadow: 0 18px 40px rgba(14, 31, 20, 0.18); }
@@ -947,7 +964,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .estrela { display: inline-flex; flex: none; line-height: 1; color: #8A5A00; }
 .ps-meta { font-size: 14.5px; color: rgba(255, 255, 255, 0.82); }
 .ps-status { display: flex; flex-wrap: wrap; gap: 8px; }
-.ps-status span { font-size: 13px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.ps-status > span { font-size: 13px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
 .ps-status .aberta { background: rgba(132, 204, 22, 0.28); color: #E6FFB8; }
 .ps-status .fechada { background: rgba(255, 138, 61, 0.26); color: #FFE1CC; }
 .ps-abrir { flex: none; min-height: 56px; padding: 12px 26px; font-size: 18px; }
@@ -1048,7 +1065,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .ex-preco b { font-family: var(--display); font-size: 38px; line-height: 1; color: #FDE68A; }
 .ex-obs { font-size: 14px; color: rgba(255, 255, 255, 0.86); flex-basis: 100%; }
 .ex-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
-.ex-botoes .btn { flex: 1 1 260px; min-width: max-content; min-height: 58px; white-space: nowrap; } /* base maior que o texto mais largo: lado a lado so com os dois do mesmo tamanho; senao desce */
+.ex-botoes .btn { flex: 1 1 260px; min-width: max-content; min-height: 60px; white-space: nowrap; } /* base maior que o texto mais largo: lado a lado so com os dois do mesmo tamanho; senao desce */
 .ex-botoes .ex-ver { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.5); }
 @container (min-width: 500px) {
   .ex-recursos { grid-template-columns: 1fr 1fr; } /* duas colunas so quando cada linha cabe inteira */
@@ -1063,6 +1080,11 @@ a.selo-google:hover { background: var(--lime-suave); }
   .exclusiva h2 { font-size: 24px; }
   .ex-preco b { font-size: 32px; }
   .ex-botoes .btn { flex: 1 1 100%; }
+}
+/* 320: os dois celulares de exemplo (e a inclinacao deles) cabem dentro do quadro escuro */
+@media (max-width: 340px) {
+  .ex-tela { width: 98px; height: 178px; }
+  .ex-cel-exclusivo .ex-tela { width: 114px; height: 206px; }
 }
 @media (min-width: 900px) { .exclusiva { grid-template-columns: 360px minmax(0, 1fr); gap: 36px; padding: 40px 44px; } .ex-tela { width: 148px; height: 264px; } .ex-cel-exclusivo .ex-tela { width: 168px; height: 300px; } .exclusiva h2 { font-size: 34px; } }
 @media (prefers-reduced-motion: no-preference) { .ex-cel-exclusivo .ex-tela { animation: ex-flutuar 5s ease-in-out infinite; } }
@@ -1267,6 +1289,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .calc-linha.ligeiro { border-color: var(--lime); background: var(--lime-suave); }
 .calc-cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .calc-valor { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--deep); white-space: nowrap; }
+/* celular: nome em cima e valor embaixo em todas as linhas (lado a lado, "iFood, plano Entrega" quebrava em tres e so
+   aquelas linhas ficavam mais altas) */
+@media (max-width: 480px) { .calc-cabeca { flex-direction: column; align-items: flex-start; gap: 2px; } }
 .calc-linha.ligeiro .calc-valor { color: var(--lime-escuro); }
 .calc-trilho { height: 10px; background: #E6EFDD; border-radius: 5px; overflow: hidden; }
 .calc-trilho span { display: block; height: 100%; background: var(--orange); border-radius: 5px; transition: width 0.25s; }
@@ -1279,7 +1304,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passo-venda b { display: block; font-family: var(--display); font-size: 18px; margin-bottom: 4px; }
 .passo-venda p { color: var(--body); font-size: 15px; }
 .vender-grade { display: grid; grid-template-columns: 1fr; gap: 10px; }
-@media (min-width: 560px) { .vender-grade { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 560px) { .vender-grade { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; } } /* lado a lado: todas as linhas da altura da mais alta */
 .item-venda { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
 .item-venda .icone { font-size: 26px; }
 .item-venda b { font-family: var(--display); font-size: 17px; }
@@ -1334,6 +1359,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-video .video-play { flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8.35 7.4v9.2c0 .9 1 1.4 1.7.9l6.6-4.6c.6-.4.6-1.4 0-1.8l-6.6-4.6c-.7-.5-1.7 0-1.7.9z' fill='%230E1F14'/%3E%3C/svg%3E") center / 100% no-repeat; }
 .btn-video > span:nth-child(2) { position: relative; top: 1px; } /* maiusculas no meio, na linha da bolinha e do selo */
+@media (max-width: 340px) { .btn-video { font-size: 16px; gap: 8px; padding-left: 16px; padding-right: 16px; } } /* 320: "Ver como funciona" e o selo numa linha */
 .btn-video .video-tempo { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); font-size: 13px; font-weight: 700; line-height: 1; }
 .video-fundo { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 22, 16, 0.88); }
 .video-caixa { position: relative; width: min(100%, calc((100vh - 32px) * 9 / 16)); max-width: 480px; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #0F3D2E; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
@@ -1349,6 +1375,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .teste-banner::after { content: ""; position: absolute; top: 14px; right: 14px; width: 62px; height: 62px; pointer-events: none;
   background-image: radial-gradient(rgba(255, 255, 255, 0.2) 2px, transparent 2.6px); background-size: 16px 16px; }
 .teste-texto { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+@media (max-width: 480px) { .teste-banner::after { display: none; } } /* no celular os pontinhos caiam em cima do selo */
 .teste-selo { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13.8px 8px 15px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: var(--lime-suave); font-family: var(--display); font-weight: 700; font-size: 14px; line-height: 1; letter-spacing: 1.2px; text-transform: uppercase; }
 .teste-selo .estrela { color: var(--lemon); letter-spacing: 0; }
 .teste-banner h2 { margin-top: 16px; color: #fff; font-size: 28px; line-height: 1.15; }
@@ -1362,6 +1389,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-contorno { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.42); }
 @media (hover: hover) { .btn-contorno:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.7); } }
 @media (max-width: 420px) { .teste-banner { padding-left: 16px; padding-right: 16px; } .teste-banner h2 { font-size: 25px; } .teste-botoes .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
+/* celular estreito: "Quero que montem para mim" numa linha so, medido com a letra do iPhone (mais larga que a do PC) */
+@media (max-width: 380px) { .teste-botoes .btn { font-size: 17px; } }
+@media (max-width: 340px) { .teste-banner { padding-left: 12px; padding-right: 12px; } .teste-botoes .btn { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 /* mensal e anual lado a lado, ate no celular (as partes dos dois na mesma altura, pelo subgrid); o incluso embaixo */
@@ -1434,6 +1464,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* janela da troca de plano: hoje e depois, na caixa verde da fatura */
 .resumo-troca { padding: 4px 16px; border: 1.5px solid #D5ECB0; border-radius: 14px; background: var(--lime-suave); }
 .rodape-vendas .contatos a { color: var(--body); font-weight: 600; text-decoration: none; padding: 6px 4px; }
+/* celular: a barra fixa "Comecar gratis" (65px) cobria a ultima linha do rodape; ela termina 16px acima da barra */
+@media (max-width: 759px) { .rodape-vendas:has(~ .cta-fixa) { padding-bottom: calc(81px + env(safe-area-inset-bottom)); } }
 .texto-legal { max-width: 720px; margin: 0 auto; width: 100%; gap: 8px; }
 /* login e conta do dono */
 .btn-google { background: #fff; color: var(--ink); border: 1.5px solid var(--line-forte); }
@@ -1495,9 +1527,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* a loja e a assinatura (ver conta.js): colunas com o mesmo ritmo da pagina (16 entre blocos, 12 do titulo ao cartao) */
 .conta-arranjo { display: flex; flex-direction: column; gap: 16px; }
 .conta-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.conta-col > .hub-secao + * { margin-top: -4px; }
+.conta-col > .hub-secao:not([hidden]) + * { margin-top: -4px; }
 .conta-col > .conta-lojas { margin-top: 0; }
-.conta-col > .hub-secao + .conta-lojas { margin-top: -4px; }
+.conta-col > .hub-secao:not([hidden]) + .conta-lojas { margin-top: -4px; }
 /* uma loja so, no celular: a loja primeiro; a assinatura sobe quando pede atencao */
 .conta-arranjo.par .conta-col-lojas { order: -1; }
 /* o par com o mesmo respiro por dentro (16, o do cartao da loja): lado a lado, o pe dos dois fica na mesma linha */
@@ -1508,7 +1540,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o QR do balcao no cartao da loja (conta com uma loja so): as pecas da loja pronta, sem a linha de cima */
 .conta-qr-bloco { display: flex; flex-direction: column; gap: 12px; }
 .conta-qr-bloco[hidden] { display: none; }
-.conta-qr-bloco > .btn { width: 100%; white-space: nowrap; font-size: 15px; }
+.conta-qr-bloco > .btn { width: 100%; min-height: 48px; white-space: nowrap; font-size: 16px; }
 .conta-qr { display: flex; align-items: center; gap: 16px; }
 @media (max-width: 359px) { .conta-qr { flex-direction: column; } .conta-qr .pronto-qr-texto { align-items: center; text-align: center; } }
 .conta-outra { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); text-align: left; }
@@ -1537,14 +1569,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-selos .rot-curto { display: none; }
 @media (max-width: 360px) { .conta-selos .rot-longo { display: none; } .conta-selos .rot-curto { display: inline; } } /* 320: "Aberta" + o outro selo cabem lado a lado */
 .conta-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.conta-acoes .btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; font-size: 15px; }
+.conta-acoes .btn { width: 100%; min-width: 0; min-height: 48px; padding-left: 8px; padding-right: 8px; white-space: nowrap; font-size: 16px; } /* 48 e 16, como os botoes da assinatura do lado */
 .conta .linha-botoes > .btn { width: 100%; text-align: center; justify-content: center; }
 .conta-acoes .btn-principal { grid-column: 1 / -1; }
 /* equipe: tres botoes iguais com o icone em cima do nome, como os do topo do painel (antes a senha sobrava sozinha numa linha) */
 .conta-equipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .conta-ladrilho { width: 100%; min-width: 0; flex-direction: column; gap: 6px; min-height: 72px; padding: 10.75px 4px 7.25px; font-size: 15px; line-height: 1.1; white-space: nowrap; }
 .conta-ladrilho-icone { font-size: 22px; line-height: 1; }
-/* "Copiar link" com o icone: 15px com folga; no celular pequeno 14 e 13, com o icone mais perto do texto */
+/* "Copiar link" com o icone: 16px com folga; no celular pequeno 15, 14 e 13, com o icone mais perto do texto */
+@container conta-loja (max-width: 289.9px) { .conta-acoes .btn { font-size: 15px; } }
 @container conta-loja (max-width: 277.9px) { .conta-acoes .btn { font-size: 14px; gap: 8px; } }
 @container conta-loja (max-width: 261.9px) { .conta-acoes .btn { font-size: 13px; } }
 /* equipe: o texto sempre a 10px ou mais do contorno, medido com a letra do iPhone (mais larga que a do PC). Os tres
@@ -1621,6 +1654,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .cta-fixa { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); animation: subir 0.25s ease-out; }
 .cta-fixa b { color: var(--deep); }
 .cta-fixa > span { min-width: 0; } /* a frase quebra se precisar; o botao fica inteiro */
+/* celular estreito: "7 dias gratis" em cima e "sem cartao" embaixo, de proposito (antes sobrava "cartao" sozinho) */
+@media (max-width: 400px) { .cta-fixa b { display: block; } .cta-fixa .cta-sep { display: none; } }
 .cta-fixa .btn { flex: none; }
 .cta-fixa[hidden] { display: none; }
 @media (max-width: 759px) { .zap-flutuante { bottom: 84px; width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
@@ -1684,7 +1719,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 
 /* ---------- Toast ---------- */
 
-.torrada { position: fixed; left: calc(50% - var(--trava, 0px) / 2); bottom: calc(var(--altura-barra) + 90px); transform: translate(-50%, 20px); opacity: 0; z-index: 90; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 15.5px; max-width: 92vw; text-align: center; transition: 0.2s; pointer-events: none; }
+.torrada { position: fixed; left: calc(50% - var(--trava, 0px) / 2); bottom: calc(var(--altura-barra) + 90px); transform: translate(-50%, 20px); opacity: 0; z-index: 90; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 15.5px; width: max-content; max-width: 92vw; text-align: center; text-wrap: balance; transition: 0.2s; pointer-events: none; }
 .torrada.visivel { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- Modo balcao (tablet) ---------- */
@@ -2221,7 +2256,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-status { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 14px; border-radius: 12px; background: #EAF9F0; border: 1.5px solid #BDE9CE; color: #0B5E34; font-size: 15px; font-weight: 600; line-height: 1.3; text-decoration: none; transition: background 0.15s, border-color 0.15s; }
 .zap-status .icone-zap { width: 22px; height: 22px; color: #1FAF55; }
 .zap-status-texto { flex: 1; min-width: 0; }
-.zap-status-texto b { font-weight: 800; }
+.zap-status-texto b { font-weight: 800; white-space: nowrap; }
 .zap-status-fim { flex: none; display: inline-flex; line-height: 1; }
 .zap-status:hover { background: #DDF5E7; }
 .zap-status.feito { background: transparent; border-style: dashed; border-color: var(--line-forte); color: var(--muted); }
@@ -2244,6 +2279,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aviso-cel-pedido .aviso-cel-ico { width: 40px; height: 40px; }
 .aviso-cel-pedido-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14.5px; line-height: 1.35; color: var(--body); }
 .aviso-cel-pedido-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
+@media (max-width: 340px) { .aviso-cel-pedido { gap: 10px; padding-left: 12px; } .aviso-cel-pedido .btn { min-width: 80px; padding: 0 14px; } } /* 320: mais lugar para o nome do jogo */
 .aviso-cel-pedido .btn { flex: none; min-height: 44px; min-width: 96px; padding: 0 18px; } /* Avisar e Jogar com a mesma largura: um cartao embaixo do outro, os botoes alinham */
 .aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: #C9E7A1; }
 .aviso-cel-pedido.ligado .aviso-cel-ico { background: #fff; }
@@ -2256,7 +2292,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o icone da Corrida: uma arte de app (ceu, rua e a motinho), com o canto dos cartoes */
 .jogo-convite-ico { flex: none; width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(14, 31, 20, 0.12), 0 2px 6px rgba(14, 31, 20, 0.16); }
 .jogo-convite-ico svg { display: block; width: 100%; height: 100%; }
-.jogo-recorde-selo { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--deep); color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.jogo-recorde-selo { align-self: flex-start; display: inline-flex; white-space: nowrap; align-items: center; gap: 4px; margin-top: 2px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--deep); color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.4; font-variant-numeric: tabular-nums; }
 .jogo-recorde-selo .ico-traco { color: var(--lime2); }
 .jogo-recorde-selo .ico-traco svg { width: 14px; height: 14px; }
 /* iPhone: os 3 passos */
@@ -2272,7 +2308,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .a-cobrar[hidden] { display: none; }
 .a-cobrar .ico-traco { color: #B4501A; }
 /* ---------- cliente: icones de traco no lugar dos emojis de interface ---------- */
-.hub-selos span, .ps-status span, .confianca span, .cupom-abrir, .cupom-valendo > span { display: inline-flex; align-items: center; gap: 6px; }
+.hub-selos span, .ps-status > span, .confianca span, .cupom-abrir, .cupom-valendo > span { display: inline-flex; align-items: center; gap: 6px; }
 .confirmado { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .nota:has(> .ico-traco) { display: flex; justify-content: center; align-items: flex-start; gap: 6px; text-align: center; } /* nota com icone (cadeado) no centro, como as linhas de confianca */
 /* endereco no centro e no mesmo desenho das linhas de confianca de cima (13 px, negrito leve, icone de 15) */

@@ -36,6 +36,8 @@ service cloud.firestore {
         && request.auth.token.get('email', '') == 'equipe-' + loja + '@equipe.ligeiropedidos.com.br'; }
     /* login da senha da equipe (qualquer loja): nao cria conta nem loja */
     function ehLoginDeEquipe() { return logado() && request.auth.token.get('equipe', '') != ''; }
+    /* a ordem do pedido na fila: a equipe so anda para a frente (cancelar pode a qualquer hora) */
+    function ordemDoPedido(s) { return {'aguardando_pagamento': 0, 'pago': 1, 'producao': 2, 'pronto': 3, 'finalizado': 4, 'cancelado': 5}.get(s, -1); }
     function planoDe(d) { return d.get('plano', {}); }
     /* pagoAte vazio: campo ausente, '' ou null valem a mesma coisa */
     function semPago(p) { return p.get('pagoAte', '') == '' || p.get('pagoAte', '') == null; }
@@ -265,7 +267,13 @@ service cloud.firestore {
               /* pedido cancelado ou concluido nao volta (nem um cancelado e devolvido vira "pago" de novo) */
               && (!(resource.data.status in ['cancelado', 'finalizado']) || request.resource.data.status == resource.data.status)
               /* cancelado e devolvido nao volta a "pago" pela mao da equipe (reaparecia em "Falta devolver") */
-              && (resource.data.status != 'cancelado' || request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', '')))
+              && (resource.data.status != 'cancelado' || request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', ''))
+              /* so para a frente: um toque de tela velha ou feito sem internet nao puxa o pedido de volta (pronto -> producao) */
+              && (request.resource.data.status == 'cancelado' || ordemDoPedido(request.resource.data.status) >= ordemDoPedido(resource.data.status))
+              /* Pix e cartao pelo Mercado Pago: quem confirma e o mensageiro, com o banco. A equipe nao marca como pago (print
+                 falso nao libera pedido) */
+              && !(resource.data.get('mp', null) != null && resource.data.status == 'aguardando_pagamento'
+                   && (request.resource.data.status == 'pago' || request.resource.data.get('pagamentoStatus', '') == 'pago')))
           || isDonoDaLoja(loja) || isAdmin()
           /* cliente: "ja paguei" (so marca, nunca muda status) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clientePagou', 'clientePagouEm', 'atualizadoEm'])
@@ -273,10 +281,11 @@ service cloud.firestore {
               && resource.data.status == 'aguardando_pagamento' && resource.data.formaPagamento == 'pix'
               && request.resource.data.get('clientePagouEm', '') is string && request.resource.data.get('clientePagouEm', '').size() <= 30
               && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30)
-          /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix */
+          /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix (nunca com o cartao em analise no banco:
+             ele pode passar depois, e o cliente pagaria de novo por outro pedido) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
               && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor in ['cliente', 'pix-vencido']
-              && resource.data.status == 'aguardando_pagamento'
+              && resource.data.status == 'aguardando_pagamento' && resource.data.get('cobrancaIncerta', '') == ''
               && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30);
         /* o dono apaga pedido cancelado (lixo gravado por fora, teste); o resto, so o admin */
         allow delete: if isAdmin() || (isDonoFirme(loja) && resource.data.status == 'cancelado');

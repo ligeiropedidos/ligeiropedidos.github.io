@@ -535,7 +535,7 @@
 
     /* barra fixa no celular: aparece quando o heroi sai da tela */
     var barra = el('div', { class: 'cta-fixa', hidden: true }, [
-      el('span', {}, [el('b', { text: pr.diasGratis + ' dias grátis' }), ' · sem cartão']),
+      el('span', {}, [el('b', { text: pr.diasGratis + ' dias grátis' }), el('span', { class: 'cta-sep', text: ' · ' }), 'sem cartão']),
       el('a', { class: 'btn btn-principal btn-pequeno', href: '#/comecar', text: 'Começar grátis' }),
     ]);
     raiz.appendChild(barra);
@@ -629,7 +629,7 @@
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Sua conta hoje' }), el('b', { text: plano.nome + ' · ' + tipoAtual })]));
         /* o mesmo que ja tem: nada para trocar, o caminho e pagar ou ver o vencimento em Minha conta */
         if (tipoAtual === tipo) {
-          resumo.appendChild(el('p', { class: 'muted pequeno', text: 'Este já é o seu plano. Para pagar ou ver quando vence, vá em Minha conta.' }));
+          resumo.appendChild(el('p', { class: 'muted pequeno' }, ['Este já é o seu plano. Para pagar ou ver quando vence, vá em ', el('span', { class: 'sem-quebra', text: 'Minha conta.' })]));
           continuar.textContent = 'Ir para Minha conta';
           continuar.setAttribute('href', '#/conta');
           continuar.onclick = null;
@@ -680,7 +680,7 @@
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Assinar' }),
       el('h2', { text: 'Mensal ou anual' }),
-      el('p', { class: 'muted', text: 'Cada conta tem uma loja. Escolha se paga por mês ou por ano, no cartão, boleto ou Pix. Tem outra loja? Ela ganha a própria conta, com outro e-mail.' }),
+      el('p', { class: 'muted' }, ['Cada conta tem uma loja. Escolha se paga por mês ou por ano, no cartão, boleto ou Pix. Tem outra loja? Ela ganha a própria conta, com outro ', el('span', { class: 'sem-quebra', text: 'e-mail.' })]),
     ]));
     corpo.appendChild(caixaPlanos);
     corpo.appendChild(resumo);
