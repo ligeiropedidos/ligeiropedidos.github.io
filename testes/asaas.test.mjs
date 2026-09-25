@@ -193,7 +193,7 @@ await rodarCron(envEmail);
 const para = (quem) => emails.filter((m) => m.para === quem);
 ok(para('tres@x.com').length === 1 && /vence em 3 dias/.test(para('tres@x.com')[0].assunto) && para('tres@x.com')[0].html.indexOf('https://www.asaas.com/i/lembrete') > 0, 'vence em 3 dias: e-mail com o botao da fatura');
 ok(para('tres@x.com')[0].html.indexOf('<b>Zé') < 0 && para('tres@x.com')[0].html.indexOf('Olá, &lt;b&gt;Zé&lt;/b&gt;!') > 0, 'o nome do dono entra no e-mail sem virar codigo (escapado)');
-ok(para('tres@x.com')[0].html.indexOf('/img/email/selo-vence.png') > 0 && para('parando@x.com')[0].html.indexOf('/img/email/selo-parar.png') > 0, 'selo certo em cada aviso (verde vence, vermelho pode parar)');
+ok(para('tres@x.com')[0].html.indexOf('/img/email/selo-vence.png') > 0 && para('parando@x.com')[0].html.indexOf('/img/email/selo-parar.png') > 0 && para('parando@x.com')[0].html.indexOf('/img/email/mascote-parar.png') > 0, 'selo e ratinho certos em cada aviso (verde vence, vermelho pode parar)');
 ok(para('hoje@x.com').length === 1 && /vence hoje/.test(para('hoje@x.com')[0].assunto), 'vence hoje: e-mail');
 ok(para('cartao@x.com').length === 0, 'cartao em dia: sem e-mail (e cobrado sozinho)');
 ok(para('venceu@x.com').length === 1 && /cartão não passou/.test(para('venceu@x.com')[0].texto), 'cartao que nao passou: e-mail de vencida explicando');

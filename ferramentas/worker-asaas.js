@@ -176,9 +176,11 @@ async function lembrarFaturas(env, agora) {
   }
   return { ok: true, contas: contas.length, enviados: enviados, falhas: falhas };
 }
-/* O e-mail: logo em cima, cartao branco com faixa colorida e selo (relogio verde, alerta laranja ou vermelho), "Ola, nome",
-   o quadro da fatura (valor grande e quando vence), o botao e o rodape. Feito de tabelas e estilo na linha: e o que o Gmail,
-   o Outlook e o app do celular mostram igual. Os selos sao PNG do site (e-mail nao mostra SVG) */
+/* O e-mail: logo em cima; cartao branco com a faixa colorida (selo, titulo e o ratinho nas cores do aviso: verde antes de
+   vencer, laranja vencida, vermelho com 7 dias); "Ola, nome"; o quadro da fatura (valor grande e quando vence); o botao;
+   e o rodape com o logo. Feito de tabelas e estilo na linha, que e o que o Gmail, o Outlook e o app do celular mostram
+   igual; no celular a faixa encolhe pelo @media. As imagens sao PNG do site (img/email, feitas por
+   comercial/scripts/selos_email.mjs), porque e-mail nao mostra SVG */
 const SITE = 'https://ligeiropedidos.com.br';
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function mensagemDoLembrete(qual, f, cartao, nome) {
@@ -188,61 +190,81 @@ function mensagemDoLembrete(qual, f, cartao, nome) {
   const naoPassou = cartao ? 'A cobrança no seu cartão não passou. ' : '';
   const m = {
     d3: { assunto: 'Sua mensalidade do Ligeiro vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
+      titulo: 'Fatura em aberto', sub: ['É só um lembrete:', 'está tudo em dia.'],
       texto: 'Sua mensalidade do Ligeiro vence em 3 dias. Pague pela fatura e suas lojas seguem recebendo pedidos sem parar.' },
     d0: { assunto: 'Sua mensalidade do Ligeiro vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
+      titulo: 'Último dia', sub: ['Ainda dá tempo', 'de pagar sem atraso.'],
       texto: 'Sua mensalidade do Ligeiro vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
     vencida: { assunto: 'Sua mensalidade do Ligeiro venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
+      titulo: 'Fatura vencida', sub: ['Calma, ainda dá', 'tempo de resolver.'],
       texto: naoPassou + 'Sua mensalidade do Ligeiro venceu. Suas lojas seguem no ar por mais alguns dias: pague pela fatura para não parar.' },
     vencida7: { assunto: 'Suas lojas podem parar de receber pedidos', quando: 'Venceu em ' + dia, tom: 'parar',
+      titulo: 'Fatura atrasada', sub: ['Este é o último', 'lembrete que mandamos.'],
       texto: naoPassou + 'Sua mensalidade do Ligeiro venceu há uma semana e ainda não foi paga. Pague pela fatura para suas lojas não pararem de receber pedidos.' },
   }[qual];
+  /* faixa: cor lisa (Outlook) e o degrade por cima; titulo, subtitulo, borda do quadro e a cor do "quando" */
   const tons = {
-    vence: { faixa: '#ECFCCB', borda: '#D9F99D', cor: '#3F6212' },
-    venceu: { faixa: '#FFEDD5', borda: '#FED7AA', cor: '#C2410C' },
-    parar: { faixa: '#FEE2E2', borda: '#FECACA', cor: '#B91C1C' },
+    vence: { faixa: '#D9F99D', degrade: 'linear-gradient(120deg,#EDFBD2 0%,#C2EC72 100%)', titulo: '#0F3D2E', sub: '#365314', borda: '#BEF264', cor: '#4D7C0F' },
+    venceu: { faixa: '#FED7AA', degrade: 'linear-gradient(120deg,#FFF3E4 0%,#FDC895 100%)', titulo: '#7C2D12', sub: '#9A3412', borda: '#FDBA74', cor: '#C2410C' },
+    parar: { faixa: '#FECACA', degrade: 'linear-gradient(120deg,#FFEDED 0%,#FCB8B8 100%)', titulo: '#7F1D1D', sub: '#991B1B', borda: '#FCA5A5', cor: '#B91C1C' },
   };
   const t = tons[m.tom];
   const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
   const ola = primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!';
-  const fecho = 'Assim que o pagamento cai, tudo segue sozinho. Dúvida? É só responder este e-mail.';
+  const fecho = 'Pagou? Tudo segue sozinho. Dúvida? É só responder este e-mail.';
   const texto = ola + '\n\n' + m.texto + '\n\nMensalidade: ' + valor + ' (' + m.quando + ')\nPagar a fatura: ' + f.url + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
-  const fonte = "font-family:Arial,Helvetica,sans-serif;";
-  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(m.assunto) + '</title></head>'
-    + '<body style="margin:0;padding:0;background:#F1F7EA;">'
+  const fonte = 'font-family:Arial,Helvetica,sans-serif;';
+  const img = SITE + '/img/email/';
+  const tabela = '<table role="presentation" cellpadding="0" cellspacing="0" border="0"';
+  const logo = (tam, letra) => '<a href="' + SITE + '" style="text-decoration:none;">'
+    + '<img src="' + SITE + '/img/favicon-96.png" width="' + tam + '" height="' + tam + '" alt="" style="border:0;vertical-align:middle;">'
+    + '<span style="' + fonte + 'font-size:' + letra + 'px;font-weight:bold;color:#0F3D2E;vertical-align:middle;padding-left:8px;">Ligei<span style="color:#65A30D;">ro</span></span></a>';
+  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(m.assunto) + '</title>'
+    + '<style>@media (max-width:480px){'
+    + '.h-esq{padding:16px 12px 16px 24px !important}.h-tit{font-size:22px !important}.h-selo{width:40px !important;height:40px !important}'
+    + '.h-sub{font-size:13px !important}.h-dir{width:136px !important}.h-masc{width:136px !important}.pad{padding-left:24px !important;padding-right:24px !important}}</style></head>'
+    + '<body style="margin:0;padding:0;background:#EEF6E4;">'
     + '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">' + esc(m.texto) + '</div>'
-    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F1F7EA" style="background:#F1F7EA;"><tr><td align="center" style="padding:32px 16px;">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF6E4" style="background-color:#EEF6E4;background-image:linear-gradient(180deg,#E2F1CF 0%,#F4F9EE 360px);"><tr><td align="center" style="padding:32px 16px;">'
     + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">'
     /* logo */
-    + '<tr><td align="center" style="padding:0 0 24px;"><a href="' + SITE + '" style="text-decoration:none;">'
-    + '<img src="' + SITE + '/img/favicon-96.png" width="44" height="44" alt="" style="border:0;vertical-align:middle;">'
-    + '<span style="' + fonte + 'font-size:26px;font-weight:bold;color:#0F3D2E;vertical-align:middle;padding-left:8px;">Ligei<span style="color:#65A30D;">ro</span></span></a></td></tr>'
+    + '<tr><td align="center" style="padding:0 0 24px;">' + logo(44, 26) + '</td></tr>'
     /* cartao */
-    + '<tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;border:1px solid #E3EBD9;border-radius:16px;overflow:hidden;">'
+    + '<tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;border:1px solid #E3EBD9;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(15,61,46,0.08);">'
     + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
-    + '<tr><td align="center" bgcolor="' + t.faixa + '" style="background:' + t.faixa + ';padding:32px 0;border-radius:16px 16px 0 0;">'
-    + '<img src="' + SITE + '/img/email/selo-' + m.tom + '.png" width="56" height="56" alt="" style="border:0;display:block;"></td></tr>'
-    + '<tr><td style="padding:32px 32px 0;' + fonte + 'font-size:16px;line-height:1.6;color:#1F2937;">'
+    /* faixa: selo e titulo, o subtitulo embaixo (em dois pedacos que nao se partem: nada de palavra sozinha na linha) e o ratinho no canto */
+    + '<tr><td bgcolor="' + t.faixa + '" style="background-color:' + t.faixa + ';background-image:' + t.degrade + ';border-radius:16px 16px 0 0;">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+    + '<td class="h-esq" valign="middle" style="padding:24px 16px 24px 32px;">'
+    + tabela + '><tr><td valign="middle" style="padding-right:12px;"><img class="h-selo" src="' + img + 'selo-' + m.tom + '.png" width="52" height="52" alt="" style="border:0;display:block;"></td>'
+    + '<td class="h-tit" valign="middle" style="' + fonte + 'font-size:30px;line-height:1.1;font-weight:bold;color:' + t.titulo + ';">' + esc(m.titulo) + '</td></tr></table>'
+    + '<div class="h-sub" style="padding-top:12px;' + fonte + 'font-size:14px;line-height:1.5;color:' + t.sub + ';">' + m.sub.map((x) => '<span style="white-space:nowrap;">' + esc(x) + '</span>').join(' ') + '</div></td>'
+    + '<td class="h-dir" valign="bottom" align="right" width="216" style="width:216px;padding:16px 0 0;">'
+    + '<img class="h-masc" src="' + img + 'mascote-' + m.tom + '.png" width="216" height="175" alt="" style="border:0;display:block;width:216px;max-width:100%;height:auto;"></td>'
+    + '</tr></table></td></tr>'
+    + '<tr><td class="pad" style="padding:32px 32px 0;' + fonte + 'font-size:16px;line-height:1.6;color:#1F2937;">'
     + '<p style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#0F3D2E;">' + esc(ola) + '</p>'
     + '<p style="margin:0 0 24px;">' + esc(m.texto) + '</p></td></tr>'
     /* quadro da fatura */
-    + '<tr><td style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7FAF3" style="background:#F7FAF3;border:1px solid ' + t.borda + ';border-radius:12px;">'
+    + '<tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7FAF3" style="background:#F7FAF3;border:1px solid ' + t.borda + ';border-radius:12px;">'
     + '<tr><td align="center" style="padding:24px 16px;' + fonte + '">'
     + '<div style="font-size:12px;font-weight:bold;letter-spacing:1px;color:#6B7280;text-transform:uppercase;">Mensalidade do Ligeiro</div>'
     + '<div style="font-size:34px;font-weight:bold;color:#0F3D2E;line-height:1.2;padding:8px 0 4px;">' + esc(valor) + '</div>'
     + '<div style="font-size:15px;font-weight:bold;color:' + t.cor + ';">' + esc(m.quando) + '</div>'
     + '</td></tr></table></td></tr>'
-    /* botao (tabela: funciona ate no Outlook) */
-    + '<tr><td align="center" style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
-    + '<td align="center" bgcolor="#84CC16" style="background:#84CC16;border-radius:12px;">'
-    + '<a href="' + esc(f.url) + '" style="display:inline-block;padding:15px 36px;' + fonte + 'font-size:17px;font-weight:bold;color:#0F3D2E;text-decoration:none;border-radius:12px;">Pagar a fatura</a>'
+    /* botao com o cartao (tabela: funciona ate no Outlook) */
+    + '<tr><td class="pad" align="center" style="padding:24px 32px 0;">' + tabela + '><tr>'
+    + '<td align="center" bgcolor="#84CC16" style="background-color:#84CC16;background-image:linear-gradient(180deg,#93D62B 0%,#7AC211 100%);border-radius:12px;">'
+    + '<a href="' + esc(f.url) + '" style="display:inline-block;padding:14px 32px;' + fonte + 'font-size:17px;line-height:20px;font-weight:bold;color:#0E1F14;text-decoration:none;border-radius:12px;">'
+    + '<img src="' + img + 'icone-cartao.png" width="20" height="20" alt="" style="border:0;vertical-align:middle;margin-right:12px;"><span style="vertical-align:middle;">Pagar a fatura</span></a>'
     + '</td></tr></table>'
     + '<p style="margin:12px 0 0;' + fonte + 'font-size:14px;color:#6B7280;">Pix, boleto ou cartão</p></td></tr>'
     /* fecho */
-    + '<tr><td style="padding:24px 32px 32px;"><div style="border-top:1px solid #EEF2E8;padding-top:24px;' + fonte + 'font-size:14px;line-height:1.6;color:#6B7280;">' + esc(fecho).replace('e-mail', '<span style="white-space:nowrap;">e-mail</span>') + '</div></td></tr>'
+    + '<tr><td class="pad" style="padding:24px 32px 32px;"><div style="border-top:1px solid #EEF2E8;padding-top:24px;' + fonte + 'font-size:14px;line-height:1.6;color:#6B7280;">' + esc(fecho).replace('e-mail', '<span style="white-space:nowrap;">e-mail</span>') + '</div></td></tr>'
     + '</table></td></tr>'
-    /* rodape */
-    + '<tr><td align="center" style="padding:24px 16px 0;' + fonte + 'font-size:12px;line-height:1.7;color:#9CA3AF;">'
-    + 'Ligeiro · delivery próprio, sem comissão<br><a href="' + SITE + '" style="color:#9CA3AF;">ligeiropedidos.com.br</a><br>Você recebe este aviso porque assina o Ligeiro.</td></tr>'
+    /* rodape: o logo e a frase */
+    + '<tr><td align="center" style="padding:32px 16px 0;">' + logo(32, 20)
+    + '<div style="padding-top:12px;' + fonte + 'font-size:11px;letter-spacing:2px;color:#4B5563;text-transform:uppercase;">Simples · rápido · sem comissão</div></td></tr>'
     + '</table></td></tr></table></body></html>';
   return { assunto: m.assunto, texto: texto, html: html };
 }
