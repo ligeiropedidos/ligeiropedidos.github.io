@@ -1491,14 +1491,15 @@
       }
       if (formaEscolhida() === 'dinheiro_entrega' && $('trocoSim').checked) {
         var v = UI.centavosDoCampo($('campoTroco').value);
-        if (!v) erros.push('Diga com quanto você vai pagar, para separarem o troco.');
-        else if (v < orcamento().total) erros.push('O valor do troco precisa ser maior que o total.');
+        if (!v) { erros.push('Diga com quanto você vai pagar, para separarem o troco.'); $('campoTroco').classList.add('erro'); }
+        else if (v < orcamento().total) { erros.push('O valor do troco precisa ser maior que o total.'); $('campoTroco').classList.add('erro'); }
       }
       var caixa = $('erroDados');
       if (erros.length) {
         UI.soar('erro');
-        caixa.hidden = false;
-        caixa.textContent = erros[0];
+        /* campo faltando: o balao diz o que falta e o campo fica vermelho, com a tela rolando ate ele. A caixa de baixo
+           fica so para erro do envio (total mudou, sem internet), que nao aparece em outro lugar */
+        caixa.hidden = true;
         UI.avisar(erros[0]);
         var primeiro = raiz.querySelector('#formDados .erro');
         if (primeiro) primeiro.scrollIntoView({ block: 'center', behavior: 'smooth' });
