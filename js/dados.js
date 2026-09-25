@@ -968,7 +968,7 @@
         /* cache do banco no aparelho (IndexedDB) so nas telas de quem trabalha na loja. No celular do cliente, o pedido
            acompanhado (nome, telefone, endereco) ficava guardado ali, e o "Apagar meus dados" nao alcancava: la o cache
            antigo e apagado ao abrir (antes de qualquer leitura, como o Firebase exige) e nada novo e guardado */
-        var rota = String(location.hash || '').replace(/^#\/?/, '').split('/')[0];
+        var rota = window.LigeiroApp ? (window.LigeiroApp.partes()[0] || '') : String(location.hash || '').replace(/^#\/?/, '').split('/')[0];
         if (['painel', 'cozinha', 'entrega', 'balcao', 'admin', 'conta'].indexOf(rota) < 0) {
           return eu.db.clearPersistence().catch(function () { /* outra aba aberta usando o cache: fica para a proxima */ });
         }

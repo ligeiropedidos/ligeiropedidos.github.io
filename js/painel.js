@@ -186,9 +186,9 @@
     function montarPainel() {
       UI.limpar(raiz);
       /* voltou do "Conectar com Mercado Pago" */
-      var mpVolta = (location.hash.match(/\/mp-(ok|erro)(?:\?(.*))?$/) || [])[1];
+      var mpVolta = (('#/' + window.LigeiroApp.rota()).match(/\/mp-(ok|erro)(?:\?(.*))?$/) || [])[1];
       if (mpVolta) {
-        history.replaceState(null, '', '#/painel/' + slug);
+        window.LigeiroApp.substituir('painel/' + slug);
         estado.aba = 'ajustes';
         var querCartao = !!UI.lerLocal('ligeiro:ligar-cartao:' + slug);
         UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null);
@@ -2978,7 +2978,6 @@
       var l = estado.loja;
       var linkLoja = UI.linkDaLoja(l);
       var linkPainel = UI.linkDoPainel(l);
-      var base = UI.baseUrl();
 
       function copiar(texto, aviso) { return function () { UI.copiar(texto).then(function () { UI.avisar(aviso || 'Link copiado.'); }); }; }
       function tela(icone, titulo, texto, link, abrir) {
@@ -2997,8 +2996,8 @@
       s.appendChild(el('h2', { text: 'Minha loja' }));
       s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As duas usam a senha da equipe, que você define aqui embaixo.' }));
       s.appendChild(el('div', { class: 'telas-grade' }, [
-        tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', base + '#/cozinha/' + l.slug),
-        tela('entrega', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', base + '#/entrega/' + l.slug),
+        tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', UI.linkDoSite('cozinha/' + l.slug)),
+        tela('entrega', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', UI.linkDoSite('entrega/' + l.slug)),
       ]));
       s.appendChild(el('p', { class: 'muted pequeno linha-painel-link' }, [
         'Este painel em outro aparelho: ',

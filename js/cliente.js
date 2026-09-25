@@ -103,7 +103,7 @@
       });
       cidades = Object.keys(mapa).map(function (k) { return mapa[k]; });
       /* so uma cidade com loja: nao faz a pessoa escolher, vai direto pro seletor de lojas */
-      if (cidades.length === 1) { location.replace('#/' + cidades[0].slug); return; }
+      if (cidades.length === 1) { window.LigeiroApp.trocar(cidades[0].slug); return; }
       busca.hidden = cidades.length < 4;
       desenhar();
     });
@@ -663,7 +663,7 @@
       }
       if (!balcao && o.cidadeSlug && o.cidadeSlug !== dados.cidadeSlug) {
         /* Endereco com a cidade errada: corrige sem alarde. */
-        history.replaceState(null, '', '#/' + dados.cidadeSlug + '/' + dados.slug + (o.pedidoId ? '/pedido/' + o.pedidoId : ''));
+        window.LigeiroApp.substituir(dados.cidadeSlug + '/' + dados.slug + (o.pedidoId ? '/pedido/' + o.pedidoId : ''));
       }
       if (!balcao) UI.guardarLocal(CHAVE_CIDADE, dados.cidadeSlug);
       /* a cor da loja ja chegou: as bolinhas da tela de carregamento passam pra ela enquanto as fotos baixam */
@@ -1782,7 +1782,7 @@
         estado.carrinho = [];
         estado.cupom = { codigo: '', percentual: 0, desconto: 0 };
         limparRascunho();
-        if (!balcao) history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug + '/pedido/' + gravado.id);
+        if (!balcao) window.LigeiroApp.substituir(estado.loja.cidadeSlug + '/' + estado.loja.slug + '/pedido/' + gravado.id);
         if (gravado.status === R.STATUS.AGUARDANDO) mostrarPagar(gravado);
         else mostrarSenha(gravado);
       }).catch(function (erro) {
@@ -2430,7 +2430,7 @@
           return true;
         }
         if (balcao) { clearTimeout(estado.relogioBalcao); estado.relogioPixDe = null; }
-        else history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
+        else window.LigeiroApp.substituir(estado.loja.cidadeSlug + '/' + estado.loja.slug);
         if (itens && itens.length) {
           estado.carrinho = itens;
           /* o pedido volta como era: entrega continua entrega (depois de recarregar a pagina, a tela comecava em
@@ -2889,7 +2889,7 @@
         marcarFormaEscolhida();
         atualizarTroco();
       }
-      if (!balcao) history.replaceState(null, '', '#/' + estado.loja.cidadeSlug + '/' + estado.loja.slug);
+      if (!balcao) window.LigeiroApp.substituir(estado.loja.cidadeSlug + '/' + estado.loja.slug);
       irPara('tela-inicio');
       atualizarFaixaAcompanhar();
     }

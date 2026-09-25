@@ -156,7 +156,7 @@
       /* cidade: da lista, ou o que a pessoa digitou (contato nao pode travar por isso) */
       var cid = (f.cidade.valor && f.cidade.valor()) || { nome: f.cidade.input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };
       btn.disabled = true;
-      D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: location.hash })
+      D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: '#/' + window.LigeiroApp.rota() })
         .then(function () { UI.soar('sucesso'); contatoRecebido(nome, f.whatsapp.input.value, espera); })
         .catch(function (e) { btn.disabled = false; UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.')); });
     } }, [UI.iconeLinha('check'), espera ? ESPERA.botao : 'Pode me chamar']);

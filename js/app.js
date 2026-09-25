@@ -12,15 +12,27 @@
  *   #/admin                 cadastro de estabelecimentos (Ligeiro)
  *   #/lojas                 pagina de vendas pro dono de lanchonete
  *   #/comecar               o dono cria a propria loja
+ *
+ * Com o worker do site na frente (ferramentas/worker-site.js), o mesmo endereco sem o #: /juquia/dom-conizza. O worker
+ * marca o index com <meta name="ligeiro-links" content="limpos">; so entao o site troca o # pelo caminho (link antigo com
+ * # continua abrindo e vira o limpo na hora). Sem o worker, tudo segue com o # de sempre.
  */
 (function () {
   'use strict';
 
   var UI = window.LigeiroUI;
   var limparTelaAtual = null;
+  var LIMPOS = UI.linksLimpos();
+  var rotaDesenhada = null; /* a rota da tela que esta na tela agora */
+
+  /* a rota atual, sem o "#/" nem a "/" do comeco: do # (link antigo e telas que ainda usam) ou do caminho */
+  function rotaAtual() {
+    if (location.hash.indexOf('#/') === 0) return location.hash.slice(2);
+    return location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '');
+  }
 
   function partes() {
-    var hash = location.hash.replace(/^#\/?/, '').split('?')[0];
+    var hash = rotaAtual().split('?')[0];
     /* cada pedaco do endereco com formato fixo (letras, numeros, hifen): "%2F" nao vira "/" e nada aponta para outro
        documento do banco. Pedaco torto some (a pagina cai no inicio) */
     return hash.split('/').map(function (p) { try { return decodeURIComponent(p).trim(); } catch (_) { return ''; } })
@@ -38,14 +50,47 @@
     document.head.appendChild(sc);
   })();
 
-  function ir(caminho) { location.hash = '#/' + caminho.replace(/^\/+/, ''); }
+  function limpo(caminho) { return String(caminho || '').replace(/^[#/]+/, ''); }
+  /* as telas escutam o "hashchange" para saber que a rota mudou: no endereco limpo ele e avisado aqui */
+  function avisarTroca() {
+    var ev;
+    try { ev = new HashChangeEvent('hashchange'); } catch (_) { ev = document.createEvent('Event'); ev.initEvent('hashchange', false, false); }
+    window.dispatchEvent(ev);
+  }
+  function ir(caminho) {
+    caminho = limpo(caminho);
+    if (!LIMPOS) { location.hash = '#/' + caminho; return; }
+    if (rotaAtual() === caminho && !location.hash) return;
+    history.pushState(null, '', '/' + caminho);
+    avisarTroca();
+  }
+  /* vai para a tela sem deixar a atual no "voltar" */
+  function trocar(caminho) {
+    caminho = limpo(caminho);
+    if (!LIMPOS) { history.replaceState(null, '', location.pathname + location.search + '#/' + caminho); avisarTroca(); return; }
+    history.replaceState(null, '', '/' + caminho);
+    avisarTroca();
+  }
+  /* so troca o endereco escrito (a tela ja e esta) */
+  function substituir(caminho) {
+    caminho = limpo(caminho);
+    history.replaceState(null, '', LIMPOS ? '/' + caminho : location.pathname + location.search + '#/' + caminho);
+  }
+  /* link antigo com # num site de endereco limpo: vira o limpo sem recarregar. Rota com "?" depois (a volta do Mercado
+     Pago traz dados ali) fica como veio */
+  function limparEndereco() {
+    if (!LIMPOS || location.hash.indexOf('#/') !== 0) return;
+    var rota = location.hash.slice(2);
+    if (rota.indexOf('?') >= 0) return;
+    history.replaceState(null, '', '/' + rota + location.search);
+  }
 
   /* "Abrir no Chrome" (de dentro do Instagram) chega com ?ir=comecar: o Chrome nao leva o #, entao a tela vem por aqui.
      So telas de venda e de entrar; o ?ir= sai do endereco na hora */
   (function () {
     var m = location.search.match(/[?&]ir=([a-z]+)/);
     if (!m || ['comecar', 'entrar', 'lojas', 'assinar'].indexOf(m[1]) < 0) return;
-    history.replaceState(null, '', location.pathname + '#/' + m[1]);
+    history.replaceState(null, '', LIMPOS ? '/' + m[1] : location.pathname + '#/' + m[1]);
   })();
 
   /* Cada tela baixa so o codigo que roda nela (antes vinha tudo junto: o entregador baixava o painel e a Central,
@@ -83,6 +128,7 @@
   function carregarRota(p) { return Promise.all(arquivosDa(p).map(baixar)); }
 
   function render() {
+    rotaDesenhada = rotaAtual();
     if (typeof limparTelaAtual === 'function') { try { limparTelaAtual(); } catch (_) { /* ignora */ } }
     limparTelaAtual = null;
     UI.fecharModal();
@@ -100,9 +146,9 @@
     /* o codigo desta tela ainda nao veio: bolinhas do Ligeiro ate chegar (aparecem so se demorar) */
     if (faltaDa(p).length) {
       raiz.appendChild(UI.el('div', { class: 'conta-carregando', role: 'status', 'aria-label': 'Carregando' }, UI.el('div', { class: 'carregando-pontos' }, [UI.el('span'), UI.el('span'), UI.el('span')])));
-      var pedido = location.hash;
-      carregarRota(p).then(function () { if (location.hash === pedido) render(); }, function () {
-        if (location.hash !== pedido) return;
+      var pedido = rotaAtual();
+      carregarRota(p).then(function () { if (rotaAtual() === pedido) render(); }, function () {
+        if (rotaAtual() !== pedido) return;
         UI.limpar(raiz);
         raiz.appendChild(UI.erroCarregar('Não deu para abrir esta tela.', function () { render(); }));
       });
@@ -134,7 +180,7 @@
     if (p[0] === 'entrega' && p[1]) { limparTelaAtual = E.abrirEntrega(raiz, p[1]); return; }
     if (p[0] === 'balcao' && p[1]) { limparTelaAtual = E.abrirBalcao(raiz, p[1]); return; }
     /* tela de equipe sem a loja: volta pro inicio (nao vira "cidade") */
-    if (['painel', 'cozinha', 'entrega', 'balcao'].indexOf(p[0]) >= 0 && p.length === 1) { location.replace('#/'); return; }
+    if (['painel', 'cozinha', 'entrega', 'balcao'].indexOf(p[0]) >= 0 && p.length === 1) { trocar(''); return; }
     if (p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = C.cidade(raiz, p[0]); return; }
     if (p.length >= 4 && p[2] === 'pedido') { limparTelaAtual = C.loja(raiz, p[1], { pedidoId: p[3], cidadeSlug: p[0] }); return; }
     limparTelaAtual = C.loja(raiz, p[1], { cidadeSlug: p[0] });
@@ -167,11 +213,11 @@
   function trocarManifest(nome, curto, caminho) {
     var manifesto = {
       name: nome, short_name: curto,
-      start_url: location.origin + location.pathname + '#/' + caminho, scope: location.origin + location.pathname,
+      start_url: UI.linkDoSite(caminho), scope: location.origin + '/',
       display: 'standalone', background_color: '#FAFDF6', theme_color: '#0F3D2E', lang: 'pt-BR',
       /* mascote sem fundo onde o sistema mostra o desenho inteiro; com fundo branco e margem onde ele recorta em circulo */
       icons: [['icone-192.png', '192x192', 'any'], ['icone-512.png', '512x512', 'any'], ['icone-maskable-192.png', '192x192', 'maskable'], ['icone-maskable-512.png', '512x512', 'maskable']].map(function (i) {
-        return { src: new URL(i[0], location.href).href, sizes: i[1], type: 'image/png', purpose: i[2] };
+        return { src: new URL(i[0], document.baseURI).href, sizes: i[1], type: 'image/png', purpose: i[2] };
       }),
     };
     try {
@@ -180,13 +226,28 @@
     } catch (_) { /* ignora */ }
   }
 
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', function () { limparEndereco(); render(); });
+  /* voltar e avancar entre enderecos limpos (sem #): o navegador nao avisa com "hashchange" */
+  /* (so quando a rota mudou: o jogo guarda um passo no "voltar" com o mesmo endereco, e fechar ele nao redesenha a tela) */
+  window.addEventListener('popstate', function () { if (LIMPOS && location.hash.indexOf('#/') !== 0 && rotaAtual() !== rotaDesenhada) avisarTroca(); });
+  /* link de tela (href="#/...") vira navegacao pelo roteador. Com o <base href="/"> o navegador iria para o inicio do
+     site e recarregaria tudo; ancora da mesma pagina (href="#planos") so rola ate ela */
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+    if (!a || (a.target && a.target !== '_self')) return;
+    var href = a.getAttribute('href');
+    if (href.indexOf('#/') === 0) { e.preventDefault(); ir(href.slice(2)); return; }
+    var alvo = href.length > 1 ? document.getElementById(href.slice(1)) : null;
+    e.preventDefault();
+    if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   /* voltou pelo "voltar" de outro site (Mercado Pago, banco) e o navegador devolveu a pagina congelada: a conexao com
      o banco fica parada e a tela presa em "Conferindo…". Recarrega para tudo voltar vivo */
   window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
   window.addEventListener('resize', UI.medirBarras);
 
-  window.LigeiroApp = { ir: ir, render: render, partes: partes, manifestDaLoja: manifestDaLoja };
+  window.LigeiroApp = { ir: ir, trocar: trocar, substituir: substituir, rota: rotaAtual, limpos: LIMPOS, render: render, partes: partes, manifestDaLoja: manifestDaLoja, redesenharNoLugar: function () { redesenharNoLugar(); } };
 
   /* vagas de fundador: valor guardado neste aparelho na hora; o numero de verdade chega em seguida e, se mudou, redesenha a pagina de vendas */
   /* sem o numero conferido nos ultimos 10 min, "usados" fica desconhecido (null) e o site mostra o preco normal: o de
@@ -195,6 +256,17 @@
   /* so quem vende ou administra precisa do numero (pagina de vendas, assinar, conta, painel, Central). A loja do cliente
      e o hub nao leem nada: eram ~2% das leituras do dia. Busca uma vez, quando entrar numa dessas telas. */
   var ROTAS_COM_VAGAS = ['lojas', 'assinar', 'comecar', 'conta', 'admin', 'painel', 'entrar'];
+  /* redesenha a tela e volta para o mesmo ponto: guarda a secao que esta no topo da tela e quanto dela ja passou */
+  function redesenharNoLugar() {
+    var y = window.scrollY;
+    if (y < 60) { render(); return; }
+    var secoes = function () { return [].slice.call(UI.$('app').querySelectorAll('section')); };
+    var indice = -1, dentro = 0;
+    secoes().forEach(function (s, k) { var t = s.getBoundingClientRect().top; if (t <= 80) { indice = k; dentro = -t; } });
+    render();
+    var alvo = secoes()[indice];
+    window.scrollTo(0, alvo ? alvo.getBoundingClientRect().top + window.scrollY + dentro : y);
+  }
   var vagasBuscadas = false;
   function buscarVagas() {
     var p = partes();
@@ -212,8 +284,9 @@
       var p = partes();
       /* vagas de fundador ou de loja mudaram: redesenha as paginas de venda (o cadastro confere sozinho ao abrir) */
       var mudou = antes !== f.usados || fechadoAntes !== window.LigeiroRegras.capacidadeLojas().fechado;
-      /* so redesenha com a pessoa ainda no topo e sem janela aberta: redesenhar volta ao topo e atrapalhava quem ja lia */
-      if (mudou && (!p.length || p[0] === 'lojas' || p[0] === 'assinar') && window.scrollY < 60 && !document.querySelector('#modal.aberto')) render();
+      /* sem janela aberta, redesenha sem tirar a pessoa do lugar (antes so com ela no topo: quem ja tinha descido ate os
+         planos nao via o preco de fundador ate tocar num plano) */
+      if (mudou && (!p.length || p[0] === 'lojas' || p[0] === 'assinar') && !document.querySelector('#modal.aberto')) redesenharNoLugar();
     }).catch(function () { vagasBuscadas = false; /* tenta de novo na proxima tela */ });
   }
   if (window.LigeiroDados && window.LigeiroDados.store.obterFundadores) {
@@ -236,7 +309,7 @@
     /* tocou no aviso com o site ja aberto: vai para a tela do aviso (pedido do cliente, painel, cozinha) */
     navigator.serviceWorker.addEventListener('message', function (e) {
       var ir = e.data && e.data.ligeiroIr;
-      if (typeof ir === 'string' && ir.charAt(0) === '#' && location.hash !== ir) location.hash = ir;
+      if (typeof ir === 'string' && ir.indexOf('#/') === 0 && rotaAtual() !== ir.slice(2)) window.LigeiroApp.ir(ir.slice(2));
     });
   }
 
@@ -257,5 +330,6 @@
     }).catch(function () { /* sem internet: segue com o que tem */ });
   })();
 
+  limparEndereco();
   render();
 })();

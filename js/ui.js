@@ -359,11 +359,16 @@
     input.addEventListener('input', function () { input.value = R.formatarTelefone(input.value); });
   }
 
-  /* Endereco base do app, para montar links (funciona no GitHub Pages e local). */
+  /* Endereco base do app, para montar links: o site mora na raiz do dominio (e o <base href="/"> do index diz isso). */
   function baseUrl() {
-    return location.origin + location.pathname.replace(/[^/]*$/, '');
+    return location.origin + '/';
   }
-  function linkDaLoja(loja) { return baseUrl() + '#/' + loja.cidadeSlug + '/' + loja.slug; }
+  /* Link limpo (sem o #) so quando a pagina veio pelo worker do site: ele marca o index com
+     <meta name="ligeiro-links" content="limpos"> e responde a qualquer endereco (com a previa da loja no WhatsApp). Sem
+     ele, o link com # de sempre, que abre em qualquer lugar */
+  function linksLimpos() { return !!document.querySelector('meta[name="ligeiro-links"][content="limpos"]'); }
+  function linkDoSite(caminho) { return baseUrl() + (linksLimpos() ? '' : '#/') + String(caminho || '').replace(/^[#/]+/, ''); }
+  function linkDaLoja(loja) { return linkDoSite(loja.cidadeSlug + '/' + loja.slug); }
   /* link em pedacos que so quebram depois de uma "/" (antes quebrava no meio da palavra: "j / uquia"). O "https://"
      nunca parte */
   function pedacosDeLink(link) {
@@ -382,9 +387,9 @@
     });
     return filhos;
   }
-  function linkDoBalcao(loja) { return baseUrl() + '#/balcao/' + loja.slug; }
-  function linkDoPainel(loja) { return baseUrl() + '#/painel/' + loja.slug; }
-  function linkDoPedido(loja, pedidoId) { return baseUrl() + '#/' + loja.cidadeSlug + '/' + loja.slug + '/pedido/' + pedidoId; }
+  function linkDoBalcao(loja) { return linkDoSite('balcao/' + loja.slug); }
+  function linkDoPainel(loja) { return linkDoSite('painel/' + loja.slug); }
+  function linkDoPedido(loja, pedidoId) { return linkDoSite(loja.cidadeSlug + '/' + loja.slug + '/pedido/' + pedidoId); }
 
   /* ---------- Fotos: diminuir no navegador antes de guardar ---------- */
   /*
@@ -842,7 +847,7 @@
     var ua = navigator.userAgent || '';
     var android = /Android/i.test(ua);
     var app = /Instagram/i.test(ua) ? 'do Instagram' : /FBAN|FBAV|FB_IAB/.test(ua) ? 'do Facebook' : 'de outro app';
-    var alvo = location.host + location.pathname + '?ir=' + encodeURIComponent(rota);
+    var alvo = location.host + '/?ir=' + encodeURIComponent(rota);
     return el('div', { class: 'aviso aviso-falta aviso-app' }, [
       iconeLinha('alerta'),
       el('div', { class: 'aviso-app-texto' }, [
@@ -876,7 +881,7 @@
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
-    baseUrl: baseUrl, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
+    baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,
     lerImagem: lerImagem, campoFoto: campoFoto,
     PALETA: PALETA, ESTILOS: ESTILOS, corValida: corValida, corDeTexto: corDeTexto, aplicarTema: aplicarTema, aplicarTemaEm: aplicarTemaEm, varsDoTema: varsDoTema, limparTema: limparTema,

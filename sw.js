@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260929c';
+var VERSAO = 'ligeiro-20260929d';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede.
    O icone de 512 e o mascote em PNG ficam de fora: so servem para instalar na tela de inicio, e o navegador busca
    sozinho quando precisa (antes todo cliente baixava os dois a toa) */
@@ -66,8 +66,10 @@ self.addEventListener('fetch', function (e) {
     }));
     return;
   }
-  /* rede primeiro, mas com prazo: se a internet esta arrastando e ja temos copia, usa a copia */
-  e.respondWith(caches.match(e.request).then(function (guardado) {
+  /* rede primeiro, mas com prazo: se a internet esta arrastando e ja temos copia, usa a copia. Pagina de endereco limpo
+     (/juquia/dom-conizza) que nunca foi aberta aqui: a copia e o index (o mesmo para todas as telas) */
+  var copiaGuardada = caches.match(e.request).then(function (g) { return g || (e.request.mode === 'navigate' ? caches.match('./') : g); });
+  e.respondWith(copiaGuardada.then(function (guardado) {
     /* tenta duas vezes: servidor engasgado por um instante nao vira tela quebrada */
     /* a pagina em si (index.html) vem sempre fresca da rede, sem o cache de 10 minutos do navegador */
     var ehPagina = e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);

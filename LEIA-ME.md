@@ -424,6 +424,10 @@ node testes/jogo.test.mjs
 node testes/pulo.test.mjs
 ```
 
+```bash
+node testes/site.test.mjs
+```
+
 Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em `TEMAS.md`.
 
 ## Publicar de graça (GitHub Pages)
@@ -451,6 +455,37 @@ Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em 
    `hypit capture run scripts/icones.mjs --channel chrome -- out/icones`, depois
    `node scripts/png_paleta.mjs <entrada> <saida>` em cada PNG (paleta de 256 cores, até 10 vezes menor, igual a
    olho) e `hypit capture run scripts/previa_link.mjs --channel chrome -- out/icones/previa-link.jpg`.
+
+5. DNS na Cloudflare (25/09/2026): os servidores do domínio no Registro.br passaram a ser `hans.ns.cloudflare.com` e
+   `linda.ns.cloudflare.com` (o DNSSEC do Registro.br saiu junto). Os mesmos 4 registros A e o CNAME `www`, no plano
+   Free. Primeiro com a nuvem cinza ("DNS only"): nada mudou para quem visita.
+
+## Endereço limpo e prévia de cada loja (worker do site)
+
+`ferramentas/worker-site.js` (na Cloudflare: **ligeiro-site**) fica na frente do GitHub Pages no domínio:
+
+- **Endereço sem o `#`:** `ligeiropedidos.com.br/juquia/dom-conizza`, `/painel/dom-conizza` etc. respondem com o
+  `index.html`, marcado com `<meta name="ligeiro-links" content="limpos">`. O site só usa o endereço limpo quando vê
+  essa marca (`UI.linksLimpos()`, `LigeiroApp.limpos`). Sem o worker, tudo segue com o `#`. Link antigo com `#`
+  (QR Code impresso, WhatsApp de antes) continua abrindo nos dois casos e vira o limpo na hora. O `<base href="/">` do
+  index faz css, js e imagens saírem da raiz em qualquer endereço; link de tela (`href="#/..."`) passa pelo roteador
+  (`LigeiroApp.ir`, `trocar`, `substituir`). `404.html` leva um endereço limpo que chegue direto no GitHub para o
+  mesmo lugar com o `#`.
+- **Prévia de cada loja:** quando quem pede é robô de prévia (WhatsApp, Facebook/Instagram, Telegram, Google...), o
+  index vai com o nome, a cidade, a descrição (ou "Pizzaria em Juquiá/SP. Veja o cardápio...") e a logo da loja
+  (`/_logo/<loja>`, o JPG que mora dentro da loja). Gente recebe o index de sempre: só o robô consulta a loja, pelo
+  `/loja` do mensageiro (sem ler o banco).
+- **Custo:** zero. O worker só roda nas páginas; as pastas de arquivo ficam fora dele pelas rotas "None".
+
+Ligar (uma vez, na Cloudflare, nesta ordem):
+
+1. Workers & Pages > Create > Worker "ligeiro-site" > colar `worker-site.js` > Deploy.
+2. SSL/TLS do domínio em **Full** (nunca "Flexible": com o "Enforce HTTPS" do GitHub dá voltas sem fim).
+3. Workers Routes do domínio: `ligeiropedidos.com.br/*` com **ligeiro-site**; e com **None**:
+   `ligeiropedidos.com.br/js/*`, `/css/*`, `/img/*`, `/fontes/*`, `/midia/*`, `/vendor/*`, `/dados/*`.
+4. DNS: nuvem **laranja** ("Proxied") nos 4 registros A e no `www`.
+
+Teste: `node testes/site.test.mjs`.
 
 O Firebase está ligado desde 18/09/2026 (projeto `ligeiro-18df1`). Os passos
 abaixo ficam como referência.
