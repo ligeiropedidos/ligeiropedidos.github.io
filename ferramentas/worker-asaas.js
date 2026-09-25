@@ -95,6 +95,12 @@ export default {
 
 /* Um pagamento confirmado: quantos dias ele vale e a gravacao na conta e nas lojas */
 async function processarPagamento(env, pag) {
+      /* segredo PLANOS torto (JSON quebrado, "Uma", preco em reais): antes, qualquer pagamento valia um ano. Agora nada e
+         gravado, o admin recebe e-mail e o Asaas tenta de novo (depois de corrigir, os pagamentos entram) */
+      if (!planosCertos(env)) {
+        await avisarAdmin(env, 'Segredo PLANOS errado', 'O segredo PLANOS do ligeiro-asaas está errado, e o pagamento ' + String(pag.id) + ' ficou esperando (o Asaas tenta de novo). Corrija em Settings > Variables and Secrets para exatamente: {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}');
+        return json({ ok: false, erro: 'configuracao' }, 500);
+      }
       /* o aviso diz o que foi pago, mas quem manda e o Asaas: le a cobranca de novo pela chave da API (valor, cliente e
          situacao de verdade). Um aviso inventado, mesmo com o token vazado, nao libera dia nenhum */
       /* cobranca que o Asaas nao conhece: responde ok (erro repetido faz o Asaas pausar a fila de avisos inteira) */
@@ -110,7 +116,9 @@ async function processarPagamento(env, pag) {
       /* multa e juros de atraso nao mudam o plano: vale o valor original da cobranca (o que entrou vai para o e-mail) */
       const centavos = Math.round(Number(pag.originalValue || pag.value || 0) * 100);
       const entrou = Math.round(Number(pag.value || 0) * 100);
-      const plano = descobrirPlano(env, centavos);
+      const sub = pag.subscription && /^[A-Za-z0-9_-]{1,80}$/.test(String(pag.subscription)) ? String(pag.subscription) : '';
+      /* a folga da multa (ate 10% acima de um preco) so vale para cobranca de assinatura: avulsa, so o preco exato */
+      const plano = descobrirPlano(env, centavos, !!sub);
       const fb = await firebase(env);
       const caminhoConta = 'contas/' + encodeURIComponent(email);
       const conta = await fb.get(caminhoConta, true);
@@ -118,14 +126,17 @@ async function processarPagamento(env, pag) {
       const jaFeito = Array.isArray(conta && conta.pagamentos) && conta.pagamentos.indexOf(pag.id) >= 0;
       /* aviso repetido: os dias ja entraram. Se da outra vez a copia nas lojas falhou no meio, grava de novo (e o plano
          de agora; repetir nao estraga nada) */
-      if (jaFeito) { await espelharPlano(env, fb, email, p); return json({ ok: true, repetido: pag.id }); }
+      if (jaFeito) {
+        /* e nunca responde erro por isso: aviso repetido com erro faria o Asaas parar a fila de todo mundo */
+        await espelharPlano(env, fb, email, p).catch((e) => console.error('espelho no aviso repetido', e && e.message || e));
+        return json({ ok: true, repetido: pag.id });
+      }
       /* e-mail que nao tem conta no Ligeiro (digitou outro no Asaas): antes nascia uma conta fantasma paga e a de verdade
          ficava travada. Agora nao cria nada e o admin recebe um e-mail para acertar na Central */
       if (!conta) {
         await avisarAdmin(env, 'Pagamento sem conta no Ligeiro', 'Entrou ' + reais(entrou) + ' do e-mail ' + email + ', que nao tem conta no Ligeiro. Ache o dono (Asaas > Clientes), corrija o e-mail do cliente no Asaas e confirme o pagamento na conta certa, na Central. Cobranca ' + pag.id + '.');
         return json({ ok: true, ignorado: 'sem conta no Ligeiro' });
       }
-      const sub = pag.subscription && /^[A-Za-z0-9_-]{1,80}$/.test(String(pag.subscription)) ? String(pag.subscription) : '';
       /* cobranca avulsa (sem assinatura): so vale se for exatamente o preco do plano. Outra (a loja personalizada, por
          exemplo) nao vira dias de plano: o admin recebe e-mail e, se era mensalidade, confirma na Central */
       if (!sub && !plano.preco) {
@@ -135,6 +146,8 @@ async function processarPagamento(env, pag) {
       const antigas = Array.isArray(conta.assinaturasAntigas) ? conta.assinaturasAntigas : [];
       const extras = Array.isArray(conta.assinaturasExtras) ? conta.assinaturasExtras.map(String) : [];
       let subCancelada = '', subCanceladaApagada = false;
+      /* e-mails para o admin: saem so depois de gravar (se a gravacao for refeita por conflito, nao vao repetidos) */
+      const avisos = [];
       /* conta encerrada e uma assinatura dela cobrou mesmo assim (a da conta, uma velha ou uma extra, que tambem e
          cancelada ao encerrar): devolve e cancela. Uma assinatura nova e reativacao, vale */
       if (p.status === 'cancelado' && sub && (sub === conta.assinaturaAsaas || antigas.indexOf(sub) >= 0 || extras.indexOf(sub) >= 0)) {
@@ -153,7 +166,7 @@ async function processarPagamento(env, pag) {
         }
         /* boleto nao tem estorno pela API: o dinheiro entrou, entao vale (a conta volta a ativa) e o admin fica sabendo */
         subCancelada = sub; subCanceladaApagada = apagou;
-        await avisarAdmin(env, 'Pagamento depois de encerrar', 'A conta ' + email + ' estava encerrada e pagou ' + reais(entrou) + ' (cobranca ' + pag.id + '). Nao deu para devolver sozinho: a assinatura foi cancelada e os dias entraram. Veja com o cliente se ele quer continuar ou a devolucao.');
+        avisos.push(['Pagamento depois de encerrar', 'A conta ' + email + ' estava encerrada e pagou ' + reais(entrou) + ' (cobranca ' + pag.id + '). Nao deu para devolver sozinho: a assinatura foi cancelada e os dias entraram. Veja com o cliente se ele quer continuar ou a devolucao.']);
       }
 
       /* quem assina no periodo gratis nao perde os dias que faltam: os dias pagos contam depois do gratis (igual a Central
@@ -166,7 +179,7 @@ async function processarPagamento(env, pag) {
       /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): os dias contam do vencimento, e nao de hoje.
          Antes, cada atraso de 9 dias virava 9 dias de graca, todo mes. Conta encerrada, ou que ja passou da tolerancia
          (loja parada), conta de hoje */
-      const noPrazo = pagoAteMs > 0 && p.status !== 'cancelado' && agoraMs - pagoAteMs <= DIAS_TOLERANCIA * 864e5;
+      const noPrazo = pagoAteMs > 0 && p.status !== 'cancelado' && p.status !== 'pausado' && agoraMs - pagoAteMs <= DIAS_TOLERANCIA * 864e5;
       const base = noPrazo ? Math.max(pagoAteMs, fimGratis) : Math.max(agoraMs, pagoAteMs, fimGratis);
       /* Quantos dias o pagamento vale. Preco cheio: o periodo inteiro. Preco de fundador: so para quem ja e fundador ou
          enquanto houver vaga (conferida aqui, no servidor, na hora do pagamento; o site nao decide). Sem vaga, ou valor
@@ -189,16 +202,20 @@ async function processarPagamento(env, pag) {
         } else if (cheio > 0) {
           parcial = { cobrado: centavos, cheio: cheio, motivo: 'fundador-sem-vaga' };
         }
-      } else if (!plano.preco && cheio > 0 && centavos < cheio) {
-        parcial = { cobrado: centavos, cheio: cheio, motivo: 'valor-diferente' };
+      } else if (!plano.preco) {
+        /* valor que nao bate com preco nenhum (link antigo de 2 ou 3 lojas, cobranca editada): proporcional ao mensal, o de
+           fundador para quem e fundador. Antes, pelo anual, R$ 217 davam 3 meses a R$ 74 */
+        const mes = p.fundador === true ? Number(planosPreco.fm) || cheio : cheio;
+        if (mes > 0) parcial = { cobrado: centavos, cheio: mes, motivo: 'valor-diferente' };
       }
-      if (parcial) dias = Math.max(0, Math.floor((dias * parcial.cobrado) / parcial.cheio));
+      if (parcial) dias = Math.min(365, Math.max(0, Math.floor((dias * parcial.cobrado) / parcial.cheio)));
       const pagoAte = new Date(base + dias * 864e5).toISOString();
       /* Uma assinatura so por conta. Uma NOVA (o primeiro pagamento dela, pelo link) vira a da conta e a velha e cancelada.
          So nao toma o lugar de uma viva com dias pagos pela frente: alguem pode ter assinado com o e-mail do dono, e a do
          dono seria apagada. Ai os dias entram (o dinheiro entrou), a da conta fica e o admin confere qual cancelar */
       const atual = String(conta.assinaturaAsaas || '');
       const novaAssinatura = !!sub && !subCancelada && antigas.indexOf(sub) < 0 && sub !== atual;
+      const ehExtra = extras.indexOf(sub) >= 0;
       let adota = false;
       if (novaAssinatura) {
         let atualViva = false;
@@ -230,23 +247,31 @@ async function processarPagamento(env, pag) {
         if (subCanceladaApagada) { campos.assinaturaAsaas = ''; campos.assinaturasAntigas = juntar(antigas, subCancelada); }
       } else if (adota) {
         let antigasNovas = antigas;
-        if (atual) { await apagarAssinatura(env, atual); antigasNovas = juntar(antigasNovas, atual); }
+        let extrasNovas = extras.filter((x) => x !== sub);
         /* outra assinatura que so tinha fatura (nunca pagou): tambem sai, para nao virar cobranca em dobro depois */
         const pendente = conta.assinaturaPendente && conta.assinaturaPendente !== sub ? String(conta.assinaturaPendente) : '';
-        if (pendente) { await apagarAssinatura(env, pendente); antigasNovas = juntar(antigasNovas, pendente); }
+        for (const velha of [atual, pendente]) {
+          if (!velha) continue;
+          /* so vira antiga se o Asaas cancelou mesmo; senao fica como extra (o encerrar e o Cron alcancam) e o admin sabe */
+          if (await apagarAssinatura(env, velha)) antigasNovas = juntar(antigasNovas, velha);
+          else { extrasNovas = juntar(extrasNovas, velha); avisos.push(['Assinatura antiga ainda ativa', 'A conta ' + email + ' trocou para a assinatura ' + sub + ', mas o Asaas não cancelou a antiga (' + velha + '). Cancele no Asaas, em Assinaturas.']); }
+        }
         if (antigasNovas !== antigas) campos.assinaturasAntigas = antigasNovas;
+        if (JSON.stringify(extrasNovas) !== JSON.stringify(extras)) campos.assinaturasExtras = extrasNovas;
         campos.assinaturaAsaas = sub;
         if (conta.assinaturaPendente) campos.assinaturaPendente = '';
-      } else if (novaAssinatura) {
-        /* duas cobrando na mesma conta: o admin confere no Asaas (Assinaturas) e cancela uma */
+      } else if (novaAssinatura && !ehExtra) {
+        /* duas cobrando na mesma conta: o admin confere no Asaas (Assinaturas) e cancela uma. Uma extra que ja estava na
+           lista e cobra de novo: os dias entram, sem repetir o aviso todo mes */
         campos.assinaturasExtras = juntar(conta.assinaturasExtras, sub);
         if (conta.assinaturaPendente === sub) campos.assinaturaPendente = '';
-        await avisarAdmin(env, 'Duas assinaturas na mesma conta', 'A conta ' + email + ' já tem a assinatura ' + atual + ' ativa e com dias pagos, e entrou ' + reais(centavos) + ' de outra (' + sub + ', cobrança ' + pag.id + '). Os dias entraram e a assinatura da conta continua a mesma. Veja no Asaas, em Assinaturas, qual cancelar: pode ter sido alguém usando o e-mail do dono no link.');
+        avisos.push(['Duas assinaturas na mesma conta', 'A conta ' + email + ' já tem a assinatura ' + atual + ' ativa e com dias pagos, e entrou ' + reais(centavos) + ' de outra (' + sub + ', cobrança ' + pag.id + '). Os dias entraram e a assinatura da conta continua a mesma. Veja no Asaas, em Assinaturas, qual cancelar: pode ter sido alguém usando o e-mail do dono no link.']);
       }
       /* a conta so e gravada se ninguem mexeu nela desde a leitura (o dono encerrando agora, outro aviso): senao, conflito
          e tudo e refeito com a conta nova. A vaga de fundador vai junto, na mesma gravacao */
       escritas.unshift({ caminho: caminhoConta, campos: campos, versao: conta._versao });
       await fb.gravarJuntos(escritas);
+      for (const a of avisos) await avisarAdmin(env, a[0], a[1]);
 
       /* link de fundador sem vaga (ou de quem ja tinha pago sem ser fundador): a assinatura passa para o preco normal (a
          proxima fatura ja vem certa) e o admin fica sabendo. Antes, R$ 79 com 26 dias e a tolerancia seguravam a loja no
@@ -424,13 +449,22 @@ async function pausarPorEstorno(env, pag) {
   if (!email) return json({ ok: false, erro: 'cliente sem e-mail' }, 200);
   const fb = await firebase(env);
   const caminho = 'contas/' + encodeURIComponent(email);
-  const conta = await fb.get(caminho);
+  /* com trava: um pagamento que grave no meio (pagoAte novo) faz reler e refazer a conta, em vez de perder os dias dele */
+  for (let vez = 0; ; vez++) {
+    try { return await pausarUmaVez(env, fb, pag, real, st, email, caminho); } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+  }
+}
+async function pausarUmaVez(env, fb, pag, real, st, email, caminho) {
+  const conta = await fb.get(caminho, true);
   /* so cobranca que liberou dias (esta nos pagamentos da conta) pausa alguma coisa */
   if (!conta || !Array.isArray(conta.pagamentos) || conta.pagamentos.indexOf(pag.id) < 0) return json({ ok: true, ignorado: 'cobranca que nao liberou dias' });
   const estornos = Array.isArray(conta.estornos) ? conta.estornos : [];
   const p = conta.plano || {};
   /* aviso repetido: se da outra vez a copia nas lojas falhou no meio, grava de novo o plano de agora */
-  if (estornos.some((x) => x && x.id === pag.id)) { await espelharPlano(env, fb, email, p); return json({ ok: true, repetido: pag.id }); }
+  if (estornos.some((x) => x && x.id === pag.id)) {
+    await espelharPlano(env, fb, email, p).catch((e) => console.error('espelho no estorno repetido', e && e.message || e));
+    return json({ ok: true, repetido: pag.id });
+  }
   /* devolucao que o proprio Ligeiro fez (cobranca de assinatura depois de encerrar): nao e golpe, nao pausa */
   if ((conta.estornosAutomaticos || []).some((x) => x && x.id === pag.id)) return json({ ok: true, ignorado: 'devolvido pelo Ligeiro' });
   const agora = new Date().toISOString();
@@ -445,12 +479,12 @@ async function pausarPorEstorno(env, pag) {
      saem, mas a conta do dono nao pausa. O admin confere */
   const subDoPagamento = String(real.subscription || '');
   if (subDoPagamento && (conta.assinaturasExtras || []).map(String).indexOf(subDoPagamento) >= 0) {
-    await fb.mergeCampos(caminho, { 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora });
+    await fb.gravarJuntos([{ caminho: caminho, campos: { 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora }, versao: conta._versao }]);
     await espelharPlano(env, fb, email, Object.assign({}, p, { pagoAte: pagoAte }));
     await avisarAdmin(env, 'Estorno de assinatura extra', 'A cobrança ' + pag.id + ' (assinatura ' + subDoPagamento + ', que não é a da conta ' + email + ') foi estornada ou contestada. Os ' + tirar + ' dias dela saíram e a conta não foi pausada. Confira no Asaas quem assinou.');
     return json({ ok: true, descontado: email, dias: tirar });
   }
-  await fb.mergeCampos(caminho, { 'plano.status': 'pausado', 'plano.pausadoEm': agora, 'plano.motivoPausa': 'estorno', 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora });
+  await fb.gravarJuntos([{ caminho: caminho, campos: { 'plano.status': 'pausado', 'plano.pausadoEm': agora, 'plano.motivoPausa': 'estorno', 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora }, versao: conta._versao }]);
   const lojas = await espelharPlano(env, fb, email, Object.assign({}, p, { status: 'pausado', pagoAte: pagoAte, avisoPagamentoEm: '', avisoValor: 0, desde: p.desde || agora }));
   return json({ ok: true, pausada: email, lojas: lojas.length, dias: tirar });
 }
@@ -624,16 +658,25 @@ async function executarTroca(env, fb, email, conta, d) {
   if (d.sub && (d.valorAtual !== d.valorNovo || d.cicloAssinatura !== d.tipo)) {
     await asaas(env, '/subscriptions/' + encodeURIComponent(d.sub), 'PUT', { value: d.valorNovo / 100, cycle: d.tipo === 'anual' ? 'YEARLY' : 'MONTHLY', updatePendingPayments: true });
   }
-  const campos = { 'plano.planoId': PLANO, 'plano.tipo': d.tipo, atualizadoEm: agora };
-  if (d.acao === 'marcar' && d.assinaturaMorta) {
-    if (d.assinaturaMorta === String(conta.assinaturaPendente || '')) campos.assinaturaPendente = '';
-    else campos.assinaturaAsaas = '';
-    campos.assinaturasAntigas = juntar(conta.assinaturasAntigas, d.assinaturaMorta);
-  }
+  /* a assinatura volta como estava (troca que nao foi gravada nunca deixa o cartao cobrando outro valor) */
+  const desfazer = () => (d.sub && (d.valorAtual !== d.valorNovo || d.cicloAssinatura !== d.tipo)
+    ? asaas(env, '/subscriptions/' + encodeURIComponent(d.sub), 'PUT', { value: d.valorAtual / 100, cycle: d.cicloAssinatura === 'anual' ? 'YEARLY' : 'MONTHLY', updatePendingPayments: true }).catch((e) => console.error('volta da assinatura', e && e.message || e))
+    : Promise.resolve());
   /* outra troca no mesmo instante (outra aba): se a escolha mudou no meio, a assinatura volta para a escolha que ficou e o
      dono confere (nunca fica cobrando um valor que ninguem escolheu) */
-  const agoraConta = (await fb.get(caminho)) || {};
+  const agoraConta = (await fb.get(caminho, true)) || {};
   const pa = conta.plano || {}, pb = agoraConta.plano || {};
+  /* um pagamento adotou outra assinatura no meio: a troca nao vale (o dono tenta de novo, ja com a assinatura certa) */
+  if (String(agoraConta.assinaturaAsaas || '') !== String(conta.assinaturaAsaas || '') || String(agoraConta.assinaturaPendente || '') !== String(conta.assinaturaPendente || '')) {
+    await desfazer();
+    return { status: 409, corpo: { ok: false, erro: 'Um pagamento acabou de entrar. Confira em Minha conta e tente de novo.' } };
+  }
+  const campos = { 'plano.planoId': PLANO, 'plano.tipo': d.tipo, atualizadoEm: agora };
+  if (d.acao === 'marcar' && d.assinaturaMorta) {
+    if (d.assinaturaMorta === String(agoraConta.assinaturaPendente || '')) campos.assinaturaPendente = '';
+    else if (d.assinaturaMorta === String(agoraConta.assinaturaAsaas || '')) campos.assinaturaAsaas = '';
+    campos.assinaturasAntigas = juntar(agoraConta.assinaturasAntigas, d.assinaturaMorta);
+  }
   if (String(pa.tipo || '') !== String(pb.tipo || '')) {
     const valorFica = precoDe(lerPlanos(env), pb.tipo === 'anual' ? 'anual' : 'mensal', !!d.fundador);
     if (d.sub && valorFica > 0 && valorFica !== d.valorNovo) {
@@ -641,7 +684,11 @@ async function executarTroca(env, fb, email, conta, d) {
     }
     return { status: 409, corpo: { ok: false, erro: 'Outra troca foi feita agora mesmo. Confira em Minha conta.' } };
   }
-  await fb.mergeCampos(caminho, campos);
+  try { await fb.gravarJuntos([{ caminho: caminho, campos: campos, versao: agoraConta._versao }]); } catch (e) {
+    if (!(e && e.conflito)) throw e;
+    await desfazer();
+    return { status: 409, corpo: { ok: false, erro: 'A conta mudou agora mesmo. Confira em Minha conta e tente de novo.' } };
+  }
   /* a copia nas lojas sai do que esta gravado agora (um pagamento no meio ja pode ter mudado o pagoAte) */
   const depois = (await fb.get(caminho)) || {};
   await espelharPlano(env, fb, email, Object.assign({}, depois.plano || pb, { planoId: PLANO, tipo: d.tipo }));
@@ -651,30 +698,42 @@ async function executarTroca(env, fb, email, conta, d) {
 /* Encerrar: cancela a assinatura no Asaas (nenhuma cobranca nova, nem a fatura pendente) e a conta fica no ar ate o fim
    do que ja pagou. Se o Asaas falhar agora, o Cron de todo dia tenta de novo, e cobranca que cair antes e devolvida */
 async function encerrarAssinatura(env, fb, email, conta) {
-  const p = conta.plano || {};
-  if (p.status === 'pausado') return { status: 409, corpo: { ok: false, erro: 'Sua conta está pausada. Fale com o Ligeiro.' } };
-  const agora = new Date().toISOString();
-  const sub = String(conta.assinaturaAsaas || '');
-  const cancelou = sub ? await apagarAssinatura(env, sub) : true;
-  const pendente = String(conta.assinaturaPendente || '');
-  const cancelouPendente = pendente ? await apagarAssinatura(env, pendente) : true;
-  const canceladoEm = p.status === 'cancelado' && p.canceladoEm ? p.canceladoEm : agora;
-  /* encerrou, perdeu o preco de fundador (os termos: "travado enquanto voce nao cancelar"). Quem volta, volta no normal */
-  const campos = { 'plano.status': 'cancelado', 'plano.canceladoEm': canceladoEm, 'plano.fundador': false, atualizadoEm: agora };
-  let antigas = conta.assinaturasAntigas;
-  if (sub && cancelou) { campos.assinaturaAsaas = ''; antigas = juntar(antigas, sub); campos.faturaAsaas = null; }
-  if (pendente && cancelouPendente) { campos.assinaturaPendente = ''; antigas = juntar(antigas, pendente); campos.faturaAsaas = null; }
-  /* a assinatura extra (a de quem assinou com o mesmo e-mail) tambem para: senao ela cobrava e reativava a conta */
-  const extras = Array.isArray(conta.assinaturasExtras) ? conta.assinaturasExtras.map(String) : [];
-  const ficam = [];
-  for (const x of extras) { if (await apagarAssinatura(env, x)) antigas = juntar(antigas, x); else ficam.push(x); }
-  if (extras.length) campos.assinaturasExtras = ficam;
-  if (antigas !== conta.assinaturasAntigas) campos.assinaturasAntigas = antigas;
+  if ((conta.plano || {}).status === 'pausado') return { status: 409, corpo: { ok: false, erro: 'Sua conta está pausada. Fale com o Ligeiro.' } };
   const caminho = 'contas/' + encodeURIComponent(email);
-  await fb.mergeCampos(caminho, campos);
+  /* com trava: um pagamento que grave no meio (uma assinatura nova adotada) faz reler e cancelar essa tambem. Antes, a
+     gravacao apagava a referencia a ela e ela seguia cobrando solta, e reativava a conta de quem encerrou */
+  let feito = null;
+  for (let vez = 0; vez < 4 && !feito; vez++) {
+    const c = await fb.get(caminho, true);
+    if (!c || !c.plano) return { status: 404, corpo: { ok: false, erro: 'Não achamos a sua conta. Entre de novo.' } };
+    const p = c.plano;
+    if (p.status === 'pausado') return { status: 409, corpo: { ok: false, erro: 'Sua conta está pausada. Fale com o Ligeiro.' } };
+    const agora = new Date().toISOString();
+    const sub = String(c.assinaturaAsaas || '');
+    const cancelou = sub ? await apagarAssinatura(env, sub) : true;
+    const pendente = String(c.assinaturaPendente || '');
+    const cancelouPendente = pendente ? await apagarAssinatura(env, pendente) : true;
+    const canceladoEm = p.status === 'cancelado' && p.canceladoEm ? p.canceladoEm : agora;
+    /* encerrou, perdeu o preco de fundador (os termos: "travado enquanto voce nao cancelar"). Quem volta, volta no normal */
+    const campos = { 'plano.status': 'cancelado', 'plano.canceladoEm': canceladoEm, 'plano.fundador': false, atualizadoEm: agora };
+    let antigas = c.assinaturasAntigas;
+    if (sub && cancelou) { campos.assinaturaAsaas = ''; antigas = juntar(antigas, sub); campos.faturaAsaas = null; }
+    if (pendente && cancelouPendente) { campos.assinaturaPendente = ''; antigas = juntar(antigas, pendente); campos.faturaAsaas = null; }
+    /* a assinatura extra (a de quem assinou com o mesmo e-mail) tambem para: senao ela cobrava e reativava a conta */
+    const extras = Array.isArray(c.assinaturasExtras) ? c.assinaturasExtras.map(String) : [];
+    const ficam = [];
+    for (const x of extras) { if (await apagarAssinatura(env, x)) antigas = juntar(antigas, x); else ficam.push(x); }
+    if (extras.length) campos.assinaturasExtras = ficam;
+    if (antigas !== c.assinaturasAntigas) campos.assinaturasAntigas = antigas;
+    try {
+      await fb.gravarJuntos([{ caminho: caminho, campos: campos, versao: c._versao }]);
+      feito = { canceladoEm: canceladoEm, cancelada: !!sub && cancelou, p: p };
+    } catch (e) { if (!(e && e.conflito)) throw e; }
+  }
+  if (!feito) return { status: 409, corpo: { ok: false, erro: 'Um pagamento está entrando agora. Tente de novo em instantes.' } };
   const depois = (await fb.get(caminho)) || {};
-  await espelharPlano(env, fb, email, Object.assign({}, depois.plano || p, { status: 'cancelado', canceladoEm: canceladoEm, fundador: false }));
-  return { status: 200, corpo: { ok: true, cancelada: !!sub && cancelou } };
+  await espelharPlano(env, fb, email, Object.assign({}, depois.plano || feito.p, { status: 'cancelado', canceladoEm: feito.canceladoEm, fundador: false }));
+  return { status: 200, corpo: { ok: true, cancelada: feito.cancelada } };
 }
 
 /* O plano da conta copiado em cada loja e na vitrine; a copia da loja na borda sai (a proxima visita ja le a nova) */
@@ -697,7 +756,13 @@ async function sincronizarEncerradas(env) {
   const fb = await firebase(env);
   const contas = await fb.consultarEm('contas', 'plano.status', ['cancelado']);
   let canceladas = 0;
-  for (const c of contas) {
+  for (const lida of contas) {
+    const precisa = !!lida.assinaturaAsaas || (Array.isArray(lida.assinaturasExtras) && lida.assinaturasExtras.length) || (lida.plano && lida.plano.fundador === true);
+    if (!precisa) continue;
+    /* le de novo, com a versao: se um pagamento reativou a conta no meio, nada e gravado (fica para amanha) */
+    const caminho = 'contas/' + encodeURIComponent(String(lida._id));
+    const c = await fb.get(caminho, true);
+    if (!c || !c.plano || c.plano.status !== 'cancelado') continue;
     const campos = {};
     let antigas = c.assinaturasAntigas;
     const sub = String(c.assinaturaAsaas || '');
@@ -711,10 +776,10 @@ async function sincronizarEncerradas(env) {
     }
     if (antigas !== c.assinaturasAntigas) campos.assinaturasAntigas = antigas;
     /* encerrada pela Central ou pelo site: o preco de fundador acaba (igual ao encerrar pelo mensageiro) */
-    if (c.plano && c.plano.fundador === true) campos['plano.fundador'] = false;
+    if (c.plano.fundador === true) campos['plano.fundador'] = false;
     if (!Object.keys(campos).length) continue;
     campos.atualizadoEm = new Date().toISOString();
-    await fb.mergeCampos('contas/' + encodeURIComponent(String(c._id)), campos);
+    await fb.gravarJuntos([{ caminho: caminho, campos: campos, versao: c._versao }]).catch((e) => { if (!(e && e.conflito)) throw e; });
   }
   /* a pendente de conta encerrada fica: pode ser a de quem esta voltando (assinou de novo e ainda nao pagou) */
   return { ok: true, encerradas: contas.length, canceladas: canceladas };
@@ -722,7 +787,14 @@ async function sincronizarEncerradas(env) {
 
 /* no Asaas: cancelar assinatura e devolver. Ja apagada (404) conta como feito; outro erro vai pro log */
 async function apagarAssinatura(env, id) {
-  try { await asaas(env, '/subscriptions/' + encodeURIComponent(id), 'DELETE'); return true; } catch (e) { if (e && e.status === 404) return true; console.error('apagar assinatura', e && e.message || e); return false; }
+  try { await asaas(env, '/subscriptions/' + encodeURIComponent(id), 'DELETE'); return true; } catch (e) {
+    if (e && e.status === 404) return true;
+    /* ja cancelada antes (o Asaas pode responder 400 em vez de 404): confere lendo, para o Cron nao tentar todo dia */
+    const a = await asaas(env, '/subscriptions/' + encodeURIComponent(id)).catch((x) => (x && x.status === 404 ? { deleted: true } : null));
+    if (a && (a.deleted === true || (a.status && String(a.status) !== 'ACTIVE'))) return true;
+    console.error('apagar assinatura', e && e.message || e);
+    return false;
+  }
 }
 /* cartao e Pix devolvem pela API; boleto nao (volta false e o admin e avisado) */
 async function estornar(env, id, motivo) {
@@ -755,9 +827,18 @@ function igual(a, b) {
 }
 
 function lerPlanos(env) { try { return JSON.parse(env.PLANOS || '{}') || {}; } catch (_) { return {}; } }
-/* Qual foi pago: pelo valor (bate com PLANOS). preco: 'cheio', 'fundador' ou '' (valor que nao bate: vale proporcional, no
-   mensal; acima de dois meses, no anual) */
-function descobrirPlano(env, centavos) {
+/* o segredo PLANOS com sentido: os 4 precos em centavos, mensal de R$ 10 para cima, anual maior que o mensal e o de
+   fundador ate o normal. Digitado errado, qualquer pagamento valia um ano (o valor caia no "acima de 2 meses") */
+function planosCertos(env) {
+  const p = lerPlanos(env)[PLANO];
+  if (!p || typeof p !== 'object') return false;
+  const v = ['mensal', 'anual', 'fm', 'fa'].map((k) => Number(p[k]));
+  if (!v.every((x) => Number.isInteger(x) && x > 0)) return false;
+  return v[0] >= 1000 && v[1] > v[0] && v[2] <= v[0] && v[3] <= v[1] && v[3] > v[2];
+}
+/* Qual foi pago: pelo valor (bate com PLANOS). preco: 'cheio', 'fundador' ou '' (valor que nao bate: vale proporcional ao
+   mensal). comMulta: cobranca de assinatura, que pode vir com multa e juros de atraso */
+function descobrirPlano(env, centavos, comMulta) {
   const p = lerPlanos(env)[PLANO] || {};
   const precos = [['mensal', 'mensal', 'cheio'], ['anual', 'anual', 'cheio'], ['fm', 'mensal', 'fundador'], ['fa', 'anual', 'fundador']];
   for (const [campo, tipo, preco] of precos) {
@@ -765,11 +846,14 @@ function descobrirPlano(env, centavos) {
   }
   /* pago com multa e juros de atraso (ate 10% acima de um preco do plano): e aquele preco. O originalValue do Asaas ja
      resolve; isto e a rede, se ele nao vier. As faixas nao se encostam (79 a 86,90; 89 a 97,90; 790 a 869; 890 a 979) */
-  for (const [campo, tipo, preco] of precos) {
-    const v = Number(p[campo]) || 0;
-    if (v > 0 && centavos > v && centavos <= Math.floor(v * 1.1)) return { id: PLANO, tipo: tipo, preco: preco };
+  if (comMulta) {
+    for (const [campo, tipo, preco] of precos) {
+      const v = Number(p[campo]) || 0;
+      if (v > 0 && centavos > v && centavos <= Math.floor(v * 1.1)) return { id: PLANO, tipo: tipo, preco: preco };
+    }
   }
-  return { id: PLANO, tipo: centavos > Number(p.mensal || 0) * 2 ? 'anual' : 'mensal', preco: '' };
+  /* valor sem preco: proporcional ao mensal (ver processarPagamento) */
+  return { id: PLANO, tipo: 'mensal', preco: '' };
 }
 
 /* o Asaas exige o User-Agent nas contas novas (sem ele, responde 400 a tudo; o fetch da Cloudflare nao manda nenhum).
@@ -843,14 +927,14 @@ async function firebase(env) {
     /* documentos inteiros (com _id) em que o campo e um dos valores: 1 leitura por documento achado */
     async consultarEm(colecao, campo, valores) {
       const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { fieldFilter: { field: { fieldPath: campo }, op: 'IN', value: { arrayValue: { values: valores.map((v) => ({ stringValue: v })) } } } }, limit: 500 } };
-      const r = await fetch(base + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) });
+      const r = await fetch(base.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) }); /* documents:runQuery, sem a barra */
       if (!r.ok) throw new Error('Firestore query ' + r.status);
       const linhas = await r.json();
       return linhas.filter((l) => l.document).map((l) => Object.assign(deFirestore(l.document.fields || {}), { _id: decodeURIComponent(l.document.name.split('/').pop()) }));
     },
     async query(colecao, campo, valor) {
       const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { fieldFilter: { field: { fieldPath: campo }, op: 'EQUAL', value: { stringValue: valor } } }, select: { fields: [{ fieldPath: 'slug' }] } } };
-      const r = await fetch(base + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) });
+      const r = await fetch(base.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) }); /* documents:runQuery, sem a barra */
       if (!r.ok) throw new Error('Firestore query ' + r.status);
       const linhas = await r.json();
       return linhas.filter((l) => l.document).map((l) => l.document.name.split('/').pop());

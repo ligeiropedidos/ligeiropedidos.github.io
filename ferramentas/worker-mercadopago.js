@@ -1867,10 +1867,11 @@ export default {
           || ('grupos' in l && (!ehMapa(l.grupos) || Object.keys(l.grupos).length > 30))) return json({ ok: false, erro: 'O cardápio passou do limite (20 categorias, 300 itens, 30 grupos de opções).' }, 400);
         const doc = Object.assign({}, l);
         ['email', 'verificada', 'senhaEquipeEm', 'cupons', 'plano', 'donoEmail', 'ativa', 'slug', 'cidadeSlug', 'criadoEm', 'atualizadoEm', 'senhaPainel'].forEach((k) => { delete doc[k]; });
-        const p = docConta.plano;
+        /* a copia do plano da conta (a mesma do site e do mensageiro do Asaas) */
+        const planoDaConta = (p) => ({ status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agora.toISOString(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0 });
         doc.nome = nome;
         doc.donoEmail = email;
-        doc.plano = { status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agora.toISOString(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0 };
+        doc.plano = planoDaConta(docConta.plano);
         doc.cidadeSlug = REGRAS.slugDaCidade(typeof l.cidade === 'string' && l.cidade ? l.cidade : 'Juquiá', typeof l.uf === 'string' ? l.uf : 'SP') || 'juquia';
         doc.criadoEm = doc.atualizadoEm = agora.toISOString();
         const vit = Object.assign({}, c.vitrine);
@@ -1882,6 +1883,7 @@ export default {
            Pago, senhas) fica queimado: quem chega depois nunca herda o token nem os pedidos de outra loja */
         const RESERVADOS = ['constructor', 'prototype', 'admin', 'painel', 'cozinha', 'entrega', 'balcao', 'lojas', 'assinar', 'entrar', 'conta', 'termos', 'privacidade', 'comecar', 'cidades', 'ligeiro'];
         const base = REGRAS.slug(nome) || 'loja';
+        let deNovo = 0;
         for (let n = 1; n <= 12; n++) {
           const slug = (n === 1 ? base : base + '-' + n).slice(0, 60);
           if (!/^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$/.test(slug) || RESERVADOS.indexOf(slug) >= 0) continue;
@@ -1898,7 +1900,12 @@ export default {
             if (email !== ADMIN) {
               if ((await fb.lojasDoDonoAtivas(email)) >= 1) return json({ ok: false, erro: 'Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.' }, 409);
               docConta = await fb.get('contas/' + email, true);
-              if (!docConta) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
+              if (!docConta || !ehMapa(docConta.plano)) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
+              /* a conta mudou no meio (um pagamento, por exemplo): a loja nasce com o plano de agora, e no mesmo endereco se
+                 ele continua livre (antes pulava para o nome-2 e levava a copia velha do plano) */
+              doc.plano = planoDaConta(docConta.plano);
+              vit.plano = doc.plano;
+              if (deNovo < 3 && !(await fb.get('lojas/' + slug))) { deNovo++; n--; }
             }
             continue;
           }

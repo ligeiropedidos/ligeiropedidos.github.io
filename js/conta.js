@@ -15,6 +15,7 @@
   var R = window.LigeiroRegras;
   var D = window.LigeiroDados;
   var store = D.store;
+  var Pix = window.LigeiroPix;
   var el = UI.el;
 
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
@@ -67,19 +68,32 @@
         el('span', { class: 'conta-painel-texto' }, [el('b', {}, [UI.iconeLinha('ferramenta'), 'Central do Ligeiro']), el('small', { text: 'Lojas, assinaturas, contatos e pagamentos' })]),
         el('span', { class: 'conta-painel-seta', 'aria-hidden': 'true', text: '→' }),
       ]));
-      var caixaPlano = el('div');
-      corpo.appendChild(caixaPlano);
+      /* a loja e a assinatura. Com uma loja so (o normal: 1 loja por conta), elas viram um par: no celular a loja vem
+         primeiro (o painel e o uso do dia a dia) e a assinatura sobe quando pede atencao; na tela larga ficam lado a lado,
+         com a mesma altura (antes a loja ocupava meia grade e a outra metade ficava vazia). Com varias lojas (a conta do
+         Ligeiro), a assinatura em cima e as lojas em grade embaixo */
+      var arranjo = el('div', { class: 'conta-arranjo' });
+      var colPlano = el('div', { class: 'conta-col conta-col-plano' });
+      var colLojas = el('div', { class: 'conta-col conta-col-lojas' });
+      var tituloPlano = el('div', { class: 'hub-secao', text: 'Assinatura', hidden: true });
+      var caixaPlano = el('div', { class: 'conta-caixa-plano' });
+      colPlano.appendChild(tituloPlano);
+      colPlano.appendChild(caixaPlano);
       var lista = el('div', { class: 'conta-lojas' });
-      var tituloLojas = el('div', { class: 'hub-secao', text: 'Suas lojas', hidden: true });
-      corpo.appendChild(tituloLojas);
-      corpo.appendChild(lista);
-      var rodapeLojas = el('div', { class: 'linha-botoes', style: { justifyContent: 'center' } });
+      var tituloLojas = el('div', { class: 'hub-secao', text: 'Sua loja', hidden: true });
+      colLojas.appendChild(tituloLojas);
+      colLojas.appendChild(lista);
+      arranjo.appendChild(colPlano);
+      arranjo.appendChild(colLojas);
+      corpo.appendChild(arranjo);
+      var rodapeLojas = el('div', { class: 'linha-botoes conta-rodape' });
       corpo.appendChild(rodapeLojas);
 
       var vezes = 0, desenhou = false;
       /* plano e lojas chegam juntos: enquanto nao chegam, o carregando (ou o erro) ocupa o lugar dos dois */
       function semConteudo(no) {
-        tituloLojas.hidden = true;
+        tituloLojas.hidden = true; tituloPlano.hidden = true;
+        arranjo.className = 'conta-arranjo';
         UI.limpar(caixaPlano); UI.limpar(lista); UI.limpar(rodapeLojas);
         caixaPlano.appendChild(no);
       }
@@ -107,7 +121,15 @@
         tituloLojas.hidden = false;
         /* so as lojas no ar contam (a mesma conta do servidor): loja desligada pelo Ligeiro nao ocupa o lugar */
         var reais = lojas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email && l.ativa !== false; }).length;
-        tituloLojas.textContent = reais > 1 ? 'Suas lojas' : 'Sua loja';
+        tituloLojas.textContent = lojas.length > 1 ? 'Suas lojas' : 'Sua loja';
+        /* uma loja so: o par loja + assinatura (com titulo nas duas). A assinatura vai para cima, no celular, quando pede
+           atencao (vencendo, vencida, bloqueada, pausada ou com fatura em aberto) */
+        var par = lojas.length === 1;
+        var sitConta = conta && conta.plano ? R.assinatura(conta).estado : '';
+        var Cb = window.LigeiroCobranca;
+        var urgente = ['vencendo', 'vencida', 'bloqueada', 'pausada'].indexOf(sitConta) >= 0 || !!(conta && Cb && Cb.faturaAberta && Cb.faturaAberta(conta));
+        arranjo.className = 'conta-arranjo' + (par ? ' par' : '') + (par && urgente ? ' plano-primeiro' : '');
+        tituloPlano.hidden = !par;
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
         desenharPlano(caixaPlano, conta);
         UI.limpar(rodapeLojas);
@@ -125,7 +147,8 @@
           ]));
           return;
         }
-        lojas.forEach(function (l) { lista.appendChild(cartaoLoja(l)); });
+        /* uma loja so: o cartao dela ganha o QR do balcao (tem espaco, e e o que o dono imprime) */
+        lojas.forEach(function (l) { lista.appendChild(cartaoLoja(l, par)); });
       }
       carregar();
     });
@@ -254,13 +277,14 @@
       });
     }
 
-    /* Outra loja: um lugar tracejado "pra proxima loja". Cada conta tem uma loja; a outra ganha a propria conta */
+    /* Outra loja: uma linha discreta no fim (nao um lugar vazio esperando loja: cada conta tem uma, e a outra ganha a
+       propria conta, com outro e-mail) */
     function cartaoOutraLoja() {
-      return el('div', { class: 'conta-cheio' }, [
-        el('span', { class: 'conta-cheio-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]),
-        el('div', { class: 'conta-cheio-texto' }, [
+      return el('div', { class: 'conta-outra' }, [
+        el('span', { class: 'conta-outra-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]),
+        el('div', { class: 'conta-outra-texto' }, [
           el('b', { text: 'Quer abrir outra loja?' }),
-          el('span', { text: 'Cada conta tem uma loja. Para outra, entre com outro e-mail do Google e crie a loja por lá: ela tem a própria assinatura.' }),
+          el('span', { text: 'Entre com outro e-mail do Google e crie a loja por lá. Ela tem a própria assinatura.' }),
         ]),
       ]);
     }
@@ -270,7 +294,7 @@
       return el(tag, atributos, [el('span', { class: 'conta-ladrilho-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { text: rotulo })]);
     }
 
-    function cartaoLoja(l) {
+    function cartaoLoja(l, comQr) {
       var a = R.assinatura(l);
       var aberta = R.lojaAberta(l);
       var textos = {
@@ -304,14 +328,37 @@
           el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/' + l.cidadeSlug + '/' + l.slug }, [UI.iconeLinha('olho'), 'Ver loja']),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(link).then(function (ok) { UI.avisar(ok ? 'Link copiado' : 'Toque e segure no link para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar link']),
         ]),
+        comQr ? el('div', { class: 'conta-grupo', text: 'Divulgar' }) : null,
+        comQr ? qrDoBalcao(l, link) : null,
         /* equipe: tres quadradinhos iguais (antes a senha sobrava sozinha numa linha inteira) */
-        el('div', { class: 'conta-grupo', text: 'Equipe' }),
+        el('div', { class: 'conta-grupo conta-grupo-equipe', text: 'Equipe' }),
         el('div', { class: 'conta-equipe' }, [
           ladrilho('a', { href: '#/cozinha/' + l.slug }, 'chef', 'Cozinha'),
           ladrilho('a', { href: '#/entrega/' + l.slug }, 'entrega', 'Entregador'),
           ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, 'chave', 'Senha'),
         ]),
       ]);
+    }
+
+    /* O QR do balcao (o mesmo da loja pronta): o cliente aponta a camera e abre a loja; baixa em PNG para imprimir */
+    function qrDoBalcao(l, link) {
+      var qr = el('div', { class: 'pronto-qr-caixa' });
+      /* o QR e o texto lado a lado; o botao embaixo, na largura do cartao (do lado, "Baixar QR Code" quebrava no celular) */
+      var linha = el('div', { class: 'conta-qr-bloco' }, [
+        el('div', { class: 'conta-qr' }, [
+          qr,
+          el('div', { class: 'pronto-qr-texto' }, [
+            el('b', { text: 'QR Code do balcão' }),
+            el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre a loja.' }),
+          ]),
+        ]),
+        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+          Pix.baixarQr(qr, { nome: l.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + l.slug + '.png' })
+            .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
+        } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
+      ]);
+      if (Pix && Pix.desenharQr) Pix.desenharQr(qr, link, 140); else linha.hidden = true;
+      return linha;
     }
 
     return function () { vivo = false; document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };

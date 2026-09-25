@@ -89,6 +89,8 @@ globalThis.fetch = async (u, o) => {
     const partes = cam.split('/').map(decodeURIComponent);
     if (partes[1] === 'subscriptions') {
       const a = assinaturas.get(partes[2]);
+      if (a && a.jaCancelada) return metodo === 'DELETE' ? resposta({ errors: [{ code: 'invalid_action' }] }, 400) : resposta(Object.assign({}, a, { deleted: true }));
+      if (a && a.naoCancela && metodo === 'DELETE') return resposta({ errors: [] }, 500);
       if (!a || a.deleted) return resposta({ errors: [] }, 404);
       if (metodo === 'PUT') { if (corpo.value !== undefined) a.value = corpo.value; if (corpo.cycle) a.cycle = corpo.cycle; return resposta(a); }
       if (metodo === 'DELETE') { a.deleted = true; return resposta({ deleted: true, id: a.id }); }
@@ -128,7 +130,9 @@ globalThis.fetch = async (u, o) => {
     emails.push(c);
     return resposta({ ok: true });
   }
-  if (endereco === BASE + ':runQuery') {
+  /* como o Firestore de verdade: a consulta e em documents:runQuery (sem a barra); o endereco com a barra nao existe */
+  if (endereco === BASE + ':runQuery') return resposta({ error: { code: 404, status: 'NOT_FOUND' } }, 404);
+  if (endereco === BASE.replace(/\/$/, '') + ':runQuery') {
     const q = JSON.parse(o.body).structuredQuery;
     /* contas com o campo (faturaAsaas.status, plano.status) num dos valores (IN) */
     if (q.from[0].collectionId === 'contas') {
@@ -616,6 +620,98 @@ cobrancas.set('pay_ua', { id: 'pay_ua', customer: 'cus_ua', value: 79, status: '
 globalThis.__antesDoLote = () => { db.set('publico/fundadores', { usados: 5 }); mudou('publico/fundadores'); };
 await avisarCom(envE, { id: 'pay_ua', customer: 'cus_ua' });
 ok(contaDe('ultimaa@x.com').plano.fundador === false && db.get('publico/fundadores').usados === 5, 'a ultima vaga foi pega no meio: este paga o normal e o contador nao passa de 5');
+
+
+/* ================= revisao antes de publicar (25/09/2026): o que as correcoes podiam quebrar ================= */
+console.log('Revisao antes de publicar');
+
+/* PLANOS digitado errado: nada e gravado, 500 (o Asaas tenta de novo) e o admin recebe e-mail */
+for (const [nome, errado] of [['sem a chave do fim', '{"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}'], ['"Uma" maiusculo', '{"Uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}'], ['preco em reais', '{"uma":{"mensal":89,"anual":890,"fm":79,"fa":790}}']]) {
+  const envErrado = Object.assign({}, envE, { PLANOS: errado });
+  novaConta('planos@x.com', 'cus_pl', { pagoAte: new Date(Date.now() + 2 * DIA).toISOString() });
+  const antesPl = contaDe('planos@x.com').plano.pagoAte;
+  cobrancas.set('pay_pl', { id: 'pay_pl', customer: 'cus_pl', value: 5, status: 'RECEIVED', subscription: 'sub_pl', billingType: 'PIX' });
+  adminAntes = doAdmin().length;
+  r = await avisarCom(envErrado, { id: 'pay_pl', customer: 'cus_pl' });
+  ok(r.status === 500 && contaDe('planos@x.com').plano.pagoAte === antesPl && doAdmin().length === adminAntes + 1 && /PLANOS/.test(doAdmin()[doAdmin().length - 1].assunto), 'PLANOS errado (' + nome + '): nenhum dia, 500 para o Asaas tentar de novo e e-mail ao admin');
+}
+
+/* a folga da multa nao vale para cobranca avulsa */
+novaConta('avulsa2@x.com', 'cus_av2', { pagoAte: new Date(Date.now() + 5 * DIA).toISOString() });
+const pagoAv2 = contaDe('avulsa2@x.com').plano.pagoAte;
+cobrancas.set('pay_av2', { id: 'pay_av2', customer: 'cus_av2', value: 95, status: 'RECEIVED', billingType: 'PIX' });
+r = await avisarCom(envE, { id: 'pay_av2', customer: 'cus_av2' });
+ok(r.status === 200 && contaDe('avulsa2@x.com').plano.pagoAte === pagoAv2, 'cobranca avulsa de R$ 95 (dentro da folga de multa do mensal): nenhum dia (a folga e so de assinatura)');
+
+/* valor que nao bate com preco nenhum (link velho de 2 lojas): proporcional ao mensal */
+novaConta('duaslojas@x.com', 'cus_dl', { status: 'teste', desde: new Date(Date.now() - 20 * DIA).toISOString() });
+cobrancas.set('pay_dl', { id: 'pay_dl', customer: 'cus_dl', value: 217, status: 'RECEIVED', subscription: 'sub_dl', billingType: 'PIX' });
+await avisarCom(envE, { id: 'pay_dl', customer: 'cus_dl' });
+c = contaDe('duaslojas@x.com');
+ok(diasDe(c.plano.pagoAte) === 73 && c.plano.tipo === 'mensal' && c.plano.pagamentoParcial && c.plano.pagamentoParcial.cheio === 8900, 'R$ 217 de um link velho: 73 dias pelo preco do mensal (antes, 89 dias pelo anual)');
+
+/* assinatura extra: a renovacao nao repete o aviso; e quando a do dono morre, a extra que paga vira a da conta e sai das extras */
+novaConta('extra@x.com', 'cus_ex', { tipo: 'anual', pagoAte: new Date(Date.now() + 200 * DIA).toISOString(), ultimoPagamentoEm: '2026-09-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_exdono', assinaturasExtras: ['sub_exoutra'] });
+assinaturas.set('sub_exdono', { id: 'sub_exdono', value: 890, cycle: 'YEARLY', status: 'ACTIVE' });
+cobrancas.set('pay_ex1', { id: 'pay_ex1', customer: 'cus_ex', value: 89, status: 'CONFIRMED', subscription: 'sub_exoutra', billingType: 'CREDIT_CARD' });
+adminAntes = doAdmin().length;
+await avisarCom(envE, { id: 'pay_ex1', customer: 'cus_ex' });
+ok(doAdmin().length === adminAntes && contaDe('extra@x.com').assinaturaAsaas === 'sub_exdono', 'a extra cobrou de novo: os dias entram, sem repetir o aviso de duas assinaturas');
+assinaturas.get('sub_exdono').deleted = true;
+db.get('contas/extra@x.com').plano.pagoAte = new Date(Date.now() - DIA).toISOString();
+cobrancas.set('pay_ex2', { id: 'pay_ex2', customer: 'cus_ex', value: 89, status: 'CONFIRMED', subscription: 'sub_exoutra', billingType: 'CREDIT_CARD' });
+await avisarCom(envE, { id: 'pay_ex2', customer: 'cus_ex' });
+c = contaDe('extra@x.com');
+ok(c.assinaturaAsaas === 'sub_exoutra' && c.assinaturasExtras.indexOf('sub_exoutra') < 0, 'a do dono morreu: a extra que paga vira a da conta e sai da lista de extras');
+
+/* adotou a nova, mas o Asaas nao cancelou a velha: ela fica nas extras (o encerrar e o Cron alcancam) e o admin sabe */
+novaConta('naocancela@x.com', 'cus_nc', { pagoAte: new Date(Date.now() - DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_ncvelha' });
+assinaturas.set('sub_ncvelha', { id: 'sub_ncvelha', value: 89, cycle: 'MONTHLY', status: 'ACTIVE', naoCancela: true });
+cobrancas.set('pay_nc', { id: 'pay_nc', customer: 'cus_nc', value: 89, status: 'CONFIRMED', subscription: 'sub_ncnova', billingType: 'CREDIT_CARD' });
+adminAntes = doAdmin().length;
+await avisarCom(envE, { id: 'pay_nc', customer: 'cus_nc' });
+c = contaDe('naocancela@x.com');
+ok(c.assinaturaAsaas === 'sub_ncnova' && c.assinaturasExtras.indexOf('sub_ncvelha') >= 0 && (c.assinaturasAntigas || []).indexOf('sub_ncvelha') < 0 && doAdmin().length === adminAntes + 1, 'a velha nao cancelou no Asaas: fica nas extras (nao nas antigas) e o admin recebe e-mail');
+
+/* assinatura que o Asaas ja tinha cancelado (DELETE responde 400): conta como cancelada */
+contaTroca({}, { assinaturaAsaas: 'sub_jacanc', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' });
+assinaturas.set('sub_jacanc', { id: 'sub_jacanc', value: 89, cycle: 'MONTHLY', status: 'ACTIVE', jaCancelada: true });
+r = await pedir('encerrar', {}, 'tok-dono'); j = await r.json();
+ok(r.status === 200 && j.cancelada === true && conta2().assinaturaAsaas === '', 'assinatura ja cancelada no Asaas (DELETE 400): o encerrar conta como feito, e o Cron nao tenta todo dia');
+
+/* encerrou bem na hora em que um pagamento adotou uma assinatura nova: essa tambem e cancelada (nao fica cobrando solta) */
+contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
+assinaturas.set('sub_corrida2', { id: 'sub_corrida2', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
+globalThis.__antesDoLote = () => { const x = db.get('contas/troca@x.com'); x.assinaturaAsaas = 'sub_corrida2'; x.assinaturasAntigas = ['sub_t']; mudou('contas/troca@x.com'); };
+r = await pedir('encerrar', {}, 'tok-dono');
+c = conta2();
+ok(r.status === 200 && c.plano.status === 'cancelado' && c.assinaturaAsaas === '' && assinaturas.get('sub_corrida2').deleted === true, 'encerrar no meio de um pagamento: a assinatura nova tambem e cancelada');
+
+/* estorno bem na hora em que um pagamento grava: os dias do pagamento novo nao se perdem */
+novaConta('estorno2@x.com', 'cus_e2', { status: 'teste', desde: new Date(Date.now() - 20 * DIA).toISOString() });
+cobrancas.set('pay_e2a', { id: 'pay_e2a', customer: 'cus_e2', value: 89, status: 'CONFIRMED', subscription: 'sub_e2', billingType: 'CREDIT_CARD' });
+await avisarCom(envE, { id: 'pay_e2a', customer: 'cus_e2' });
+const pagoE2 = Date.parse(contaDe('estorno2@x.com').plano.pagoAte);
+cobrancas.get('pay_e2a').status = 'CHARGEBACK_REQUESTED';
+globalThis.__antesDoLote = () => { const x = db.get('contas/estorno2@x.com'); x.plano.pagoAte = new Date(pagoE2 + 30 * DIA).toISOString(); mudou('contas/estorno2@x.com'); };
+await avisarCom(envE, { id: 'pay_e2a', customer: 'cus_e2' }, 'PAYMENT_CHARGEBACK_REQUESTED');
+c = contaDe('estorno2@x.com');
+ok(c.plano.status === 'pausado' && Math.round((Date.parse(c.plano.pagoAte) - pagoE2) / DIA) === 0, 'estorno no meio de um pagamento: refeito com a conta nova (sai so o que o estornado deu)');
+
+/* troca mensal/anual e alguem grava na conta no meio: 409, e a assinatura volta ao valor de antes */
+contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
+globalThis.__antesDoLote = () => { mudou('contas/troca@x.com'); };
+r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+ok(r.status === 409 && assinaturas.get('sub_t').value === 89 && assinaturas.get('sub_t').cycle === 'MONTHLY' && conta2().plano.tipo === 'mensal', 'troca no meio de outra gravacao: 409, e a assinatura volta para o mensal de R$ 89');
+contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
+r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+ok(r.status === 200 && assinaturas.get('sub_t').value === 890 && assinaturas.get('sub_t').cycle === 'YEARLY' && conta2().plano.tipo === 'anual', 'e sem ninguem no meio, a troca passa normal');
+
+/* Cron: a conta que ja nao precisa de nada nem e lida de novo */
+db.set('contas/nada@x.com', { email: 'nada@x.com', plano: { status: 'cancelado', fundador: false }, assinaturaAsaas: '' });
+const gravacoesAntes = versoes.get('contas/nada@x.com') || 0;
+await rodarCron(envE);
+ok((versoes.get('contas/nada@x.com') || 0) === gravacoesAntes, 'Cron: conta encerrada sem nada para fazer nao e gravada');
 
 /* id com caminho escondido */
 r = await avisar({ id: '../contas/x', customer: 'cus_1', value: 89 });

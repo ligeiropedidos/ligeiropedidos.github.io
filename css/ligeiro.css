@@ -1485,20 +1485,32 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-carregando .carregando-pontos span { background: #84CC16; }
 .conta-carregando .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
 .conta-carregando .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
-.conta .hub-secao { margin-top: 8px; }
-/* outra loja: lugar tracejado pra proxima loja (cada conta tem uma; a outra ganha a propria conta) */
-.conta-cheio { flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; text-align: center; background: var(--card); border: 2px dashed var(--line-forte); border-radius: var(--raio); }
-.conta-cheio-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 28px; line-height: 1; }
-.conta-cheio-texto { display: flex; flex-direction: column; gap: 4px; }
-.conta-cheio-texto b { font-family: var(--display); font-size: 19px; line-height: 1.2; }
-.conta-cheio-texto span { font-size: 15px; color: var(--muted); text-wrap: balance; }
-.conta-cheio .btn { width: 100%; font-size: 17px; }
-@media (min-width: 640px) {
-  .conta-cheio { flex-direction: row; padding: 16px; text-align: left; }
-  .conta-cheio-texto { flex: 1; min-width: 0; }
-  .conta-cheio .btn { width: auto; flex: none; }
-} /* 16 do vao + 8 = 24 antes de secao */
+.conta .hub-secao { margin-top: 8px; } /* 16 do vao + 8 = 24 antes de secao */
 .conta .conta-lojas { margin-top: -4px; } /* titulo da secao a 12 dos cartoes */
+/* a loja e a assinatura (ver conta.js): colunas com o mesmo ritmo da pagina (16 entre blocos, 12 do titulo ao cartao) */
+.conta-arranjo { display: flex; flex-direction: column; gap: 16px; }
+.conta-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.conta-col > .hub-secao + * { margin-top: -4px; }
+.conta-col > .conta-lojas { margin-top: 0; }
+.conta-col > .hub-secao + .conta-lojas { margin-top: -4px; }
+/* uma loja so, no celular: a loja primeiro; a assinatura sobe quando pede atencao */
+.conta-arranjo.par .conta-col-lojas { order: -1; }
+/* o par com o mesmo respiro por dentro (16, o do cartao da loja): lado a lado, o pe dos dois fica na mesma linha */
+.conta-arranjo.par .conta-caixa-plano > .conta-plano { padding: 16px; }
+.conta-arranjo.par.plano-primeiro .conta-col-lojas { order: 0; }
+/* a linha "Quer abrir outra loja?" no fim: discreta, sem cara de lugar vazio */
+.conta-rodape { justify-content: center; }
+/* o QR do balcao no cartao da loja (conta com uma loja so): as pecas da loja pronta, sem a linha de cima */
+.conta-qr-bloco { display: flex; flex-direction: column; gap: 12px; }
+.conta-qr-bloco[hidden] { display: none; }
+.conta-qr-bloco > .btn { width: 100%; white-space: nowrap; font-size: 15px; }
+.conta-qr { display: flex; align-items: center; gap: 16px; }
+@media (max-width: 359px) { .conta-qr { flex-direction: column; } .conta-qr .pronto-qr-texto { align-items: center; text-align: center; } }
+.conta-outra { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); text-align: left; }
+.conta-outra-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); display: flex; align-items: center; justify-content: center; }
+.conta-outra-ico .ico-traco svg { width: 20px; height: 20px; }
+.conta-outra-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14.5px; line-height: 1.4; color: var(--muted); }
+.conta-outra-texto b { font-family: var(--display); font-size: 16px; line-height: 1.25; color: var(--ink); }
 .conta-cabeca { display: flex; align-items: center; gap: 12px; padding: 6px 0 4px; }
 .conta-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; background: var(--lime-suave); }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--deep); }
@@ -1562,6 +1574,18 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-plano-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .conta-plano-nome { font-family: var(--display); font-size: 20px; }
 @media (min-width: 760px) { .conta-lojas { grid-template-columns: 1fr 1fr; } }
+/* tela larga com uma loja so: a loja na esquerda e a assinatura na direita, os dois cartoes com a mesma altura (o fim de
+   cada um, equipe e botoes do plano, desce para o pe) */
+@media (min-width: 760px) {
+  .conta-arranjo.par { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; align-items: stretch; }
+  .conta-arranjo.par .conta-col-lojas { grid-column: 1; grid-row: 1; }
+  .conta-arranjo.par .conta-col-plano { grid-column: 2; grid-row: 1; }
+  .conta-arranjo.par .conta-lojas { flex: 1; grid-template-columns: minmax(0, 1fr); }
+  .conta-arranjo.par .conta-caixa-plano { flex: 1; display: flex; flex-direction: column; }
+  .conta-arranjo.par .conta-caixa-plano > .conta-plano { flex: 1; }
+  .conta-arranjo.par .conta-caixa-plano > .conta-plano > .plano-acoes { margin-top: auto; }
+  .conta-arranjo.par .conta-loja .conta-grupo-equipe { margin-top: auto; } /* a equipe no pe, na linha dos botoes do plano */
+}
 /* botao flutuante de WhatsApp (paginas de venda) */
 .zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s; animation: entrar 0.4s ease-out 0.6s both; }
 .zap-flutuante .zap-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); font-size: 18px; }
@@ -2052,8 +2076,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-painel-texto b { display: inline-flex; align-items: center; gap: 8px; }
 .plano-recado.com-alerta { display: flex; align-items: flex-start; gap: 8px; }
 .plano-recado.com-alerta .ico-traco { color: var(--erro); margin-top: 1px; }
-.conta-cheio-ico { color: var(--deep2); }
-.conta-cheio-ico .ico-traco svg { width: 28px; height: 28px; }
 .conta-ladrilho-icone { display: inline-flex; }
 .conta-ladrilho-icone .ico-traco svg { width: 22px; height: 22px; }
 .escolha-grande .icone { display: flex; align-items: center; justify-content: center; color: var(--deep2); }
@@ -2138,8 +2160,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .pronto-gratis .ico-traco { flex: none; color: var(--deep2); }
 .pronto-gratis .ico-traco svg { width: 18px; height: 18px; }
 .pronto-qr { display: flex; align-items: center; gap: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-.pronto-qr-caixa { flex: none; width: 112px; height: 112px; padding: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; }
-.pronto-qr-caixa svg { display: block; width: 100%; height: 100%; }
+.pronto-qr-caixa { flex: none; width: fit-content; padding: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; line-height: 0; } /* abraca o QR do tamanho exato (antes, 112 fixos: o QR de 200 vazava por cima do que vinha embaixo) */
+.pronto-qr-caixa svg { display: block; }
 .pronto-qr-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 14px; line-height: 1.4; color: var(--muted); text-align: left; }
 .pronto-qr-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
 .pronto-qr-texto .btn { margin-top: 8px; }

@@ -245,6 +245,11 @@ fim do endereço a toda hora.
     pagamento, ou dois pagamentos disputando a última vaga de fundador, refazem a conta com os dados novos.
   - Loja nova com trava na conta (`lojaCriadaEm`): pedidos juntos (duas abas, vários workers) não criam duas lojas.
   - Aviso repetido do Asaas regrava o espelho nas lojas (se da outra vez a cópia falhou no meio).
+  - Revisão antes de publicar: o segredo `PLANOS` torto (JSON quebrado, "Uma", preço em reais) não libera nada (500 e
+    e-mail ao admin); a consulta ao banco usa `documents:runQuery`; aviso repetido nunca responde erro; encerrar, o Cron,
+    a troca e o estorno gravam com trava (um pagamento no meio não deixa assinatura cobrando solta nem perde dias); a
+    folga da multa só vale para assinatura; valor sem preço conta pelo mensal; assinatura antiga que o Asaas não cancelou
+    fica nas extras e o admin sabe.
 - **Regras do banco:** o dono só mexe em `planoId` (só `uma`), `tipo`, `status` (encerrar e reativar), no aviso de
   pagamento, nas datas de encerrar e reativar (texto curto) e pode desligar o próprio `fundador` junto com encerrar (nunca
   ligar). `pagoAte`, `planoPago`, `pagamentos`, as assinaturas e o resto são do admin e dos mensageiros.
@@ -254,8 +259,8 @@ fim do endereço a toda hora.
   Para fechar isso de vez, ligue o **App Check** (reCAPTCHA v3, grátis) no projeto Firebase.
 - `#/entrar` acha o painel pelo link da loja; `#/termos` e `#/privacidade` usam `config.empresa` (nome, CNPJ, e-mail)
   quando preenchido.
-- Testes: `node testes/asaas.test.mjs` (101, com um cenário para cada furo do pentest), `node testes/worker.test.mjs`
-  (229, com a corrida da loja nova) e as regras no emulador local do Firestore.
+- Testes: `node testes/asaas.test.mjs` (117, com um cenário para cada furo do pentest e da revisão), `node testes/worker.test.mjs`
+  (230, com a corrida da loja nova) e as regras no emulador local do Firestore (inclusive os fluxos legítimos do site).
 
 ## Cardápio: controle total do dono
 

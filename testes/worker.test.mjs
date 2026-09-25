@@ -138,6 +138,8 @@ globalThis.fetch = async (url, op) => {
   }
   if (url === BASE.slice(0, -1) + ':commit' && metodo === 'POST') {
     if (globalThis.__limite) return resposta({ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }, 429);
+    /* gancho do teste: outra gravacao que chega bem antes deste lote (roda uma vez) */
+    if (globalThis.__antesDoLote) { const f = globalThis.__antesDoLote; globalThis.__antesDoLote = null; f(); }
     const writes = JSON.parse(o.body).writes || [];
     const prefixo = 'projects/proj/databases/(default)/documents/';
     for (const wr of writes) {
@@ -1212,6 +1214,13 @@ console.log('Loja nova (so pelo mensageiro)');
   const criadas = [...db.entries()].filter(([k, d]) => /^lojas\/[^/]+$/.test(k) && d.donoEmail === 'corrida@x.com').length;
   ok(criadas === 1 && respostas.filter((x) => x.status === 200).length === 1 && respostas.filter((x) => x.status === 409).length === 5, '6 pedidos de loja nova ao mesmo tempo da mesma conta: 1 loja criada, 5 recusados (' + criadas + ' criadas)');
   ok(typeof db.get('contas/corrida@x.com').lojaCriadaEm === 'string' && db.get('contas/corrida@x.com').plano.status === 'teste', 'a marca na conta so mexe no lojaCriadaEm (o plano fica como estava)');
+  /* um pagamento grava na conta bem na hora de criar a loja: a loja nasce no mesmo endereco, com o plano de agora */
+  db.set('contas/corrida@x.com', { email: 'corrida@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: hoje } });
+  [...db.keys()].filter((k) => /^(lojas|vitrine)\/corrida/.test(k)).forEach((k) => db.delete(k));
+  const pagoDepois = new Date(Date.now() + 30 * 864e5).toISOString();
+  globalThis.__antesDoLote = () => { const x = db.get('contas/corrida@x.com'); x.plano = Object.assign({}, x.plano, { status: 'ativo', pagoAte: pagoDepois }); versoes.set('contas/corrida@x.com', (versoes.get('contas/corrida@x.com') || 0) + 1); };
+  r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Pastel Livre' }), vitrine: { nome: 'Pastel Livre', horarios: {} } }, headers: bearer('tok-corrida') }); j = await r.json();
+  ok(r.status === 200 && j.slug === 'pastel-livre' && db.get('lojas/pastel-livre').plano.status === 'ativo' && db.get('lojas/pastel-livre').plano.pagoAte === pagoDepois && db.get('vitrine/pastel-livre').plano.status === 'ativo', 'pagamento no meio da criacao: a loja nasce no endereco dela (nao no -2) e com o plano pago');
 }
 
 console.log('Banco no limite do dia');

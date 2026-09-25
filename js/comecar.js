@@ -374,7 +374,7 @@
         if (!emailConta) return null;
         return store.obterConta(emailConta).then(function (c) {
           if (c) return c;
-          return store.salvarConta(emailConta, { nome: (contaLogada && contaLogada.nome) || '', plano: { planoId: planoId, tipo: planoTipo, status: 'teste', desde: new Date().toISOString() } });
+          return store.salvarConta(emailConta, { nome: ((contaLogada && contaLogada.nome) || '').slice(0, 80), plano: { planoId: planoId, tipo: planoTipo, status: 'teste', desde: new Date().toISOString() } });
         });
       }).then(function (c) {
         if (c && c.plano) {
@@ -478,7 +478,7 @@
           ]),
         ]),
       ]));
-      Pix.desenharQr(qr, link, 200);
+      Pix.desenharQr(qr, link, 110); /* 93 px + a borda: a caixa fica nos 112 de antes, e o texto do lado cabe */
       window.scrollTo(0, 0);
       var palco = corpo.querySelector('.pronto-palco');
       setTimeout(function () { if (palco && palco.isConnected) festejar(palco); }, 150);

@@ -46,7 +46,9 @@ service cloud.firestore {
           && novo.get('planoPago', '') == velho.get('planoPago', '')
           /* o preco de fundador: ninguem liga. Desligar so junto com encerrar (os termos: travado enquanto nao cancelar) */
           && (novo.get('fundador', false) == velho.get('fundador', false)
-              || (novo.get('fundador', false) == false && novo.get('status', '') == 'cancelado'))
+              || (novo.get('fundador', false) == false && novo.get('status', '') == 'cancelado')
+              /* copia velha sem o campo (mensageiro de antes de 25/09): a copia do site traz o valor que esta na conta */
+              || (!velho.keys().hasAny(['fundador']) && novo.get('fundador', false) == minhaConta().get('plano', {}).get('fundador', false)))
           && novo.get('desde', '') == velho.get('desde', '');
     }
     /* status: o dono so pode manter, encerrar (cancelado) ou reativar (teste); 'ativo' e 'pausado' so o admin */
@@ -66,7 +68,6 @@ service cloud.firestore {
           && novo.get('canceladoEm', '') is string && novo.get('canceladoEm', '').size() <= 40
           && novo.get('tipo', 'mensal') in ['mensal', 'anual']
           /* plano unico: 1 loja por conta. O dono so escolhe o de 1 loja (conta antiga pode ficar no que tinha) */
-          && (novo.get('planoId', 'uma') == velho.get('planoId', 'uma') || novo.get('planoId', '') == 'uma')
           && novo.get('avisoValor', 0) is int && novo.get('avisoValor', 0) >= 0 && novo.get('avisoValor', 0) <= 10000000;
     }
     /* Com assinatura viva no Asaas (assinaturaAsaas, que so os mensageiros gravam), trocar de plano e encerrar passam pelo
@@ -106,8 +107,9 @@ service cloud.firestore {
            E tem que ser data de verdade (formato do toISOString): lixo virava "gratis pra sempre" */
         && planoDe(request.resource.data).get('desde', '') is string
         && planoDe(request.resource.data).get('desde', '').matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$')
-        /* ate a hora de agora (antes era o dia: dava para ganhar quase um dia a mais de teste) */
-        && planoDe(request.resource.data).get('desde', '')[0:13] <= horaISO(request.time)
+        /* ate a hora de agora (antes era o dia: dava para ganhar quase um dia a mais de teste), com 1 hora de folga
+           para o celular de relogio adiantado ou com o fuso errado (o cadastro era recusado) */
+        && planoDe(request.resource.data).get('desde', '')[0:13] <= horaISO(request.time + duration.value(60, 'm'))
         && planoDe(request.resource.data).get('status', 'teste') == 'teste'
         && semPago(planoDe(request.resource.data))
         && planoDe(request.resource.data).get('planoPago', '') == ''
@@ -117,10 +119,14 @@ service cloud.firestore {
         /* LISTA BRANCA: o dono so muda o plano (nos campos dele), o nome e a hora. "pagamentos" (o controle do Asaas de
            pagamento ja contado), "donoEmail" e o resto nao: apagar a lista dava dias de assinatura em dobro */
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plano', 'nome', 'atualizadoEm'])
+        /* a hora da mudanca: texto curto (a data do toISOString), como as outras datas */
+        && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 40
         /* o nome com o mesmo limite do cadastro (antes, na edicao, cabia um texto de 100 mil letras) */
         && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
         && planoSoDoDono(planoDe(request.resource.data), planoDe(resource.data))
         && request.resource.data.get('email', email) == email
+        /* plano unico: na conta, o dono so escolhe o de 1 loja (a copia na loja segue a conta, seja qual for) */
+        && (planoDe(request.resource.data).get('planoId', 'uma') == planoDe(resource.data).get('planoId', 'uma') || planoDe(request.resource.data).get('planoId', '') == 'uma')
         && planoDoAdminIntacto(planoDe(request.resource.data), planoDe(resource.data))
         && statusPermitido(planoDe(request.resource.data), planoDe(resource.data))
         && escolhaPeloMensageiro(planoDe(request.resource.data), planoDe(resource.data), resource.data)
