@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20260928f';
+var VERSAO = 'ligeiro-20260928g';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede.
    O icone de 512 e o mascote em PNG ficam de fora: so servem para instalar na tela de inicio, e o navegador busca
    sozinho quando precisa (antes todo cliente baixava os dois a toa) */
@@ -73,6 +73,12 @@ self.addEventListener('fetch', function (e) {
     var ehPagina = e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
     var buscar = function () { return ehPagina ? fetch(e.request.url, { cache: 'no-store' }) : fetch(e.request); };
     var pelaRede = buscar().catch(function () { return new Promise(function (r) { setTimeout(r, 400); }).then(function () { return buscar(); }); }).then(function (resposta) {
+      /* o site mudou de endereco (github.io -> dominio proprio): a pagina vai para o endereco novo pelo navegador (resposta
+         redirecionada na navegacao da erro) e este service worker, que ficou no endereco velho, se desliga */
+      if (resposta && resposta.redirected && ehPagina) {
+        if (new URL(resposta.url).origin !== location.origin) self.registration.unregister();
+        return Response.redirect(resposta.url, 302);   /* o #/loja/... o navegador leva junto sozinho */
+      }
       if (resposta && resposta.ok) {
         /* a checagem de versao (index.html?agora=...) muda de endereco a cada vez: guardar so encheria o cache */
         if (url.search.indexOf('agora=') < 0) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request, copia); }); }
@@ -82,6 +88,7 @@ self.addEventListener('fetch', function (e) {
       return guardado || resposta;
     });
     if (!guardado) return pelaRede.catch(function () { return new Response('Sem internet agora. Tente de novo em instantes.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }); });
+    /* pagina: se a rede mandar para outro endereco, vale o endereco novo, mesmo passando do prazo */
     var prazo = new Promise(function (resolve) { setTimeout(function () { resolve(guardado); }, 2500); });
     return Promise.race([pelaRede.catch(function () { return guardado; }), prazo]);
   }));
