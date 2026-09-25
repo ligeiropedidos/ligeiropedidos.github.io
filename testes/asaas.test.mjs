@@ -178,7 +178,7 @@ ok(r.status === 200 && !db.get('contas/semconta@x.com'), 'fatura de quem nao tem
 /* lembrete por e-mail (Cron): cada aviso uma vez, cartao em dia nao recebe, conta cancelada nao recebe */
 const diaMais = (n) => new Date(Date.now() - 3 * 36e5 + n * 864e5).toISOString().slice(0, 10);
 const fatura = (o) => Object.assign({ id: 'pay_l', valor: 8900, vencimento: diaMais(3), url: 'https://www.asaas.com/i/lembrete', status: 'PENDING', forma: 'UNDEFINED', assinatura: 'sub_9' }, o);
-db.set('contas/tres@x.com', { email: 'tres@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura() });
+db.set('contas/tres@x.com', { email: 'tres@x.com', nome: '<b>Zé</b> da Silva', plano: { status: 'ativo' }, faturaAsaas: fatura() });
 db.set('contas/hoje@x.com', { email: 'hoje@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(0) }) });
 db.set('contas/cartao@x.com', { email: 'cartao@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ forma: 'CREDIT_CARD' }) });
 db.set('contas/venceu@x.com', { email: 'venceu@x.com', plano: { status: 'ativo' }, faturaAsaas: fatura({ vencimento: diaMais(-2), status: 'OVERDUE', forma: 'CREDIT_CARD' }) });
@@ -192,6 +192,8 @@ const envEmail = Object.assign({}, env, { EMAIL_URL: 'https://script.google.com/
 await rodarCron(envEmail);
 const para = (quem) => emails.filter((m) => m.para === quem);
 ok(para('tres@x.com').length === 1 && /vence em 3 dias/.test(para('tres@x.com')[0].assunto) && para('tres@x.com')[0].html.indexOf('https://www.asaas.com/i/lembrete') > 0, 'vence em 3 dias: e-mail com o botao da fatura');
+ok(para('tres@x.com')[0].html.indexOf('<b>Zé') < 0 && para('tres@x.com')[0].html.indexOf('Olá, &lt;b&gt;Zé&lt;/b&gt;!') > 0, 'o nome do dono entra no e-mail sem virar codigo (escapado)');
+ok(para('tres@x.com')[0].html.indexOf('/img/email/selo-vence.png') > 0 && para('parando@x.com')[0].html.indexOf('/img/email/selo-parar.png') > 0, 'selo certo em cada aviso (verde vence, vermelho pode parar)');
 ok(para('hoje@x.com').length === 1 && /vence hoje/.test(para('hoje@x.com')[0].assunto), 'vence hoje: e-mail');
 ok(para('cartao@x.com').length === 0, 'cartao em dia: sem e-mail (e cobrado sozinho)');
 ok(para('venceu@x.com').length === 1 && /cartão não passou/.test(para('venceu@x.com')[0].texto), 'cartao que nao passou: e-mail de vencida explicando');

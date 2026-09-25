@@ -169,34 +169,82 @@ async function lembrarFaturas(env, agora) {
     if (!qual) continue;
     const ja = Array.isArray(f.lembretes) ? f.lembretes : [];
     if (ja.indexOf(qual) >= 0 || (qual === 'vencida' && ja.indexOf('vencida7') >= 0)) continue;
-    const ok = await mandarEmail(env, email, mensagemDoLembrete(qual, f, cartao));
+    const ok = await mandarEmail(env, email, mensagemDoLembrete(qual, f, cartao, c.nome));
     if (!ok) { falhas++; continue; }
     await fb.merge('contas/' + encodeURIComponent(email), { faturaAsaas: Object.assign({}, f, { lembretes: ja.concat([qual]) }) });
     enviados++;
   }
   return { ok: true, contas: contas.length, enviados: enviados, falhas: falhas };
 }
-function mensagemDoLembrete(qual, f, cartao) {
+/* O e-mail: logo em cima, cartao branco com faixa colorida e selo (relogio verde, alerta laranja ou vermelho), "Ola, nome",
+   o quadro da fatura (valor grande e quando vence), o botao e o rodape. Feito de tabelas e estilo na linha: e o que o Gmail,
+   o Outlook e o app do celular mostram igual. Os selos sao PNG do site (e-mail nao mostra SVG) */
+const SITE = 'https://ligeiropedidos.com.br';
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function mensagemDoLembrete(qual, f, cartao, nome) {
   const valor = 'R$ ' + (Math.round(Number(f.valor) || 0) / 100).toFixed(2).replace('.', ',');
   const p = f.vencimento.split('-');
   const dia = p[2] + '/' + p[1];
+  const naoPassou = cartao ? 'A cobrança no seu cartão não passou. ' : '';
   const m = {
-    d3: ['Sua mensalidade do Ligeiro vence em 3 dias', 'A mensalidade do Ligeiro, de ' + valor + ', vence em 3 dias (' + dia + '). Pague pela fatura, no Pix, no boleto ou no cartão.'],
-    d0: ['Sua mensalidade do Ligeiro vence hoje', 'A mensalidade do Ligeiro, de ' + valor + ', vence hoje (' + dia + '). Pague pela fatura, no Pix, no boleto ou no cartão.'],
-    vencida: ['Sua mensalidade do Ligeiro venceu', (cartao ? 'A cobrança no cartão não passou. ' : '') + 'A mensalidade do Ligeiro, de ' + valor + ', venceu em ' + dia + '. Suas lojas seguem no ar por mais alguns dias: pague pela fatura para não parar.'],
-    vencida7: ['Suas lojas podem parar de receber pedidos', (cartao ? 'A cobrança no cartão não passou. ' : '') + 'A mensalidade do Ligeiro, de ' + valor + ', venceu em ' + dia + ' e ainda não foi paga. Pague pela fatura para suas lojas não pararem de receber pedidos.'],
+    d3: { assunto: 'Sua mensalidade do Ligeiro vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
+      texto: 'Sua mensalidade do Ligeiro vence em 3 dias. Pague pela fatura e suas lojas seguem recebendo pedidos sem parar.' },
+    d0: { assunto: 'Sua mensalidade do Ligeiro vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
+      texto: 'Sua mensalidade do Ligeiro vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
+    vencida: { assunto: 'Sua mensalidade do Ligeiro venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
+      texto: naoPassou + 'Sua mensalidade do Ligeiro venceu. Suas lojas seguem no ar por mais alguns dias: pague pela fatura para não parar.' },
+    vencida7: { assunto: 'Suas lojas podem parar de receber pedidos', quando: 'Venceu em ' + dia, tom: 'parar',
+      texto: naoPassou + 'Sua mensalidade do Ligeiro venceu há uma semana e ainda não foi paga. Pague pela fatura para suas lojas não pararem de receber pedidos.' },
   }[qual];
-  const fecho = 'Assim que o pagamento cai, tudo segue sozinho. Qualquer dúvida, é só responder este e-mail.';
-  const texto = 'Olá!\n\n' + m[1] + '\n\nPagar a fatura: ' + f.url + '\n\n' + fecho + '\n\nLigeiro\nligeiropedidos.com.br';
-  const html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1F2937">'
-    + '<div style="background:#0F3D2E;padding:16px 24px;border-radius:12px 12px 0 0"><b style="color:#fff;font-size:22px">Ligei<span style="color:#A3E635">ro</span></b></div>'
-    + '<div style="border:1px solid #E5E7EB;border-top:0;border-radius:0 0 12px 12px;padding:24px">'
-    + '<p style="margin:0 0 16px;font-size:16px;line-height:1.5">Olá!</p>'
-    + '<p style="margin:0 0 24px;font-size:16px;line-height:1.5">' + m[1] + '</p>'
-    + '<p style="margin:0 0 24px;text-align:center"><a href="' + f.url + '" style="display:inline-block;background:#84CC16;color:#0F3D2E;font-weight:bold;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:12px">Pagar a fatura</a></p>'
-    + '<p style="margin:0;font-size:14px;line-height:1.5;color:#6B7280">' + fecho + '</p>'
-    + '</div><p style="text-align:center;font-size:12px;color:#9CA3AF;margin:16px 0 0">Ligeiro · ligeiropedidos.com.br</p></div>';
-  return { assunto: m[0], texto: texto, html: html };
+  const tons = {
+    vence: { faixa: '#ECFCCB', borda: '#D9F99D', cor: '#3F6212' },
+    venceu: { faixa: '#FFEDD5', borda: '#FED7AA', cor: '#C2410C' },
+    parar: { faixa: '#FEE2E2', borda: '#FECACA', cor: '#B91C1C' },
+  };
+  const t = tons[m.tom];
+  const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
+  const ola = primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!';
+  const fecho = 'Assim que o pagamento cai, tudo segue sozinho. Dúvida? É só responder este e-mail.';
+  const texto = ola + '\n\n' + m.texto + '\n\nMensalidade: ' + valor + ' (' + m.quando + ')\nPagar a fatura: ' + f.url + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
+  const fonte = "font-family:Arial,Helvetica,sans-serif;";
+  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(m.assunto) + '</title></head>'
+    + '<body style="margin:0;padding:0;background:#F1F7EA;">'
+    + '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">' + esc(m.texto) + '</div>'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F1F7EA" style="background:#F1F7EA;"><tr><td align="center" style="padding:32px 16px;">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">'
+    /* logo */
+    + '<tr><td align="center" style="padding:0 0 24px;"><a href="' + SITE + '" style="text-decoration:none;">'
+    + '<img src="' + SITE + '/img/favicon-96.png" width="44" height="44" alt="" style="border:0;vertical-align:middle;">'
+    + '<span style="' + fonte + 'font-size:26px;font-weight:bold;color:#0F3D2E;vertical-align:middle;padding-left:8px;">Ligei<span style="color:#65A30D;">ro</span></span></a></td></tr>'
+    /* cartao */
+    + '<tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;border:1px solid #E3EBD9;border-radius:16px;overflow:hidden;">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+    + '<tr><td align="center" bgcolor="' + t.faixa + '" style="background:' + t.faixa + ';padding:32px 0;border-radius:16px 16px 0 0;">'
+    + '<img src="' + SITE + '/img/email/selo-' + m.tom + '.png" width="56" height="56" alt="" style="border:0;display:block;"></td></tr>'
+    + '<tr><td style="padding:32px 32px 0;' + fonte + 'font-size:16px;line-height:1.6;color:#1F2937;">'
+    + '<p style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#0F3D2E;">' + esc(ola) + '</p>'
+    + '<p style="margin:0 0 24px;">' + esc(m.texto) + '</p></td></tr>'
+    /* quadro da fatura */
+    + '<tr><td style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7FAF3" style="background:#F7FAF3;border:1px solid ' + t.borda + ';border-radius:12px;">'
+    + '<tr><td align="center" style="padding:24px 16px;' + fonte + '">'
+    + '<div style="font-size:12px;font-weight:bold;letter-spacing:1px;color:#6B7280;text-transform:uppercase;">Mensalidade do Ligeiro</div>'
+    + '<div style="font-size:34px;font-weight:bold;color:#0F3D2E;line-height:1.2;padding:8px 0 4px;">' + esc(valor) + '</div>'
+    + '<div style="font-size:15px;font-weight:bold;color:' + t.cor + ';">' + esc(m.quando) + '</div>'
+    + '</td></tr></table></td></tr>'
+    /* botao (tabela: funciona ate no Outlook) */
+    + '<tr><td align="center" style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
+    + '<td align="center" bgcolor="#84CC16" style="background:#84CC16;border-radius:12px;">'
+    + '<a href="' + esc(f.url) + '" style="display:inline-block;padding:15px 36px;' + fonte + 'font-size:17px;font-weight:bold;color:#0F3D2E;text-decoration:none;border-radius:12px;">Pagar a fatura</a>'
+    + '</td></tr></table>'
+    + '<p style="margin:12px 0 0;' + fonte + 'font-size:14px;color:#6B7280;">Pix, boleto ou cartão</p></td></tr>'
+    /* fecho */
+    + '<tr><td style="padding:24px 32px 32px;"><div style="border-top:1px solid #EEF2E8;padding-top:24px;' + fonte + 'font-size:14px;line-height:1.6;color:#6B7280;">' + esc(fecho).replace('e-mail', '<span style="white-space:nowrap;">e-mail</span>') + '</div></td></tr>'
+    + '</table></td></tr>'
+    /* rodape */
+    + '<tr><td align="center" style="padding:24px 16px 0;' + fonte + 'font-size:12px;line-height:1.7;color:#9CA3AF;">'
+    + 'Ligeiro · delivery próprio, sem comissão<br><a href="' + SITE + '" style="color:#9CA3AF;">ligeiropedidos.com.br</a><br>Você recebe este aviso porque assina o Ligeiro.</td></tr>'
+    + '</table></td></tr></table></body></html>';
+  return { assunto: m.assunto, texto: texto, html: html };
 }
 async function mandarEmail(env, para, m) {
   const r = await fetch(String(env.EMAIL_URL).trim(), { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: String(env.EMAIL_TOKEN).trim(), para: para, assunto: m.assunto, texto: m.texto, html: m.html }) });
