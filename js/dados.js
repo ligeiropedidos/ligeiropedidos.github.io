@@ -1283,11 +1283,13 @@
     return { cliente: { nome: 'Apagado a pedido (LGPD)', telefone: '' }, endereco: {}, observacao: '', anonimizadoEm: agora };
   }
 
-  function limparCacheVitrine() { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } }
+  /* 'ligeiro:vitrine2': a chave antiga podia ter lojas com o slug trocado pela posicao na lista */
+  var CHAVE_VITRINE = 'ligeiro:vitrine2';
+  function limparCacheVitrine() { try { localStorage.removeItem(CHAVE_VITRINE); localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } }
   /* Vitrine na nuvem: 1 leitura por loja, documentos pequenos, e cache de 5 minutos no aparelho. */
   /* opcoes.semCache: lista de agora (o cadastro conta as lojas no ar antes de deixar criar outra) */
   FirebaseStore.prototype.listarVitrine = function (opcoes) {
-    var chave = 'ligeiro:vitrine';
+    var chave = CHAVE_VITRINE;
     if (!(opcoes && opcoes.semCache)) try {
       var c = JSON.parse(localStorage.getItem(chave) || 'null');
       if (c && c.em && Date.now() - c.em < 5 * 60 * 1000 && Array.isArray(c.lista)) return Promise.resolve(c.lista);
@@ -1307,7 +1309,8 @@
     if (opcoes && opcoes.semCache) return doBanco();
     return pegarBorda('/vitrine').then(function (x) {
       if (x.status !== 200 || !Array.isArray(x.dados.lista)) throw erroBorda();
-      return guardar(x.dados.lista.map(daNuvem));
+      /* sem passar a posicao da lista: daNuvem(dados, id) trocava o slug de toda loja depois da primeira por "1", "2"... */
+      return guardar(x.dados.lista.map(function (l) { return daNuvem(l); }));
     }).catch(doBanco);
   };
 
@@ -1368,7 +1371,7 @@
         var lote = eu.db.batch();
         resumos.forEach(function (r) { lote.set(eu.db.collection('vitrine').doc(r.slug), paraNuvem(r)); });
         return lote.commit();
-      }).then(function () { try { localStorage.removeItem('ligeiro:vitrine'); } catch (_) { /* ignora */ } return lojas.length; });
+      }).then(function () { limparCacheVitrine(); return lojas.length; });
     });
   };
 
