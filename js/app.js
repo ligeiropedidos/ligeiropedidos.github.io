@@ -169,7 +169,10 @@
       name: nome, short_name: curto,
       start_url: location.origin + location.pathname + '#/' + caminho, scope: location.origin + location.pathname,
       display: 'standalone', background_color: '#FAFDF6', theme_color: '#0F3D2E', lang: 'pt-BR',
-      icons: [{ src: new URL('icone-192.png', location.href).href, sizes: '192x192', type: 'image/png', purpose: 'any maskable' }, { src: new URL('icone-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
+      /* mascote sem fundo onde o sistema mostra o desenho inteiro; com fundo branco e margem onde ele recorta em circulo */
+      icons: [['icone-192.png', '192x192', 'any'], ['icone-512.png', '512x512', 'any'], ['icone-maskable-192.png', '192x192', 'maskable'], ['icone-maskable-512.png', '512x512', 'maskable']].map(function (i) {
+        return { src: new URL(i[0], location.href).href, sizes: i[1], type: 'image/png', purpose: i[2] };
+      }),
     };
     try {
       if (manifestPadrao.href && manifestPadrao.href.indexOf('blob:') === 0) URL.revokeObjectURL(manifestPadrao.href);

@@ -4,16 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0F3D2E">
-  <title>Ligeiro: pedido ligeiro, sem comissão</title>
-  <meta name="description" content="Peça no delivery da sua cidade pelo celular: escolha, pague no Pix e acompanhe com a sua senha. Sem app, sem cadastro, sem comissão.">
+  <title>Ligeiro: sistema de pedidos para delivery, sem comissão</title>
+  <meta name="description" content="Delivery próprio para lanchonete, pizzaria e marmitaria: cardápio num link, Pix e cartão confirmados sozinhos e 0% de comissão. Teste 7 dias grátis.">
+  <meta name="application-name" content="Ligeiro">
+  <meta name="apple-mobile-web-app-title" content="Ligeiro">
+  <link rel="canonical" href="https://ligeiropedidos.com.br/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ligeiro">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:url" content="https://ligeiropedidos.com.br/">
+  <meta property="og:title" content="Ligeiro: pedido ligeiro, sem comissão">
+  <meta property="og:description" content="Delivery próprio, sem comissão: cardápio num link, Pix e cartão pelo site e pedido acompanhado pela senha.">
+  <meta property="og:image" content="https://ligeiropedidos.com.br/img/previa-link.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="O mascote do Ligeiro, um ratinho cozinheiro, e a frase Delivery próprio, sem comissão">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Ligeiro","url":"https://ligeiropedidos.com.br/","logo":"https://ligeiropedidos.com.br/icone-512.png"},{"@type":"WebSite","name":"Ligeiro","url":"https://ligeiropedidos.com.br/","inLanguage":"pt-BR"}]}</script>
   <link rel="preconnect" href="https://ligeiro-mp.ligeiro-pedidos.workers.dev" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="64x64" href="img/favicon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="img/mascote-192.png">
-  <link rel="apple-touch-icon" href="icone-192.png">
-  <link rel="stylesheet" href="css/ligeiro.css?v=20260928g">
+  <link rel="icon" type="image/png" sizes="48x48" href="img/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="img/favicon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="css/ligeiro.css?v=20260928h">
 </head>
 <body>
 
@@ -26,15 +43,15 @@
 <div class="torrada" id="torrada" role="status" aria-live="polite"></div>
 <div class="ficha-impressao" id="fichaImpressao"></div>
 
-<script src="js/config.js?v=20260928g"></script>
-<script src="js/regras.js?v=20260928g"></script>
-<script src="js/pix.js?v=20260928g"></script>
-<script src="js/dados.js?v=20260928g"></script>
-<script src="js/ui.js?v=20260928g"></script>
-<script src="js/avisos.js?v=20260928g"></script>
-<script src="js/cliente.js?v=20260928g"></script>
+<script src="js/config.js?v=20260928h"></script>
+<script src="js/regras.js?v=20260928h"></script>
+<script src="js/pix.js?v=20260928h"></script>
+<script src="js/dados.js?v=20260928h"></script>
+<script src="js/ui.js?v=20260928h"></script>
+<script src="js/avisos.js?v=20260928h"></script>
+<script src="js/cliente.js?v=20260928h"></script>
 <script>/* telas de venda (#/, #/lojas, #/entrar...): o codigo delas vem junto, na ordem; na loja do cliente, nao */
-(function () { var p = location.hash.replace(/^#\/?/, '').split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/cidades.js?v=20260928g"><\/script><script src="js/parceiro.js?v=20260928g"><\/script>'); })();</script>
-<script src="js/app.js?v=20260928g"></script>
+(function () { var p = location.hash.replace(/^#\/?/, '').split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/cidades.js?v=20260928h"><\/script><script src="js/parceiro.js?v=20260928h"><\/script>'); })();</script>
+<script src="js/app.js?v=20260928h"></script>
 </body>
 </html>

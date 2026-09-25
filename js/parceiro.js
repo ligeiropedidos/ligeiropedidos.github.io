@@ -210,7 +210,7 @@
     var lojaDemo = cfg().lojaDemo || 'juquia/dom-conizza';
     var temWhats = !!cfg().whatsappLigeiro;
     var pr = precos();
-    document.title = 'Ligeiro para sua loja: pedido ligeiro, sem comissão';
+    document.title = 'Ligeiro: sistema de pedidos para delivery, sem comissão';
 
     function botoesChamada(grande) {
       /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */

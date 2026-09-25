@@ -1,7 +1,7 @@
 {
   "name": "Ligeiro",
   "short_name": "Ligeiro",
-  "description": "Peça no delivery da sua cidade. Sem app, sem cadastro, sem comissão.",
+  "description": "Pedido ligeiro, sem comissão: cardápio num link, Pix e cartão pelo site.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,7 +9,9 @@
   "theme_color": "#0F3D2E",
   "lang": "pt-BR",
   "icons": [
-    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icone-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
