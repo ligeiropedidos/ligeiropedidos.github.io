@@ -2756,7 +2756,7 @@
         '<div class="pix-gerando" id="cartaoCarregando"><span class="girando"></span> Abrindo o pagamento seguro…</div>' +
         '<div class="pix-falhou" id="cartaoFalhou" hidden><p id="cartaoFalhouTexto"></p><button class="btn btn-escuro btn-pequeno" id="btnTentarCartao" type="button">Tentar de novo</button></div>' +
         '<div class="cartao-form" id="cartaoForm"></div>' +
-        '<button class="btn btn-contorno btn-largo" id="btnOutraForma" type="button" style="max-width:440px" hidden>Pagar de outro jeito</button>' +
+        '<button class="btn btn-fantasma btn-largo" id="btnOutraForma" type="button" style="max-width:440px" hidden>Pagar de outro jeito</button>' +
         /* o que o cliente precisa ouvir antes de digitar o cartao num site que nao conhece (e e verdade: o site so recebe
            um codigo de uso unico; numero, validade e codigo de seguranca ficam no Mercado Pago) */
         '<ul class="garantias">' +
