@@ -75,7 +75,7 @@
           el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
           el('p', { class: 'forte', text: termo ? 'Ainda não tem loja em "' + busca.value.trim() + '".' : 'Nenhuma cidade cadastrada ainda.' }),
           el('p', { class: 'muted', text: 'Tem uma lanchonete, pizzaria ou marmitaria aí? Ela pode ser a primeira.' }),
-          el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Cadastrar minha loja' }),
+          el('a', { class: 'btn btn-principal', href: '#/', text: 'Cadastrar minha loja' }),
         ]));
         return;
       }
@@ -125,12 +125,12 @@
           el('span', { text: precoUma + ' por mês, sem comissão. ' + dias + ' dias grátis para testar.' }),
         ]),
         el('div', { class: 'chamada-acoes' }, [
-          el('a', { class: 'btn btn-principal', href: '#/lojas', text: 'Conhecer o Ligeiro' }),
+          el('a', { class: 'btn btn-principal', href: '#/', text: 'Conhecer o Ligeiro' }),
           cfg.whatsappLigeiro ? el('a', { class: 'chamada-whats', href: R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Quero colocar meu estabelecimento no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'ou fale no WhatsApp' }) : null,
         ]),
       ]));
     }
-    filhos.push(el('div', { class: 'ligeiro' }, [el('a', { href: '#/lojas', text: 'Ligeiro: pedido ligeiro, sem comissão' })]));
+    filhos.push(el('div', { class: 'ligeiro' }, [el('a', { href: '#/', text: 'Ligeiro: pedido ligeiro, sem comissão' })]));
     return el('footer', { class: 'rodape' }, filhos);
   }
 
@@ -176,7 +176,7 @@
           el('span', { class: 'cidade-acao', text: atual ? 'Você está aqui' : 'Ver lojas' }),
         ]);
       }));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', style: { margin: '6px 0 0' } }, ['Sua cidade não está aqui? ', el('a', { href: '#/lojas', onclick: function () { UI.fecharModal(); }, text: 'Leve o Ligeiro para ela' }), '.']));
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', style: { margin: '6px 0 0' } }, ['Sua cidade não está aqui? ', el('a', { href: '#/', onclick: function () { UI.fecharModal(); }, text: 'Leve o Ligeiro para ela' }), '.']));
       UI.abrirModal({ titulo: 'Em que cidade você está?', corpo: corpo, rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Fechar', onclick: UI.fecharModal })] });
     }
 
@@ -2969,7 +2969,7 @@
         '<div class="rodape-legal" id="legalLoja"></div>' +
         '<div class="contatos" id="contatosLoja"></div>' +
         '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;justify-content:center;width:100%"></button>' +
-        '<div class="ligeiro"><a href="#/lojas">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
+        '<div class="ligeiro"><a href="#/">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
       '</footer>' +
     '</section>' +
 

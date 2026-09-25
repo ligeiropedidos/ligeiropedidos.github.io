@@ -10,7 +10,7 @@
  *   #/cozinha/dom-conizza   tela da cozinha (so o que tem pra fazer)
  *   #/entrega/dom-conizza   tela do entregador (endereco, mapa, o que cobrar)
  *   #/admin                 cadastro de estabelecimentos (Ligeiro)
- *   #/lojas                 pagina de vendas pro dono de lanchonete
+ *   #/lojas                 o mesmo que #/ (a pagina de vendas e o inicio): o endereco vira so o dominio
  *   #/comecar               o dono cria a propria loja
  *
  * Com o worker do site na frente (ferramentas/worker-site.js), o mesmo endereco sem o #: /juquia/dom-conizza. O worker
@@ -168,7 +168,8 @@
     if (p.length === 0) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.abrir(raiz); return; }
     if (p[0] === 'cidades' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = C.hub(raiz); return; }
     if (p[0] === 'comecar' && p.length <= 3) { limparTelaAtual = window.LigeiroComecar.abrir(raiz, { plano: p[1], tipo: p[2] }); return; }
-    if (p[0] === 'lojas' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.abrir(raiz); return; }
+    /* link antigo para /lojas: a pagina de vendas e o proprio inicio, entao o endereco fica so ligeiropedidos.com.br */
+    if (p[0] === 'lojas' && p.length === 1) { substituir(''); raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.abrir(raiz); return; }
     if (p[0] === 'assinar' && p.length <= 3) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.assinar(raiz, p[1], p[2]); return; }
     if (p[0] === 'entrar' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.entrar(raiz); return; }
     if (p[0] === 'conta' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroConta.abrir(raiz); return; }

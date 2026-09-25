@@ -48,7 +48,7 @@
           el('p', { class: 'forte', text: 'Esta é a senha da equipe da loja.' }),
           el('p', { class: 'muted', text: 'Ela abre só a fila de pedidos. A conta, a assinatura e a loja ficam com o dono.' }),
           el('a', { class: 'btn btn-principal', href: '#/painel/' + equipe, text: 'Abrir a fila de pedidos' }),
-          el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
+          el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir(''); }); } }),
         ]));
         return;
       }
@@ -61,7 +61,7 @@
           el('h1', { class: 'conta-ola' }, [el('span', { text: 'Olá, ' + ((u.nome || '').split(' ')[0] || 'dono') }), seloTopo]),
           el('p', { class: 'muted', text: u.email + (D.modoDemo ? ' · conta de demonstração, só neste aparelho' : '') }),
         ]),
-        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
+        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir(''); }); } }),
       ]));
       /* so a conta do Ligeiro: atalho pra Central (o #/admin confere o Google de novo, ninguem mais entra) */
       if (R.ehDoLigeiro({ email: u.email })) corpo.appendChild(el('a', { class: 'btn btn-escuro conta-painel conta-central', href: '#/admin' }, [

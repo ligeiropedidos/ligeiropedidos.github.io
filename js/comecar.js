@@ -104,7 +104,7 @@
     var P = window.LigeiroParceiro || {};
     raiz.appendChild(telaAviso('Vagas cheias por enquanto', 'Abrimos vagas aos poucos para o Ligeiro continuar rápido para quem já vende com a gente. Entre na lista de espera: assim que abrir vaga, chamamos você no WhatsApp, na ordem da lista.', [
       el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { if (P.abrirContato) P.abrirContato('lista-espera'); } }),
-      el('a', { class: 'btn btn-fantasma btn-largo', href: '#/lojas', text: 'Voltar' }),
+      el('a', { class: 'btn btn-fantasma btn-largo', href: '#/', text: 'Voltar' }),
     ]));
   }
 
@@ -175,7 +175,7 @@
 
     var criando = false, criada = null;
     /* depois de criada, voltar leva ao painel (e nao ao ultimo passo); enquanto cria, espera */
-    function voltar() { if (criada) { window.LigeiroApp.ir('painel/' + criada.slug); return; } if (criando) return; if (atual > 0) { atual--; desenhar(); } else window.LigeiroApp.ir('lojas'); }
+    function voltar() { if (criada) { window.LigeiroApp.ir('painel/' + criada.slug); return; } if (criando) return; if (atual > 0) { atual--; desenhar(); } else window.LigeiroApp.ir(''); }
     function avancar() { erro.hidden = true; if (atual < PASSOS.length - 1) { atual++; desenhar(); } else criar(); }
     function falhar(msg) { erro.hidden = false; erro.textContent = msg; UI.soar('erro'); if (botao) { botao.disabled = false; botao.textContent = textoBotao(); } }
     var botao = null;

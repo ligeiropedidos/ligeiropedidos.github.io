@@ -1,7 +1,7 @@
 /*
  * Ligeiro - paginas de venda e de assinatura.
  *
- *   #/lojas        landing pra dono de lanchonete (o que o Mateus manda no WhatsApp)
+ *   #/ (e #/lojas)  landing pra dono de lanchonete (o que o Mateus manda no WhatsApp)
  *   #/assinar      escolher o plano (mensal ou anual) e seguir pro cadastro
  *   #/entrar       achar o painel da propria loja
  *   #/termos       termos de uso
@@ -71,7 +71,7 @@
     var assinar = el('a', { class: 'btn btn-principal btn-pequeno btn-assinar', href: '#/comecar' }, [el('span', { class: 'rot-longo', text: 'Começar grátis' }), el('span', { class: 'rot-curto', text: 'Começar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
     var barra = el('div', { class: 'barra-topo' }, [
-      el('a', { class: 'marca', href: '#/lojas' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
+      el('a', { class: 'marca', href: '#/' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
       acoes,
     ]);
     /* logado: "Entrar" vira o botao da conta (bolinha com a inicial + "Minha conta") e "Assinar agora" sai (o plano mora em Minha conta) */
@@ -613,7 +613,7 @@
     var resumo = el('div', { class: 'cartao destaque resumo-assinatura' });
     var continuar = el('a', { class: 'btn btn-principal btn-gigante btn-largo', href: '#/comecar/' + plano.id + '/' + tipo, text: 'Criar minha loja' });
     /* so a duvida: o "Entrar" ja esta no topo, e quem tem conta e reconhecido no login de "Criar minha loja" */
-    var linhaAjuda = el('p', { class: 'muted pequeno centro' }, ['Dúvida? ', el('a', { href: '#/lojas', text: 'Veja como funciona' }), '.']);
+    var linhaAjuda = el('p', { class: 'muted pequeno centro' }, ['Dúvida? ', el('a', { href: '#/', text: 'Veja como funciona' }), '.']);
     var porExtenso = function (t) { return t === 'anual' ? 'anual' : 'mensal'; };
 
     function desenhar() {
