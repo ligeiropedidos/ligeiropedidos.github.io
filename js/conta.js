@@ -40,13 +40,13 @@
       if (!u) { window.LigeiroApp.ir('entrar'); return; }
       UI.limpar(corpo);
       /* conta da equipe (senha da cozinha e do entregador): nao tem conta, assinatura nem loja para criar */
-      var equipe = /^equipe-(.+)@equipe\.ligeiro\.app\.br$/i.exec(String(u.email || ''));
+      var equipe = D.lojaDaEquipe(u.email);
       if (equipe) {
         corpo.appendChild(el('div', { class: 'vazio hub-vazio' }, [
           el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
           el('p', { class: 'forte', text: 'Esta é a senha da equipe da loja.' }),
           el('p', { class: 'muted', text: 'Ela abre só a fila de pedidos. A conta, a assinatura e as lojas ficam com o dono.' }),
-          el('a', { class: 'btn btn-principal', href: '#/painel/' + equipe[1], text: 'Abrir a fila de pedidos' }),
+          el('a', { class: 'btn btn-principal', href: '#/painel/' + equipe, text: 'Abrir a fila de pedidos' }),
           el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Sair', onclick: function () { store.sair().then(function () { window.LigeiroApp.ir('lojas'); }); } }),
         ]));
         return;

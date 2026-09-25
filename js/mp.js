@@ -152,7 +152,7 @@
           payment_method_id: 'pix',
           external_reference: p.id,
           date_of_expiration: expiracaoBrasilia(30),
-          payer: { email: 'cliente' + p.senha + '@' + (loja.slug || 'loja') + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
+          payer: { email: 'cliente' + p.senha + '@' + (loja.slug || 'loja') + '.ligeiropedidos.com.br', first_name: nome.primeiro, last_name: nome.sobrenome },
         };
         promessa = chamar(cfg.proxyMercadoPago, { method: 'POST', body: corpo, headers: { 'X-Idempotency-Key': p.id } }, estado.token).then(function (pg) {
           var dadosPix = (pg.point_of_interaction && pg.point_of_interaction.transaction_data) || {};

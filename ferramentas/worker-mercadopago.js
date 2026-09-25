@@ -64,10 +64,17 @@
  * Limites do plano gratis: Workers 100 mil chamadas por dia; KV 100 mil leituras e 1 mil gravacoes por dia, 1 GB.
  * Uma visita ao cardapio usa 1 a 2 chamadas; um pedido com Pix, umas 5 a 15.
  */
-/* o primeiro e para onde volta o "Conectar Mercado Pago" (o GitHub manda o github.io para o dominio proprio sozinho) */
-const ORIGENS = ['https://ligeiropedidos.github.io', 'https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiro.app.br', 'http://localhost:8765'];
+/* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
+   guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
+const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
+/* e-mails de mentira (login da equipe e pagador do Mercado Pago) ficam no nosso dominio: num dominio de outro, quem o
+   registrasse receberia o "esqueci a senha" da equipe e os recibos. O ligeiro.app.br (que nao e nosso) so vale na troca:
+   o login e renomeado quando o dono salva a senha da equipe de novo */
+const EMAIL_EQUIPE = /^equipe-([a-z0-9-]+)@equipe\.(ligeiropedidos\.com\.br|ligeiro\.app\.br)$/i;
+const emailEquipe = (slug) => 'equipe-' + slug + '@equipe.ligeiropedidos.com.br';
+const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + '.ligeiropedidos.com.br';
 /* a copia da loja confere o banco de novo depois disso (so se alguem pedir); o painel atualiza na hora ao salvar */
 /* A copia da loja confere o banco a cada 6 h e a vitrine a cada 3 h. Toda mudanca de verdade ja chega na hora: o
    painel avisa ao salvar (/publicar), o Asaas apaga a copia quando o pagamento cai e o Conectar do Mercado Pago
@@ -1801,7 +1808,7 @@ export default {
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
         const l = await fb.get('lojas/' + loja);
         if (!l || String(l.donoEmail || '').toLowerCase() !== quem.toLowerCase()) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
-        await definirUsuarioEquipe(fb, 'equipe-' + loja + '@equipe.ligeiro.app.br', 'LIG-' + senha, loja);
+        await definirUsuarioEquipe(fb, loja, 'LIG-' + senha);
         await fb.merge('lojas/' + loja, { senhaEquipeEm: new Date().toISOString(), atualizadoEm: new Date().toISOString() });
         return json({ ok: true });
       }
@@ -1961,7 +1968,7 @@ export default {
           external_reference: referencia,
           processing_mode: 'automatic',
           transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
-          payer: { email: 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br', first_name: nome.primeiro, last_name: nome.sobrenome },
+          payer: { email: emailPagador(p.senha, loja), first_name: nome.primeiro, last_name: nome.sobrenome },
         };
         const caminhoPix = 'lojas/' + loja + '/pedidos/' + pedido;
         const codigoDa = (o) => { const pg = (o && o.transactions && o.transactions.payments && o.transactions.payments[0]) || {}; return { pagto: pg, qr: (pg.payment_method && pg.payment_method.qr_code) || '' }; };
@@ -2061,7 +2068,7 @@ export default {
         const valor = (p.total / 100).toFixed(2);
         const inteira = loja + '__' + pedido;
         const referencia = inteira.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-        const email = /^[^\s@]{1,64}@[^\s@]{1,120}\.[a-z]{2,}$/i.test(String(c.email || '')) ? String(c.email) : 'cliente' + (p.senha || '0') + '@' + loja + '.ligeiro.app.br';
+        const email = /^[^\s@]{1,64}@[^\s@]{1,120}\.[a-z]{2,}$/i.test(String(c.email || '')) ? String(c.email) : emailPagador(p.senha, loja);
         const pagador = { email: email, first_name: nome.primeiro, last_name: nome.sobrenome };
         const documento = String(c.documento || '').replace(/\D/g, '');
         if (documento.length === 11 || documento.length === 14) pagador.identification = { type: documento.length === 11 ? 'CPF' : 'CNPJ', number: documento };
@@ -2605,7 +2612,8 @@ async function quemChamou(env, request) {
 /* dono (pela copia da borda, sem ler o banco), equipe da loja ou o admin */
 async function ehDaLoja(env, slug, email) {
   if (!email) return false;
-  if (email === ADMIN || email === 'equipe-' + slug + '@equipe.ligeiro.app.br') return true;
+  const equipe = EMAIL_EQUIPE.exec(email);
+  if (email === ADMIN || (equipe && equipe[1].toLowerCase() === slug)) return true;
   const meta = await etiquetaDaLoja(env, slug);
   let dono = meta ? String(meta.dono || '') : '';
   if (!dono) { const item = await atualizarLoja(env, slug); dono = item.existe ? item.meta.dono : ''; }
@@ -2963,7 +2971,7 @@ async function contaDoToken(fb, idToken) {
 /* a marca de dono vale 3 dias; o painel renova quando falta menos de 1 (1 leitura no banco a cada ~2 dias) */
 const MARCA_VALE = 3 * 86400;
 async function gravarMarcaDono(fb, email, conta, lojas) {
-  if (/@equipe\.ligeiro\.app\.br$/.test(email)) return false;
+  if (EMAIL_EQUIPE.test(email)) return false;
   if (!conta) {
     const r = await fetch('https://identitytoolkit.googleapis.com/v1/projects/' + fb.projeto + '/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email: [email] }) });
     const u = ((r.ok ? await r.json().catch(() => ({})) : {}).users || [])[0];
@@ -2982,15 +2990,20 @@ async function gravarMarcaDono(fb, email, conta, lojas) {
   if (!r2.ok) throw new Error('marca do dono ' + r2.status);
   return true;
 }
-async function definirUsuarioEquipe(fb, email, senha, slug) {
+async function definirUsuarioEquipe(fb, slug, senha) {
   const base = 'https://identitytoolkit.googleapis.com/v1/projects/' + fb.projeto;
+  const email = emailEquipe(slug);
   /* marca da equipe no login: as regras do banco reconhecem a equipe por ela (quem se cadastra sozinho nao consegue) */
   const marca = JSON.stringify({ equipe: slug });
-  const r = await fetch(base + '/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email: [email] }) });
-  const j = r.ok ? await r.json().catch(() => ({})) : {};
-  const u = (j.users || [])[0];
+  const achar = async (quem) => {
+    const r = await fetch(base + '/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ email: [quem] }) });
+    const j = r.ok ? await r.json().catch(() => ({})) : {};
+    return (j.users || [])[0];
+  };
+  /* login feito antes da troca de dominio: o mesmo usuario passa para o e-mail novo (id e marca ficam) */
+  const u = (await achar(email)) || (await achar('equipe-' + slug + '@equipe.ligeiro.app.br'));
   if (u && u.localId) {
-    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, password: senha, emailVerified: true, customAttributes: marca }) }); /* conferido: as regras do banco exigem */
+    const r2 = await fetch(base + '/accounts:update', { method: 'POST', headers: fb.cab, body: JSON.stringify({ localId: u.localId, email, password: senha, emailVerified: true, customAttributes: marca }) }); /* conferido: as regras do banco exigem */
     if (!r2.ok) throw new Error('não deu pra trocar a senha (' + r2.status + ')');
     return;
   }

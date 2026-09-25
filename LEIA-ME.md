@@ -402,6 +402,11 @@ Tema exclusivo de loja: as regras e o passo a passo antes de publicar estão em 
    certificado é da Let's Encrypt (o GitHub renova). O endereço antigo manda para o novo sozinho, e o `sw.js` segue
    essa mudança e se desliga do endereço velho. Também foram atualizados: `ORIGENS` do mensageiro, "Domínios
    autorizados" do Firebase Authentication e o final dos comerciais.
+   Os e-mails de mentira também foram para o domínio nosso (25/09/2026): login da equipe
+   `equipe-<loja>@equipe.ligeiropedidos.com.br` e pagador do Mercado Pago `cliente<senha>@<loja>.ligeiropedidos.com.br`.
+   Antes eram no `ligeiro.app.br`, que não é nosso: quem o registrasse receberia o "esqueci a senha" da equipe. O login
+   velho continua entrando (o site tenta o novo e depois o velho) até o dono salvar a senha da equipe de novo, quando o
+   mensageiro troca o e-mail do mesmo usuário.
 4. Ícones e prévia do link (24/09/2026): o mascote sem fundo nos ícones da aba (`img/favicon-48/96/192.png`) e
    no ícone `any` do manifesto; com fundo branco no iPhone (`apple-touch-icon.png`, 180) e no `maskable` do
    Android (`icone-maskable-*.png`, mascote em 70% do quadro, que o sistema recorta em círculo). A prévia do

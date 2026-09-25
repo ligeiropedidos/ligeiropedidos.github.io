@@ -46,12 +46,14 @@ const ordens = new Map();
 const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiro.app.br' };
+const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
 /* marca de cada login (customAttributes), por e-mail */
 const marcas = {};
+/* o que o mensageiro gravou em cada login (accounts:update) */
+const contasAtualizadas = [];
 
 globalThis.fetch = async (url, op) => {
   const o = op || {};
@@ -66,6 +68,7 @@ globalThis.fetch = async (url, op) => {
   }
   if (url.indexOf('accounts:update') >= 0) {
     const corpo = JSON.parse(o.body || '{}');
+    contasAtualizadas.push(corpo);
     if (corpo.customAttributes != null) marcas[String(corpo.localId).replace(/^id-/, '')] = corpo.customAttributes;
     return resposta({ localId: corpo.localId });
   }
@@ -432,7 +435,7 @@ console.log('Cartao de credito');
   ok(j.status === 'aprovado' && pc.status === 'pago' && pc.pagamentoStatus === 'pago' && pc.confirmadoPor === 'mercadopago', 'cartao aprovado: pedido pago na hora');
   const gastoCartao = { leituras: conta.leituras, gravacoes: conta.gravacoes };
   ok(pc.mp && /^ORD/.test(pc.mp.id) && pc.cobrandoEm === '' && gastoCartao.gravacoes === 2 && gastoCartao.leituras <= 2, 'aprovado na hora: a trava e o "pago" com o id (2 gravacoes, ' + gastoCartao.leituras + ' leituras)');
-  ok(cartoes[1].corpo.total_amount === (precoP1() / 100).toFixed(2) && cartoes[1].corpo.payer.email === 'cliente9@dom-conizza.ligeiro.app.br', 'cobra o valor do pedido (nao o que o site mandou)');
+  ok(cartoes[1].corpo.total_amount === (precoP1() / 100).toFixed(2) && cartoes[1].corpo.payer.email === 'cliente9@dom-conizza.ligeiropedidos.com.br', 'cobra o valor do pedido (nao o que o site mandou)');
   /* toque duplo depois de pago: nao cobra de novo */
   r = await chamar(w, '/cartao', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC, token: 'APROVA0000000000', metodo: 'master' } });
   ok((await r.json()).status === 'aprovado' && cartoes.length === 2, 'pedido ja pago: responde aprovado sem cobrar de novo');
@@ -505,6 +508,10 @@ console.log('Pentest: ataques que tem que falhar');
   ok(r.status === 400, '/equipe com loja inventada: 400');
   r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '123456' }, headers: { Authorization: 'Bearer tok-dono' } });
   ok(r.status === 400, 'senha da equipe 123456 (sequencia): recusada');
+  const contasAntes = contasAtualizadas.length;
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '482913' }, headers: { Authorization: 'Bearer tok-dono' } });
+  const contaEquipe = contasAtualizadas.slice(contasAntes).filter((c) => c.password)[0] || {};
+  ok(r.status === 200 && contaEquipe.email === 'equipe-dom-conizza@equipe.ligeiropedidos.com.br' && contaEquipe.password === 'LIG-482913' && JSON.parse(contaEquipe.customAttributes || '{}').equipe === 'dom-conizza', 'senha da equipe salva: o login fica no dominio do Ligeiro (nao no ligeiro.app.br), com a marca da loja');
   /* duas cobrancas do mesmo pedido: a segunda espera */
   const DUPLO = 'duploduploduplodup01';
   db.set('lojas/dom-conizza/pedidos/' + DUPLO, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 43, cliente: { nome: 'Dani' }, cobrandoEm: new Date().toISOString() }));
@@ -607,6 +614,10 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 401, 'pedido "do balcao" sem o login da equipe: 401');
   r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe' } }); j = await r.json();
   ok(r.status === 200 && j.pedido.origem === 'balcao', 'com o login da equipe, o balcao pede sem WhatsApp');
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha' } }); j = await r.json();
+  ok(r.status === 200 && j.pedido.origem === 'balcao', 'login da equipe ainda no e-mail velho (antes de o dono salvar a senha de novo): continua pedindo');
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-outra' } });
+  ok(r.status === 401 || r.status === 403, 'equipe de outra loja nao pede pelo balcao desta');
   /* o aviso no celular so com endereco de servico de aviso de verdade */
   r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dados({ telefone: '13944443333' }), aviso: { e: 'https://site-do-golpe.example/x', k: 'a'.repeat(87), a: 'b'.repeat(22), u: '#/juquia/dom-conizza/pedido/' } } }); j = await r.json();
   ok(r.status === 200 && !db.get('lojas/dom-conizza/pedidos/' + j.pedido.id).aviso, 'aviso para endereco qualquer: ignorado');

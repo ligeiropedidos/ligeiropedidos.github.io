@@ -62,7 +62,7 @@
       var qual = D.modoDemo || !store.usuarioAtual ? Promise.resolve(null) : store.usuarioAtual().catch(function () { return null; });
       qual.then(function (u) {
         if (!vivo) return;
-        estado.equipe = !!(u && /@equipe\.ligeiro\.app\.br$/i.test(String(u.email || '')));
+        estado.equipe = !!(u && D.lojaDaEquipe(u.email));
         if (estado.equipe) estado.aba = 'pedidos';
         montarPainel();
       });

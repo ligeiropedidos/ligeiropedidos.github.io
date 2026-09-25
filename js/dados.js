@@ -1733,15 +1733,26 @@
   };
 
   /* No modo de verdade, o painel entra com e-mail do dono + senha (Firebase Auth). */
-  /* E-mail do usuario de equipe da loja (criado pelo mensageiro quando o dono define a senha da equipe). */
-  function emailEquipe(slug) { return 'equipe-' + slug + '@equipe.ligeiro.app.br'; }
+  /* E-mail do usuario de equipe da loja (criado pelo mensageiro quando o dono define a senha da equipe). Fica no nosso
+     dominio; o velho (ligeiro.app.br, que nao e nosso) so vale ate o dono salvar a senha da equipe de novo */
+  var EMAIL_EQUIPE = /^equipe-([a-z0-9-]+)@equipe\.(ligeiropedidos\.com\.br|ligeiro\.app\.br)$/i;
+  function emailEquipe(slug) { return 'equipe-' + slug + '@equipe.ligeiropedidos.com.br'; }
+  /* a loja de um login de equipe ('' quando nao e) */
+  function lojaDaEquipe(email) { var m = EMAIL_EQUIPE.exec(String(email || '')); return m ? m[1].toLowerCase() : ''; }
+  function entrarEquipe(eu, slug, pin) {
+    return eu.auth.signInWithEmailAndPassword(emailEquipe(slug), 'LIG-' + pin).catch(function (e) {
+      var c = (e && e.code) || '';
+      if (c === 'auth/network-request-failed' || c === 'auth/too-many-requests') throw e;
+      return eu.auth.signInWithEmailAndPassword('equipe-' + slug + '@equipe.ligeiro.app.br', 'LIG-' + pin);
+    });
+  }
   FirebaseStore.prototype.entrarPainel = function (lojaSlug, senha) {
     var eu = this;
     var pin = String(senha || '').trim();
     /* 1) senha da equipe (sem ler a loja); 2) dono com e-mail e senha (quem criou a conta sem Google): ai sim le a
        loja, para saber o e-mail do dono */
     return this._pronto.then(function () {
-      return eu.auth.signInWithEmailAndPassword(emailEquipe(lojaSlug), 'LIG-' + pin).then(function () { return true; });
+      return entrarEquipe(eu, lojaSlug, pin).then(function () { return true; });
     }).catch(function (e1) {
       /* sem internet ou tentativas demais: dizer "Senha errada." fazia a equipe achar que o dono trocou a senha */
       var c1 = (e1 && e1.code) || '';
@@ -1890,7 +1901,7 @@
     var eu = this;
     return this.usuarioAtual().then(function (u) {
       /* e-mail nao conferido: as regras do banco recusam o dono, entao nao abre o painel sem senha */
-      if (!u || u.emailVerified !== true || /@equipe\.ligeiro\.app\.br$/.test(u.email)) return false;
+      if (!u || u.emailVerified !== true || lojaDaEquipe(u.email)) return false;
       var admin = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
       if (admin && u.email === admin) return true;
       if (loja.donoEmail) return u.email === String(loja.donoEmail).toLowerCase();
@@ -1969,5 +1980,6 @@
     clonar: clonar,
     modoDemo: store.tipo === 'demo',
     navegadorDeApp: navegadorDeApp,
+    lojaDaEquipe: lojaDaEquipe,
   };
 })();

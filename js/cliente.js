@@ -1682,7 +1682,7 @@
     function pedirCodigoPix(pedido) {
       var cfg = window.LIGEIRO_CONFIG || {};
       if (D.modoDemo) {
-        var codigo = Pix.gerar({ chave: 'demo@ligeiro.app.br', nome: estado.loja.nome, cidade: estado.loja.cidade || 'Juquia', valor: pedido.total, txid: R.txidPix(pedido), descricao: 'Pedido ' + pedido.senha });
+        var codigo = Pix.gerar({ chave: 'demo@ligeiropedidos.com.br', nome: estado.loja.nome, cidade: estado.loja.cidade || 'Juquia', valor: pedido.total, txid: R.txidPix(pedido), descricao: 'Pedido ' + pedido.senha });
         return store.atualizarPedido(estado.loja.slug, pedido.id, { mp: { id: 'SIM-' + pedido.id, criadoEm: new Date().toISOString(), simulado: true }, pixCodigo: codigo }).then(function () {
           /* demonstracao: "cai" em 20 segundos */
           setTimeout(function () {
