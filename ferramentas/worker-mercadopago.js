@@ -2626,6 +2626,13 @@ async function atualizarLoja(env, slug) {
      abrir e mudar, ela ainda esta no documento, mas a copia publica ja nao mostra) */
   publica.temCupom = doc.temCupom === true || (Array.isArray(doc.cupons) && doc.cupons.some((c) => c && c.ativo !== false));
   delete publica.cupons;
+  /* o video da Loja do Ligeiro que o dono escolheu (o ligeiro-asaas guarda em srv:video:<loja>): vem junto da loja, sem
+     leitura a mais por visita. So o que o KV diz vale (nada que alguem grave no documento da loja) */
+  delete publica.video;
+  if (env.CARDAPIO) {
+    const v = await env.CARDAPIO.get('srv:video:' + slug, 'json').catch(() => null);
+    if (v && /^[a-z0-9]{20}$/.test(String(v.id || ''))) publica.video = { id: v.id, titulo: String(v.titulo || '').slice(0, 60), dur: Math.max(0, Math.min(60, Math.round(Number(v.dur) || 0))), capa: v.capa === true };
+  }
   const meta = {
     em: Date.now(),
     dono: String(doc.donoEmail || '').toLowerCase().slice(0, 200),

@@ -103,7 +103,36 @@ window.LIGEIRO_CONFIG = {
   /* Loja que a pagina de vendas mostra como exemplo ("Ver uma loja de verdade"). */
   lojaDemo: 'juquia/dom-conizza',
   /* Servico extra: loja com design exclusivo (igual ao da Dom Conizza). Preco "a partir de", em centavos, pago uma vez. */
-  lojaCustomizada: { aPartirDe: 39000 },
+  lojaCustomizada: { aPartirDe: 39900 }, /* o mesmo preco da Loja do Ligeiro (lojaLigeiro.servicos, design) */
+
+  /* Loja do Ligeiro: servicos que o Ligeiro vende para as lojas (no painel, aba Minha loja). Quem cobra e confere o preco
+     e o mensageiro do Asaas (SERVICOS e TERMOS_SERVICOS no worker-asaas.js): mudar la e aqui juntos (um teste confere).
+     ligada: false = so o admin ve (para testar depois de colar o mensageiro); true = todos os donos veem.
+     videoExplicativo: o id do video que explica a loja (entregue pela Central como um video da loja oficial); vazio = so o banner. */
+  lojaLigeiro: {
+    ligada: false,
+    termos: '2026-09-26',
+    videoExplicativo: '',
+    atendimento: 'Atendimento de segunda a sexta, das 9h às 18h',
+    servicos: [
+      { id: 'fotos', nome: 'Fotos do cardápio', icone: 'camera', valor: 6900, dias: 3, ajustes: 1, sub: 'até 10 fotos',
+        resumo: 'A gente melhora as fotos que você já tem: fundo limpo, luz boa e cor que dá vontade de pedir.',
+        inclui: ['Até 10 fotos do seu cardápio melhoradas', 'Fundo limpo e padronizado, luz e cor corrigidas', 'No tamanho certo para o cardápio do Ligeiro', 'Um ajuste depois da entrega'],
+        precisa: ['As fotos que você já tem, tiradas no celular mesmo', 'O nome do item de cada foto'] },
+      { id: 'logo', nome: 'Logo', icone: 'pena', valor: 11900, dias: 5, ajustes: 2, sub: 'até 2 propostas',
+        resumo: 'Uma logo que fica bonita no site, na sacola e na prévia do link no WhatsApp.',
+        inclui: ['Até 2 propostas para você escolher', 'Dois ajustes na proposta escolhida', 'Arquivos para o site, o Instagram e a impressão', 'Já aplicada no site da sua loja'],
+        precisa: ['O nome da loja do jeito que quer escrito', 'Cores e estilos de que você gosta (ou não gosta)', 'A logo antiga, se tiver'] },
+      { id: 'video', nome: 'Vídeo promocional', icone: 'video', valor: 14900, dias: 5, ajustes: 0, sub: 'até 20 segundos',
+        resumo: 'Vídeo vertical para o Status, o Instagram e o site da sua loja, com botão de play.',
+        inclui: ['Vídeo vertical de até 20 segundos, no tamanho do Status, do Reels e do TikTok', 'Texto na tela com os produtos e os preços que você escolher', 'Música liberada para postar', 'O vídeo entra no site da sua loja, com botão de play', 'Você aprova o roteiro antes da produção'],
+        precisa: ['Fotos dos produtos, ou usamos as do seu cardápio', 'Sua logo, se tiver', 'O que destacar: uma promoção, um combo ou o horário'] },
+      { id: 'design', nome: 'Design exclusivo', icone: 'paleta', valor: 39900, dias: 10, ajustes: 2, sub: 'logo inclusa', premium: true,
+        resumo: 'O site e o painel da sua loja com as suas cores, letras e desenhos.',
+        inclui: ['Tema próprio: cores, letras e botões da sua marca', 'Abertura do site com a sua logo grande', 'Vale para o site e para o painel', 'Logo inclusa, se ainda não tiver uma', 'Dois ajustes'],
+        precisa: ['Sua logo, ou o que imagina para ela', 'Cores e sites de que você gosta'] },
+    ],
+  },
 
   /* Lojas com tema exclusivo (css/temas/<tema>.css). So o Ligeiro mexe aqui; nenhuma loja ganha isso pelo painel.
      oficial: true = loja do proprio Ligeiro (ganha o selo "Loja oficial"). Cliente que contratou o design exclusivo

@@ -22,7 +22,7 @@
 const SITE = 'https://ligeiropedidos.com.br';
 const MP = 'https://ligeiro-mp.ligeiro-pedidos.workers.dev';
 /* primeiro pedaco do endereco que e tela do site (nao cidade) */
-const TELAS = ['painel', 'cozinha', 'entrega', 'balcao', 'admin', 'conta', 'comecar', 'assinar', 'lojas', 'entrar', 'termos', 'privacidade', 'cidades'];
+const TELAS = ['painel', 'cozinha', 'entrega', 'balcao', 'admin', 'conta', 'comecar', 'assinar', 'lojas', 'entrar', 'termos', 'privacidade', 'cidades', 'servicos'];
 /* robos que montam previa de link ou indexam a pagina (eles nao rodam o site: leem so o html) */
 const ROBO = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|Slackbot|Discordbot|LinkedInBot|Googlebot|Google-InspectionTool|bingbot|Pinterest|Applebot|SkypeUriPreview|redditbot|Embedly|vkShare|Iframely|DuckDuckBot|YandexBot/i;
 const PEDACO = /^[a-z0-9-]{1,60}$/;

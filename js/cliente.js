@@ -780,6 +780,40 @@
 
     /* ---------- tela inicial ---------- */
 
+    /* O video da Loja do Ligeiro que o dono pos no site: capa com play; toca em tela cheia com o "Pedir agora" embaixo.
+       O arquivo so baixa quando a pessoa toca (a capa e um JPG pequeno) */
+    function desenharVideoDaLoja(l) {
+      var caixa = $('videoLoja');
+      if (!caixa) return;
+      UI.limpar(caixa);
+      var v = l && l.video;
+      var ok = v && /^[a-z0-9]{20}$/.test(String(v.id || '')) && !balcao;
+      caixa.hidden = !ok;
+      if (!ok) return;
+      var base = String(((window.LIGEIRO_CONFIG || {}).cobranca || {}).mensageiro || '').replace(/\/+$/, '');
+      var url = function (q) { return D.modoDemo ? (q === 'v' ? 'midia/comercial-ligeiro.mp4' : 'midia/comercial-ligeiro.jpg') : base + '/servicos/' + q + '/' + v.id; };
+      var dur = Number(v.dur) || 0;
+      caixa.appendChild(el('div', { class: 'video-loja-titulo' }, [el('b', { text: 'Vídeo da loja' }), dur ? el('span', { text: dur + ' segundos' }) : null]));
+      caixa.appendChild(el('button', { class: 'video-loja-capa', type: 'button', 'aria-label': 'Assistir o vídeo ' + (v.titulo || 'da loja'), onclick: function () { tocarVideoDaLoja(url('v'), v.titulo); } }, [
+        v.capa || D.modoDemo ? el('img', { src: url('c'), alt: '', loading: 'lazy' }) : null,
+        el('span', { class: 'video-loja-sombra' }),
+        v.titulo ? el('span', { class: 'video-loja-nome', text: v.titulo }) : null,
+        el('span', { class: 'video-loja-play' }, [el('span', { class: 'video-loja-bolinha' }, [UI.iconeLinha('tocar')]), 'Assistir']),
+      ]));
+    }
+    function tocarVideoDaLoja(src, titulo) {
+      var fundo = el('div', { class: 'srv-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Vídeo da loja' });
+      var video = el('video', { src: src, autoplay: true, playsinline: true, controls: true, preload: 'auto' });
+      var tecla = function (e) { if (e.key === 'Escape') fechar(); };
+      function fechar() { try { video.pause(); } catch (_) { /* ja parou */ } if (fundo.parentNode) fundo.parentNode.removeChild(fundo); document.removeEventListener('keydown', tecla); UI.travarRolagem('video', false); }
+      fundo.appendChild(video);
+      fundo.appendChild(el('button', { class: 'srv-player-fechar', type: 'button', 'aria-label': 'Fechar o vídeo', onclick: fechar }, [UI.iconeLinha('fechar')]));
+      fundo.appendChild(el('div', { class: 'srv-player-rodape' }, [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'PEDIR AGORA', onclick: function () { fechar(); var b = $('btnComecar'); if (b && !b.disabled) b.click(); } })]));
+      document.body.appendChild(fundo);
+      document.addEventListener('keydown', tecla);
+      UI.travarRolagem('video', true);
+    }
+
     function montarInicio() {
       var l = estado.loja;
       document.title = l.nome + ' · Ligeiro';
@@ -859,6 +893,8 @@
       como.appendChild(document.createTextNode(linhas[0]));
       como.appendChild(el('br'));
       como.appendChild(document.createTextNode(linhas[1]));
+
+      desenharVideoDaLoja(l);
 
       /* destaques: os dois primeiros produtos ativos que nao sao bebida */
       var trilho = $('destaquesTrilho');
@@ -2967,6 +3003,8 @@
           '<div class="como-passo"><span class="n">2</span><span id="comoPagamento"></span></div>' +
           '<div class="como-passo"><span class="n">3</span>Acompanhe<br>pela senha</div>' +
         '</div>' +
+        /* o video da loja (Loja do Ligeiro): o dono escolhe no painel, vem junto da loja */
+        '<div class="video-loja" id="videoLoja" hidden></div>' +
         '<div id="destaques" hidden style="width:100%;max-width:440px;text-align:left">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 10px"><b>Os mais pedidos</b><button class="cupom-abrir" id="btnCardapio">ver tudo →</button></div>' +
           '<div class="pilha" id="destaquesTrilho"></div>' +

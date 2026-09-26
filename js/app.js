@@ -102,10 +102,11 @@
   var ARQUIVOS = {
     '': VENDAS, lojas: VENDAS, assinar: VENDAS, entrar: VENDAS, termos: VENDAS, privacidade: VENDAS,
     cozinha: EQUIPE, entrega: EQUIPE, balcao: EQUIPE,
-    painel: ['js/cidades.js', 'js/mp.js', 'js/cobranca.js', 'js/equipe.js', 'js/painel.js'],
+    painel: ['js/cidades.js', 'js/mp.js', 'js/cobranca.js', 'js/equipe.js', 'js/servicos.js', 'js/painel.js'],
+    servicos: ['js/servicos.js'],
     conta: VENDAS.concat(['js/cobranca.js', 'js/equipe.js', 'js/conta.js']),
     comecar: VENDAS.concat(['js/seed.js', 'js/comecar.js']),
-    admin: ['js/cidades.js', 'js/seed.js', 'js/admin.js'],
+    admin: ['js/cidades.js', 'js/seed.js', 'js/servicos.js', 'js/admin.js'],
   };
   var baixados = {}, baixando = {};
   /* o que ja veio no index (as telas de venda, ou tudo na copia de teste) ja rodou */
@@ -175,6 +176,8 @@
     if (p[0] === 'conta' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroConta.abrir(raiz); return; }
     if (p[0] === 'termos' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.termos(raiz); return; }
     if (p[0] === 'privacidade' && p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = window.LigeiroParceiro.privacidade(raiz); return; }
+    /* Loja do Ligeiro (servicos para a loja do dono): #/servicos/<loja>[/item/<servico>|/meus|/videos|/termos] */
+    if (p[0] === 'servicos') { if (!p[1]) { trocar(''); return; } limparTelaAtual = window.LigeiroServicos.abrir(raiz, p); return; }
     if (p[0] === 'admin') { raiz.className = 'app larga'; limparTelaAtual = A.abrir(raiz); return; }
     if (p[0] === 'painel' && p[1]) { raiz.className = 'app larga'; limparTelaAtual = P.abrir(raiz, p[1]); return; }
     if (p[0] === 'cozinha' && p[1]) { raiz.className = 'app larga'; limparTelaAtual = E.abrirCozinha(raiz, p[1]); return; }

@@ -51,6 +51,8 @@ export default {
   async fetch(request, env) {
     const caminhoPedido = new URL(request.url).pathname.replace(/\/+$/, '');
     if (caminhoPedido.indexOf('/plano/') === 0) return rotaDoDono(request, env, caminhoPedido);
+    /* Loja do Ligeiro (servicos para as lojas): rotas do dono, da Central e os videos entregues */
+    if (caminhoPedido.indexOf('/servicos/') === 0) return rotaServicos(request, env, caminhoPedido);
     if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok', { status: 200 });
     const token = request.headers.get('asaas-access-token') || '';
     if (!env.ASAAS_WEBHOOK || !igual(token, env.ASAAS_WEBHOOK)) return json({ ok: false, erro: 'token' }, 401);
@@ -64,6 +66,10 @@ export default {
     if (!pag.id || !pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
 
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.id)) || !/^[A-Za-z0-9_-]{1,80}$/.test(String(pag.customer))) return json({ ok: false, erro: 'sem pagamento' }, 400);
+    /* cobranca da Loja do Ligeiro (servico avulso): caminho proprio, nunca vira dias de plano nem pausa a conta */
+    if (/^srv:/.test(String(pag.externalReference || ''))) {
+      try { return await avisoDeServico(env, pag, evento); } catch (e) { console.error('asaas servico', e && e.message || e); return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500); }
+    }
     if (EVENTOS_DE_ESTORNO.indexOf(evento) >= 0) {
       try { return await pausarPorEstorno(env, pag); } catch (e) { console.error('asaas estorno', e && e.message || e); return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500); }
     }
@@ -106,6 +112,8 @@ async function processarPagamento(env, pag) {
       /* cobranca que o Asaas nao conhece: responde ok (erro repetido faz o Asaas pausar a fila de avisos inteira) */
       const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
       if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
+      /* rede: cobranca da Loja do Ligeiro que chegou sem a referencia no aviso nunca vira dias de plano */
+      if (/^srv:/.test(String(real.externalReference || ''))) return avisoDeServico(env, Object.assign({}, pag, { externalReference: real.externalReference }), 'PAYMENT_CONFIRMED');
       if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return json({ ok: true, ignorado: 'status ' + String(real.status || '') });
       Object.assign(pag, { value: real.value, originalValue: real.originalValue, customer: real.customer, description: real.description, externalReference: real.externalReference, subscription: real.subscription, billingType: real.billingType });
       if (!pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
@@ -1009,4 +1017,441 @@ function b64url(dados) {
   if (typeof dados === 'string') bin = unescape(encodeURIComponent(dados));
   else { for (let i = 0; i < dados.length; i++) bin += String.fromCharCode(dados[i]); }
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* =====================================================================================================================
+ * Loja do Ligeiro: servicos que o Ligeiro vende para as lojas (fotos do cardapio, logo, video promocional, design
+ * exclusivo). Nada disso toca o Firestore no dia a dia: pedido, lista da loja, lista da Central e os videos moram no KV
+ * (o mesmo CARDAPIO do ligeiro-mp). O banco so e lido quando a borda ainda nao conhece o dono de uma loja.
+ *
+ *   Dono logado (Authorization: Bearer <token do Google>), sempre da PROPRIA loja:
+ *     POST /servicos/meus          {loja}                        pedidos, videos e qual esta no site
+ *     POST /servicos/comprar       {loja, servico, whatsapp, termos, documento?}   cria a cobranca no Asaas (link)
+ *     POST /servicos/video         {loja, video|null}            escolhe o video do site (ou tira)
+ *     POST /servicos/apagar-video  {loja, video}                 apaga um video (libera espaco)
+ *   Central (so o e-mail do admin):
+ *     POST /servicos/central       {}                            todos os pedidos
+ *     POST /servicos/criar         {loja, servico, whatsapp, documento?}   pedido que chegou pelo WhatsApp: gera o link
+ *     POST /servicos/etapa         {id}                          material chegou: vai para producao (prazo conta daqui)
+ *     POST /servicos/subir?pedido=<id>&tipo=video&dur=<s>  (corpo = o MP4)   /  &tipo=capa&id=<video> (corpo = o JPG)
+ *     POST /servicos/entregar      {id, titulo?, video?, noSite?, avisar?}
+ *     POST /servicos/reembolsar    {id, valor?, motivo, manual?} devolve pelo Asaas (tudo ou parte)
+ *   Publico:
+ *     GET  /servicos/v/<id>        o video (com Range, para o iPhone tocar)       GET /servicos/c/<id>  a capa
+ *
+ * O preco vem SO daqui (o site nunca manda valor). A cobranca leva externalReference "srv:<id>": o aviso do Asaas desse
+ * pagamento vem para avisoDeServico e nunca vira dias de plano.
+ * =================================================================================================================== */
+const TERMOS_SERVICOS = '2026-09-26';
+const SERVICOS = {
+  fotos: { nome: 'Fotos do cardápio', valor: 6900, dias: 3 },
+  logo: { nome: 'Logo', valor: 11900, dias: 5 },
+  video: { nome: 'Vídeo promocional', valor: 14900, dias: 5 },
+  design: { nome: 'Design exclusivo', valor: 39900, dias: 10 },
+};
+const SRV_ABERTOS = 3;                 /* pedidos esperando pagamento por loja (link vale 3 dias) */
+const SRV_VIDEOS = 10;                 /* videos guardados por loja */
+const SRV_VIDEO_MAX = 15 * 1024 * 1024; /* o video vem comprimido (ferramentas/comprimir-video.bat): 20 s dao 2 a 6 MB */
+const SRV_CAPA_MAX = 400 * 1024;
+const SRV_LISTA_LOJA = 30;
+const SRV_LISTA_CENTRAL = 300;
+const ID_SRV = /^[a-z0-9]{20}$/;
+const SLUG_SRV = /^[a-z0-9-]{1,60}$/;
+const ROTAS_DONO = ['/servicos/meus', '/servicos/comprar', '/servicos/video', '/servicos/apagar-video'];
+const ROTAS_ADMIN = ['/servicos/central', '/servicos/criar', '/servicos/etapa', '/servicos/subir', '/servicos/entregar', '/servicos/reembolsar'];
+
+async function rotaServicos(request, env, caminho) {
+  const origem = request.headers.get('Origin') || '';
+  const cors = { 'Access-Control-Allow-Origin': ORIGENS.indexOf(origem) >= 0 ? origem : 'null', Vary: 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '86400' };
+  const resp = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' }, cors) });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const m = /^\/servicos\/(v|c)\/([a-z0-9]{20})$/.exec(caminho);
+    return m ? servirMidia(request, env, m[1], m[2]) : new Response('404', { status: 404 });
+  }
+  if (request.method !== 'POST') return resp({ ok: false, erro: 'Use POST.' }, 405);
+  const ehDono = ROTAS_DONO.indexOf(caminho) >= 0, ehAdmin = ROTAS_ADMIN.indexOf(caminho) >= 0;
+  if (!ehDono && !ehAdmin) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
+  if (!env.CARDAPIO) return resp({ ok: false, erro: 'A Loja do Ligeiro ainda não está ligada.' }, 503);
+  try {
+    const fb = await firebase(env);
+    const email = await quemChamou(fb, request);
+    if (!email) return resp({ ok: false, erro: 'Entre de novo na sua conta e tente outra vez.' }, 401);
+    if (EMAIL_EQUIPE.test(email)) return resp({ ok: false, erro: 'Só o dono da loja usa a Loja do Ligeiro.' }, 403);
+    const admin = email === ADMIN;
+    if (ehAdmin && !admin) return resp({ ok: false, erro: 'Só a Central do Ligeiro faz isso.' }, 403);
+    if (caminho === '/servicos/subir') { const r = await srvSubir(request, env); return resp(r.corpo, r.status); }
+    const texto = await request.text();
+    if (texto.length > 8000) return resp({ ok: false, erro: 'Pedido grande demais.' }, 413);
+    let corpo = {};
+    try { corpo = JSON.parse(texto || '{}'); } catch (_) { corpo = {}; }
+    if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) corpo = {};
+    let r;
+    if (caminho === '/servicos/meus') r = await srvMeus(env, fb, email, admin, corpo);
+    else if (caminho === '/servicos/comprar' || caminho === '/servicos/criar') {
+      if (!umPorVez('srv:' + email)) return resp({ ok: false, erro: 'Um instante: o pedido anterior ainda está terminando.' }, 429);
+      try { r = await srvComprar(env, fb, email, caminho === '/servicos/criar', corpo); } finally { delete MEM.vez['srv:' + email]; }
+    }
+    else if (caminho === '/servicos/video') r = await srvEscolherVideo(env, fb, email, admin, corpo);
+    else if (caminho === '/servicos/apagar-video') r = await srvApagarVideo(env, fb, email, admin, corpo);
+    else if (caminho === '/servicos/central') r = { status: 200, corpo: { ok: true, pedidos: (await kvJson(env, 'srv:idx')) || [], servicos: SERVICOS, termos: TERMOS_SERVICOS } };
+    else if (caminho === '/servicos/etapa') r = await srvEtapa(env, corpo);
+    else if (caminho === '/servicos/entregar') r = await srvEntregar(env, corpo);
+    else r = await srvReembolsar(env, corpo);
+    return resp(r.corpo, r.status);
+  } catch (e) {
+    console.error('servicos', caminho, e && e.message || e);
+    return resp({ ok: false, erro: 'Não deu agora. Tente de novo em instantes.' }, 500);
+  }
+}
+
+/* ---------- pecas ---------- */
+async function kvJson(env, chave) { try { return await env.CARDAPIO.get(chave, 'json'); } catch (_) { return null; } }
+function idSrv() {
+  const b = new Uint8Array(20); crypto.getRandomValues(b);
+  const letras = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let s = ''; for (let i = 0; i < b.length; i++) s += letras[b[i] % 36];
+  return s;
+}
+function textoLimpo(t, max) { return String(t == null ? '' : t).replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max); }
+function falha(status, erro, extra) { return { status: status, corpo: Object.assign({ ok: false, erro: erro }, extra || {}) }; }
+function certo(corpo) { return { status: 200, corpo: Object.assign({ ok: true }, corpo || {}) }; }
+/* dia util (seg a sex) n dias depois de um dia (AAAA-MM-DD) */
+function maisDiasUteis(dia, n) {
+  const d = new Date(dia + 'T12:00:00Z');
+  let faltam = n;
+  while (faltam > 0) { d.setUTCDate(d.getUTCDate() + 1); const s = d.getUTCDay(); if (s !== 0 && s !== 6) faltam--; }
+  return d.toISOString().slice(0, 10);
+}
+function cpfValido(c) {
+  if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+  const dv = (n) => { let s = 0; for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dv(9) === Number(c[9]) && dv(10) === Number(c[10]);
+}
+function cnpjValido(c) {
+  if (!/^\d{14}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
+  const dv = (n) => { const pesos = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]; let s = 0; for (let i = 0; i < n; i++) s += Number(c[i]) * pesos[i]; const r = s % 11; return r < 2 ? 0 : 11 - r; };
+  return dv(12) === Number(c[12]) && dv(13) === Number(c[13]);
+}
+/* o dono da loja: pela etiqueta da copia no KV (feita pelo ligeiro-mp); sem ela, 1 leitura do banco */
+async function lojaDoServico(env, fb, slug) {
+  if (!SLUG_SRV.test(String(slug || ''))) return null;
+  const mem = MEM.srvDono && MEM.srvDono[slug];
+  if (mem && Date.now() - mem.em < 5 * 60 * 1000) return mem;
+  let dono = '', nome = '';
+  try {
+    const g = await env.CARDAPIO.getWithMetadata('loja:' + slug, { type: 'stream' });
+    if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+    if (g && g.metadata && g.metadata.dono) { dono = String(g.metadata.dono).toLowerCase(); nome = String(g.metadata.nome || ''); }
+  } catch (_) { /* segue para o banco */ }
+  if (!dono) {
+    const doc = await fb.get('lojas/' + slug);
+    if (!doc) return null;
+    dono = String(doc.donoEmail || '').toLowerCase(); nome = String(doc.nome || '');
+  }
+  if (!dono) return null;
+  MEM.srvDono = MEM.srvDono || {};
+  if (Object.keys(MEM.srvDono).length > 200) MEM.srvDono = {};
+  const item = { slug: slug, dono: dono, nome: textoLimpo(nome, 80) || slug, em: Date.now() };
+  MEM.srvDono[slug] = item;
+  return item;
+}
+async function lojaPermitida(env, fb, email, admin, slug) {
+  const loja = await lojaDoServico(env, fb, slug);
+  if (!loja) return { erro: falha(404, 'Loja não encontrada.') };
+  if (!admin && loja.dono !== email) return { erro: falha(403, 'Só o dono da loja entra na Loja do Ligeiro dela.') };
+  return { loja: loja };
+}
+function resumoServico(p) {
+  const r = {};
+  ['id', 'loja', 'lojaNome', 'servico', 'nome', 'titulo', 'valor', 'status', 'criadoEm', 'venceEm', 'pagoEm', 'materialEm', 'prazoAte', 'entregueEm', 'forma', 'whatsapp', 'origem', 'video'].forEach((k) => { if (p[k] !== undefined && p[k] !== null) r[k] = p[k]; });
+  if (p.status === 'aguardando_pagamento' && p.asaas && p.asaas.link) r.link = p.asaas.link;
+  if (p.reembolso) r.reembolso = { valor: p.reembolso.valor, motivo: p.reembolso.motivo, em: p.reembolso.em };
+  return r;
+}
+async function lerListaDaLoja(env, slug) {
+  const l = (await kvJson(env, 'srv:loja:' + slug)) || {};
+  return { pedidos: Array.isArray(l.pedidos) ? l.pedidos : [], videos: Array.isArray(l.videos) ? l.videos : [], noSite: l.noSite || null };
+}
+/* grava o pedido e as duas listas (a da loja e a da Central), com o resumo novo no lugar do velho */
+async function gravarServico(env, p) {
+  await env.CARDAPIO.put('srv:p:' + p.id, JSON.stringify(p));
+  const r = resumoServico(p);
+  const l = await lerListaDaLoja(env, p.loja);
+  l.pedidos = [r].concat(l.pedidos.filter((x) => x && x.id !== p.id)).slice(0, SRV_LISTA_LOJA);
+  await env.CARDAPIO.put('srv:loja:' + p.loja, JSON.stringify(l));
+  const idx = (await kvJson(env, 'srv:idx')) || [];
+  await env.CARDAPIO.put('srv:idx', JSON.stringify([r].concat(idx.filter((x) => x && x.id !== p.id)).slice(0, SRV_LISTA_CENTRAL)));
+}
+
+/* ---------- dono ---------- */
+async function srvMeus(env, fb, email, admin, corpo) {
+  const ok = await lojaPermitida(env, fb, email, admin, corpo.loja);
+  if (ok.erro) return ok.erro;
+  const l = await lerListaDaLoja(env, ok.loja.slug);
+  return certo({ pedidos: l.pedidos, videos: l.videos, noSite: l.noSite, maxVideos: SRV_VIDEOS, termos: TERMOS_SERVICOS });
+}
+
+/* cliente no Asaas pelo e-mail da conta; o Asaas so cobra quem tem CPF ou CNPJ (pede uma vez, depois ele lembra) */
+async function clienteDoServico(env, email, nome, whats, documento) {
+  const doc = String(documento || '').replace(/\D/g, '');
+  if (doc && !cpfValido(doc) && !cnpjValido(doc)) return { erro: 'CPF ou CNPJ inválido. Confira os números.' };
+  const lista = await asaas(env, '/customers?email=' + encodeURIComponent(email) + '&limit=10');
+  const deles = (lista && Array.isArray(lista.data) ? lista.data : []).filter((c) => c && !c.deleted && String(c.email || '').toLowerCase() === email);
+  const c = deles.find((x) => x.cpfCnpj) || deles[0];
+  if (c && c.cpfCnpj) return { id: String(c.id) };
+  if (!doc) return { precisaDocumento: true };
+  if (c) { await asaas(env, '/customers/' + encodeURIComponent(c.id), 'POST', { cpfCnpj: doc }); return { id: String(c.id) }; }
+  const novo = await asaas(env, '/customers', 'POST', { name: nome || email, email: email, cpfCnpj: doc, mobilePhone: whats });
+  return { id: String(novo.id) };
+}
+
+async function srvComprar(env, fb, email, pelaCentral, corpo) {
+  const ok = await lojaPermitida(env, fb, email, pelaCentral, corpo.loja);
+  if (ok.erro) return ok.erro;
+  const loja = ok.loja;
+  const tipo = String(corpo.servico || '');
+  const s = Object.prototype.hasOwnProperty.call(SERVICOS, tipo) ? SERVICOS[tipo] : null;
+  if (!s) return falha(400, 'Esse serviço não existe.');
+  if (!pelaCentral && corpo.termos !== TERMOS_SERVICOS) return falha(400, 'Leia e aceite os termos da Loja do Ligeiro para continuar.', { termos: TERMOS_SERVICOS });
+  const whats = String(corpo.whatsapp || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  if (!/^[1-9]\d{9,10}$/.test(whats)) return falha(400, 'Confira o WhatsApp, com o DDD.');
+  const lista = await lerListaDaLoja(env, loja.slug);
+  if (lista.pedidos.filter((x) => x && x.status === 'aguardando_pagamento').length >= SRV_ABERTOS) return falha(429, 'Você já tem pedidos esperando pagamento. Pague um deles ou espere o link vencer (3 dias).');
+  const cli = await clienteDoServico(env, loja.dono, loja.nome, whats, corpo.documento);
+  if (cli.erro) return falha(400, cli.erro);
+  if (cli.precisaDocumento) return falha(200, 'Para gerar a cobrança, o Asaas pede o CPF ou o CNPJ de quem paga. É só na primeira vez.', { precisaDocumento: true });
+  const id = idSrv();
+  const agora = new Date();
+  const vence = diaDeBrasilia(new Date(agora.getTime() + 3 * 864e5));
+  const cob = await asaas(env, '/payments', 'POST', { customer: cli.id, billingType: 'UNDEFINED', value: s.valor / 100, dueDate: vence, description: 'Loja do Ligeiro: ' + s.nome + ' para ' + loja.nome, externalReference: 'srv:' + id });
+  const link = /^https:\/\/(www\.|sandbox\.)?asaas\.com\//.test(String(cob.invoiceUrl || '')) ? String(cob.invoiceUrl) : '';
+  const p = {
+    id: id, loja: loja.slug, lojaNome: loja.nome, email: loja.dono, servico: tipo, nome: s.nome, valor: s.valor,
+    status: 'aguardando_pagamento', criadoEm: agora.toISOString(), venceEm: vence, whatsapp: whats,
+    origem: pelaCentral ? 'whatsapp' : 'site',
+    termos: pelaCentral ? { versao: TERMOS_SERVICOS, em: null, via: 'link' } : { versao: TERMOS_SERVICOS, em: agora.toISOString() },
+    asaas: { id: String(cob.id), link: link },
+  };
+  await gravarServico(env, p);
+  return certo({ pedido: resumoServico(p), link: link });
+}
+
+/* o video do site: vai na copia da loja do KV (o site ja le essa copia; nenhuma leitura a mais por visita) e numa chave
+   pequena que o ligeiro-mp junta quando refaz a copia */
+async function videoNoSite(env, slug, v) {
+  const publico = v ? { id: v.id, titulo: v.titulo, dur: v.dur, capa: !!v.capa } : null;
+  if (publico) await env.CARDAPIO.put('srv:video:' + slug, JSON.stringify(publico)); else await env.CARDAPIO.delete('srv:video:' + slug);
+  try {
+    const g = await env.CARDAPIO.getWithMetadata('loja:' + slug, { type: 'text' });
+    if (g && g.value) {
+      const j = JSON.parse(g.value);
+      if (j && j.loja) {
+        if (publico) j.loja.video = publico; else delete j.loja.video;
+        await env.CARDAPIO.put('loja:' + slug, JSON.stringify(j), { metadata: g.metadata || {} });
+      }
+    }
+  } catch (_) { /* a copia se refaz sozinha (ligeiro-mp) e ja junta o video */ }
+}
+async function srvEscolherVideo(env, fb, email, admin, corpo) {
+  const ok = await lojaPermitida(env, fb, email, admin, corpo.loja);
+  if (ok.erro) return ok.erro;
+  const l = await lerListaDaLoja(env, ok.loja.slug);
+  const id = corpo.video == null ? null : String(corpo.video);
+  const v = id ? l.videos.find((x) => x && x.id === id) : null;
+  if (id && !v) return falha(404, 'Esse vídeo não é desta loja.');
+  l.noSite = v ? v.id : null;
+  await env.CARDAPIO.put('srv:loja:' + ok.loja.slug, JSON.stringify(l));
+  await videoNoSite(env, ok.loja.slug, v);
+  return certo({ noSite: l.noSite });
+}
+async function srvApagarVideo(env, fb, email, admin, corpo) {
+  const ok = await lojaPermitida(env, fb, email, admin, corpo.loja);
+  if (ok.erro) return ok.erro;
+  const l = await lerListaDaLoja(env, ok.loja.slug);
+  const id = String(corpo.video || '');
+  if (!l.videos.some((x) => x && x.id === id)) return falha(404, 'Esse vídeo não é desta loja.');
+  l.videos = l.videos.filter((x) => x && x.id !== id);
+  const tirouDoSite = l.noSite === id;
+  if (tirouDoSite) l.noSite = null;
+  await env.CARDAPIO.put('srv:loja:' + ok.loja.slug, JSON.stringify(l));
+  if (tirouDoSite) await videoNoSite(env, ok.loja.slug, null);
+  await env.CARDAPIO.delete('srv:v:' + id).catch(() => {});
+  await env.CARDAPIO.delete('srv:c:' + id).catch(() => {});
+  return certo({ videos: l.videos, noSite: l.noSite });
+}
+
+/* ---------- Central ---------- */
+async function srvPedido(env, id) { return ID_SRV.test(String(id || '')) ? kvJson(env, 'srv:p:' + id) : null; }
+const PAGOS_SRV = ['material', 'producao', 'entregue'];
+async function srvEtapa(env, corpo) {
+  const p = await srvPedido(env, corpo.id);
+  if (!p) return falha(404, 'Pedido não encontrado.');
+  if (p.status !== 'material') return falha(409, 'Esse pedido não está esperando o material.');
+  const hoje = diaDeBrasilia();
+  p.status = 'producao'; p.materialEm = new Date().toISOString(); p.prazoAte = maisDiasUteis(hoje, (SERVICOS[p.servico] || {}).dias || 5);
+  await gravarServico(env, p);
+  return certo({ pedido: resumoServico(p) });
+}
+/* o arquivo entregue: o video (MP4 com "ftyp", ate 15 MB) ou a capa dele (JPG) */
+async function srvSubir(request, env) {
+  const u = new URL(request.url);
+  const tipo = u.searchParams.get('tipo');
+  const p = await srvPedido(env, u.searchParams.get('pedido'));
+  if (!p) return falha(404, 'Pedido não encontrado.');
+  if (p.servico !== 'video' || PAGOS_SRV.indexOf(p.status) < 0) return falha(409, 'Esse pedido não recebe vídeo.');
+  const max = tipo === 'capa' ? SRV_CAPA_MAX : SRV_VIDEO_MAX;
+  const tamanho = Number(request.headers.get('Content-Length') || 0);
+  if (tamanho > max) return falha(413, tipo === 'capa' ? 'A capa passou de 400 KB.' : 'O vídeo passou de 15 MB. Comprima antes (ferramentas/comprimir-video.bat).');
+  const dados = new Uint8Array(await request.arrayBuffer());
+  if (!dados.length || dados.length > max) return falha(413, 'Arquivo vazio ou grande demais.');
+  if (tipo === 'video') {
+    const ftyp = String.fromCharCode(dados[4], dados[5], dados[6], dados[7]) === 'ftyp';
+    if (!ftyp) return falha(415, 'Mande o vídeo em MP4 (o comprimir-video.bat já gera assim).');
+    const dur = Math.round(Number(u.searchParams.get('dur')) || 0);
+    if (!(dur > 0 && dur <= 30)) return falha(400, 'O vídeo tem que ter até 20 segundos.');
+    const id = idSrv();
+    await env.CARDAPIO.put('srv:v:' + id, dados, { metadata: { pedido: p.id, loja: p.loja, bytes: dados.length, dur: dur } });
+    return certo({ id: id, bytes: dados.length, dur: dur });
+  }
+  if (tipo === 'capa') {
+    const id = String(u.searchParams.get('id') || '');
+    if (!ID_SRV.test(id)) return falha(400, 'Falta o vídeo da capa.');
+    const g = await env.CARDAPIO.getWithMetadata('srv:v:' + id, { type: 'stream' }).catch(() => null);
+    if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+    if (!g || !g.metadata || g.metadata.pedido !== p.id) return falha(404, 'Esse vídeo não é deste pedido.');
+    if (!(dados[0] === 0xff && dados[1] === 0xd8 && dados[2] === 0xff)) return falha(415, 'A capa tem que ser JPG.');
+    await env.CARDAPIO.put('srv:c:' + id, dados, { metadata: { pedido: p.id, bytes: dados.length } });
+    return certo({ id: id });
+  }
+  return falha(400, 'Tipo de arquivo desconhecido.');
+}
+async function srvEntregar(env, corpo) {
+  const p = await srvPedido(env, corpo.id);
+  if (!p) return falha(404, 'Pedido não encontrado.');
+  if (['material', 'producao'].indexOf(p.status) < 0) return falha(409, 'Esse pedido não está em produção.');
+  const titulo = textoLimpo(corpo.titulo, 60);
+  let video = null;
+  if (p.servico === 'video') {
+    const id = String(corpo.video || '');
+    if (!ID_SRV.test(id)) return falha(400, 'Mande o vídeo antes de entregar.');
+    const g = await env.CARDAPIO.getWithMetadata('srv:v:' + id, { type: 'stream' }).catch(() => null);
+    if (g && g.value && g.value.cancel) g.value.cancel().catch(() => {});
+    if (!g || !g.metadata || g.metadata.pedido !== p.id) return falha(404, 'Esse vídeo não é deste pedido.');
+    const c = await env.CARDAPIO.getWithMetadata('srv:c:' + id, { type: 'stream' }).catch(() => null);
+    if (c && c.value && c.value.cancel) c.value.cancel().catch(() => {});
+    if (!titulo) return falha(400, 'Dê um nome ao vídeo (a loja vê).');
+    const l = await lerListaDaLoja(env, p.loja);
+    if (l.videos.length >= SRV_VIDEOS && !l.videos.some((x) => x.id === id)) return falha(409, 'A loja já tem 10 vídeos. Apague um antes de entregar este.');
+    video = { id: id, titulo: titulo, dur: Number(g.metadata.dur) || 0, bytes: Number(g.metadata.bytes) || 0, capa: !!(c && c.metadata), em: new Date().toISOString(), pedido: p.id };
+    l.videos = [video].concat(l.videos.filter((x) => x && x.id !== id));
+    if (corpo.noSite === true) l.noSite = id;
+    await env.CARDAPIO.put('srv:loja:' + p.loja, JSON.stringify(l));
+    if (corpo.noSite === true) await videoNoSite(env, p.loja, video);
+    p.video = id;
+  }
+  p.status = 'entregue'; p.entregueEm = new Date().toISOString();
+  if (titulo) p.titulo = titulo;
+  await gravarServico(env, p);
+  let avisado = false;
+  if (corpo.avisar !== false && env.EMAIL_URL && env.EMAIL_TOKEN) {
+    const onde = p.servico === 'video' ? 'Ele já está em Minha loja, Vídeos da loja' + (corpo.noSite === true ? ', e aparecendo no site da sua loja.' : '.') : 'Os arquivos chegam pelo WhatsApp.';
+    avisado = await mandarEmail(env, p.email, emailDoServico(p.nome + ' pronto', 'Pronto: ' + p.nome + (titulo ? ' (' + titulo + ')' : '') + ' para a ' + p.lojaNome + '. ' + onde, SITE + '/painel/' + p.loja)).catch(() => false);
+  }
+  return certo({ pedido: resumoServico(p), avisado: avisado });
+}
+async function srvReembolsar(env, corpo) {
+  const p = await srvPedido(env, corpo.id);
+  if (!p) return falha(404, 'Pedido não encontrado.');
+  if (PAGOS_SRV.indexOf(p.status) < 0) return falha(409, 'Só dá para reembolsar pedido pago.');
+  const motivo = textoLimpo(corpo.motivo, 300);
+  if (motivo.length < 5) return falha(400, 'Escreva o motivo (a loja vê).');
+  const pago = Number(p.valorPago || p.valor) || 0;
+  const ja = Number(p.reembolso && p.reembolso.valor) || 0;
+  const valor = corpo.valor == null ? pago - ja : Math.round(Number(corpo.valor));
+  if (!Number.isInteger(valor) || valor <= 0 || valor > pago - ja) return falha(400, 'Valor inválido: dá para devolver até ' + reais(pago - ja) + '.');
+  if (corpo.manual !== true) {
+    try { await asaas(env, '/payments/' + encodeURIComponent(p.asaas.id) + '/refund', 'POST', { value: valor / 100, description: motivo }); } catch (e) {
+      console.error('reembolso servico', e && e.message || e);
+      return falha(409, 'O Asaas não devolveu (boleto não volta sozinho). Devolva por Pix para a loja e marque "Já devolvi por fora".', { manual: true });
+    }
+  }
+  const total = ja + valor;
+  p.reembolso = { valor: total, motivo: motivo, em: new Date().toISOString(), manual: corpo.manual === true };
+  if (total >= pago) p.status = 'reembolsado';
+  await gravarServico(env, p);
+  if (env.EMAIL_URL && env.EMAIL_TOKEN) await mandarEmail(env, p.email, emailDoServico('Reembolso da Loja do Ligeiro', 'Devolvemos ' + reais(valor) + ' do pedido ' + p.nome + ' da ' + p.lojaNome + '. Motivo: ' + motivo + ' No Pix, o valor volta para a conta de quem pagou; no cartão, aparece como estorno na fatura.', SITE + '/servicos/' + p.loja + '/meus')).catch(() => false);
+  return certo({ pedido: resumoServico(p) });
+}
+
+/* ---------- aviso do Asaas de uma cobranca de servico ---------- */
+async function avisoDeServico(env, pag, evento) {
+  const id = String(pag.externalReference || '').slice(4);
+  if (!ID_SRV.test(id)) return json({ ok: true, ignorado: 'referencia de servico torta' });
+  if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 500);
+  /* quem manda e o Asaas: a cobranca e lida de novo pela chave da API */
+  const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+  if (!real || String(real.externalReference || '') !== 'srv:' + id) return json({ ok: true, ignorado: 'cobranca desconhecida' });
+  const p = await srvPedido(env, id);
+  if (!p) {
+    /* o KV leva ate 1 minuto para espalhar: aviso de cobranca nova ainda sem o pedido, o Asaas tenta de novo */
+    const criada = Date.parse(real.dateCreated || '') || 0;
+    if (criada && Date.now() - criada < 10 * 60 * 1000) return json({ ok: false, erro: 'pedido ainda chegando' }, 500);
+    await avisarAdmin(env, 'Cobrança de serviço sem pedido', 'A cobrança ' + String(real.id) + ' (srv:' + id + ') não tem pedido na Loja do Ligeiro. Confira no Asaas.');
+    return json({ ok: true, ignorado: 'pedido desconhecido' });
+  }
+  if (!p.asaas || p.asaas.id !== String(real.id)) return json({ ok: true, ignorado: 'outra cobranca' });
+  const st = String(real.status || '');
+  if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(st) >= 0) {
+    if (p.status !== 'aguardando_pagamento' && p.status !== 'cancelado') return json({ ok: true, repetido: true });
+    p.status = 'material'; p.pagoEm = new Date().toISOString(); p.forma = String(real.billingType || ''); p.valorPago = Math.round(Number(real.value || 0) * 100) || p.valor;
+    await gravarServico(env, p);
+    await avisarAdmin(env, 'Pedido pago na Loja do Ligeiro', p.nome + ' para ' + p.lojaNome + ' (' + reais(p.valorPago) + ', ' + (p.forma || 'Asaas') + '). WhatsApp: ' + p.whatsapp + '. Chame para pegar o material.');
+    if (env.EMAIL_URL && env.EMAIL_TOKEN) await mandarEmail(env, p.email, emailDoServico('Pagamento confirmado', 'Recebemos o pagamento de ' + p.nome + ' para a ' + p.lojaNome + '. A gente chama você no WhatsApp para pegar o material. O prazo começa quando o material chega.', SITE + '/servicos/' + p.loja + '/meus')).catch(() => false);
+    return json({ ok: true, servico: 'pago' });
+  }
+  if (['REFUNDED', 'REFUND_IN_PROGRESS'].indexOf(st) >= 0) {
+    if (p.status === 'reembolsado') return json({ ok: true, repetido: true });
+    p.status = 'reembolsado';
+    p.reembolso = p.reembolso || { valor: p.valorPago || p.valor, motivo: 'Estorno pelo Asaas.', em: new Date().toISOString() };
+    await gravarServico(env, p);
+    return json({ ok: true, servico: 'reembolsado' });
+  }
+  if (/^CHARGEBACK|AWAITING_CHARGEBACK/.test(st)) {
+    if (p.status !== 'contestado') { p.status = 'contestado'; await gravarServico(env, p); await avisarAdmin(env, 'Contestação na Loja do Ligeiro', p.nome + ' da ' + p.lojaNome + ': o pagador contestou no cartão. Veja no Asaas.'); }
+    return json({ ok: true, servico: 'contestado' });
+  }
+  if ((evento === 'PAYMENT_OVERDUE' || evento === 'PAYMENT_DELETED' || st === 'OVERDUE' || real.deleted) && p.status === 'aguardando_pagamento') {
+    p.status = 'cancelado'; await gravarServico(env, p);
+    return json({ ok: true, servico: 'link vencido' });
+  }
+  return json({ ok: true, ignorado: 'status ' + st });
+}
+function emailDoServico(assunto, texto, link) {
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#0E1F14;max-width:520px">'
+    + '<p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#1B6B4A;font-weight:bold">Loja do Ligeiro</p>'
+    + '<p style="margin:0 0 20px">' + esc(texto) + '</p>'
+    + (link ? '<a href="' + esc(link) + '" style="display:inline-block;background:#84CC16;color:#0E1F14;font-weight:bold;text-decoration:none;padding:14px 22px;border-radius:12px">Abrir no Ligeiro</a>' : '')
+    + '</div>';
+  return { assunto: 'Ligeiro: ' + assunto, texto: texto + (link ? '\n\n' + link : ''), html: html };
+}
+
+/* ---------- o video e a capa, para o site (Range: o iPhone so toca video que responde por pedacos) ---------- */
+async function servirMidia(request, env, qual, id) {
+  if (!env.CARDAPIO) return new Response('404', { status: 404 });
+  const g = await env.CARDAPIO.getWithMetadata('srv:' + qual + ':' + id, { type: 'arrayBuffer', cacheTtl: 86400 }).catch(() => null);
+  if (!g || !g.value) return new Response('404', { status: 404 });
+  const tudo = new Uint8Array(g.value);
+  const cab = { 'Content-Type': qual === 'v' ? 'video/mp4' : 'image/jpeg', 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Access-Control-Allow-Origin': '*', 'Cross-Origin-Resource-Policy': 'cross-origin' };
+  const faixa = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('Range') || '');
+  if (faixa && qual === 'v') {
+    let ini = faixa[1] === '' ? NaN : Number(faixa[1]);
+    let fim = faixa[2] === '' ? NaN : Number(faixa[2]);
+    if (isNaN(ini)) { ini = Math.max(0, tudo.length - (fim || 0)); fim = tudo.length - 1; }
+    if (isNaN(fim) || fim >= tudo.length) fim = tudo.length - 1;
+    if (ini > fim || ini >= tudo.length) return new Response(null, { status: 416, headers: Object.assign({ 'Content-Range': 'bytes */' + tudo.length }, cab) });
+    const pedaco = tudo.slice(ini, fim + 1);
+    return new Response(request.method === 'HEAD' ? null : pedaco, { status: 206, headers: Object.assign({ 'Content-Range': 'bytes ' + ini + '-' + fim + '/' + tudo.length, 'Content-Length': String(pedaco.length) }, cab) });
+  }
+  return new Response(request.method === 'HEAD' ? null : tudo, { status: 200, headers: Object.assign({ 'Content-Length': String(tudo.length) }, cab) });
 }

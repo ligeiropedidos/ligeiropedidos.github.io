@@ -21,7 +21,7 @@
   /* valor em dinheiro que nunca quebra entre o R$ e o numero */
   function din(v) { return R.dinheiro(v).replace(/ /g, '\u00A0'); }
   /* aba: chave, nome no PC, icone e nome curto do celular (no celular as cinco numa linha, como as abas do painel) */
-  var ABAS = [['geral', 'Visão geral', 'vendas', 'Geral'], ['lojas', 'Lojas', 'loja', 'Lojas'], ['contas', 'Assinaturas', 'dinheiro', 'Contas'], ['contatos', 'Contatos', 'telefone', 'Contatos'], ['ferramentas', 'Ferramentas', 'ferramenta', 'Mais']];
+  var ABAS = [['geral', 'Visão geral', 'vendas', 'Geral'], ['lojas', 'Lojas', 'loja', 'Lojas'], ['contas', 'Assinaturas', 'dinheiro', 'Contas'], ['contatos', 'Contatos', 'telefone', 'Contatos'], ['servicos', 'Loja do Ligeiro', 'retirada', 'Serviços'], ['ferramentas', 'Ferramentas', 'ferramenta', 'Mais']];
   var FILTROS_LOJAS = [['todas', 'Todas'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['desativadas', 'Desativadas'], ['verificadas', 'Verificadas']];
   var FILTROS_CONTAS = [['todas', 'Todas'], ['avisos', 'Avisaram pagamento'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['fundadores', 'Fundadores']];
   var FILTROS_CONTATOS = [['pendentes', 'Para chamar'], ['chamados', 'Já chamados'], ['todos', 'Todos']];
@@ -549,6 +549,8 @@
         else if (estado.aba === 'contas') abaContas(s);
         else if (estado.aba === 'contatos') abaContatos(s);
         else if (estado.aba === 'ferramentas') abaFerramentas(s);
+        /* Loja do Ligeiro: os pedidos de servico moram no mensageiro do Asaas (KV), nao no banco */
+        else if (estado.aba === 'servicos') { if (window.LigeiroServicos) window.LigeiroServicos.central(s, (estado.lojas || []).map(function (l) { return { slug: l.slug, nome: l.nome, cidade: l.cidade }; })); }
         else abaGeral(s);
       } catch (e) {
         /* erro ao montar: nunca deixar a tela em branco */

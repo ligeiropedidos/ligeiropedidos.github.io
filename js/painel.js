@@ -273,6 +273,8 @@
       if (window.ResizeObserver && topoEl) new ResizeObserver(medirTopo).observe(topoEl);
       setTimeout(medirTopo, 600);
 
+      /* a Loja do Ligeiro aparece para este dono? (o tutorial ganha um passo mostrando o banner) */
+      if (!estado.equipe && window.LigeiroServicos && store.usuarioAtual) store.usuarioAtual().then(function (u) { estado.servicosVisivel = window.LigeiroServicos.visivel(u && u.email); }).catch(function () { /* sem o passo */ });
       var abas = el('nav', { class: 'abas-painel abas-principais' });
       /* abas com icone de traco (o desenho do topo), no lugar dos emojis */
       /* no celular as cinco cabem numa linha (icone em cima, nome curto embaixo), como o topo: antes Ajustes e Minha loja ficavam fora da tela */
@@ -825,9 +827,10 @@
         { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
         { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
         { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
+        estado.servicosVisivel ? { aba: 'links', alvo: '.srv-banner', texto: 'E aqui fica a Loja do Ligeiro: logo, fotos do cardápio e vídeo feitos pela nossa equipe, com preço fechado. O vídeo aparece no seu site com botão de play.' } : null,
         { aba: 'pedidos', alvo: '.cartao-avisos', texto: 'Os pedidos chegam aqui, apitando. Ligue os avisos para ouvir até com a tela apagada.' },
         { aba: 'pedidos', alvo: '#primeirosPassosCartao', texto: 'Pronto! Esta lista mostra o que ainda falta. Faça um pedido de teste pelo seu link e veja ele chegar aqui. Boas vendas!' },
-      ];
+      ].filter(Boolean); /* o passo da Loja do Ligeiro so entra quando ela aparece para este dono */
     }
     function fecharTour(concluido) {
       if (!tour) return;
@@ -2992,6 +2995,16 @@
         ]);
       }
 
+      /* 0. Loja do Ligeiro: o banner fixo no topo (so o dono; a equipe nao compra nada) */
+      if (!estado.equipe && window.LigeiroServicos && store.usuarioAtual) {
+        var lugarBanner = el('div', { hidden: true });
+        s.appendChild(lugarBanner);
+        store.usuarioAtual().then(function (u) {
+          var b = window.LigeiroServicos.banner(l.slug, u && u.email);
+          if (b && lugarBanner.isConnected) lugarBanner.parentNode.replaceChild(b, lugarBanner);
+        }).catch(function () { /* sem banner */ });
+      }
+
       /* 1. telas */
       s.appendChild(el('h2', { text: 'Minha loja' }));
       s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As duas usam a senha da equipe, que você define aqui embaixo.' }));
@@ -3018,8 +3031,10 @@
       var qr = el('div', { class: 'qr-caixa', style: { width: '180px', margin: '0', flex: 'none' } });
       Pix.desenharQr(qr, linkLoja, 180);
       s.appendChild(el('div', { class: 'bloco-form' }, [
-        el('div', { class: 'bloco-titulo', text: 'Divulgar o ' + R.catalogo(estado.loja).nome }),
-        el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram e no status. No WhatsApp Business, cole a mensagem em Ferramentas comerciais, Mensagem de saudação: quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ', sem robô pago. Imprima o QR e cole no balcão e na sacola.' }),
+        el('div', { class: 'bloco-cabeca' }, [
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('megafone'), 'Divulgar o ' + R.catalogo(estado.loja).nome]),
+          el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram e no status. No WhatsApp Business, cole a mensagem em Ferramentas comerciais, Mensagem de saudação: quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ', sem robô pago. Imprima o QR e cole no balcão e na sacola.' }),
+        ]),
         el('div', { class: 'divulgar' }, [
           qr,
           el('div', { class: 'pilha divulgar-acoes' }, [

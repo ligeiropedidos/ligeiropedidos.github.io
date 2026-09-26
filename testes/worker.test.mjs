@@ -206,7 +206,7 @@ function kvNovo() {
   const mapa = new Map();
   const kv = {
     gravacoes: 0, leituras: 0, mapa,
-    async get(chave) { kv.leituras += 1; const item = mapa.get(chave); return item ? item.valor : null; },
+    async get(chave, op) { kv.leituras += 1; const item = mapa.get(chave); if (!item) return null; const tipo = typeof op === 'string' ? op : (op && op.type) || 'text'; return tipo === 'json' ? JSON.parse(item.valor) : item.valor; },
     async getWithMetadata(chave, op) {
       kv.leituras += 1;
       const item = mapa.get(chave);
@@ -1534,6 +1534,22 @@ r = await chamar(w, '/loja/dom-conizza', { env: { FIREBASE_SA: env.FIREBASE_SA }
 ok(r.status === 501, 'sem o KV: responde 501 e o site volta a ler do Firestore');
 r = await chamar(w, '/loja/dom-conizza', { headers: { Origin: 'https://site-estranho.com' } });
 ok(r.status === 403, 'outro site nao usa o cardapio');
+
+console.log('Video da Loja do Ligeiro na copia da loja');
+{
+  db.set('lojas/videoteste', { slug: 'videoteste', nome: 'Video Teste', donoEmail: 'dono@x.com', video: { id: 'x'.repeat(20), titulo: '<b>falso</b>' } });
+  let w2 = await workerNovo();
+  let r2 = await chamar(w2, '/loja/videoteste'); let j2 = await r2.json();
+  ok(r2.status === 200 && !j2.loja.video, 'video gravado por fora no documento da loja nao vale');
+  await kv.put('srv:video:videoteste', JSON.stringify({ id: 'a1b2c3d4e5f6g7h8i9j0', titulo: 'Combo', dur: 18, capa: true }));
+  kv.mapa.delete('loja:videoteste'); w2 = await workerNovo();
+  r2 = await chamar(w2, '/loja/videoteste'); j2 = await r2.json();
+  ok(j2.loja.video && j2.loja.video.id === 'a1b2c3d4e5f6g7h8i9j0' && j2.loja.video.dur === 18 && j2.loja.video.capa === true, 'o video escolhido (srv:video) vem junto da loja, sem leitura a mais por visita');
+  await kv.put('srv:video:videoteste', JSON.stringify({ id: '../../x', titulo: 'x' }));
+  kv.mapa.delete('loja:videoteste'); w2 = await workerNovo();
+  r2 = await chamar(w2, '/loja/videoteste'); j2 = await r2.json();
+  ok(!j2.loja.video, 'id de video torto: fica de fora');
+}
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
