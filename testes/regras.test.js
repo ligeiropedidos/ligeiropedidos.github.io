@@ -940,3 +940,15 @@ test('dias gratis: config das telas, regras e worker do Asaas dizem o mesmo', ()
   assert.equal(Number(cfg[1]), R.DIAS_GRATIS);
   assert.equal(Number(asaas[1]), R.DIAS_GRATIS);
 });
+
+test('nome parecido: o cliente confundiria (igual sem acento ou com uma letra de diferenca em nome comprido)', () => {
+  assert.equal(R.nomeParecido('Dom Conizza', 'dom conizza'), true);
+  assert.equal(R.nomeParecido('Dom Conizza', 'Dom-Conizza!'), true);
+  assert.equal(R.nomeParecido('Dom Conizza', 'Dom Conisza'), true, 'uma letra trocada: o jeito da loja falsa');
+  assert.equal(R.nomeParecido('Lanchonete do Zé', 'LANCHONETE DO ZE'), true);
+  assert.equal(R.nomeParecido('Pizzaria Bella Napoli', 'Pizzaria Bela Napolli'), true, 'nome bem comprido aceita duas');
+  assert.equal(R.nomeParecido('Açaí da Ju', 'Açaí da Lu'), false, 'nome curto: so igual conta');
+  assert.equal(R.nomeParecido('Lanchonete do Zé', 'Lanchonete do Zeca'), false);
+  assert.equal(R.nomeParecido('Pastel da Vila', 'Pastel do Vilela'), false);
+  assert.equal(R.nomeParecido('', 'Qualquer'), false);
+});

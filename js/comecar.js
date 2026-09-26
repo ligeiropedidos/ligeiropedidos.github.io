@@ -15,6 +15,8 @@
   var Pix = window.LigeiroPix;
   var store = D.store;
   var el = UI.el;
+  /* as lojas no ar (a mesma lista que conta as vagas): o passo da cidade confere se ja tem loja com o mesmo nome ali */
+  var vitrineDoCadastro = null;
 
   /* Que cardapio-modelo combina com cada tipo de loja. */
   function modeloDoTipo(tipo) {
@@ -38,6 +40,7 @@
     /* e conta agora as lojas no ar (a Central so conta quando abre): com o limite batido, ninguem passa */
     var lojasAgora = null;
     var contagem = store.listarVitrine ? store.listarVitrine({ semCache: true }).then(function (lista) {
+      vitrineDoCadastro = lista || [];
       lojasAgora = (lista || []).filter(function (l) { return R.ocupaVaga(l); }).length;
     }).catch(function () { /* fica a contagem da Central */ }) : Promise.resolve();
     function listaDeEspera() { telaListaDeEspera(raiz); }
@@ -117,6 +120,7 @@
       if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
     }).catch(function () { /* fica o que tinha */ }) : Promise.resolve();
     var contagem = store.listarVitrine ? store.listarVitrine({ semCache: true }).then(function (lista) {
+      vitrineDoCadastro = lista || [];
       n = (lista || []).filter(function (l) { return R.ocupaVaga(l); }).length;
     }).catch(function () { /* fica a contagem da Central */ }) : Promise.resolve();
     return Promise.all([vagas, contagem]).then(function () { return !R.capacidadeLojas(n).fechado; });
@@ -256,10 +260,31 @@
         var fCidade = window.LigeiroCidades.campo(st.cidade ? st.cidade.nome : '', st.cidade ? st.cidade.uf : '', { rotulo: 'Cidade', placeholder: 'Digite o nome da cidade', ajuda: 'Toque na cidade certa na lista.', largo: true });
         fCidade.classList.add('cadastro-cidade');
         if (fCidade.input) fCidade.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && fCidade.valor && fCidade.valor()) { e.preventDefault(); if (botao) botao.click(); } });
-        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Em qual cidade fica a loja?', null).concat([fCidade, erro, botaoContinuar(function () {
+        var alertaNome = el('div', { class: 'cadastro-alerta', role: 'alert', hidden: true });
+        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Em qual cidade fica a loja?', null).concat([fCidade, alertaNome, erro, botaoContinuar(function () {
+          alertaNome.hidden = true;
           var c = fCidade.valor && fCidade.valor();
           if (!c) { falhar('Escolha a cidade na lista: digite o nome e toque na opção certa.'); return false; }
-          st.cidade = c;
+          st.cidade = c; /* fica escolhida: voltando do "Mudar o nome", a cidade ja esta aqui */
+          /* nome igual ou quase igual ao de uma loja da mesma cidade: o cliente confundiria (e o mensageiro recusa no fim).
+             Avisa ja aqui, com o caminho: um toque volta ao nome */
+          var cidadeSlug = R.slugDaCidade(c.nome, c.uf);
+          var parecida = (vitrineDoCadastro || []).filter(function (l) { return l && l.cidadeSlug === cidadeSlug && l.ativa !== false && R.nomeParecido(l.nome, st.nome); })[0];
+          if (parecida) {
+            UI.limpar(alertaNome);
+            alertaNome.appendChild(el('span', { class: 'cadastro-alerta-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]));
+            alertaNome.appendChild(el('div', { class: 'cadastro-alerta-texto' }, [
+              el('b', { text: 'Esse nome já existe em ' + c.nome }),
+              el('span', { text: '"' + parecida.nome + '" já vende pelo Ligeiro aqui. Para o cliente não confundir as duas lojas, escolha outro nome.' }),
+              el('span', { class: 'cadastro-alerta-dica', text: 'Dica: junte o bairro, como "' + st.nome + ' Centro".' }),
+              el('button', { class: 'btn btn-escuro btn-pequeno', type: 'button', text: 'Mudar o nome', onclick: function () { atual = PASSOS.indexOf('nome'); desenhar(); } }),
+            ]));
+            alertaNome.hidden = false;
+            erro.hidden = true;
+            UI.soar('erro');
+            if (botao) { botao.disabled = false; botao.textContent = textoBotao(); }
+            return false;
+          }
           return true;
         })])));
         if (fCidade.input) focar(fCidade.input);

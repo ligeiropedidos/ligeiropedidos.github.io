@@ -85,6 +85,30 @@
       .replace(/-+$/, '');
   }
 
+  /* quantas letras mudar (trocar, tirar ou por) para um texto virar o outro */
+  function distanciaDeTexto(a, b) {
+    if (a === b) return 0;
+    var ant = [], i, j;
+    for (j = 0; j <= b.length; j++) ant[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      var atual = [i];
+      for (j = 1; j <= b.length; j++) atual[j] = Math.min(ant[j] + 1, atual[j - 1] + 1, ant[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+      ant = atual;
+    }
+    return ant[b.length];
+  }
+  /* Dois nomes de loja que o cliente confundiria: iguais sem acento, maiuscula, espaco e pontuacao ("Dom Conizza" e
+     "dom-conizza"), ou nome comprido com uma letra de diferenca ("Dom Conisza": o jeito de uma loja falsa se passar pela
+     verdadeira). Nome curto so se for igual: "Acai da Ju" e "Acai da Lu" sao lojas diferentes */
+  function nomeParecido(a, b) {
+    var x = slug(a).replace(/-/g, ''), y = slug(b).replace(/-/g, '');
+    if (!x || !y) return false;
+    if (x === y) return true;
+    var menor = Math.min(x.length, y.length);
+    var limite = menor >= 16 ? 2 : menor >= 10 ? 1 : 0;
+    return limite > 0 && Math.abs(x.length - y.length) <= limite && distanciaDeTexto(x, y) <= limite;
+  }
+
   /* Endereco da cidade (#/juquia): o nome, e com o estado junto quando o nome se repete no Brasil (240 nomes do IBGE,
      como Rio Branco AC e MT) ou bate com uma tela do site ("Painel", em SC, abria o painel do dono). Sem isso, duas
      cidades dividiam a mesma lista de lojas */
@@ -1405,6 +1429,7 @@
     semAcento: semAcento,
     mencionaCidade: mencionaCidade,
     slug: slug,
+    nomeParecido: nomeParecido,
     slugDaCidade: slugDaCidade,
     validarTelefone: validarTelefone,
     formatarTelefone: formatarTelefone,

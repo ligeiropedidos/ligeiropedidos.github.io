@@ -1185,8 +1185,25 @@ console.log('Loja nova (so pelo mensageiro)');
   db.set('lojas/pastel-da-vila', Object.assign(db.get('lojas/pastel-da-vila'), { donoEmail: 'outro@x.com' }));
   db.set('lojas/pastel-da-vila-2', { slug: 'pastel-da-vila-2', nome: 'Pastel da Vila', donoEmail: 'outro2@x.com' });
   db.set('lojas/pastel-da-vila-3/privado/mercadopago', { token: 'token-da-loja-apagada' });
-  r = await criarLoja('tok-novo'); j = await r.json();
-  ok(r.status === 200 && j.slug === 'pastel-da-vila-4' && !db.has('lojas/pastel-da-vila-3'), 'endereco com sobra de loja apagada (token do Mercado Pago): pulado, ninguem herda');
+  /* nome repetido na mesma cidade: recusado (o cliente confundiria; uma loja falsa se passaria pela verdadeira). Num
+     worker novo: estas tentativas nao gastam o limite de lojas por hora do endereco dos testes de baixo */
+  {
+    const wn = await workerNovo();
+    const criarNome = (loja) => chamar(wn, '/loja-nova', { metodo: 'POST', corpo: { loja: loja, vitrine: { nome: loja.nome, horarios: {} } }, headers: bearer('tok-novo') });
+    r = await criarNome(lojaNova()); j = await r.json();
+    ok(r.status === 409 && j.nomeRepetido === true && /Já existe a loja "Pastel da Vila" em Juquiá/.test(j.erro), 'mesmo nome na mesma cidade: recusado, com o caminho (outro nome, com o bairro)');
+    r = await criarNome(lojaNova({ nome: 'pastel da VILA!' })); j = await r.json();
+    ok(r.status === 409 && j.nomeRepetido === true, 'mesmo nome com outra grafia (maiuscula, pontuacao): recusado');
+    r = await criarNome(lojaNova({ nome: 'Pastel da Villa' })); j = await r.json();
+    ok(r.status === 409 && j.nomeRepetido === true, 'nome comprido com uma letra de diferenca (loja falsa): recusado');
+    r = await criarNome(lojaNova({ nome: 'Pastel do Vilela' })); j = await r.json();
+    ok(r.status === 200 && j.slug === 'pastel-do-vilela', 'nome parecido mas diferente de verdade (Pastel do Vilela): cria normal');
+    /* desfaz, para a conta seguir sem loja nos testes de baixo */
+    [...db.keys()].filter((k) => /^(lojas|vitrine)\/pastel-do-vilela/.test(k)).forEach((k) => db.delete(k));
+  }
+  /* o endereco e do Brasil todo: mesmo nome em outra cidade passa e ganha o proximo endereco livre */
+  r = await criarLoja('tok-novo', lojaNova({ cidade: 'Registro' })); j = await r.json();
+  ok(r.status === 200 && j.slug === 'pastel-da-vila-4' && !db.has('lojas/pastel-da-vila-3'), 'mesmo nome em outra cidade passa; endereco com sobra de loja apagada (token do Mercado Pago) pulado, ninguem herda');
   db.set('publico/fundadores', { capacidade: { fechado: true } });
   r = await criarLoja('tok-novo');
   ok(r.status === 409 && (await r.json()).vagas === false, 'vagas fechadas: ninguem cria loja');

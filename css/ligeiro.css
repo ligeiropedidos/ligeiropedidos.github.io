@@ -496,7 +496,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .cupom-abrir { border: 0; background: none; color: var(--deep2); font-weight: 700; font-size: 15px; padding: 6px 0; text-align: left; }
 .cupom-linha { display: flex; gap: 8px; }
 .cupom-linha input { flex: 1; min-width: 0; text-transform: uppercase; }
-.cupom-linha .btn { min-height: 56px; }
+.cupom-linha input::placeholder { text-transform: none; } /* o codigo digitado em maiuscula; o "Digite o codigo" normal */
+.cupom-linha .btn { min-height: 56px; border-radius: 14px; } /* o mesmo canto do campo do lado */
 .cupom-recado { font-size: 14.5px; color: var(--erro); font-weight: 600; }
 .cupom-valendo { display: flex; align-items: center; justify-content: space-between; background: var(--lime-suave); border-radius: var(--raio-p); padding: 10px 14px; font-weight: 600; }
 .cupom-valendo button { border: 0; background: none; color: var(--erro); font-weight: 700; }
@@ -523,7 +524,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-campos { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
 .linha-campos > * { min-width: 0; }
 .msg-erro { background: var(--erro-suave); border: 1px solid #F3C4BE; color: var(--erro); padding: 12px 14px; border-radius: var(--raio-p); font-weight: 600; }
-.aviso { background: var(--lime-suave); border: 1px solid #C9E7A1; border-radius: var(--raio-p); padding: 12px 14px; display: flex; gap: 10px; align-items: center; font-weight: 600; }
+.aviso { background: var(--lime-suave); border: 1px solid #C9E7A1; border-radius: var(--raio-p); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; font-weight: 600; }
 .forma-pgto { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 14px; cursor: pointer; }
 .forma-pgto.marcada { border-color: var(--lime-escuro); background: var(--lime-suave); }
 .forma-pgto input { position: absolute; opacity: 0; }
@@ -772,6 +773,16 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passos-mp { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; color: var(--body); font-size: 15px; line-height: 1.45; }
 
 .aviso-falta { background: var(--orange-suave); color: #7A3B10; border-color: #F7D2B8; }
+/* cadastro: nome que ja existe na cidade. Aviso de verdade (icone, titulo, o motivo, uma dica e o botao que volta ao nome),
+   no laranja de "atencao" (nao e erro de digitacao) */
+.cadastro-alerta { display: flex; gap: 12px; align-items: flex-start; padding: 16px; border-radius: 16px; background: var(--orange-suave); border: 1.5px solid #F7D2B8; color: #7A3B10; text-align: left; }
+.cadastro-alerta[hidden] { display: none; }
+.cadastro-alerta-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: #FDDCC2; color: #B45309; display: flex; align-items: center; justify-content: center; }
+.cadastro-alerta-ico .ico-traco svg { width: 20px; height: 20px; }
+.cadastro-alerta-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.45; }
+.cadastro-alerta-texto b { font-family: var(--display); font-size: 17px; line-height: 1.25; color: #5B2A08; padding-top: 1px; } /* a primeira linha no meio da bolinha do icone */
+.cadastro-alerta-dica { font-weight: 700; }
+.cadastro-alerta .btn { align-self: flex-start; margin-top: 8px; }
 .avancado { border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 0 14px; }
 .avancado summary { cursor: pointer; list-style: none; padding: 14px 0; display: flex; align-items: baseline; gap: 10px; font-weight: 700; line-height: 1.35; color: var(--body); } /* 14 em cima e embaixo do titulo, seta na altura da 1a linha */
 .avancado summary::-webkit-details-marker { display: none; }
@@ -1426,6 +1437,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* pagina de vendas: cartoes, incluso e o botao grande na largura de um celular grande, no meio. Blocos a 12 na secao:
    texto ate a faixa 24 (igual a faixa ate os cartoes) e 24 ate a tabela */
 #planos > .planos-venda { max-width: 560px; width: 100%; margin: 12px auto; }
+/* computador: a secao de preco em duas colunas, alinhada com o titulo e com a tabela de baixo (antes era uma coluna de 560
+   no meio, com sobra branca dos dois lados). A faixa do fundador na largura toda; os cartoes e o botao na esquerda; o que
+   vem incluso na direita, do topo dos cartoes ao fim do botao */
+@media (min-width: 900px) {
+  #planos > .planos-venda { max-width: none; margin: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); grid-template-areas: "faixa faixa" "cartoes incluso" "botao incluso"; column-gap: 24px; row-gap: 12px; }
+  #planos > .planos-venda > .fundador { grid-area: faixa; }
+  #planos > .planos-venda > .planos-caixa { grid-area: cartoes; }
+  #planos > .planos-venda > .btn { grid-area: botao; }
+  /* 12 abaixo do topo da linha: os cartoes guardam 12 em cima para o selo do anual; o incluso comeca na altura deles */
+  #planos > .planos-venda > .plano-incluso { grid-area: incluso; margin-top: 12px; justify-content: center; gap: 12px; padding: 20px 24px; }
+}
 .plano-etiqueta { position: absolute; top: 0; right: 12px; transform: translateY(-50%); z-index: 1; line-height: 1; background: var(--lime); color: var(--ink); font-size: 12px; font-weight: 800; padding: 6px 9px; border-radius: 999px; white-space: nowrap; } /* na borda de cima, no canto direito (o circulo de escolha fica no esquerdo) */
 .plano-incluso { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--card); }
 .plano-incluso-titulo { font-family: var(--display); font-size: 16px; color: var(--deep2); }
@@ -2118,7 +2140,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vazio .icone, .grafico-vazio .icone { display: flex; justify-content: center; color: var(--line-forte); }
 .vazio .icone .ico-traco svg { width: 48px; height: 48px; stroke-width: 1.5; }
 .grafico-vazio .icone .ico-traco svg { width: 36px; height: 36px; stroke-width: 1.6; }
-.aviso > .ico-traco { align-self: flex-start; margin-top: 1px; }
+/* o icone no meio exato da primeira linha, em todo aviso do site (texto de uma, duas ou tres linhas): a caixa dele tem a
+   altura de uma linha do texto do lado (antes era 1px de chute e ficava 1,5px acima no tema da Dom Conizza) */
+.aviso > .ico-traco { align-self: flex-start; line-height: inherit; height: 1lh; align-items: center; }
 .aviso-falta > .ico-traco { color: #B4501A; }
 .cartao h3.titulo-alerta { display: flex; align-items: center; gap: 8px; }
 .cartao h3.titulo-alerta .ico-traco { color: var(--erro); }

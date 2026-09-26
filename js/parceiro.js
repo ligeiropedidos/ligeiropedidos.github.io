@@ -439,7 +439,14 @@
         var caixa = el('div', { class: 'pilha planos-venda' });
         function d() {
           UI.limpar(caixa);
-          caixa.appendChild(cartoesPlanos(t, function (n) { t = n; d(); }));
+          /* as partes saem da caixa dos cartoes para a secao: no computador ela vira duas colunas (a faixa do fundador em
+             cima; cartoes e botao na esquerda, o que vem incluso na direita). No celular a ordem continua a mesma */
+          var planos = cartoesPlanos(t, function (n) { t = n; d(); });
+          var faixa = planos.querySelector(':scope > .fundador');
+          var incluso = planos.querySelector(':scope > .plano-incluso');
+          if (faixa) caixa.appendChild(faixa);
+          caixa.appendChild(planos);
+          if (incluso) caixa.appendChild(incluso);
           /* um botao so, grande: vai direto criar a loja com o que foi escolhido (a tela Assinar repetiria os cartoes) */
           caixa.appendChild(R.capacidadeLojas().fechado
             ? el('button', { class: 'btn btn-principal btn-gigante btn-largo', type: 'button', text: 'Entrar na lista de espera', onclick: function () { abrirContato('lista-espera'); } })

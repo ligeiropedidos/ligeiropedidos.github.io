@@ -268,9 +268,10 @@
          senao um embaixo do outro com a largura toda, a acao em cima. Antes so empilhava quando o texto ja cortava: cabendo
          raspando, "Continuar pagando" ficava colado na borda */
       var rodape = document.querySelector('#modalCaixa .modal-rodape');
-      if (rodape) {
+      var regua = document.createElement('canvas').getContext('2d');
+      function ajustarBotoes() {
+        if (!rodape || !rodape.isConnected) { window.removeEventListener('resize', ajustarBotoes); return; }
         rodape.classList.remove('empilhado');
-        var regua = document.createElement('canvas').getContext('2d');
         var naoCabe = [].some.call(rodape.querySelectorAll('.btn'), function (b) {
           var cs = getComputedStyle(b);
           regua.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
@@ -278,6 +279,11 @@
           return texto > b.clientWidth - 32 || b.scrollHeight > b.clientHeight + 2;
         });
         if (naoCabe) rodape.classList.add('empilhado');
+      }
+      if (rodape) {
+        ajustarBotoes();
+        /* a tela mudou de tamanho com a janela aberta (celular girado, janela do PC): a conta e refeita */
+        window.addEventListener('resize', ajustarBotoes);
       }
     });
   }
