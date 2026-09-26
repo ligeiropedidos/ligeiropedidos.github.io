@@ -47,7 +47,7 @@
     });
   }
   function subirArquivo(pedido, tipo, blob, extra) {
-    if (D.modoDemo) return demo('subir', { pedido: pedido, tipo: tipo, id: extra && extra.id, dur: extra && extra.dur });
+    if (D.modoDemo) return demo('subir', { pedido: pedido, tipo: tipo, id: extra && extra.id, dur: extra && extra.dur, bytes: blob && blob.size });
     var q = 'pedido=' + encodeURIComponent(pedido) + '&tipo=' + tipo + (extra && extra.id ? '&id=' + encodeURIComponent(extra.id) : '') + (extra && extra.dur ? '&dur=' + Math.round(extra.dur) : '');
     return D.store.obterIdToken().then(function (t) {
       return fetch(mensageiro() + '/servicos/subir?' + q, { method: 'POST', headers: { 'Content-Type': tipo === 'capa' ? 'image/jpeg' : 'video/mp4', Authorization: 'Bearer ' + t }, body: blob })
@@ -86,7 +86,7 @@
     else if (r === 'apagar-video') { var lv = loja(c.loja); lv.videos = lv.videos.filter(function (v) { return v.id !== c.video; }); if (lv.noSite === c.video) lv.noSite = null; res = { videos: lv.videos, noSite: lv.noSite }; }
     else if (r === 'central') res = { pedidos: lista('') };
     else if (r === 'etapa') { var pe = d.pedidos[c.id]; pe.status = 'producao'; pe.materialEm = new Date().toISOString(); var dd = new Date(); dd.setDate(dd.getDate() + 7); pe.prazoAte = dd.toISOString().slice(0, 10); res = { pedido: pe }; }
-    else if (r === 'subir') res = { id: c.tipo === 'capa' ? c.id : idDemo(), dur: c.dur };
+    else if (r === 'subir') { res = { id: c.tipo === 'capa' ? c.id : idDemo(), dur: c.dur }; d.enviado = d.enviado || {}; d.enviado[c.tipo] = c.bytes; } /* o tamanho do que iria para o servidor */
     else if (r === 'entregar') {
       var pd = d.pedidos[c.id]; pd.status = 'entregue'; pd.entregueEm = new Date().toISOString(); if (c.titulo) pd.titulo = c.titulo;
       if (pd.servico === 'video' && c.video) { var lj = loja(pd.loja); lj.videos.unshift({ id: c.video, titulo: c.titulo, dur: 20, capa: true, em: pd.entregueEm }); if (c.noSite) lj.noSite = c.video; pd.video = c.video; }
@@ -600,7 +600,7 @@
       var titulo = el('input', { id: 'srvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta', value: p.titulo || '' });
       var noSite = el('input', { id: 'srvNoSite', type: 'checkbox', checked: true });
       var avisar = el('input', { id: 'srvAvisar', type: 'checkbox', checked: true });
-      var info = el('p', { class: 'srv-peq', text: video ? 'Passe o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade.' : 'Mande os arquivos pelo WhatsApp da loja e marque como entregue.' });
+      var info = el('p', { class: 'srv-peq', text: video ? 'O vídeo é comprimido aqui mesmo antes de enviar (leva o tempo do vídeo). Deixe esta aba aberta até terminar.' : 'Mande os arquivos pelo WhatsApp da loja e marque como entregue.' });
       var erro = el('p', { class: 'srv-erro', role: 'alert', hidden: true });
       var botao = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' } }, [ico('check'), video ? 'Entregar vídeo' : 'Marcar entregue']);
       var toggle = function (input, t, s) { return el('label', { class: 'srv-toggle', for: input.id }, [el('span', { class: 'srv-linha-texto' }, [el('strong', { text: t }), el('span', { class: 'srv-meta', text: s })]), input]); };
@@ -618,9 +618,8 @@
         var f = arquivo.files && arquivo.files[0];
         if (!f) return fim(new Error('Escolha o vídeo.'));
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
-        if (f.size > 15 * 1024 * 1024) return fim(new Error('O vídeo tem ' + (f.size / 1048576).toFixed(1) + ' MB. Passe no comprimir-video.bat (fica com uns 3 a 6 MB).'));
-        botao.disabled = true; botao.lastChild.textContent = 'Enviando...';
-        medirVideoValido(f).then(function (m) { return subirVideo(p.id, f, m); }).then(function (id) {
+        botao.disabled = true;
+        prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }).then(function (m) { botao.lastChild.textContent = 'Enviando...'; return subirVideo(p.id, m.arquivo, m); }).then(function (id) {
           return acaoCentral('entregar', { id: p.id, titulo: titulo.value, video: id, noSite: noSite.checked, avisar: avisar.checked }, 'Vídeo entregue.');
         }).catch(function (e) { botao.lastChild.textContent = 'Entregar vídeo'; fim(e); });
       });
@@ -645,7 +644,7 @@
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvValor', text: 'Valor combinado (opcional)' }), valor]),
         toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.'),
         toggle(avisar, 'Avisar a loja por e-mail', 'Vai para o e-mail da conta da loja.'),
-        el('p', { class: 'srv-peq', text: 'Passe o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade. O valor entra no Vendido do mês.' }),
+        el('p', { class: 'srv-peq', text: 'O vídeo é comprimido aqui mesmo antes de enviar (leva o tempo do vídeo): deixe esta aba aberta até terminar. O valor entra no Vendido do mês.' }),
         erro,
       ]), rodape: [botao] });
       botao.addEventListener('click', function () {
@@ -657,12 +656,12 @@
         if (!f) return fim(new Error('Escolha o vídeo.'));
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
         if (!(centavos >= 0 && centavos <= 1000000)) return fim(new Error('Confira o valor (até R$ 10.000,00).'));
-        if (f.size > 15 * 1024 * 1024) return fim(new Error('O vídeo tem ' + (f.size / 1048576).toFixed(1) + ' MB. Passe no comprimir-video.bat (fica com uns 2 MB).'));
-        botao.disabled = true; botao.lastChild.textContent = 'Enviando...';
+        botao.disabled = true;
         var pedido = null;
-        /* confere o arquivo ANTES de registrar o pedido: arquivo errado nao deixa pedido pela metade no quadro */
-        medirVideoValido(f).then(function (m) {
-          return api('criar', { loja: selLoja.value, servico: 'video', fora: true, valor: centavos }).then(function (r) { pedido = r.pedido; return subirVideo(pedido.id, f, m); });
+        /* comprime e confere o arquivo ANTES de registrar o pedido: arquivo errado nao deixa pedido pela metade no quadro */
+        prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }).then(function (m) {
+          botao.lastChild.textContent = 'Enviando...';
+          return api('criar', { loja: selLoja.value, servico: 'video', fora: true, valor: centavos }).then(function (r) { pedido = r.pedido; return subirVideo(pedido.id, m.arquivo, m); });
         }).then(function (id) {
           return acaoCentral('entregar', { id: pedido.id, titulo: titulo.value, video: id, noSite: noSite.checked, avisar: avisar.checked }, 'Vídeo enviado para a loja.');
         }).catch(function (e) {
@@ -710,15 +709,15 @@
   /* area de envio do video (no lugar do "Escolher arquivo" cru do navegador): toca para escolher ou arrasta o arquivo
      em cima; escolhido, mostra o nome e o tamanho */
   function campoVideo(id) {
-    var input = el('input', { id: id, class: 'srv-arquivo-input', type: 'file', accept: 'video/mp4' });
+    var input = el('input', { id: id, class: 'srv-arquivo-input', type: 'file', accept: 'video/*' });
     var nome = el('strong', { text: 'Escolher o vídeo' });
-    var sub = el('span', { class: 'srv-meta', text: 'MP4 de até 20 segundos e 15 MB' });
+    var sub = el('span', { class: 'srv-meta', text: 'Até 20 segundos. Pode ser o arquivo grande, do celular' });
     var caixa = el('label', { class: 'srv-arquivo', for: id }, [ico('subir'), el('span', { class: 'srv-linha-texto' }, [nome, sub]), input]);
     input.addEventListener('change', function () {
       var f = input.files && input.files[0];
       caixa.classList.toggle('escolhido', !!f);
       nome.textContent = f ? f.name : 'Escolher o vídeo';
-      sub.textContent = f ? (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB. Toque para trocar.' : 'MP4 de até 20 segundos e 15 MB';
+      sub.textContent = f ? (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB. Toque para trocar.' : 'Até 20 segundos. Pode ser o arquivo grande, do celular';
     });
     ['dragenter', 'dragover'].forEach(function (ev) { caixa.addEventListener(ev, function (e) { e.preventDefault(); caixa.classList.add('arrastando'); }); });
     ['dragleave', 'drop'].forEach(function (ev) { caixa.addEventListener(ev, function () { caixa.classList.remove('arrastando'); }); });
@@ -728,6 +727,134 @@
       if (fs && fs[0]) { try { input.files = fs; } catch (_) { return; } input.dispatchEvent(new Event('change')); }
     });
     return { caixa: caixa, input: input };
+  }
+  /* ---------- compressao no proprio navegador (nada pesa no servidor) ----------
+     O video toca num quadro de 720 x 1280 (cabe inteiro, faixa preta onde sobrar, igual ao comprimir-video.bat) e o
+     Chrome grava em MP4 (H.264 + AAC, 2,5 Mbps): 20 s ficam com uns 2 MB. Leva o tempo do video. A capa sai do
+     quadro de 1 s. Navegador sem gravacao em MP4: vai o arquivo original, se ja for MP4 leve (ate 15 MB). */
+  var MAX_ORIGINAL = 15 * 1024 * 1024;
+  function tipoGravacao() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported || !HTMLCanvasElement.prototype.captureStream) return '';
+    var t = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4d0028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+    for (var i = 0; i < t.length; i++) if (MediaRecorder.isTypeSupported(t[i])) return t[i];
+    return '';
+  }
+  /* o compressor fino (js/video-leve.js: qualidade constante e MP4 com o indice no comeco) so carrega na hora de usar */
+  var videoLeve = null;
+  function carregarVideoLeve() {
+    if (window.LigeiroVideoLeve) return Promise.resolve(window.LigeiroVideoLeve);
+    if (videoLeve) return videoLeve;
+    var tag = ((document.querySelector('script[src*="js/servicos.js"]') || {}).src || '').split('?v=')[1] || '1';
+    videoLeve = new Promise(function (ok) {
+      var s = document.createElement('script');
+      s.src = 'js/video-leve.js?v=' + tag;
+      s.onload = function () { ok(window.LigeiroVideoLeve || null); };
+      s.onerror = function () { videoLeve = null; ok(null); };
+      document.head.appendChild(s);
+    });
+    return videoLeve;
+  }
+  /* devolve { arquivo, dur, capa }; aoAndar(texto) mostra o andamento no botao */
+  function prepararVideo(f, aoAndar) {
+    aoAndar('Conferindo o vídeo...');
+    return medirVideoValido(f).then(function (m) {
+      /* ja leve (exportado do CapCut ou passado no comprimir-video.bat): vai como esta, sem comprimir de novo
+         (comprimir outra vez so perderia qualidade) */
+      var taxa = f.size * 8 / Math.max(1, m.dur);
+      if (/mp4/i.test(f.type || '') && m.w * m.h <= 720 * 1280 && taxa <= 3000000 && f.size <= MAX_ORIGINAL) { m.arquivo = f; return m; }
+      return comprimirPreparado(f, aoAndar);
+    });
+  }
+  function comprimirPreparado(f, aoAndar) {
+    return carregarVideoLeve().then(function (VL) {
+      if (VL && VL.suportado()) {
+        return VL.comprimir(f, { max: 20, aoAndar: function (p) { aoAndar('Comprimindo ' + Math.round(p * 100) + '%'); } }).then(function (m) {
+          /* ja era um MP4 leve e o comprimido ficou maior: vai o original */
+          if (m.arquivo.size >= f.size && f.size <= MAX_ORIGINAL && /mp4/i.test(f.type || '')) m.arquivo = f;
+          return m;
+        });
+      }
+      return gravarSimples(f, aoAndar);
+    });
+  }
+  function gravarSimples(f, aoAndar) {
+    var tipo = tipoGravacao();
+    if (!tipo) {
+      return medirVideoValido(f).then(function (m) {
+        if (f.size > MAX_ORIGINAL || !/mp4/i.test(f.type || 'video/mp4')) throw new Error('Este navegador não comprime vídeo e o arquivo tem ' + (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB. Abra a Central no Chrome do computador.');
+        m.arquivo = f; return m;
+      });
+    }
+    return comprimirVideo(f, tipo, aoAndar);
+  }
+  function comprimirVideo(f, tipo, aoAndar) {
+    return new Promise(function (ok, falhou) {
+      var url = URL.createObjectURL(f);
+      var v = document.createElement('video');
+      var W = 720, H = 1280, tela = document.createElement('canvas');
+      tela.width = W; tela.height = H;
+      var g = tela.getContext('2d');
+      var ac = null, rec = null, partes = [], capa = null, acabou = false, seguranca = 0, dur = 0;
+      function limpar() {
+        clearTimeout(seguranca);
+        document.removeEventListener('visibilitychange', saiu);
+        try { v.pause(); } catch (_) { /* ja parou */ }
+        v.removeAttribute('src'); v.load();
+        URL.revokeObjectURL(url);
+        if (ac) ac.close().catch(function () { /* ja fechou */ });
+      }
+      function erro(msg) { if (acabou) return; acabou = true; if (rec && rec.state !== 'inactive') { rec.onstop = null; rec.stop(); } limpar(); falhou(new Error(msg)); }
+      /* aba escondida: o navegador para de desenhar e o video sairia congelado */
+      function saiu() { if (document.hidden) erro('A compressão parou porque a aba saiu da tela. Toque de novo e deixe esta aba aberta até terminar.'); }
+      v.muted = false; v.playsInline = true; v.preload = 'auto'; v.src = url;
+      v.addEventListener('error', function () { erro('Esse arquivo não abre como vídeo. Use MP4 ou MOV.'); });
+      v.addEventListener('loadedmetadata', function () {
+        dur = v.duration || 0;
+        if (!(dur > 0) || !isFinite(dur)) return erro('Não deu para ler a duração do vídeo.');
+        if (dur > 21) return erro('O vídeo tem ' + Math.round(dur) + ' segundos. O limite é 20.');
+        var esc = Math.min(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * esc, dh = v.videoHeight * esc, dx = (W - dw) / 2, dy = (H - dh) / 2;
+        var fluxo = tela.captureStream(30);
+        try {
+          ac = new (window.AudioContext || window.webkitAudioContext)();
+          var destino = ac.createMediaStreamDestination();
+          ac.createMediaElementSource(v).connect(destino); /* o som vai so para a gravacao, nao sai na caixa de som */
+          destino.stream.getAudioTracks().forEach(function (t) { fluxo.addTrack(t); });
+        } catch (_) { ac = null; /* sem som: grava so a imagem */ }
+        try { rec = new MediaRecorder(fluxo, { mimeType: tipo, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 }); } catch (e) { return erro('Não deu para comprimir neste navegador. Abra a Central no Chrome do computador.'); }
+        rec.ondataavailable = function (e) { if (e.data && e.data.size) partes.push(e.data); };
+        rec.onstop = function () {
+          if (acabou) return;
+          acabou = true; limpar();
+          var b = new Blob(partes, { type: 'video/mp4' });
+          if (b.size < 1000) return falhou(new Error('A compressão não gerou o vídeo. Tente de novo.'));
+          /* ficou maior que um MP4 que ja era leve: vai o original */
+          var arquivo = b.size >= f.size && f.size <= MAX_ORIGINAL && /mp4/i.test(f.type || '') ? f : b;
+          if (arquivo.size > MAX_ORIGINAL) return falhou(new Error('Mesmo comprimido, o vídeo passou de 15 MB.'));
+          ok({ arquivo: arquivo, dur: Math.min(dur, 20), capa: capa });
+        };
+        function desenhar() { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.drawImage(v, dx, dy, dw, dh); }
+        function quadro() {
+          if (acabou) return;
+          desenhar();
+          var t = v.currentTime;
+          if (!capa && t >= Math.min(1, dur / 2)) { capa = 'pedida'; tela.toBlob(function (b) { capa = b; }, 'image/jpeg', 0.8); }
+          if (aoAndar) aoAndar('Comprimindo ' + Math.min(99, Math.round(t / dur * 100)) + '%');
+          if (t >= Math.min(dur, 20) - 0.03) { v.pause(); if (rec.state !== 'inactive') rec.stop(); return; }
+          if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(quadro); else requestAnimationFrame(quadro);
+        }
+        v.addEventListener('ended', function () { if (!acabou && rec.state !== 'inactive') { desenhar(); rec.stop(); } });
+        document.addEventListener('visibilitychange', saiu);
+        seguranca = setTimeout(function () { if (!acabou && rec.state !== 'inactive') rec.stop(); }, (Math.min(dur, 20) + 8) * 1000);
+        desenhar();
+        rec.start(1000);
+        if (aoAndar) aoAndar('Comprimindo 0%');
+        (ac && ac.resume ? ac.resume() : Promise.resolve()).then(function () { return v.play(); }).then(quadro).catch(function () { erro('O navegador não deixou tocar o vídeo para comprimir. Toque de novo em enviar.'); });
+      });
+    }).then(function (m) {
+      /* a capa ainda nao ficou pronta (toBlob e assincrono): sobe sem capa */
+      if (m.capa === 'pedida') m.capa = null;
+      return m;
+    });
   }
   /* o video da entrega: ate 20 s (o mensageiro aceita ate 30; a folga e do arredondamento) */
   function medirVideoValido(f) {
@@ -746,18 +873,18 @@
       var v = document.createElement('video');
       v.preload = 'auto'; v.muted = true; v.playsInline = true; v.src = url;
       var pronto = false;
-      v.addEventListener('error', function () { URL.revokeObjectURL(url); falhou(new Error('Esse arquivo não abre como vídeo. Use MP4.')); });
+      v.addEventListener('error', function () { URL.revokeObjectURL(url); falhou(new Error('Esse arquivo não abre como vídeo. Use MP4 ou MOV.')); });
       v.addEventListener('loadedmetadata', function () { v.currentTime = Math.min(1, (v.duration || 1) / 2); });
       v.addEventListener('seeked', function () {
         if (pronto) return; pronto = true;
-        var dur = v.duration || 0;
+        var dur = v.duration || 0, largura = v.videoWidth, altura = v.videoHeight;
         try {
           var c = document.createElement('canvas');
           var escala = Math.min(1, 540 / (v.videoWidth || 540));
           c.width = Math.round((v.videoWidth || 540) * escala); c.height = Math.round((v.videoHeight || 960) * escala);
           c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-          c.toBlob(function (b) { URL.revokeObjectURL(url); ok({ dur: dur, capa: b }); }, 'image/jpeg', 0.8);
-        } catch (_) { URL.revokeObjectURL(url); ok({ dur: dur, capa: null }); }
+          c.toBlob(function (b) { URL.revokeObjectURL(url); ok({ dur: dur, capa: b, w: largura, h: altura }); }, 'image/jpeg', 0.8);
+        } catch (_) { URL.revokeObjectURL(url); ok({ dur: dur, capa: null, w: largura, h: altura }); }
       });
     });
   }
