@@ -21,10 +21,9 @@
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
   /* data do selo: dia/mes (o ano so aparece se estiver longe), pro selo caber numa linha */
   function dataCurta(d) { var x = new Date(d); return Math.abs(x.getTime() - Date.now()) > 300 * 864e5 ? dataBR(x) : x.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); }
-  /* carregando da pagina: as tres bolinhas do Ligeiro (surgem depois de um instante, pra nao piscar) */
-  function carregandoEl() {
-    return el('div', { class: 'conta-carregando', role: 'status', 'aria-label': 'Carregando' }, el('div', { class: 'carregando-pontos' }, [el('span'), el('span'), el('span')]));
-  }
+  /* carregando da pagina: o mascote do Ligeiro com as bolinhas, a mesma espera da Central e do cadastro
+     (surge depois de um instante, pra nao piscar) */
+  function carregandoEl() { return UI.carregandoMascote('Abrindo a sua conta…'); }
   function diasGratis() { var p = (window.LIGEIRO_CONFIG || {}).precos || {}; return p.diasGratis || 7; }
 
   function abrir(raiz) {
@@ -220,7 +219,8 @@
           a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para o ' + outroTipo }),
           p.status === 'cancelado'
             ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague ' + (p.tipo === 'anual' ? 'a fatura' : 'a mensalidade') + ' para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
-            : (a.estado !== 'pausada' ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar assinatura', onclick: function () {
+            /* no gratis sem assinatura nao ha o que encerrar (nada e cobrado e o teste acaba sozinho): o botao so cortaria os dias gratis */
+            : (a.estado !== 'pausada' && !(a.estado === 'gratis' && !comAssinatura) ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar assinatura', onclick: function () {
                 UI.perguntar('Encerrar a assinatura?' + (comAssinatura ? ' A cobrança automática é cancelada agora.' : '') + ' Sua loja continua no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois para de receber pedidos.' + (p.fundador === true ? ' E o preço de fundador acaba: se voltar, volta no preço normal.' : ''), { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
                   /* com assinatura no Asaas, o mensageiro cancela ela junto (direto no banco, o cartao seguiria cobrando) */

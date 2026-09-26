@@ -200,7 +200,8 @@
         el('a', { href: '#/entrar', text: 'Minha conta' }),
         el('a', { href: '#/cidades', text: 'Lojas da cidade' }),
       ]),
-      el('div', { class: 'ligeiro', text: 'Ligeiro: pedido ligeiro, sem comissão · ' + (e.cidade || 'Juquiá, SP') + (e.nome ? ' · ' + e.nome : '') + (e.cnpj ? ' · CNPJ ' + e.cnpj : '') }),
+      /* a cidade ("Juquiá, SP") e o CNPJ nunca se partem no meio da linha */
+      el('div', { class: 'ligeiro' }, ['Ligeiro: pedido ligeiro, sem comissão · ', el('span', { class: 'sem-quebra', text: e.cidade || 'Juquiá, SP' }), e.nome ? ' · ' + e.nome : '', e.cnpj ? el('span', { class: 'sem-quebra', text: ' · CNPJ ' + e.cnpj }) : '']),
     ];
     return el('footer', { class: 'rodape rodape-vendas' }, linhas);
   }

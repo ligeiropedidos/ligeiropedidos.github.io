@@ -1462,7 +1462,7 @@
 
         /* grupos de opcoes desta categoria */
         var chaves = (l.gruposPorCategoria || {})[cat.id] || [];
-        conteudo.appendChild(el('h2', { text: 'Tamanhos e adicionais de ' + cat.nome, style: { marginTop: '10px' } }));
+        conteudo.appendChild(el('h2', { text: 'Tamanhos e adicionais de ' + cat.nome, style: { marginTop: '12px' } }));
         conteudo.appendChild(el('p', { class: 'muted pequeno', text: R.catalogo(estado.loja).comida ? 'Acabou o bacon? Desliga aqui e ele some do site na hora.' : 'Acabou um tamanho ou uma opção? Desliga aqui e some do site na hora.' }));
         chaves.forEach(function (chave) {
           var g = (l.grupos || {})[chave];
@@ -2003,7 +2003,7 @@
         ]));
       });
       bloco.appendChild(lista);
-      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '10px' }, text: '+ Opção', onclick: function () { novaOpcao(chave); } }));
+      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '12px' }, text: '+ Opção', onclick: function () { novaOpcao(chave); } }));
       return bloco;
     }
 
@@ -2710,7 +2710,7 @@
         linhas[dia] = nova;
       }
       dias.forEach(function (d) { linhas[d[0]] = desenharDia(d[0]); caixa.appendChild(linhas[d[0]]); });
-      caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, [
+      caixa.appendChild(el('div', { class: 'linha-botoes', style: { marginTop: '12px' } }, [
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', title: 'Copia o horário de segunda para todos os outros dias', onclick: function () {
           var base = estadoH.seg;
           dias.forEach(function (d) { if (d[0] !== 'seg') { estadoH[d[0]] = { aberto: base.aberto, turnos: base.turnos.map(function (t) { return [t[0], t[1]]; }) }; redesenhar(d[0]); } });
@@ -3012,9 +3012,13 @@
         tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', UI.linkDoSite('cozinha/' + l.slug)),
         tela('entrega', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', UI.linkDoSite('entrega/' + l.slug)),
       ]));
-      s.appendChild(el('p', { class: 'muted pequeno linha-painel-link' }, [
-        'Este painel em outro aparelho: ',
-        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(linkPainel, 'Link do painel copiado.') }, [UI.iconeLinha('copiar'), 'Copiar link do painel']),
+      /* o link do painel: um cartao como o da senha logo abaixo (antes era uma linha solta com um botao menor) */
+      s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
+        el('div', { class: 'senha-equipe-texto' }, [
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Painel em outro aparelho']),
+          el('p', { class: 'muted pequeno', text: 'Mande o link para abrir este painel no tablet do balcão ou em outro celular.' }),
+        ]),
+        el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(linkPainel, 'Link do painel copiado.') }, [UI.iconeLinha('copiar'), 'Copiar link']),
       ]));
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [

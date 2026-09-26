@@ -314,5 +314,50 @@ console.log('== o preco do site e o do mensageiro ==');
   ok(cfg.ligada === false || cfg.ligada === true, 'a chave ligada existe');
 }
 
+console.log('== video combinado por fora (Enviar video, na Central) ==');
+{
+  const cobrancasAntes = chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length;
+  const cen = await chamar('central', {}, 'tok-admin');
+  ok(Array.isArray(cen.j.recursos) && cen.j.recursos.indexOf('fora') >= 0, 'fora: a Central sabe que este mensageiro ja faz o Enviar video');
+  let r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'tok-outro');
+  ok(r.status === 403, 'fora: dono nao cria pedido combinado por fora (so a Central)');
+  r = await chamar('comprar', { loja: 'outra', servico: 'video', fora: true, termos: TERMOS, whatsapp: '13999990000' }, 'tok-outro');
+  ok(!(r.j.pedido && r.j.pedido.status === 'producao'), 'fora: na compra do dono o "fora" e ignorado (nada nasce pago)');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: -5 }, 'tok-admin');
+  ok(r.status === 400, 'fora: valor negativo recusado');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 99999999 }, 'tok-admin');
+  ok(r.status === 400, 'fora: valor acima de R$ 10.000 recusado');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: '<b>' }, 'tok-admin');
+  ok(r.status === 400, 'fora: valor que nao e numero recusado');
+  r = await chamar('criar', { loja: 'naoexiste', servico: 'video', fora: true }, 'tok-admin');
+  ok(r.status === 404, 'fora: loja que nao existe: 404');
+  r = await chamar('criar', { loja: 'outra', servico: 'foguete', fora: true }, 'tok-admin');
+  ok(r.status === 400, 'fora: servico que nao existe: 400');
+  const cobrancasFora = chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length;
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'tok-admin');
+  const pf = r.j.pedido || {};
+  ok(r.status === 200 && pf.status === 'producao' && pf.forma === 'FORA' && pf.origem === 'fora' && pf.valor === 14900 && !pf.link, 'fora: o pedido nasce pago, em producao e sem link de pagamento');
+  ok(chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length === cobrancasFora, 'fora: nenhuma cobranca criada no Asaas');
+  const v = await subir('pedido=' + pf.id + '&tipo=video&dur=18', MP4());
+  ok(v.status === 200 && v.j.id, 'fora: o video sobe no pedido');
+  const c = await subir('pedido=' + pf.id + '&tipo=capa&id=' + v.j.id, JPG());
+  ok(c.status === 200, 'fora: a capa sobe junto');
+  r = await chamar('entregar', { id: pf.id, titulo: 'Combinado no balcão', video: v.j.id, noSite: true, avisar: false }, 'tok-admin');
+  ok(r.status === 200 && r.j.pedido.status === 'entregue', 'fora: entregue pelo caminho de sempre');
+  r = await chamar('meus', { loja: 'outra' }, 'tok-outro');
+  ok(r.j.videos.some((x) => x.id === v.j.id) && r.j.noSite === v.j.id, 'fora: o video aparece em Videos da loja e no site dela');
+  ok(r.j.pedidos.some((x) => x.id === pf.id && x.forma === 'FORA'), 'fora: a loja ve o pedido como combinado por fora');
+  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolver pelo Asaas' }, 'tok-admin');
+  ok(r.status === 409 && r.j.manual === true, 'fora: reembolso pelo Asaas recusado (o dinheiro nao passou por ele)');
+  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolvi em dinheiro', manual: true }, 'tok-admin');
+  ok(r.status === 200, 'fora: reembolso feito por fora so e registrado');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true }, 'tok-admin');
+  ok(r.status === 200 && r.j.pedido.valor === 0, 'fora: sem valor (cortesia) fica R$ 0');
+  r = await chamar('reembolsar', { id: r.j.pedido.id, motivo: 'nada a devolver', manual: true }, 'tok-admin');
+  ok(r.status === 400, 'fora: cortesia nao tem o que devolver');
+  ok(chamadas.filter((x) => x.cam === '/payments' && x.metodo === 'POST').length === cobrancasFora, 'fora: no fim, nenhuma cobranca nova alem das normais');
+  ok(cobrancasAntes <= cobrancasFora, 'fora: contagem de cobrancas coerente');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

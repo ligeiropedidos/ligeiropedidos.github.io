@@ -1094,7 +1094,7 @@ async function rotaServicos(request, env, caminho) {
     }
     else if (caminho === '/servicos/video') r = await srvEscolherVideo(env, fb, email, admin, corpo);
     else if (caminho === '/servicos/apagar-video') r = await srvApagarVideo(env, fb, email, admin, corpo);
-    else if (caminho === '/servicos/central') r = { status: 200, corpo: { ok: true, pedidos: (await kvJson(env, 'srv:idx')) || [], servicos: SERVICOS, termos: TERMOS_SERVICOS } };
+    else if (caminho === '/servicos/central') r = { status: 200, corpo: { ok: true, pedidos: (await kvJson(env, 'srv:idx')) || [], servicos: SERVICOS, termos: TERMOS_SERVICOS, recursos: ['fora'] } }; /* recursos: a Central so mostra o que este mensageiro ja sabe fazer */
     else if (caminho === '/servicos/etapa') r = await srvEtapa(env, corpo);
     else if (caminho === '/servicos/entregar') r = await srvEntregar(env, corpo);
     else r = await srvReembolsar(env, corpo);
@@ -1214,6 +1214,21 @@ async function srvComprar(env, fb, email, pelaCentral, corpo) {
   const s = Object.prototype.hasOwnProperty.call(SERVICOS, tipo) ? SERVICOS[tipo] : null;
   if (!s) return falha(400, 'Esse serviço não existe.');
   if (!pelaCentral && corpo.termos !== TERMOS_SERVICOS) return falha(400, 'Leia e aceite os termos da Loja do Ligeiro para continuar.', { termos: TERMOS_SERVICOS });
+  /* combinado por fora (so a Central): o dono do Ligeiro ja acertou com a loja; sem cobranca no Asaas, o pedido nasce
+     em producao e segue o caminho normal da entrega (mesmas gravacoes de uma entrega, nada no banco) */
+  if (pelaCentral && corpo.fora === true) {
+    const valorFora = corpo.valor == null || corpo.valor === '' ? 0 : Math.round(Number(corpo.valor));
+    if (!Number.isInteger(valorFora) || valorFora < 0 || valorFora > 1000000) return falha(400, 'Valor inválido: de R$ 0 a R$ 10.000.');
+    const whatsFora = String(corpo.whatsapp || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    const agoraFora = new Date().toISOString();
+    const pf = {
+      id: idSrv(), loja: loja.slug, lojaNome: loja.nome, email: loja.dono, servico: tipo, nome: s.nome, valor: valorFora,
+      status: 'producao', criadoEm: agoraFora, pagoEm: agoraFora, materialEm: agoraFora, prazoAte: diaDeBrasilia(),
+      forma: 'FORA', whatsapp: /^[1-9]\d{9,10}$/.test(whatsFora) ? whatsFora : '', origem: 'fora',
+    };
+    await gravarServico(env, pf);
+    return certo({ pedido: resumoServico(pf) });
+  }
   const whats = String(corpo.whatsapp || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
   if (!/^[1-9]\d{9,10}$/.test(whats)) return falha(400, 'Confira o WhatsApp, com o DDD.');
   const lista = await lerListaDaLoja(env, loja.slug);
@@ -1370,6 +1385,7 @@ async function srvReembolsar(env, corpo) {
   const ja = Number(p.reembolso && p.reembolso.valor) || 0;
   const valor = corpo.valor == null ? pago - ja : Math.round(Number(corpo.valor));
   if (!Number.isInteger(valor) || valor <= 0 || valor > pago - ja) return falha(400, 'Valor inválido: dá para devolver até ' + reais(pago - ja) + '.');
+  if (corpo.manual !== true && (p.origem === 'fora' || !p.asaas)) return falha(409, 'Esse foi combinado por fora: o dinheiro não passou pelo Asaas. Devolva por fora e marque "Já devolvi por fora".', { manual: true });
   if (corpo.manual !== true) {
     try { await asaas(env, '/payments/' + encodeURIComponent(p.asaas.id) + '/refund', 'POST', { value: valor / 100, description: motivo }); } catch (e) {
       console.error('reembolso servico', e && e.message || e);

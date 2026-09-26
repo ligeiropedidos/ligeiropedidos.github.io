@@ -161,7 +161,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .cartao { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 18px; }
 .cartao.destaque { border-color: var(--lime); background: var(--lime-suave); }
-.cartao h3 { margin-bottom: 6px; }
+.cartao h3 { margin-bottom: 4px; } /* titulo ate o texto: 4 */
 /* botoes dentro de um cartao: respiro fixo depois do texto */
 .cartao > .linha-botoes { margin-top: 12px; }
 .cartao > .aviso-no-cartao { margin-top: 12px; }
@@ -512,7 +512,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .bloco-titulo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 19px; font-weight: 700; }
 .bloco-numero { width: 30px; height: 30px; border-radius: 50%; background: var(--lime); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
 .bloco-opcional { font-family: var(--corpo); font-size: 13px; color: var(--muted); font-weight: 600; margin-left: auto; }
-.campo label { display: block; font-weight: 700; margin-bottom: 6px; }
+.campo label { display: block; font-weight: 700; margin-bottom: 8px; }
 .campo .ajuda { font-size: 14px; line-height: 1.35; color: var(--muted); margin: -2px 0 8px; }
 .campo .opcional { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 6px; }
 .campo input, .campo select, .campo textarea {
@@ -629,7 +629,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aba-painel.ativa .badge { background: var(--lime); color: var(--ink); }
 .secao { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 12px; }
 .secao h2 { font-size: 20px; }
-.fila-titulo { display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--muted); margin-top: 6px; }
+.fila-titulo { display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--muted); margin-top: 12px; } /* 12 + 12 da pilha: 24 antes do titulo */
 .pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
 .pedido-card.novo { border-color: var(--lime); box-shadow: 0 0 0 4px var(--lime-suave); animation: piscar 1s ease-in-out 3; }
 .pedido-card.atencao { border-color: var(--orange); }
@@ -707,7 +707,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .previa-botao { pointer-events: none; width: 100%; min-height: 58px; font-size: 18px; margin-top: 2px; animation: none; }
 .previa-botao .sub { font-size: 12px; }
 .previa-home { width: 104px; height: 5px; border-radius: 3px; background: #111614; opacity: 0.35; margin: 6px auto 9px; }
-.previa-acoes { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.previa-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; } /* os dois botoes lado a lado em qualquer celular */
+.previa-acoes .btn { min-width: 0; white-space: nowrap; }
 .previa-tirar-linha { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
 .previa-tirar-linha .btn { align-self: auto; color: var(--muted); }
 .previa-tirar-linha .ico-traco svg { width: 14px; height: 14px; }
@@ -788,7 +789,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .avancado summary::-webkit-details-marker { display: none; }
 .avancado summary::before { content: ""; flex: none; align-self: flex-start; margin-top: 3px; width: 16px; height: 16px; background: var(--muted); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; transition: transform 0.15s; }
 .avancado[open] summary::before { transform: rotate(90deg); }
-.avancado > * { margin-bottom: 14px; } /* aberto: 14 entre os itens e ate a borda, o ritmo dos blocos */
+.avancado > * { margin-bottom: 12px; } /* aberto: 12 entre os itens e ate a borda, o ritmo dos blocos */
 .avancado > summary { margin-bottom: 0; }
 /* horarios por dia */
 .horarios { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); overflow: hidden; }
@@ -931,23 +932,20 @@ a.selo-google:hover { background: var(--lime-suave); }
   .tabela-clientes th:last-child, .tabela-clientes td:last-child { text-align: right; }
 }
 /* aba "Minha loja" do painel: telas em cartoes iguais + bloco de divulgar */
-.telas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; } /* 12 do texto de cima (o gap da secao), 24 do que vem depois */
+.telas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; } /* cartoes seguidos: so os 12 do gap da secao ate o cartao de baixo */
 @media (max-width: 760px) { .telas-grade { grid-template-columns: 1fr; } }
-.tela-card { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
-.tela-card .icone { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+.tela-card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
+.tela-card .icone { font-size: 28px; line-height: 1; margin-bottom: 8px; } /* icone ate o titulo: 12; titulo ate o texto: 4 */
 .tela-card b { font-size: 16px; }
 .tela-card p { margin: 0; font-size: 14px; color: var(--muted); flex: 1; }
-.tela-card .linha-botoes { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tela-card .linha-botoes { margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tela-card .linha-botoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 6px; white-space: nowrap; font-size: 15px; }
 @media (max-width: 360px) {
   .tela-card .linha-botoes { grid-template-columns: minmax(0, 1fr); } /* um botao por linha: "Copiar link" inteiro */
-  .divulgar-acoes .btn, .linha-painel-link .btn.btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; } /* .btn.btn: vale sobre o 15px padrao de mais abaixo */
+  .divulgar-acoes .btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; } /* .btn.btn: vale sobre o 15px padrao de mais abaixo */
   .aparencia-controles .estilo-linha .aba-painel { font-size: 13px; }
   .mp-conexao .btn { font-size: 15px; }
 }
-.linha-painel-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; } /* 24 ate o bloco de baixo, como entre os outros grupos */
-.linha-painel-link .btn { flex: none; min-height: 48px; font-size: 15px; } /* igual aos botoes dos cartoes das telas logo abaixo */
-@media (max-width: 480px) { .linha-painel-link .btn { flex: 1 1 100%; } } /* celular: a largura toda, alinhado com os cartoes de baixo */
 .divulgar { display: flex; gap: 16px; align-items: flex-start; margin-top: 4px; } /* 12 do bloco + 4 = 16 do texto ao QR, igual aos 16 do QR ao link */
 .divulgar-acoes { flex: 1; min-width: 0; }
 .divulgar-acoes .caixa-link { margin: 0; }
@@ -1148,7 +1146,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .oficial-extra span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
 .painel-topo .logo-mini { height: 40px; width: 40px; object-fit: contain; flex: none; }
 /* conexao com o Mercado Pago (painel) */
-.mp-conexao { display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.mp-conexao { display: flex; flex-direction: column; gap: 12px; margin: 0; }
 /* Pagamento: a linha do Pix leva a conexao dentro dela, com a mesma borda e o mesmo recuo das outras linhas */
 .forma-pix { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .forma-pix > .interruptor { border: 0; background: transparent; }
@@ -1198,7 +1196,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .fatura-cartao.vencida .fatura-quando { color: var(--erro); }
 .fatura-cartao.vencida .fatura-forma { border-color: #F3C2BB; }
 /* comparativo com concorrentes (pagina de vendas) */
-.comparativo { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.comparativo { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
 .tabela-concorrentes { min-width: 480px; }
 .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: nowrap; }
@@ -1264,13 +1262,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .estilo-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .estilo-linha .rotulo { width: 120px; font-weight: 600; color: var(--body); font-size: 15px; }
 .estilo-linha .aba-painel { min-height: 40px; }
+.estilo-linha:not(:has(> .rotulo)) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } /* duas opcoes sem rotulo: lado a lado em qualquer celular */
+.estilo-linha:not(:has(> .rotulo)) .aba-painel { min-width: 0; justify-content: center; }
 .medidas { font-size: 13.5px; color: var(--muted); margin: -2px 0 6px; line-height: 1.4; }
 .medidas b { color: var(--deep2); }
 @media (min-width: 640px) { .grade-form { grid-template-columns: 1fr 1fr; } .grade-form .largo { grid-column: 1 / -1; } }
 /* modo TOC: na grade, rotulo no alto e caixa na base da linha, assim caixas vizinhas ficam na mesma altura mesmo quando so uma tem texto de ajuda */
 .grade-form > .campo { display: flex; flex-direction: column; }
 .grade-form > .campo > input, .grade-form > .campo > select, .grade-form > .campo > textarea, .grade-form > .campo > .paleta, .grade-form > .campo > .estilos, .grade-form > .campo > .foto-linha { margin-top: auto; }
-.grade-form > .campo > label { margin-bottom: 6px; }
+.grade-form > .campo > label { margin-bottom: 8px; }
 /* campo sozinho no fim da grade nao fica pela metade */
 .grade-form > .campo:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .grade-form > .campo > .ajuda { margin: -2px 0 8px; }
@@ -1294,7 +1294,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vender { gap: 24px; }
 .vender-bloco { display: flex; flex-direction: column; gap: 12px; }
 .vender-bloco > * { margin: 0; }
-.vender-bloco .kicker { font-size: 12.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--deep2); font-weight: 700; margin-bottom: -6px; }
+.vender-bloco .kicker { font-size: 12.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--deep2); font-weight: 700; margin-bottom: -4px; } /* 8 ate o titulo, como o selo da Loja do Ligeiro */
 .vender-bloco h2 { font-size: 24px; line-height: 1.15; }
 .vender-bloco > .cartao { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .vender-bloco > .cartao > * { margin: 0; }
@@ -1332,7 +1332,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .duvida summary::after { content: "+"; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
 .duvida[open] summary::after { content: "−"; }
 .duvida p { padding: 0 0 14px; color: var(--body); font-size: 15.5px; line-height: 1.45; }
-.vender-final { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0 6px; }
+.vender-final { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 6px; }
 .rodape .ligeiro a { color: inherit; text-decoration: none; font-weight: 600; }
 .chamada { width: 100%; max-width: 440px; }
 .barra-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px var(--margem); background: var(--bg); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; }
@@ -1395,7 +1395,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .teste-selo .estrela { color: var(--lemon); letter-spacing: 0; }
 .teste-banner h2 { margin-top: 16px; color: #fff; font-size: 28px; line-height: 1.15; }
 .teste-banner h2 .destaque { color: var(--lime); }
-.teste-checks { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
+.teste-checks { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
 .teste-checks li { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.2; color: rgba(255, 255, 255, 0.92); }
 .teste-checks li::before { content: ""; flex: none; width: 20px; height: 20px; border-radius: 50%; position: relative; top: 0.5px;
   background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3 4.9 8.7 9.6 3.6' fill='none' stroke='%230E1F14' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat; }
@@ -1690,7 +1690,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 759px) { .zap-flutuante { bottom: 84px; width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
 @media (min-width: 760px) { .cta-fixa { display: none; } }
 .texto-legal h1 { font-size: 30px; margin-bottom: 4px; }
-.texto-legal h2 { font-size: 19px; margin-top: 14px; }
+.texto-legal h2 { font-size: 19px; margin-top: 16px; } /* 16 + 8 do gap: 24 antes de cada secao */
 .texto-legal p { color: var(--body); line-height: 1.5; }
 @media (min-width: 560px) { .planos { grid-template-columns: 1fr 1fr; }  .antes-depois { grid-template-columns: 1fr 1fr; }  }
 @media (min-width: 900px) {   .teste-banner { grid-template-columns: minmax(0, 1fr) 340px; align-items: center; gap: 40px; padding: 40px 44px; text-align: left; } .teste-banner .teste-texto { align-items: flex-start; } .teste-banner .teste-checks { justify-content: flex-start; } .teste-banner h2 { font-size: 32px; } .teste-banner::after { display: none; } .planos { max-width: 760px; margin: 0 auto; width: 100%; } }
@@ -1701,15 +1701,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (min-width: 900px) {
   .vender-capa { padding: 56px var(--margem) 40px; flex-direction: row-reverse; justify-content: center; align-items: center; gap: 48px; text-align: left; }
   .heroi-mascote { width: 340px; height: 340px; flex: none; }
-  .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 18px; }
+  .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
   .heroi-texto .vender-selos { justify-content: flex-start; }
   .vender-titulo { font-size: 44px; max-width: 640px; }
   .vender-sub { font-size: 19px; max-width: 560px; } .vender-oferta { font-size: 26px; max-width: 640px; }
-  .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 48px; } /* PC: o dobro do ritmo de 24 */
+  .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 40px; } /* PC: 40 antes de cada secao (a regua do PC) */
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }
-  .passo-venda { flex: 1; flex-direction: column; gap: 10px; }
+  .passo-venda { flex: 1; flex-direction: column; gap: 12px; }
   .vender-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } /* 6 cartoes: 3 x 2 no computador, 2 x 3 no celular */
   .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .duvida { align-self: start; }
@@ -2094,7 +2094,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 @keyframes realce-bloco { 0%, 30% { box-shadow: 0 0 0 4px var(--lime), var(--sombra); } 100% { box-shadow: 0 0 0 0 rgba(132, 204, 22, 0), var(--sombra); } }
 @media (prefers-reduced-motion: reduce) { .bloco-form.realce { animation: none; box-shadow: 0 0 0 4px var(--lime); } }
 /* Ajustes: ID da loja (codigo unico, com botao de copiar) */
-.id-loja { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.id-loja { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
 .id-loja-texto { display: flex; flex-direction: column; gap: 4px; }
 .id-loja-linha { display: flex; align-items: stretch; gap: 10px; } /* codigo com a altura do botao ao lado */
 /* o endereco inteiro, sempre (e para copiar): endereco comprido quebra linha em vez de sumir com reticencias */
@@ -2273,12 +2273,14 @@ a.selo-google:hover { background: var(--lime-suave); }
 .avisos-ico svg, .aviso-cel-ico svg, .cliente-avisado-ico svg, .passo-iphone-ico svg { width: 100%; height: 100%; }
 /* aba Pedidos: cartao ate ligar */
 .cartao-avisos { display: flex; flex-direction: column; gap: 16px; }
+.cartao-avisos > .linha-botoes { margin-top: 0; } /* so os 16 do gap entre o texto e os botoes */
 .avisos-linha { display: flex; align-items: center; gap: 16px; }
 .avisos-ico { width: 48px; height: 48px; padding: 12px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
 .avisos-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .avisos-texto b { font-family: var(--display); font-size: 17px; line-height: 1.25; color: var(--ink); text-wrap: balance; }
 .avisos-texto span { font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
-.avisos-botoes .btn { min-height: 48px; flex: 1 1 auto; white-space: nowrap; } /* texto numa linha; se os dois nao cabem lado a lado, um embaixo do outro */
+.avisos-botoes .btn { min-height: 48px; flex: 1 1 auto; white-space: nowrap; }
+@media (max-width: 640px) { .avisos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .avisos-botoes .btn { min-width: 0; padding: 0 12px; } } /* celular: os dois lado a lado, do mesmo tamanho, ate no 320 */
 @media (min-width: 641px) { .avisos-botoes .btn { flex: 0 0 auto; min-width: 168px; } }
 /* Minha loja: ligar, testar e desligar (mesmo desenho da senha da equipe) */
 .bloco-avisos-botoes { display: flex; gap: 12px; flex: none; }
@@ -2657,15 +2659,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .srv-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--lime-suave); color: var(--deep2); font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; }
 .srv-chip .ico-traco svg { width: 16px; height: 16px; stroke-width: 2; }
+@media (max-width: 359px) { .srv-chip { padding: 0 10px; font-size: 12.5px; } .srv-chip .ico-traco { display: none; } } /* 320: sem o icone, os dois selos cabem numa linha */
 .srv-ico-tile { width: 48px; height: 48px; border-radius: 14px; background: var(--lime-suave); color: var(--deep2); display: flex; align-items: center; justify-content: center; flex: none; }
 .srv-ico-tile .ico-traco svg { width: 24px; height: 24px; }
 .srv-ico-p { width: 40px; height: 40px; border-radius: 12px; }
 .srv-ico-p .ico-traco svg { width: 20px; height: 20px; }
 .srv-num { width: 28px; height: 28px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); display: flex; align-items: center; justify-content: center; flex: none; font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 1; padding-top: 2px; }
 @supports (text-box: trim-both cap alphabetic) { .srv-num { padding-top: 0; text-box: trim-both cap alphabetic; } }
-.srv-linha-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.srv-linha-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .srv-linha-texto strong { font-size: 15px; line-height: 20px; }
-.srv-carregando { padding: 48px 16px; display: flex; justify-content: center; }
 .srv-vazio { padding: 48px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .srv-vazio-cartao { display: flex; flex-direction: column; gap: 4px; text-align: center; padding: 24px 16px; border-style: dashed; border-color: var(--line-forte); }
 .srv-erro { margin: 0; color: var(--erro); font-weight: 600; font-size: 14px; line-height: 20px; }
@@ -2680,22 +2682,58 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-termos-link { align-self: center; font-size: 14px; font-weight: 700; color: var(--deep2); padding: 12px; }
 .srv-topo .voltar .ico-traco svg { width: 22px; height: 22px; stroke-width: 2.2; }
 /* banner no painel */
-.srv-banner { display: flex; flex-direction: column; border-radius: 18px; padding: 16px; text-decoration: none; overflow: hidden; box-shadow: 0 10px 28px rgba(15, 61, 46, 0.24); container: srvbanner / inline-size; }
-.srv-banner:hover { color: #fff; }
-.srv-banner-topo { display: grid; grid-template-columns: minmax(0, 1fr) 104px; column-gap: 8px; align-items: end; }
-.srv-banner-texto { display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px; }
+/* banner da Loja do Ligeiro: a faixa de cima e uma lojinha desenhada (toldo listrado nas cores da marca, verde-escuro e limao, que nao some no fundo claro do site; parede de azulejo e o balcao de
+   madeira na frente, com o mascote atendendo atras dele); embaixo, o corpo branco com os servicos.
+   Tudo em CSS e SVG pequeno dentro do proprio arquivo: nenhuma imagem a mais para baixar */
+.srv-banner { --srv-arte: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='22'%3E%3Cpath d='M0 0H16V14A8 8 0 0 1 0 14Z' fill='%231B6B4A'/%3E%3Cpath d='M16 0H32V14A8 8 0 0 1 16 14Z' fill='%2384CC16'/%3E%3C/svg%3E") 0 0 / 32px 22px repeat-x, linear-gradient(180deg, rgba(15, 61, 46, 0.1), rgba(15, 61, 46, 0)) 0 14px / 100% 14px no-repeat, radial-gradient(circle at 82% 62%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 34%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Cpath d='M28 0V28M0 28H28' stroke='%230F3D2E' stroke-opacity='0.07' fill='none'/%3E%3C/svg%3E") 0 0 / 28px 28px, linear-gradient(180deg, #F8FCF0 0%, #E4F4C8 100%); }
+.srv-banner { position: relative; isolation: isolate; display: flex; flex-direction: column; border-radius: 18px; padding: 16px; text-decoration: none; overflow: hidden; background: var(--card); border: 1px solid #D9EBC0; color: var(--ink); box-shadow: 0 8px 24px rgba(15, 61, 46, 0.08); }
+.srv-banner:hover { color: var(--ink); }
+.srv-banner-topo { position: relative; isolation: isolate; overflow: hidden; margin: -16px -16px 0; padding: 38px 136px 40px 16px; min-height: 196px; background: var(--srv-arte); } /* 196: o chapeu fica 16 px abaixo da lona */
+/* o balcao: tampo claro, a quina e a frente de madeira; fica por cima da parte de baixo do mascote */
+.srv-banner-topo::after { content: ""; position: absolute; z-index: 0; right: 0; bottom: 0; width: 188px; height: 30px; border-radius: 10px 0 0 0; background: repeating-linear-gradient(90deg, rgba(90, 60, 20, 0) 0, rgba(90, 60, 20, 0) 44px, rgba(90, 60, 20, 0.16) 44px, rgba(90, 60, 20, 0.16) 46px) 0 8px / 100% 100% no-repeat, linear-gradient(180deg, #F3E5C6 0, #F3E5C6 6px, #D8B887 6px, #D8B887 8px, #C99F66 8px, #B98F58 100%); box-shadow: 0 -2px 8px rgba(15, 61, 46, 0.12); pointer-events: none; }
+.srv-banner-texto { display: flex; flex-direction: column; gap: 8px; }
 .srv-linha-sobre { display: flex; align-items: center; gap: 8px; }
-.srv-novo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--lemon); color: var(--ink); font-size: 11.5px; font-weight: 800; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; }
-.srv-banner-titulo { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.12; text-wrap: balance; }
-.srv-banner-frase { font-size: 14px; line-height: 21px; color: rgba(255, 255, 255, 0.82); text-wrap: pretty; }
-.srv-banner-mascote { width: 104px; height: auto; display: block; }
-.srv-banner-servicos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
-.srv-banner-serv { height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14); display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700; line-height: 1; color: #fff; white-space: nowrap; }
-.srv-banner-serv .ico-traco { color: #A3E635; }
-.srv-banner-serv .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.1; }
-@container srvbanner (max-width: 319px) { .srv-banner-serv .ico-traco { display: none; } }
-.srv-banner-btn { margin-top: 16px; width: 100%; background: var(--lime); color: var(--ink); }
-@media (min-width: 900px) { .srv-banner-topo { grid-template-columns: minmax(0, 1fr) 124px; } .srv-banner-mascote { width: 124px; } .srv-banner-servicos { max-width: 520px; } .srv-banner-btn { width: auto; align-self: flex-start; min-width: 240px; } }
+.srv-banner .srv-sobre { white-space: nowrap; color: #4D7C0F; }
+.srv-novo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 11.5px; font-weight: 800; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; }
+.srv-banner-titulo { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.12; color: #0F3D2E; text-wrap: balance; }
+.srv-banner-frase { font-size: 15px; line-height: 22px; color: #365314; text-wrap: balance; }
+.srv-banner-mascote { position: absolute; z-index: -1; right: 12px; bottom: 6px; width: 156px; filter: drop-shadow(0 6px 12px rgba(15, 61, 46, 0.16)); height: auto; display: block; pointer-events: none; }
+/* os quatro servicos: atalhos com o icone em cima e o nome embaixo, numa fileira (o preco fica na loja) */
+.srv-banner-servicos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.srv-banner-serv { height: 72px; border-radius: 14px; background: #F4F9EC; border: 1px solid #E0EDCF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 4px; font-size: 14px; font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; }
+.srv-banner-serv .ico-traco { flex: none; color: var(--deep2); }
+.srv-banner-serv .ico-traco svg { width: 22px; height: 22px; stroke-width: 2; }
+.srv-banner-btn { margin-top: 16px; width: 100%; background: var(--deep); color: #fff; } /* o mesmo botao escuro no celular e no PC */
+/* 320 (Tela ampliada do iPhone): o texto ganha largura */
+@media (max-width: 359px) {
+  .srv-banner-topo { padding-right: 120px; min-height: 168px; }
+  .srv-banner-topo::after { width: 150px; }
+  .srv-banner-titulo { font-size: 22px; }
+  .srv-banner-mascote { width: 124px; bottom: 8px; right: 4px; }
+  .srv-banner-serv { font-size: 13px; }
+}
+/* tablet: o mascote maior */
+@media (min-width: 600px) and (max-width: 899px) {
+  .srv-banner-topo { padding-right: 216px; min-height: 200px; }
+  .srv-banner-topo::after { width: 264px; height: 34px; }
+  .srv-banner-mascote { width: 160px; bottom: 8px; right: 52px; }
+  .srv-banner-btn { width: auto; align-self: flex-start; min-width: 280px; }
+}
+/* PC: o banner inteiro vira a lojinha. A esquerda o texto, os quatro servicos enfileirados e o botao; a direita o mascote
+   no balcao (224 de altura minima: o chapeu fica 16 px abaixo da lona) */
+@media (min-width: 900px) {
+  .srv-banner { display: grid; grid-template-columns: minmax(0, 1fr) 280px; grid-template-areas: "texto mascote" "serv mascote" "botao mascote"; align-content: center; column-gap: 24px; row-gap: 16px; min-height: 240px; padding: 54px 32px 32px; background: var(--srv-arte); border-color: #C9E79A; }
+  .srv-banner-topo { display: contents; }
+  .srv-banner-topo::after { width: 280px; height: 36px; }
+  .srv-banner-texto { grid-area: texto; }
+  .srv-banner-titulo { font-size: 28px; }
+  .srv-banner-frase { font-size: 16px; line-height: 24px; }
+  .srv-banner-mascote { right: 48px; bottom: 8px; width: 184px; }
+  .srv-banner-servicos { grid-area: serv; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
+  .srv-banner-serv { height: 40px; flex-direction: row; gap: 8px; padding: 0 16px; font-size: 15px; background: rgba(255, 255, 255, 0.9); border-color: rgba(15, 61, 46, 0.1); }
+  .srv-banner-serv .ico-traco svg { width: 18px; height: 18px; }
+  .srv-banner-btn { grid-area: botao; justify-self: start; width: auto; min-width: 240px; margin-top: 0; }
+}
 /* loja */
 .srv-hero { border-radius: 18px; padding: 20px 0 0 20px; display: grid; grid-template-columns: minmax(0, 1fr) 124px; column-gap: 4px; overflow: hidden; }
 .srv-hero.com-video { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
@@ -2704,6 +2742,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv .srv-hero-titulo { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.15; text-wrap: balance; margin: 0; color: #fff; }
 .srv-hero-frase { font-size: 14.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.8); margin: 0; text-wrap: pretty; }
 .srv-hero-mascote { width: 124px; height: auto; align-self: end; display: block; margin-bottom: -6px; }
+.srv-hero-garantias { display: none; }
 .srv-video-hero, .srv-vitrine-video { position: relative; display: block; border: 0; padding: 0; cursor: pointer; border-radius: 14px; overflow: hidden; background: #0A2C21; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25); }
 .srv-video-hero { width: 100%; aspect-ratio: 16 / 9; }
 .srv-video-hero img, .srv-vitrine-video img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 46.5%; display: block; }
@@ -2728,13 +2767,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-premium .srv-ico-tile { background: rgba(255, 255, 255, 0.1); color: #A3E635; }
 .srv-premium .srv-prod-pe { border-top-color: rgba(255, 255, 255, 0.16); }
 .srv-premium .srv-preco span { color: rgba(255, 255, 255, 0.7); }
+.srv-premium-inclui { display: none; } /* so no PC */
 .srv-premium-selo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--lemon); color: var(--ink); font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-.srv-comparar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.srv-comparar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.srv-premium .srv-comparar { margin-top: 16px; }
 .srv-comparar figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.srv-comparar figcaption { display: flex; flex-direction: column; gap: 2px; text-align: center; }
-.srv-comparar figcaption strong { font-size: 13px; line-height: 16px; color: #fff; }
-.srv-comparar figcaption span { font-size: 12px; line-height: 15px; color: rgba(255, 255, 255, 0.7); }
-.srv-comparar .destaque strong { color: #A3E635; }
+.srv-comparar figcaption { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.srv-comparar figcaption strong { display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18); color: #fff; font-size: 13px; line-height: 1; white-space: nowrap; }
+.srv-comparar figcaption span { font-size: 12.5px; line-height: 16px; color: rgba(255, 255, 255, 0.7); }
+.srv-comparar .destaque strong { background: #A3E635; border-color: #A3E635; color: var(--ink); }
 .srv-celular { background: #0A2C21; border-radius: 22px; padding: 5px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28); }
 .srv-celular img { display: block; width: 100%; height: auto; aspect-ratio: 390 / 620; object-fit: cover; object-position: top; border-radius: 17px; }
 .srv-passos { display: flex; flex-direction: column; gap: 16px; }
@@ -2744,6 +2785,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-linha-link { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
 .srv-linha-link:hover { color: var(--ink); }
 .srv-linha-link .srv-linha-texto strong { font-family: var(--display); font-size: 17px; line-height: 1.2; }
+/* cartoes de atalho um embaixo do outro: o texto de apoio fica numa linha so, para os cartoes terem a mesma altura */
+.srv-titulo-linha .srv-peq { white-space: nowrap; } /* "Pagamento único" ao lado do titulo nao se parte */
+.srv-linha-link .srv-peq { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srv-seta-fim { color: var(--muted); }
 .srv-fim-loja { display: flex; flex-direction: column; gap: 12px; }
 .srv-duvida { display: flex; flex-direction: column; gap: 12px; }
@@ -2758,14 +2802,23 @@ a.selo-google:hover { background: var(--lime-suave); }
   .srv .srv-hero-titulo { font-size: 40px; line-height: 1.08; }
   .srv-hero-frase { font-size: 18px; max-width: 520px; }
   .srv-hero-mascote { width: 240px; margin-bottom: -10px; }
+  .srv-hero-garantias { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .srv-hero-garantia { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .srv-hero-garantia .ico-traco { color: #A3E635; }
+  .srv-hero-garantia .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.1; }
   .srv-produtos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
   .srv-produtos .srv-prod-pe { margin-top: auto; }
   .srv-produtos .srv-prod .srv-chips { margin: 16px 0 24px; }
-  .srv-produtos .srv-premium { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 460px; grid-template-rows: 1fr auto auto auto 1fr; grid-template-areas: ". fotos" "cab fotos" "chips fotos" "pe fotos" ". fotos"; column-gap: 40px; padding: 32px; }
+  .srv-produtos .srv-premium { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 460px; grid-template-rows: 1fr auto auto auto auto 1fr; grid-template-areas: ". fotos" "cab fotos" "chips fotos" "inclui fotos" "pe fotos" ". fotos"; column-gap: 40px; padding: 32px; }
   .srv-produtos .srv-premium .srv-comparar { grid-area: fotos; margin: 0; align-self: center; }
   .srv-produtos .srv-premium .srv-prod-cabeca { grid-area: cab; }
   .srv-produtos .srv-premium .srv-chips { grid-area: chips; margin: 16px 0 24px; }
   .srv-produtos .srv-premium .srv-prod-pe { grid-area: pe; align-self: start; margin-top: 0; }
+  .srv-produtos .srv-premium .srv-chips { margin-bottom: 16px; }
+  .srv-premium-inclui { grid-area: inclui; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin: 0 0 24px; padding: 0; list-style: none; }
+  .srv-premium-inclui li { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 22px; color: rgba(255, 255, 255, 0.88); }
+  .srv-premium-inclui .ico-traco { flex: none; color: #A3E635; margin-top: 3px; }
+  .srv-premium-inclui .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.2; }
   .srv-passos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
   .srv-passo { flex-direction: column; }
   .srv-fim-loja { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
@@ -2815,7 +2868,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-st-voce { background: #FEF7CD; color: #7A5A00; }
 .srv-st-pronto { background: var(--lime-suave); color: var(--deep2); }
 .srv-st-neutro { background: #EEF1EC; color: var(--body); }
-.srv-status-baixo { margin-top: 6px; }
+.srv-status-baixo { margin-top: 8px; } /* 8 + 4 do gap: 12 */
 .srv-ponto { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .srv-etapas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .srv-etapa { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; font-size: 12px; font-weight: 700; line-height: 14px; color: var(--muted); text-align: center; }
@@ -2847,10 +2900,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-linha-video { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .srv-linha-video + .srv-linha-video { border-top: 1px solid var(--line); }
 .srv-linha-video { align-items: flex-start; }
-.srv-linha-video-acoes { display: flex; gap: 8px; margin-top: 8px; }
+.srv-linha-video-acoes { display: flex; gap: 8px; margin-top: 8px; } /* 8 + 4 do gap: 12 ate os botoes */
 .srv-linha-video-acoes .srv-btn-p { flex: 1 1 auto; }
 .srv-icone-botao { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.srv-termo { display: flex; flex-direction: column; gap: 8px; }
 /* player em tela cheia (video da loja e exemplos) */
 .srv-player { position: fixed; inset: 0; z-index: 120; background: #000; display: flex; align-items: center; justify-content: center; }
 .srv-player video { width: 100%; height: 100%; max-width: 100vw; object-fit: contain; background: #000; }

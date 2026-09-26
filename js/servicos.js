@@ -71,6 +71,12 @@
     else if (r === 'comprar' || r === 'criar') {
       var s = servico(c.servico);
       if (!s) return Promise.reject(erroPublico('Esse serviço não existe.'));
+      if (r === 'criar' && c.fora === true) {
+        var agora = new Date().toISOString();
+        var pf = { id: idDemo(), loja: c.loja, lojaNome: c.lojaNome || c.loja, servico: s.id, nome: s.nome, valor: Number(c.valor) || 0, status: 'producao', criadoEm: agora, pagoEm: agora, materialEm: agora, prazoAte: agora.slice(0, 10), forma: 'FORA', whatsapp: '', origem: 'fora' };
+        d.pedidos[pf.id] = pf; gravarDemo(d);
+        return new Promise(function (ok) { setTimeout(function () { ok({ ok: true, pedido: pf }); }, 250); });
+      }
       var p = { id: idDemo(), loja: c.loja, lojaNome: c.lojaNome || c.loja, servico: s.id, nome: s.nome, valor: s.valor, status: 'aguardando_pagamento', criadoEm: new Date().toISOString(), venceEm: new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10), whatsapp: String(c.whatsapp || ''), origem: r === 'criar' ? 'whatsapp' : 'site', link: '' };
       d.pedidos[p.id] = p; res = { pedido: p, link: '' };
       /* o "Asaas" de mentira confirma o pagamento em 3 s */
@@ -101,18 +107,21 @@
   function chip(icone, texto, classe) { return el('span', { class: 'srv-chip' + (classe ? ' ' + classe : '') }, [icone ? ico(icone) : null, texto]); }
   function chipsDo(s) {
     return el('div', { class: 'srv-chips' }, [
-      chip('ampulheta', 'Até ' + s.dias + ' dias úteis'),
-      s.id === 'video' ? chip('check', 'Roteiro aprovado') : chip('check', s.ajustes === 1 ? '1 ajuste incluso' : s.ajustes + ' ajustes inclusos'),
+      /* curtos de proposito: os dois selos cabem numa linha ate no iPhone com Tela ampliada (320); o "ate" e o "incluso"
+         estao na pagina do servico e nos termos */
+      chip('ampulheta', s.dias + ' dias úteis'),
+      s.id === 'video' ? chip('check', 'Roteiro aprovado') : chip('check', s.ajustes === 1 ? '1 ajuste' : s.ajustes + ' ajustes'),
     ]);
   }
-  function carregando(alvo) { UI.limpar(alvo); alvo.appendChild(el('div', { class: 'srv-carregando', role: 'status', 'aria-label': 'Carregando' }, el('div', { class: 'carregando-pontos' }, [el('span'), el('span'), el('span')]))); }
+  function carregando(alvo, texto) { UI.limpar(alvo); alvo.appendChild(UI.carregandoMascote(texto)); }
   function mensagemTela(alvo, titulo, texto, botao) {
     UI.limpar(alvo);
     alvo.appendChild(el('div', { class: 'srv-vazio' }, [el('h2', { class: 'srv-h2', text: titulo }), el('p', { class: 'srv-peq', text: texto }), botao || null]));
   }
   var PRINTS = { padrao: 'img/loja-ligeiro/padrao.webp', exclusivo: 'img/loja-ligeiro/exclusivo.webp' };
   function comparar() {
-    function fig(img, alt, t, s, destaque) { return el('figure', { class: destaque ? 'destaque' : '' }, [el('div', { class: 'srv-celular' }, el('img', { src: img, alt: alt, loading: 'lazy', width: '390', height: '620' })), el('figcaption', {}, [el('strong', { text: t }), el('span', { text: s })])]); }
+    /* o nome em cima de cada celular: le-se primeiro o que e, depois olha a tela */
+    function fig(img, alt, t, s, destaque) { return el('figure', { class: destaque ? 'destaque' : '' }, [el('figcaption', {}, [el('strong', { text: t }), el('span', { text: s })]), el('div', { class: 'srv-celular' }, el('img', { src: img, alt: alt, loading: 'lazy', width: '390', height: '620' }))]); }
     return el('div', { class: 'srv-comparar' }, [fig(PRINTS.padrao, 'Loja com o visual padrão do Ligeiro', 'Visual padrão', 'Loja de exemplo'), fig(PRINTS.exclusivo, 'Site da Dom Conizza com o design exclusivo', 'Design exclusivo', 'Dom Conizza, Juquiá/SP', true)]);
   }
   function capaDeVideo(v, classe) {
@@ -141,16 +150,17 @@
   function banner(slug, email) {
     if (!visivel(email)) return null;
     var serv = [['camera', 'Fotos'], ['pena', 'Logo'], ['video', 'Vídeo'], ['paleta', 'Design']];
-    return el('a', { class: 'srv srv-banner srv-grad', href: rota(slug) }, [
+    return el('a', { class: 'srv srv-banner', href: rota(slug) }, [
       el('div', { class: 'srv-banner-topo' }, [
         el('div', { class: 'srv-banner-texto' }, [
           el('div', { class: 'srv-linha-sobre' }, [el('span', { class: 'srv-sobre', text: 'Loja do Ligeiro' }), el('span', { class: 'srv-novo', text: 'Novo' })]),
           el('strong', { class: 'srv-banner-titulo', text: 'Sua loja com cara de marca grande' }),
-          el('span', { class: 'srv-banner-frase', text: 'Logo, fotos e vídeo feitos pela nossa equipe, a partir de ' + reais(Math.min.apply(null, catalogo().map(function (s) { return s.valor; }))) + '.' }),
+          el('span', { class: 'srv-banner-frase' }, ['Logo, fotos e vídeo feitos pela nossa equipe, ', el('span', { class: 'sem-quebra', text: 'a partir de ' + reais(Math.min.apply(null, catalogo().map(function (s) { return s.valor; }))) + '.' })]),
         ]),
-        el('img', { class: 'srv-banner-mascote', src: 'img/mascote.webp', alt: '', width: '104', height: '104' }),
+        /* o mascote com as cores dele, grande e cortado so um pouco pela borda de baixo da faixa */
+        el('img', { class: 'srv-banner-mascote', src: 'img/mascote.webp', alt: '', width: '512', height: '512' }),
       ]),
-      el('div', { class: 'srv-banner-servicos', 'aria-hidden': 'true' }, serv.map(function (x) { return el('span', { class: 'srv-banner-serv' }, [ico(x[0]), x[1]]); })),
+      el('div', { class: 'srv-banner-servicos', 'aria-hidden': 'true' }, serv.map(function (x) { return el('span', { class: 'srv-banner-serv' }, [ico(x[0]), el('span', { class: 'srv-banner-serv-nome', text: x[1] })]); })),
       el('span', { class: 'btn srv-btn srv-banner-btn' }, ['Conhecer a loja', ico('seta')]),
     ]);
   }
@@ -163,7 +173,7 @@
     var vivo = true;
     var paradas = [];
     UI.limpar(raiz);
-    carregando(raiz);
+    carregando(raiz, 'Abrindo a Loja do Ligeiro…');
     D.store.usuarioAtual().then(function (u) {
       if (!vivo) return;
       if (!u && !D.modoDemo) { window.LigeiroApp.substituir('painel/' + slug); return; }
@@ -180,7 +190,6 @@
 
   function cartaoServico(slug, s) {
     var artigo = el('article', { class: 'srv-cartao srv-prod' + (s.premium ? ' srv-premium' : '') }, [
-      s.premium ? comparar() : null,
       el('div', { class: 'srv-prod-cabeca' }, [
         el('div', { class: 'srv-ico-tile' }, [ico(s.icone)]),
         el('div', { class: 'srv-prod-txt' }, [
@@ -188,7 +197,10 @@
           el('p', { class: 'srv-peq srv-prod-desc', text: s.resumo }),
         ]),
       ]),
+      s.premium ? comparar() : null, /* no celular: titulo, a comparacao e depois selos e preco; no PC a grade poe ao lado */
       chipsDo(s),
+      /* no PC o cartao do design e alto (os dois celulares do lado): o que vem incluso ocupa a sobra, sem repetir os ajustes dos selos */
+      s.premium && s.inclui ? el('ul', { class: 'srv-premium-inclui' }, s.inclui.filter(function (t) { return !/ajuste/i.test(t); }).slice(0, 4).map(function (t) { return el('li', {}, [ico('check'), t]); })) : null,
       el('div', { class: 'srv-prod-pe' }, [
         el('div', { class: 'srv-preco' }, [el('strong', { text: reais(s.valor) }), el('span', { text: s.sub })]),
         el('a', { class: 'btn srv-btn ' + (s.premium ? '' : 'btn-fantasma'), href: rota(slug, 'item/' + s.id) }, ['Ver detalhes', ico('seta')]),
@@ -197,10 +209,15 @@
     return artigo;
   }
   function passos() {
-    var dados = [['Escolha e pague', 'Pix, cartão ou boleto, pelo Asaas. Confirma sozinho, sem mandar comprovante.'], ['Mande o material', 'A gente chama você no WhatsApp para pegar fotos, logo antiga e ideias.'], ['Receba no prazo', 'O prazo conta a partir do material. Você acompanha em Meus serviços.'], ['Aprove o resultado', 'Fotos, logo e design têm ajuste incluso. No vídeo, você aprova o roteiro antes.']];
+    var dados = [['Escolha e pague', 'Pix, cartão ou boleto. Confirma sozinho, sem mandar comprovante.'], ['Mande o material', 'A gente chama você no WhatsApp para pegar fotos, logo antiga e ideias.'], ['Receba no prazo', 'O prazo conta a partir do material. Você acompanha em Meus serviços.'], ['Aprove o resultado', 'Fotos, logo e design têm ajuste incluso. No vídeo, você aprova o roteiro antes.']];
     return el('div', { class: 'srv-cartao srv-passos' }, dados.map(function (d, i) {
       return el('div', { class: 'srv-passo' }, [el('span', { class: 'srv-num', text: String(i + 1) }), el('div', {}, [el('strong', { text: d[0] }), el('span', { class: 'srv-peq', text: d[1] })])]);
     }));
+  }
+  /* o horario ("das 9h às 18h") nunca se parte no meio: o "18h" sozinho na linha de baixo fica feio */
+  function textoSemQuebrar(t) {
+    var m = /das \d{1,2}h(\d{2})? às \d{1,2}h(\d{2})?/.exec(t);
+    return m ? [t.slice(0, m.index), el('span', { class: 'sem-quebra', text: m[0] }), t.slice(m.index + m[0].length)] : [t];
   }
   function linhaLink(href, icone, titulo, sub) {
     return el('a', { class: 'srv-cartao srv-linha-link', href: href }, [el('div', { class: 'srv-ico-tile' }, [ico(icone)]), el('div', { class: 'srv-linha-texto' }, [el('strong', { text: titulo }), el('span', { class: 'srv-peq', text: sub })]), el('span', { class: 'srv-seta-fim' }, [ico('avancar')])]);
@@ -209,7 +226,7 @@
     var link = whatsSuporte('Oi! Tenho uma dúvida sobre a Loja do Ligeiro.');
     return el('div', { class: 'srv-cartao srv-duvida' }, [
       el('div', {}, [el('h3', { class: 'srv-h3', text: 'Ficou com dúvida?' }), el('p', { class: 'srv-peq', text: 'Fale com a gente antes de comprar. A resposta vem no mesmo WhatsApp do suporte.' })]),
-      el('span', { class: 'srv-atendimento' }, [ico('relogio'), cfg().atendimento || '']),
+      el('span', { class: 'srv-atendimento' }, [ico('relogio'), el('span', {}, textoSemQuebrar(cfg().atendimento || ''))]),
       link ? el('a', { class: 'btn srv-btn btn-whats btn-largo', href: link, target: '_blank', rel: 'noopener' }, [ico('telefone'), 'Falar no WhatsApp']) : null,
     ]);
   }
@@ -221,7 +238,10 @@
       el('div', { class: 'srv-hero-texto' }, [
         el('span', { class: 'srv-sobre', text: 'Feito sob medida' }),
         el('h2', { class: 'srv-hero-titulo', text: 'Sua loja com cara de marca grande' }),
-        el('p', { class: 'srv-hero-frase', text: cfg().videoExplicativo ? 'Veja em 20 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
+        el('p', { class: 'srv-hero-frase', text: cfg().videoExplicativo ? 'Veja em 30 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
+        el('div', { class: 'srv-hero-garantias' }, [['check', 'Preço fechado, sem surpresa'], ['ampulheta', 'Prazo em dias úteis'], ['lista', 'Você acompanha cada etapa']].map(function (g) {
+          return el('span', { class: 'srv-hero-garantia' }, [ico(g[0]), g[1]]);
+        })),
       ]),
       cfg().videoExplicativo
         ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro', onclick: function () { tocarVideo(midia('v', cfg().videoExplicativo), 'Como funciona a Loja do Ligeiro'); } }, [
@@ -236,8 +256,8 @@
       el('h2', { class: 'srv-h2 srv-antes-titulo', text: 'Como funciona' }),
       passos(),
       el('div', { class: 'srv-fim-loja' }, [
-        linhaLink(rota(slug, 'meus'), 'lista', 'Meus serviços', 'Acompanhe o que você já comprou'),
-        linhaLink(rota(slug, 'videos'), 'video', 'Vídeos da loja', 'Escolha qual aparece no site'),
+        linhaLink(rota(slug, 'meus'), 'lista', 'Meus serviços', 'Acompanhe suas compras'),
+        linhaLink(rota(slug, 'videos'), 'video', 'Vídeos da loja', 'Escolha o vídeo do site'),
       ]),
       cartaoDuvida(),
       el('a', { class: 'srv-termos-link', href: rota(slug, 'termos') }, 'Termos da Loja do Ligeiro'),
@@ -383,7 +403,7 @@
     var secao = el('section', { class: 'secao srv-secao' });
     raiz.appendChild(topo('Loja do Ligeiro', 'Meus serviços', rota(slug)));
     raiz.appendChild(secao);
-    carregando(secao);
+    carregando(secao, 'Buscando os seus serviços…');
     var novo = ''; try { novo = sessionStorage.getItem('ligeiro:servico-novo') || ''; sessionStorage.removeItem('ligeiro:servico-novo'); } catch (_) { novo = ''; }
     var avisou = false, relogio = null, voltas = 0;
     function desenhar() {
@@ -416,7 +436,7 @@
     var secao = el('section', { class: 'secao srv-secao' });
     raiz.appendChild(topo('Minha loja', 'Vídeos da loja', rota(slug)));
     raiz.appendChild(secao);
-    carregando(secao);
+    carregando(secao, 'Buscando os vídeos da loja…');
     var estado = null;
     function mudar(video) {
       return api('video', { loja: slug, video: video }).then(function (r) { estado.noSite = r.noSite; desenhar(); UI.avisar(r.noSite ? 'Pronto: o site da loja já mostra esse vídeo.' : 'Pronto: o site da loja está sem vídeo agora.'); }).catch(function (e) { UI.avisar(e.message); });
@@ -490,17 +510,24 @@
       ['Vídeos no site', 'Guardamos até 10 vídeos por loja enquanto a conta estiver ativa, e você escolhe qual aparece no site. Baixe uma cópia dos que quiser guardar. Se a conta for encerrada, os vídeos são apagados depois de 90 dias.'],
       ['Atendimento', (cfg().atendimento || 'Atendimento de segunda a sexta') + ', pelo WhatsApp do suporte. Vale a versão destes termos aceita na compra (versão de ' + String(cfg().termos || '').split('-').reverse().join('/') + ').'],
     ];
-    var secao = el('section', { class: 'secao srv-secao' }, blocos.map(function (b) { return el('div', { class: 'srv-cartao srv-termo' }, [el('h2', { class: 'srv-h3', text: b[0] }), el('p', { class: 'srv-txt', text: b[1] })]); }).concat([el('a', { class: 'srv-termos-link', href: '#/termos' }, 'Termos de uso do Ligeiro')]));
+    /* o mesmo desenho dos Termos de uso do site (documento corrido: titulo, versao e secoes), so com a barra de voltar */
+    var e = geral().empresa || {};
+    var versao = String(cfg().termos || '').split('-').reverse().join('/');
+    var corpo = el('div', { class: 'conteudo texto-legal' }, [
+      el('h1', { text: 'Termos da Loja do Ligeiro' }),
+      el('p', { class: 'muted', text: 'Versão de ' + versao + '. Escrito em português de gente, sem juridiquês. Se algo não estiver claro, chame a gente' + (e.email ? ' em ' + e.email : '') + '.' }),
+    ]);
+    blocos.forEach(function (b) { corpo.appendChild(el('h2', { text: b[0] })); corpo.appendChild(el('p', { text: b[1] })); });
     raiz.appendChild(topo('Loja do Ligeiro', 'Termos', rota(slug)));
-    raiz.appendChild(secao);
+    raiz.appendChild(corpo);
     window.scrollTo(0, 0);
   }
 
   /* ---------- Central (aba Loja do Ligeiro) ---------- */
   var COLUNAS = [['Esperando pagamento', ['aguardando_pagamento']], ['Esperando material', ['material']], ['Em produção', ['producao']], ['Entregues', ['entregue', 'reembolsado', 'contestado']]];
   function central(alvo, lojas) {
-    carregando(alvo);
-    var todos = [];
+    carregando(alvo, 'Buscando os pedidos da loja…');
+    var todos = [], recursos = D.modoDemo ? ['fora'] : [];
     function desenhar() {
       UI.limpar(alvo);
       var pagos = todos.filter(function (p) { return ['material', 'producao', 'entregue'].indexOf(p.status) >= 0 && String(p.pagoEm || '').slice(0, 7) === new Date().toISOString().slice(0, 7); });
@@ -510,6 +537,7 @@
         el('div', { class: 'srv-central-cabeca' }, [
           el('div', {}, [el('h2', { text: 'Loja do Ligeiro' }), el('p', { text: 'Serviços que as lojas compraram. O pagamento já chega confirmado pelo Asaas; você leva cada um até Entregue.' })]),
           el('div', { class: 'srv-central-botoes' }, [
+            el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function () { enviarVideo(); } }, [ico('subir'), 'Enviar vídeo']),
             el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function () { criar(); } }, [ico('telefone'), 'Pedido do WhatsApp']),
             el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: carregar }, [ico('atualizar'), 'Atualizar']),
           ]),
@@ -533,12 +561,12 @@
       else if (p.status === 'producao') acao = el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function () { entregar(p); } }, [ico(p.servico === 'video' ? 'subir' : 'check'), p.servico === 'video' ? 'Entregar vídeo' : 'Marcar entregue']);
       var rot = ROTULOS[p.status] || [p.status, 'srv-st-neutro'];
       var linhaStatus = p.status === 'producao' ? 'Entregar até ' + diaMes(p.prazoAte) : p.status === 'aguardando_pagamento' ? 'Link vale até ' + diaMes(p.venceEm) : p.status === 'entregue' ? 'Entregue em ' + diaMes(p.entregueEm) : rot[0];
-      var podeReembolsar = ['material', 'producao', 'entregue'].indexOf(p.status) >= 0;
+      var podeReembolsar = ['material', 'producao', 'entregue'].indexOf(p.status) >= 0 && Number(p.valor) > 0;
       return el('article', { class: 'srv-pserv' }, [
         el('div', { class: 'srv-pserv-cabeca' }, [el('div', { class: 'srv-ico-tile srv-ico-p' }, [ico(s.icone)]), el('div', { class: 'srv-linha-texto' }, [el('strong', { class: 'srv-pserv-nome', text: p.servico === 'video' && p.titulo ? 'Vídeo: ' + p.titulo : p.nome }), el('span', { class: 'srv-meta', text: p.lojaNome || p.loja })]), el('strong', { class: 'srv-pserv-valor', text: reais(p.valor) })]),
         el('span', { class: 'srv-status ' + rot[1] }, linhaStatus),
         zap || acao ? el('div', { class: 'srv-pserv-acoes' }, [zap, acao]) : null,
-        el('div', { class: 'srv-pserv-pe' }, [el('span', { text: (p.forma ? ({ PIX: 'Pix', CREDIT_CARD: 'Cartão', BOLETO: 'Boleto' }[p.forma] || p.forma) + ', ' + diaMes(p.pagoEm) : 'Pedido em ' + diaMes(p.criadoEm)) + (p.origem === 'whatsapp' ? ', pelo WhatsApp' : '') }), podeReembolsar ? el('button', { class: 'srv-link-reembolso', type: 'button', onclick: function () { reembolsar(p); } }, 'Reembolsar') : (p.reembolso ? el('span', { text: 'Devolvido ' + reais(p.reembolso.valor) }) : null)]),
+        el('div', { class: 'srv-pserv-pe' }, [el('span', { text: (p.forma ? ({ PIX: 'Pix', CREDIT_CARD: 'Cartão', BOLETO: 'Boleto', FORA: 'Combinado por fora' }[p.forma] || p.forma) + ', ' + diaMes(p.pagoEm) : 'Pedido em ' + diaMes(p.criadoEm)) + (p.origem === 'whatsapp' ? ', pelo WhatsApp' : '') }), podeReembolsar ? el('button', { class: 'srv-link-reembolso', type: 'button', onclick: function () { reembolsar(p); } }, 'Reembolsar') : (p.reembolso ? el('span', { text: 'Devolvido ' + reais(p.reembolso.valor) }) : null)]),
       ]);
     }
     function acaoCentral(rotaApi, corpo, ok) {
@@ -592,14 +620,54 @@
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
         if (f.size > 15 * 1024 * 1024) return fim(new Error('O vídeo tem ' + (f.size / 1048576).toFixed(1) + ' MB. Passe no comprimir-video.bat (fica com uns 3 a 6 MB).'));
         botao.disabled = true; botao.lastChild.textContent = 'Enviando...';
-        medirVideo(f).then(function (m) {
-          if (m.dur > 21) throw new Error('O vídeo tem ' + Math.round(m.dur) + ' segundos. O limite é 20.');
-          return subirArquivo(p.id, 'video', f, { dur: m.dur }).then(function (r) {
-            return (m.capa ? subirArquivo(p.id, 'capa', m.capa, { id: r.id }).catch(function () { return null; }) : Promise.resolve()).then(function () { return r.id; });
-          });
-        }).then(function (id) {
+        medirVideoValido(f).then(function (m) { return subirVideo(p.id, f, m); }).then(function (id) {
           return acaoCentral('entregar', { id: p.id, titulo: titulo.value, video: id, noSite: noSite.checked, avisar: avisar.checked }, 'Vídeo entregue.');
         }).catch(function (e) { botao.lastChild.textContent = 'Entregar vídeo'; fim(e); });
+      });
+    }
+    /* video combinado por fora: registra o pedido ja pago (sem Asaas) e entrega na hora, pelo mesmo caminho */
+    function enviarVideo() {
+      /* mensageiro antigo nao conhece o "combinado por fora" e criaria uma cobranca de verdade: so libera depois de colar o novo */
+      if (recursos.indexOf('fora') < 0) { UI.avisar('Cole o mensageiro do Asaas novo (worker-asaas.js) antes de usar o Enviar vídeo.'); return; }
+      var selLoja = el('select', { id: 'srvEnvLoja' }, [el('option', { value: '', text: 'Escolha a loja' })].concat((lojas || []).map(function (l) { return el('option', { value: l.slug, text: l.nome + (l.cidade ? ', ' + l.cidade : '') }); })));
+      var arquivo = el('input', { id: 'srvEnvArquivo', type: 'file', accept: 'video/mp4' });
+      var titulo = el('input', { id: 'srvEnvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta' });
+      var valor = el('input', { id: 'srvEnvValor', type: 'text', inputmode: 'decimal', placeholder: 'Ex.: 149,00 (vazio se foi cortesia)' });
+      var noSite = el('input', { id: 'srvEnvNoSite', type: 'checkbox', checked: true });
+      var avisar = el('input', { id: 'srvEnvAvisar', type: 'checkbox', checked: true });
+      var erro = el('p', { class: 'srv-erro', role: 'alert', hidden: true });
+      var botao = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' } }, [ico('subir'), 'Enviar vídeo']);
+      var toggle = function (input, t, s) { return el('label', { class: 'srv-toggle', for: input.id }, [el('span', { class: 'srv-linha-texto' }, [el('strong', { text: t }), el('span', { class: 'srv-meta', text: s })]), input]); };
+      UI.abrirModal({ titulo: 'Enviar vídeo', sub: 'Para vídeo combinado por fora: não gera cobrança.', centro: true, corpo: el('div', { class: 'srv srv-form' }, [
+        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvLoja', text: 'Loja' }), selLoja]),
+        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvArquivo', text: 'O vídeo' }), arquivo]),
+        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvTitulo', text: 'Nome do vídeo (a loja vê)' }), titulo]),
+        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvValor', text: 'Valor combinado (opcional)' }), valor]),
+        toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.'),
+        toggle(avisar, 'Avisar a loja por e-mail', 'Vai para o e-mail da conta da loja.'),
+        el('p', { class: 'srv-peq', text: 'MP4 de até 20 segundos e 15 MB. Arraste o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade. O valor entra no Vendido do mês.' }),
+        erro,
+      ]), rodape: [botao] });
+      botao.addEventListener('click', function () {
+        erro.hidden = true;
+        var fim = function (e) { botao.disabled = false; botao.lastChild.textContent = 'Enviar vídeo'; erro.textContent = e.message; erro.hidden = false; };
+        var f = arquivo.files && arquivo.files[0];
+        var centavos = valor.value.trim() ? Math.round(Number(valor.value.replace(/[^\d,.]/g, '').replace(/\./g, '').replace(',', '.')) * 100) : 0;
+        if (!selLoja.value) return fim(new Error('Escolha a loja.'));
+        if (!f) return fim(new Error('Escolha o vídeo.'));
+        if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
+        if (!(centavos >= 0 && centavos <= 1000000)) return fim(new Error('Confira o valor (até R$ 10.000,00).'));
+        if (f.size > 15 * 1024 * 1024) return fim(new Error('O vídeo tem ' + (f.size / 1048576).toFixed(1) + ' MB. Passe no comprimir-video.bat (fica com uns 2 MB).'));
+        botao.disabled = true; botao.lastChild.textContent = 'Enviando...';
+        var pedido = null;
+        /* confere o arquivo ANTES de registrar o pedido: arquivo errado nao deixa pedido pela metade no quadro */
+        medirVideoValido(f).then(function (m) {
+          return api('criar', { loja: selLoja.value, servico: 'video', fora: true, valor: centavos }).then(function (r) { pedido = r.pedido; return subirVideo(pedido.id, f, m); });
+        }).then(function (id) {
+          return acaoCentral('entregar', { id: pedido.id, titulo: titulo.value, video: id, noSite: noSite.checked, avisar: avisar.checked }, 'Vídeo enviado para a loja.');
+        }).catch(function (e) {
+          if (pedido) { carregar(); fim(new Error(e.message + ' O pedido ficou em Em produção: toque em Entregar vídeo nele para tentar de novo.')); } else fim(e);
+        });
       });
     }
     function reembolsar(p) {
@@ -634,10 +702,20 @@
       });
     }
     function carregar() {
-      return api('central', {}).then(function (r) { todos = r.pedidos || []; if (alvo.isConnected) desenhar(); })
+      return api('central', {}).then(function (r) { todos = r.pedidos || []; recursos = r.recursos || recursos; if (alvo.isConnected) desenhar(); })
         .catch(function (e) { mensagemTela(alvo, 'A Loja do Ligeiro não abriu', e.message || 'Tente de novo.'); });
     }
     carregar();
+  }
+  /* o video da entrega: ate 20 s (o mensageiro aceita ate 30; a folga e do arredondamento) */
+  function medirVideoValido(f) {
+    return medirVideo(f).then(function (m) { if (m.dur > 21) throw new Error('O vídeo tem ' + Math.round(m.dur) + ' segundos. O limite é 20.'); return m; });
+  }
+  /* sobe o video e a capa de um pedido e devolve o id do video (sem capa o video vai assim mesmo) */
+  function subirVideo(pedido, f, m) {
+    return subirArquivo(pedido, 'video', f, { dur: m.dur }).then(function (r) {
+      return (m.capa ? subirArquivo(pedido, 'capa', m.capa, { id: r.id }).catch(function () { return null; }) : Promise.resolve()).then(function () { return r.id; });
+    });
   }
   /* o video escolhido: duracao e a capa (o quadro de 1 s, em JPG), lidos no proprio computador */
   function medirVideo(arquivo) {
