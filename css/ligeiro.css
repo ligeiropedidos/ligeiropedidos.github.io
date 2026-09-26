@@ -543,6 +543,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .valor-grande { font-family: var(--display); font-size: 46px; font-weight: 700; color: var(--deep); line-height: 1; }
 .qr-caixa { width: min(280px, 80vw); aspect-ratio: 1; background: #fff; border: 1.5px solid var(--line); border-radius: 22px; padding: 12px; display: flex; align-items: center; justify-content: center; }
 .qr-caixa svg { width: 100%; height: 100%; }
+/* Pix: o QR Code e o "Copiar" num cartao so, logo abaixo do valor; o codigo em letra pequena (duas linhas), so para conferir */
+.pix-pagar { width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+.pix-pagar .btn { width: 100%; }
+.pix-pagar .codigo-pix { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 0; border: 0; background: none; text-align: center; font-size: 11.5px; line-height: 1.4; }
 .passos-pix { width: 100%; max-width: 440px; text-align: left; display: flex; flex-direction: column; gap: 12px; }
 .passo-pix { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px 14px; }
 .passo-pix .numero { width: 32px; height: 32px; border-radius: 50%; background: var(--lime); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }

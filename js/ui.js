@@ -264,12 +264,19 @@
           el('button', { class: 'btn ' + (o.perigo ? 'btn-erro' : 'btn-principal'), style: { flex: '1' }, text: o.sim || 'Sim', onclick: function () { fecharModal(); resolve(true); } }),
         ],
       });
-      /* os dois botoes lado a lado, iguais; se o texto de um nao couber inteiro (celular estreito, letra grande), um embaixo
-         do outro com a largura toda, a acao em cima (antes o texto encostava na borda e cortava) */
+      /* os dois botoes lado a lado, iguais, so quando o texto de cada um cabe com folga (16px ate o contorno de cada lado);
+         senao um embaixo do outro com a largura toda, a acao em cima. Antes so empilhava quando o texto ja cortava: cabendo
+         raspando, "Continuar pagando" ficava colado na borda */
       var rodape = document.querySelector('#modalCaixa .modal-rodape');
       if (rodape) {
         rodape.classList.remove('empilhado');
-        var naoCabe = [].some.call(rodape.querySelectorAll('.btn'), function (b) { return b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 2; });
+        var regua = document.createElement('canvas').getContext('2d');
+        var naoCabe = [].some.call(rodape.querySelectorAll('.btn'), function (b) {
+          var cs = getComputedStyle(b);
+          regua.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+          var texto = regua.measureText(b.textContent.trim()).width;
+          return texto > b.clientWidth - 32 || b.scrollHeight > b.clientHeight + 2;
+        });
         if (naoCabe) rodape.classList.add('empilhado');
       }
     });

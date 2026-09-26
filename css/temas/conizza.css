@@ -224,6 +224,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* numeros nas bolinhas (Seus dados 1 a 4 e os passos do Pix): a Baloo e a Nunito desenham o numero 1px acima do meio;
    2px de respiro em cima descem ele o que falta (a bolinha segue do mesmo tamanho) */
 .tema-conizza .bloco-numero, .tema-conizza .passo-pix .numero { padding-top: 2px; }
+/* cartao do Pix: o botao da casa tem 4px de sombra embaixo; o codigo desce os mesmos 4 para ficar a 12 da sombra, igual
+   ao QR em cima do botao */
+.tema-conizza .pix-pagar .codigo-pix { margin-top: 4px; }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }

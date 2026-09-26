@@ -2012,13 +2012,15 @@
       falhou.hidden = true;
       $('btnTentarPix').hidden = false;
       $('btnRemontarPix').hidden = true;
+      $('pixPagar').hidden = !pronto;
       $('pixQr').hidden = !pronto;
       $('pixCodigo').hidden = !pronto;
       $('btnCopiarPix').hidden = !pronto;
       $('passosPix').hidden = !pronto;
       if (pronto) {
         $('pixCodigo').textContent = codigo;
-        var desenhou = Pix.desenharQr($('pixQr'), codigo, 260);
+        /* 228: o QR grande o bastante para outro celular ler, e o "Copiar" ainda na primeira tela do celular */
+        var desenhou = Pix.desenharQr($('pixQr'), codigo, 228);
         $('pixQr').hidden = !desenhou;
         $('btnCopiarPix').onclick = function () {
           UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco.' : 'Não deu para copiar sozinho. Toque e segure no código para copiar.'); });
@@ -2813,11 +2815,14 @@
     var PEDIDO_SO_COM_A_LOJA = 'Os detalhes desse pedido agora ficam só com a loja (o link vale por 3 dias). Para saber dele, fale com a loja.';
     function pedidoVelho(p) { var t = new Date(p.criadoEm || 0).getTime(); return !!t && Date.now() - t > 3 * 864e5; }
 
-    /* pedido "andando" de mais de 12 horas atras ja acabou (a aba fechou antes do ultimo status) */
+    /* pedido "andando" de mais de 12 horas atras ja acabou (a aba fechou antes do ultimo status). Esperando o Pix, o
+       prazo e o do proprio Pix (30 min, o servidor da como vencido aos 35): passou de 40, o codigo nem paga mais e o
+       pedido sai da faixa "Meu pedido" (antes ficava 12 h la, como se ainda fosse sair) */
     function andandoAgora(p) {
       if (p.lojaSlug !== slug) return false;
       if (p.status && R.EM_ANDAMENTO.indexOf(p.status) < 0) return false;
       var t = new Date(p.criadoEm || 0).getTime();
+      if (t && p.status === R.STATUS.AGUARDANDO && Date.now() - t > 40 * 60e3) return false;
       return !t || Date.now() - t < 12 * 3600e3;
     }
     function temPedidoAndando() {
@@ -3064,18 +3069,21 @@
       '<div class="pix">' +
         '<div class="valor-grande" id="pixValor"></div>' +
         '<div class="muted" id="pixNomeLoja"></div>' +
-        /* quase todo mundo paga no mesmo celular: o "Copiar" vem logo abaixo do valor; o QR, para quem paga de outro aparelho, depois dos passos */
         '<div class="pix-gerando" id="pixGerando"><span class="girando"></span> Gerando o seu Pix…</div>' +
         '<div class="pix-falhou" id="pixFalhou" hidden><p id="pixFalhouTexto"></p><button class="btn btn-escuro btn-pequeno" id="btnTentarPix" type="button">Tentar de novo</button><button class="btn btn-escuro btn-pequeno" id="btnRemontarPix" type="button" hidden>Montar de novo</button></div>' +
-        '<button class="btn btn-escuro btn-largo" id="btnCopiarPix" style="max-width:440px">' + UI.iconeHtml('copiar') + 'Copiar código Pix</button>' +
+        /* o jeito de pagar num cartao so, logo abaixo do valor: o QR Code (quem paga de outro aparelho le com a camera) e o
+           "Copiar" (quem paga no mesmo celular cola no app do banco). Antes o QR ficava la embaixo, depois dos passos */
+        '<div class="cartao pix-pagar" id="pixPagar">' +
+          '<div class="qr-caixa" id="pixQr"></div>' +
+          '<button class="btn btn-escuro btn-largo" id="btnCopiarPix">' + UI.iconeHtml('copiar') + 'Copiar código Pix</button>' +
+          '<code class="codigo-pix" id="pixCodigo"></code>' +
+        '</div>' +
         '<div class="passos-pix" id="passosPix">' +
           '<div class="passo-pix"><span class="numero">1</span><span>Abra o aplicativo do seu banco</span></div>' +
-          '<div class="passo-pix"><span class="numero">2</span><span>Escolha <b>Pix</b> e depois <b>Pix copia e cola</b> (ou leia o QR aqui embaixo)</span></div>' +
+          '<div class="passo-pix"><span class="numero">2</span><span>Escolha <b>Pix</b> e depois <b>Pix copia e cola</b> (ou leia o QR Code)</span></div>' +
           '<div class="passo-pix"><span class="numero">3</span><span>Cole o código, confira o valor e confirme</span></div>' +
         '</div>' +
         '<p class="aviso">' + UI.iconeHtml('raio') + '<span>Pagou, confirmou: esta tela muda sozinha e o pedido já entra na cozinha.</span></p>' +
-        '<div class="qr-caixa" id="pixQr"></div>' +
-        '<code class="codigo-pix" id="pixCodigo"></code>' +
         '<p class="nota">O Pix vale por 30 minutos. Não precisa avisar ninguém: assim que cair, você recebe a senha do pedido.</p>' +
         /* as mesmas garantias da tela do cartao, no mesmo lugar (fim da coluna) */
         '<ul class="garantias">' +
