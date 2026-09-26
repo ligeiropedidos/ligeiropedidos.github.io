@@ -110,7 +110,7 @@ window.LIGEIRO_CONFIG = {
      ligada: false = so o admin ve (para testar depois de colar o mensageiro); true = todos os donos veem.
      videoExplicativo: o id do video que explica a loja (entregue pela Central como um video da loja oficial); vazio = so o banner. */
   lojaLigeiro: {
-    ligada: false,
+    ligada: true,
     termos: '2026-09-26',
     videoExplicativo: '',
     atendimento: 'Atendimento de segunda a sexta, das 9h às 18h',
