@@ -2000,9 +2000,10 @@
     function mostrarPagamento(pedido) {
       estado.pedido = pedido;
       var codigo = pedido.pixCodigo || '';
-      /* pedido de Pix antigo que nunca ganhou codigo (a internet caiu na hora): nao gera Pix novo horas depois (a loja
-         nem veria o pedido pago, a fila dela e do dia). Vencido de verdade: cancela e devolve os itens */
-      if (!codigo && prazoEmDuvida(pedido, 'Esse Pix passou do prazo e o pedido foi cancelado.', mostrarPagamento)) return;
+      /* pedido de Pix antigo (aberto pelo "Meus pedidos" horas depois, ou que nunca ganhou codigo): confere o prazo com o
+         servidor ANTES de mostrar a tela. Antes, com codigo, a tela abria com o QR ja vencido e so depois de ate 10 s a vigia
+         cancelava e jogava a pessoa para o inicio. Vencido de verdade: cancela e avisa; pago nesse meio tempo: a senha */
+      if (prazoEmDuvida(pedido, 'Esse Pix passou do prazo e o pedido foi cancelado.', mostrarPagamento)) return;
       $('pixValor').textContent = dinheiro(pedido.total);
       $('pixNomeLoja').textContent = 'Para: ' + estado.loja.nome;
       var gerando = $('pixGerando');
@@ -2834,6 +2835,8 @@
       if (!faixa) return;
       var andando = lerMeusPedidos().filter(andandoAgora);
       faixa.hidden = balcao || andando.length === 0 || !$('tela-inicio').classList.contains('ativa');
+      var btnMeus = $('btnMeusPedidosRodape');
+      if (btnMeus) btnMeus.hidden = balcao || !lerMeusPedidos().some(function (p) { return p.lojaSlug === slug; });
       if (andando.length) {
         /* o numero numa etiqueta colada no texto: no celular estreito o "(3)" caia sozinho na linha de baixo */
         $('faixaTexto').textContent = andando.length === 1 ? 'Meu pedido' : 'Meus pedidos';
@@ -2900,6 +2903,7 @@
     }
     $('btnNovoPedido').addEventListener('click', novoPedido);
     $('btnVoltarInicio').addEventListener('click', function () { irPara('tela-inicio'); });
+    $('btnMeusPedidosRodape').addEventListener('click', abrirMeusPedidos);
     /* LGPD: a pessoa apaga daqui mesmo o que ficou no celular (nome, telefone, endereco, e-mail do cartao e a lista de pedidos) */
     $('btnApagarAparelho').addEventListener('click', function () {
       UI.perguntar('Apagar deste aparelho o seu nome, telefone, endereço, e-mail do cartão e a lista dos seus pedidos? Os pedidos continuam com a loja. Para apagar lá também, fale com a loja ou com o Ligeiro.',
@@ -2973,6 +2977,8 @@
         '<div id="enderecoLoja"></div>' +
         '<div class="rodape-legal" id="legalLoja"></div>' +
         '<div class="contatos" id="contatosLoja"></div>' +
+        /* a lista dos pedidos feitos neste aparelho sempre tem porta: a faixa de cima so aparece com pedido andando */
+        '<button class="cupom-abrir" id="btnMeusPedidosRodape" hidden style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;width:100%">' + UI.iconeHtml('recibo') + 'Meus pedidos</button>' +
         '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;justify-content:center;width:100%"></button>' +
         '<div class="ligeiro"><a href="#/">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
       '</footer>' +
