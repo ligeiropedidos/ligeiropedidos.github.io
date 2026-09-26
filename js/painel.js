@@ -3032,20 +3032,32 @@
 
       /* 2. divulgar */
       var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + '. É rápido, você ' + R.frasePagamento(estado.loja) + ' e acompanha pela senha.';
-      var qr = el('div', { class: 'qr-caixa', style: { width: '180px', margin: '0', flex: 'none' } });
-      Pix.desenharQr(qr, linkLoja, 180);
+      var qr = el('div', { class: 'qr-caixa divulgar-qr' }); /* tamanho no CSS: no PC ele estica ate a altura da coluna do lado */
+      /* justo na caixa (209 no PC, 180 no celular): tira a borda (3) e pelo menos 4 px de respiro de cada lado */
+      Pix.desenharQr(qr, linkLoja, (window.matchMedia && window.matchMedia('(min-width: 900px)').matches ? 209 : 180) - 11, true);
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-cabeca' }, [
           el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('megafone'), 'Divulgar o ' + R.catalogo(estado.loja).nome]),
-          el('p', { class: 'muted pequeno', text: 'Coloque o link na bio do Instagram e no status. No WhatsApp Business, cole a mensagem em Ferramentas comerciais, Mensagem de saudação: quem mandar "oi" já recebe o ' + R.catalogo(estado.loja).nome + ', sem robô pago. Imprima o QR e cole no balcão e na sacola.' }),
+          el('p', { class: 'muted pequeno', text: 'Quanto mais gente vê o link, mais pedido entra. Ele abre o ' + R.catalogo(estado.loja).nome + ' em qualquer celular, sem baixar nada.' }),
         ]),
         el('div', { class: 'divulgar' }, [
           qr,
-          el('div', { class: 'pilha divulgar-acoes' }, [
-            el('div', { class: 'caixa-link' }, UI.pedacosDeLink(linkLoja)),
-            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link do ' + R.catalogo(estado.loja).nome]),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Cole em Ferramentas comerciais, Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
+          el('div', { class: 'divulgar-acoes' }, [
+            /* o link com o botao de copiar colado nele (campo com botao) */
+            el('div', { class: 'link-grupo' }, [
+              el('div', { class: 'caixa-link' }, UI.pedacosDeLink(linkLoja)),
+              el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link']),
+            ]),
+            el('div', { class: 'divulgar-botoes' }, [
+              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Cole em Ferramentas comerciais, Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
+              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
+            ]),
+            /* onde usar: tres linhas curtas no lugar do paragrafo corrido (no PC cada uma cabe numa linha: a coluna tem altura fixa e o QR acompanha) */
+            el('ul', { class: 'divulgar-onde' }, [
+              el('li', {}, [UI.icone('insta'), el('span', {}, [el('strong', { text: 'Instagram: ' }), 'link na bio e nos stories.'])]),
+              el('li', {}, [UI.icone('zap'), el('span', {}, [el('strong', { text: 'WhatsApp Business: ' }), 'cole a mensagem na saudação automática.'])]),
+              el('li', {}, [UI.iconeLinha('imprimir'), el('span', {}, [el('strong', { text: 'Balcão e sacola: ' }), 'imprima o QR para o cliente apontar a câmera.'])]),
+            ]),
           ]),
         ]),
       ]));

@@ -596,16 +596,16 @@
     }
     function entregar(p) {
       var video = p.servico === 'video';
-      var arquivo = el('input', { id: 'srvArquivo', type: 'file', accept: 'video/mp4' });
+      var campo = campoVideo('srvArquivo'), arquivo = campo.input;
       var titulo = el('input', { id: 'srvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta', value: p.titulo || '' });
       var noSite = el('input', { id: 'srvNoSite', type: 'checkbox', checked: true });
       var avisar = el('input', { id: 'srvAvisar', type: 'checkbox', checked: true });
-      var info = el('p', { class: 'srv-peq', text: video ? 'MP4 de até 20 segundos e 15 MB. Arraste o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade.' : 'Mande os arquivos pelo WhatsApp da loja e marque como entregue.' });
+      var info = el('p', { class: 'srv-peq', text: video ? 'Passe o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade.' : 'Mande os arquivos pelo WhatsApp da loja e marque como entregue.' });
       var erro = el('p', { class: 'srv-erro', role: 'alert', hidden: true });
       var botao = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' } }, [ico('check'), video ? 'Entregar vídeo' : 'Marcar entregue']);
       var toggle = function (input, t, s) { return el('label', { class: 'srv-toggle', for: input.id }, [el('span', { class: 'srv-linha-texto' }, [el('strong', { text: t }), el('span', { class: 'srv-meta', text: s })]), input]); };
       UI.abrirModal({ titulo: video ? 'Entregar vídeo' : 'Entregar ' + p.nome, sub: p.lojaNome, centro: true, corpo: el('div', { class: 'srv srv-form' }, [
-        video ? el('div', { class: 'srv-campo' }, [el('label', { for: 'srvArquivo', text: 'O vídeo' }), arquivo]) : null,
+        video ? el('div', { class: 'srv-campo' }, [el('span', { class: 'srv-campo-rotulo', text: 'O vídeo' }), campo.caixa]) : null,
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvTitulo', text: video ? 'Nome do vídeo (a loja vê)' : 'Observação (opcional)' }), titulo]),
         video ? toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.') : null,
         toggle(avisar, 'Avisar a loja por e-mail', 'Vai para o e-mail da conta da loja.'),
@@ -630,7 +630,7 @@
       /* mensageiro antigo nao conhece o "combinado por fora" e criaria uma cobranca de verdade: so libera depois de colar o novo */
       if (recursos.indexOf('fora') < 0) { UI.avisar('Cole o mensageiro do Asaas novo (worker-asaas.js) antes de usar o Enviar vídeo.'); return; }
       var selLoja = el('select', { id: 'srvEnvLoja' }, [el('option', { value: '', text: 'Escolha a loja' })].concat((lojas || []).map(function (l) { return el('option', { value: l.slug, text: l.nome + (l.cidade ? ', ' + l.cidade : '') }); })));
-      var arquivo = el('input', { id: 'srvEnvArquivo', type: 'file', accept: 'video/mp4' });
+      var campo = campoVideo('srvEnvArquivo'), arquivo = campo.input;
       var titulo = el('input', { id: 'srvEnvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta' });
       var valor = el('input', { id: 'srvEnvValor', type: 'text', inputmode: 'decimal', placeholder: 'Ex.: 149,00 (vazio se foi cortesia)' });
       var noSite = el('input', { id: 'srvEnvNoSite', type: 'checkbox', checked: true });
@@ -640,12 +640,12 @@
       var toggle = function (input, t, s) { return el('label', { class: 'srv-toggle', for: input.id }, [el('span', { class: 'srv-linha-texto' }, [el('strong', { text: t }), el('span', { class: 'srv-meta', text: s })]), input]); };
       UI.abrirModal({ titulo: 'Enviar vídeo', sub: 'Para vídeo combinado por fora: não gera cobrança.', centro: true, corpo: el('div', { class: 'srv srv-form' }, [
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvLoja', text: 'Loja' }), selLoja]),
-        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvArquivo', text: 'O vídeo' }), arquivo]),
+        el('div', { class: 'srv-campo' }, [el('span', { class: 'srv-campo-rotulo', text: 'O vídeo' }), campo.caixa]),
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvTitulo', text: 'Nome do vídeo (a loja vê)' }), titulo]),
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvValor', text: 'Valor combinado (opcional)' }), valor]),
         toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.'),
         toggle(avisar, 'Avisar a loja por e-mail', 'Vai para o e-mail da conta da loja.'),
-        el('p', { class: 'srv-peq', text: 'MP4 de até 20 segundos e 15 MB. Arraste o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade. O valor entra no Vendido do mês.' }),
+        el('p', { class: 'srv-peq', text: 'Passe o vídeo no comprimir-video.bat antes: ele deixa leve sem perder qualidade. O valor entra no Vendido do mês.' }),
         erro,
       ]), rodape: [botao] });
       botao.addEventListener('click', function () {
@@ -706,6 +706,28 @@
         .catch(function (e) { mensagemTela(alvo, 'A Loja do Ligeiro não abriu', e.message || 'Tente de novo.'); });
     }
     carregar();
+  }
+  /* area de envio do video (no lugar do "Escolher arquivo" cru do navegador): toca para escolher ou arrasta o arquivo
+     em cima; escolhido, mostra o nome e o tamanho */
+  function campoVideo(id) {
+    var input = el('input', { id: id, class: 'srv-arquivo-input', type: 'file', accept: 'video/mp4' });
+    var nome = el('strong', { text: 'Escolher o vídeo' });
+    var sub = el('span', { class: 'srv-meta', text: 'MP4 de até 20 segundos e 15 MB' });
+    var caixa = el('label', { class: 'srv-arquivo', for: id }, [ico('subir'), el('span', { class: 'srv-linha-texto' }, [nome, sub]), input]);
+    input.addEventListener('change', function () {
+      var f = input.files && input.files[0];
+      caixa.classList.toggle('escolhido', !!f);
+      nome.textContent = f ? f.name : 'Escolher o vídeo';
+      sub.textContent = f ? (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB. Toque para trocar.' : 'MP4 de até 20 segundos e 15 MB';
+    });
+    ['dragenter', 'dragover'].forEach(function (ev) { caixa.addEventListener(ev, function (e) { e.preventDefault(); caixa.classList.add('arrastando'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { caixa.addEventListener(ev, function () { caixa.classList.remove('arrastando'); }); });
+    caixa.addEventListener('drop', function (e) {
+      e.preventDefault();
+      var fs = e.dataTransfer && e.dataTransfer.files;
+      if (fs && fs[0]) { try { input.files = fs; } catch (_) { return; } input.dispatchEvent(new Event('change')); }
+    });
+    return { caixa: caixa, input: input };
   }
   /* o video da entrega: ate 20 s (o mensageiro aceita ate 30; a folga e do arredondamento) */
   function medirVideoValido(f) {

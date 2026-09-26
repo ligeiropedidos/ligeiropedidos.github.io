@@ -185,7 +185,7 @@
     });
     return carregandoQr;
   }
-  function desenharAgora(elemento, codigo, tamanho, lib) {
+  function desenharAgora(elemento, codigo, tamanho, lib, justo) {
     try {
       var qr = lib(0, 'M');
       qr.addData(codigo);
@@ -194,13 +194,16 @@
          uns para cima e outros para baixo e o QR fica torto. O QR leva 1 quadradinho de margem branca, e a caixa
          (.qr-caixa, branca, com respiro e borda) abraca o QR do tamanho exato (fit-content), seja qual for a borda do tema.
          Nunca passa do espaco que tem: diminui 1 px por quadradinho ate caber */
-      var celulas = qr.getModuleCount() + 2;
-      var px = Math.max(2, Math.round(((tamanho || 240) - 27) / celulas));
+      /* justo: sem a margem de 1 quadradinho (a caixa branca faz esse papel) e o maior quadradinho inteiro que cabe em
+         'tamanho'; a caixa fica do tamanho do CSS (o QR do Divulgar, que acompanha a altura da coluna do lado) */
+      var margem = justo ? 0 : 1;
+      var celulas = qr.getModuleCount() + 2 * margem;
+      var px = justo ? Math.max(2, Math.floor((tamanho || 240) / celulas)) : Math.max(2, Math.round(((tamanho || 240) - 27) / celulas));
       var pai = elemento.parentElement ? elemento.parentElement.clientWidth : 0;
-      while (pai > 0 && px > 2 && px * celulas + 30 > pai) px--;
+      while (!justo && pai > 0 && px > 2 && px * celulas + 30 > pai) px--;
       var lado = px * celulas;
-      elemento.style.width = 'fit-content';
-      elemento.innerHTML = qr.createSvgTag({ cellSize: px, margin: px, scalable: true });
+      if (!justo) elemento.style.width = 'fit-content';
+      elemento.innerHTML = qr.createSvgTag({ cellSize: px, margin: px * margem, scalable: true });
       var svg = elemento.querySelector('svg');
       if (svg) {
         svg.setAttribute('width', String(lado));
@@ -216,12 +219,12 @@
     }
   }
   /* Desenha o QR num elemento. Sem a biblioteca ainda: busca e desenha quando chegar (some se nao der). */
-  function desenharQr(elemento, codigo, tamanho) {
+  function desenharQr(elemento, codigo, tamanho, justo) {
     if (!elemento) return false;
     var lib = (typeof window !== 'undefined') ? window.qrcode : null;
-    if (lib) return desenharAgora(elemento, codigo, tamanho, lib);
+    if (lib) return desenharAgora(elemento, codigo, tamanho, lib, justo);
     if (typeof document === 'undefined') return false;
-    carregarQr().then(function (l) { if (!desenharAgora(elemento, codigo, tamanho, l)) elemento.hidden = true; }, function () { elemento.hidden = true; });
+    carregarQr().then(function (l) { if (!desenharAgora(elemento, codigo, tamanho, l, justo)) elemento.hidden = true; }, function () { elemento.hidden = true; });
     return true;
   }
 
