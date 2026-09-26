@@ -1456,7 +1456,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* duas colunas quando a propria caixa tem espaco (e nao pela tela: a caixa tem limite de largura) */
 @container (min-width: 420px) { .plano-incluso .plano-linhas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; } }
 .plano-titulo { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--deep2); }
-.plano-preco-caixa { container-type: inline-size; min-width: 0; } /* a medida do preco mora aqui (no cartao, travaria o alinhamento entre cartoes) */
+/* a medida do preco (12cqi) vem do proprio cartao, que ja e caixa de medida e tem a mesma largura por dentro. A caixa do preco
+   era outra caixa de medida dentro dele, e o Chrome, ao mudar a largura da janela (abrir e fechar o F12), deixava de desenhar o
+   que estava dentro dela: o preco sumia dos dois cartoes */
+.plano-preco-caixa { min-width: 0; }
 .plano-preco { font-family: var(--display); font-size: 40px; font-size: clamp(24px, 12cqi, 40px); font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; } /* preco e /mes sempre numa linha: a letra acompanha a largura do cartao */
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
 .plano-sub { color: var(--body); font-weight: 600; }
