@@ -108,11 +108,12 @@ window.LIGEIRO_CONFIG = {
   /* Loja do Ligeiro: servicos que o Ligeiro vende para as lojas (no painel, aba Minha loja). Quem cobra e confere o preco
      e o mensageiro do Asaas (SERVICOS e TERMOS_SERVICOS no worker-asaas.js): mudar la e aqui juntos (um teste confere).
      ligada: false = so o admin ve (para testar depois de colar o mensageiro); true = todos os donos veem.
-     videoExplicativo: o id do video que explica a loja (entregue pela Central como um video da loja oficial); vazio = so o banner. */
+     videoExplicativo: o video que explica a loja, em pe (arquivo do site: midia/...mp4, a capa e o mesmo nome em .jpg; ou o id de
+     um video entregue pela Central); vazio = o mascote no lugar. */
   lojaLigeiro: {
     ligada: true,
     termos: '2026-09-26',
-    videoExplicativo: '',
+    videoExplicativo: 'midia/loja-ligeiro.mp4?v=1', /* tutorial de 40 s (comercial/loja, 26/09/2026) */
     atendimento: 'Atendimento de segunda a sexta, das 9h às 18h',
     servicos: [
       { id: 'fotos', nome: 'Fotos do cardápio', icone: 'camera', valor: 6900, dias: 3, ajustes: 1, sub: 'até 10 fotos',

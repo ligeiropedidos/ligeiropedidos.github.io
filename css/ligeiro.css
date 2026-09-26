@@ -2727,7 +2727,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-novo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--deep); color: #fff; font-size: 11.5px; font-weight: 800; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; }
 .srv-banner-titulo { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.12; color: #0F3D2E; text-wrap: balance; }
 .srv-banner-frase { font-size: 15px; line-height: 22px; color: #365314; text-wrap: balance; }
-.srv-banner-mascote { position: absolute; z-index: -1; right: 0; bottom: 6px; width: 156px; filter: drop-shadow(0 6px 12px rgba(15, 61, 46, 0.16)); height: auto; display: block; pointer-events: none; }
+.srv-banner-mascote { position: absolute; z-index: -1; right: 16px; bottom: 6px; width: 156px; /* no meio do balcao: (188 - 156) / 2 */ filter: drop-shadow(0 6px 12px rgba(15, 61, 46, 0.16)); height: auto; display: block; pointer-events: none; }
 /* os quatro servicos: atalhos com o icone em cima e o nome embaixo, numa fileira (o preco fica na loja) */
 .srv-banner-servicos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
 .srv-banner-serv { height: 72px; border-radius: 14px; background: #F4F9EC; border: 1px solid #E0EDCF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 4px; font-size: 14px; font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; }
@@ -2739,7 +2739,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .srv-banner-topo { padding-right: 120px; min-height: 168px; }
   .srv-banner-topo::after { width: 150px; }
   .srv-banner-titulo { font-size: 22px; }
-  .srv-banner-mascote { width: 124px; bottom: 8px; right: -8px; }
+  .srv-banner-mascote { width: 124px; bottom: 8px; right: 13px; } /* (150 - 124) / 2 */
   .srv-banner-serv { font-size: 13px; }
 }
 /* tablet: o mascote maior */
@@ -2766,7 +2766,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 /* loja */
 .srv-hero { border-radius: 18px; padding: 20px 0 0 20px; display: grid; grid-template-columns: minmax(0, 1fr) 124px; column-gap: 4px; overflow: hidden; }
-.srv-hero.com-video { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+/* com o video explicativo (em pe): o texto a esquerda e a miniatura 9:16 no lugar do mascote */
+.srv-hero.com-video { padding: 20px; grid-template-columns: minmax(0, 1fr) 124px; column-gap: 16px; align-items: center; }
 .srv-hero-texto { display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
 .srv-hero.com-video .srv-hero-texto { padding-bottom: 0; }
 .srv .srv-hero-titulo { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.15; text-wrap: balance; margin: 0; color: #fff; }
@@ -2774,7 +2775,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-hero-mascote { width: 124px; height: auto; align-self: end; display: block; margin-bottom: -6px; }
 .srv-hero-garantias { display: none; }
 .srv-video-hero, .srv-vitrine-video { position: relative; display: block; border: 0; padding: 0; cursor: pointer; border-radius: 14px; overflow: hidden; background: #0A2C21; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25); }
-.srv-video-hero { width: 100%; aspect-ratio: 16 / 9; }
+.srv-video-hero { width: 100%; aspect-ratio: 9 / 16; border-radius: 16px; box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.55), 0 12px 26px rgba(0, 0, 0, 0.3); }
+.srv-video-hero .srv-tocar { width: 48px; height: 48px; }
+.srv-video-hero .srv-tocar .ico-traco svg { width: 20px; height: 20px; }
+.srv-video-hero .srv-tempo { z-index: 1; }
 .srv-video-hero img, .srv-vitrine-video img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 46.5%; display: block; }
 .srv-video-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.55) 100%); }
 .srv-tocar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, 0.94); color: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); }
@@ -2826,7 +2830,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (min-width: 900px) {
   .srv-secao-loja { max-width: 1080px; }
   .srv-hero { padding: 40px 0 0 40px; grid-template-columns: minmax(0, 1fr) 260px; column-gap: 24px; }
-  .srv-hero.com-video { padding: 40px; display: grid; grid-template-columns: minmax(0, 1fr) 480px; column-gap: 40px; align-items: center; }
+  .srv-hero.com-video { padding: 40px; grid-template-columns: minmax(0, 1fr) 240px; column-gap: 40px; }
+  .srv-video-hero .srv-tocar { width: 72px; height: 72px; }
+  .srv-video-hero .srv-tocar .ico-traco svg { width: 28px; height: 28px; }
   .srv-hero-texto { padding-bottom: 40px; }
   .srv-hero.com-video .srv-hero-texto { padding-bottom: 0; }
   .srv .srv-hero-titulo { font-size: 40px; line-height: 1.08; }
@@ -2939,6 +2945,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .srv-linha-video { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .srv-linha-video + .srv-linha-video { border-top: 1px solid var(--line); }
 .srv-linha-video { align-items: flex-start; }
+/* o nome do video com o lapis ao lado (trocar o nome) */
+.srv-titulo-editavel { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.srv-titulo-editavel .srv-h3 { min-width: 0; overflow-wrap: anywhere; }
+.srv-icone-mini { width: 36px; height: 36px; flex: none; }
+.srv-icone-mini .ico-traco svg { width: 18px; height: 18px; }
 .srv-linha-video-acoes { display: flex; gap: 8px; margin-top: 8px; } /* 8 + 4 do gap: 12 ate os botoes */
 .srv-linha-video-acoes .srv-btn-p { flex: 1 1 auto; }
 .srv-icone-botao { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }

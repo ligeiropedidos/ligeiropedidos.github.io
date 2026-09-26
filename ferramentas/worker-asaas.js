@@ -1057,7 +1057,8 @@ const SRV_LISTA_LOJA = 30;
 const SRV_LISTA_CENTRAL = 300;
 const ID_SRV = /^[a-z0-9]{20}$/;
 const SLUG_SRV = /^[a-z0-9-]{1,60}$/;
-const ROTAS_DONO = ['/servicos/meus', '/servicos/comprar', '/servicos/video', '/servicos/apagar-video'];
+const ROTAS_DONO = ['/servicos/meus', '/servicos/comprar', '/servicos/video', '/servicos/apagar-video', '/servicos/renomear-video'];
+const SRV_RENOMES_DIA = 20; /* trocas de nome de video por loja por dia (cada uma e uma gravacao no KV) */
 const ROTAS_ADMIN = ['/servicos/central', '/servicos/criar', '/servicos/etapa', '/servicos/subir', '/servicos/entregar', '/servicos/reembolsar'];
 
 async function rotaServicos(request, env, caminho) {
@@ -1094,6 +1095,7 @@ async function rotaServicos(request, env, caminho) {
     }
     else if (caminho === '/servicos/video') r = await srvEscolherVideo(env, fb, email, admin, corpo);
     else if (caminho === '/servicos/apagar-video') r = await srvApagarVideo(env, fb, email, admin, corpo);
+    else if (caminho === '/servicos/renomear-video') r = await srvRenomearVideo(env, fb, email, admin, corpo);
     else if (caminho === '/servicos/central') r = { status: 200, corpo: { ok: true, pedidos: (await kvJson(env, 'srv:idx')) || [], servicos: SERVICOS, termos: TERMOS_SERVICOS, recursos: ['fora'] } }; /* recursos: a Central so mostra o que este mensageiro ja sabe fazer */
     else if (caminho === '/servicos/etapa') r = await srvEtapa(env, corpo);
     else if (caminho === '/servicos/entregar') r = await srvEntregar(env, corpo);
@@ -1171,7 +1173,7 @@ function resumoServico(p) {
 }
 async function lerListaDaLoja(env, slug) {
   const l = (await kvJson(env, 'srv:loja:' + slug)) || {};
-  return { pedidos: Array.isArray(l.pedidos) ? l.pedidos : [], videos: Array.isArray(l.videos) ? l.videos : [], noSite: l.noSite || null };
+  return { pedidos: Array.isArray(l.pedidos) ? l.pedidos : [], videos: Array.isArray(l.videos) ? l.videos : [], noSite: l.noSite || null, renomes: l.renomes || null };
 }
 /* grava o pedido e as duas listas (a da loja e a da Central), com o resumo novo no lugar do velho */
 async function gravarServico(env, p) {
@@ -1293,6 +1295,27 @@ async function srvApagarVideo(env, fb, email, admin, corpo) {
   if (tirouDoSite) await videoNoSite(env, ok.loja.slug, null);
   await env.CARDAPIO.delete('srv:v:' + id).catch(() => {});
   await env.CARDAPIO.delete('srv:c:' + id).catch(() => {});
+  return certo({ videos: l.videos, noSite: l.noSite });
+}
+
+/* o dono troca o nome de um video (ex.: "Combo da semana" vira "Promocao de sabado"); o pedido guarda o nome original.
+   Se o video esta no site, o nome muda la tambem. Ate SRV_RENOMES_DIA trocas por loja por dia. */
+async function srvRenomearVideo(env, fb, email, admin, corpo) {
+  const ok = await lojaPermitida(env, fb, email, admin, corpo.loja);
+  if (ok.erro) return ok.erro;
+  const titulo = textoLimpo(corpo.titulo, 60);
+  if (titulo.length < 2) return falha(400, 'Escreva o nome do vídeo.');
+  const l = await lerListaDaLoja(env, ok.loja.slug);
+  const v = l.videos.find((x) => x && x.id === String(corpo.video || ''));
+  if (!v) return falha(404, 'Esse vídeo não é desta loja.');
+  if (v.titulo === titulo) return certo({ videos: l.videos, noSite: l.noSite });
+  const hoje = diaDeBrasilia();
+  const r = l.renomes && l.renomes.dia === hoje ? l.renomes : { dia: hoje, n: 0 };
+  if (r.n >= SRV_RENOMES_DIA) return falha(429, 'Chegou ao limite de ' + SRV_RENOMES_DIA + ' trocas de nome hoje. Amanhã libera de novo.');
+  v.titulo = titulo;
+  l.renomes = { dia: hoje, n: r.n + 1 };
+  await env.CARDAPIO.put('srv:loja:' + ok.loja.slug, JSON.stringify(l));
+  if (l.noSite === v.id) await videoNoSite(env, ok.loja.slug, v);
   return certo({ videos: l.videos, noSite: l.noSite });
 }
 

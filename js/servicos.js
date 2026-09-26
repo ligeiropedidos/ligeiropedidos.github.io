@@ -83,6 +83,7 @@
       setTimeout(function () { var x = lerDemo(); if (x.pedidos[p.id] && x.pedidos[p.id].status === 'aguardando_pagamento') { x.pedidos[p.id].status = 'material'; x.pedidos[p.id].pagoEm = new Date().toISOString(); x.pedidos[p.id].forma = 'PIX'; gravarDemo(x); } }, 3000);
     }
     else if (r === 'video') { loja(c.loja).noSite = c.video || null; res = { noSite: loja(c.loja).noSite }; }
+    else if (r === 'renomear-video') { var lr = loja(c.loja); lr.videos.forEach(function (v) { if (v.id === c.video) v.titulo = String(c.titulo || '').trim().slice(0, 60); }); res = { videos: lr.videos, noSite: lr.noSite }; }
     else if (r === 'apagar-video') { var lv = loja(c.loja); lv.videos = lv.videos.filter(function (v) { return v.id !== c.video; }); if (lv.noSite === c.video) lv.noSite = null; res = { videos: lv.videos, noSite: lv.noSite }; }
     else if (r === 'central') res = { pedidos: lista('') };
     else if (r === 'etapa') { var pe = d.pedidos[c.id]; pe.status = 'producao'; pe.materialEm = new Date().toISOString(); var dd = new Date(); dd.setDate(dd.getDate() + 7); pe.prazoAte = dd.toISOString().slice(0, 10); res = { pedido: pe }; }
@@ -234,18 +235,21 @@
   function telaLoja(raiz, slug) {
     UI.limpar(raiz);
     document.title = 'Loja do Ligeiro';
-    var hero = el('div', { class: 'srv-hero srv-grad' + (cfg().videoExplicativo ? ' com-video' : '') }, [
+    /* o video explicativo: arquivo do site (midia/...mp4, capa .jpg do mesmo nome) ou um video entregue pela Central */
+    var vx = cfg().videoExplicativo || '', vxArquivo = /[/.]/.test(vx);
+    var vxSrc = vxArquivo ? vx : midia('v', vx), vxCapa = vxArquivo ? vx.replace(/\.mp4(\?|$)/, '.jpg$1') : midia('c', vx);
+    var hero = el('div', { class: 'srv-hero srv-grad' + (vx ? ' com-video' : '') }, [
       el('div', { class: 'srv-hero-texto' }, [
         el('span', { class: 'srv-sobre', text: 'Feito sob medida' }),
         el('h2', { class: 'srv-hero-titulo', text: 'Sua loja com cara de marca grande' }),
-        el('p', { class: 'srv-hero-frase', text: cfg().videoExplicativo ? 'Veja em 30 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
+        el('p', { class: 'srv-hero-frase', text: vx ? 'Veja em 40 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
         el('div', { class: 'srv-hero-garantias' }, [['check', 'Preço fechado, sem surpresa'], ['ampulheta', 'Prazo em dias úteis'], ['lista', 'Você acompanha cada etapa']].map(function (g) {
           return el('span', { class: 'srv-hero-garantia' }, [ico(g[0]), g[1]]);
         })),
       ]),
-      cfg().videoExplicativo
-        ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro', onclick: function () { tocarVideo(midia('v', cfg().videoExplicativo), 'Como funciona a Loja do Ligeiro'); } }, [
-          el('img', { src: midia('c', cfg().videoExplicativo), alt: '' }), el('span', { class: 'srv-tocar' }, [ico('tocar')]), el('span', { class: 'srv-legenda', text: 'Como funciona a Loja do Ligeiro' })])
+      vx
+        ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro (40 segundos)', onclick: function () { tocarVideo(vxSrc, 'Como funciona a Loja do Ligeiro'); } }, [
+          el('img', { src: vxCapa, alt: '', width: '540', height: '960' }), el('span', { class: 'srv-tocar' }, [ico('tocar')]), el('span', { class: 'srv-tempo', text: '0:40' })])
         : el('img', { class: 'srv-hero-mascote', src: 'img/mascote.webp', alt: '', width: '124', height: '124' }),
     ]);
     var secao = el('section', { class: 'secao srv-secao srv-secao-loja' }, [
@@ -441,6 +445,27 @@
     function mudar(video) {
       return api('video', { loja: slug, video: video }).then(function (r) { estado.noSite = r.noSite; desenhar(); UI.avisar(r.noSite ? 'Pronto: o site da loja já mostra esse vídeo.' : 'Pronto: o site da loja está sem vídeo agora.'); }).catch(function (e) { UI.avisar(e.message); });
     }
+    function renomear(v) {
+      var campo = el('input', { id: 'srvNomeVideo', type: 'text', maxlength: '60', value: v.titulo || '', autocomplete: 'off' });
+      var erro = el('p', { class: 'srv-erro', role: 'alert', hidden: true });
+      var botao = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' } }, [ico('check'), 'Salvar o nome']);
+      UI.abrirModal({ titulo: 'Nome do vídeo', sub: 'Aparece no site da loja, em cima do vídeo.', centro: true, corpo: el('div', { class: 'srv srv-form' }, [
+        el('div', { class: 'srv-campo' }, [el('label', { for: 'srvNomeVideo', text: 'Nome' }), campo]),
+        el('p', { class: 'srv-peq', text: 'Ex.: Promoção de sábado, Combo família, Novidade da casa.' }),
+        erro,
+      ]), rodape: [botao] });
+      setTimeout(function () { try { campo.focus(); campo.select(); } catch (_) { /* sem foco */ } }, 60);
+      function salvar() {
+        erro.hidden = true;
+        var nome = campo.value.trim();
+        if (nome.length < 2) { erro.textContent = 'Escreva o nome do vídeo.'; erro.hidden = false; return; }
+        botao.disabled = true;
+        api('renomear-video', { loja: slug, video: v.id, titulo: nome }).then(function (r) { estado.videos = r.videos; estado.noSite = r.noSite; UI.fecharModal(); desenhar(); UI.avisar('Nome trocado.'); })
+          .catch(function (e) { botao.disabled = false; erro.textContent = e.message; erro.hidden = false; });
+      }
+      botao.addEventListener('click', salvar);
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
+    }
     function apagar(v) {
       UI.perguntar('Apagar o vídeo "' + v.titulo + '"? Ele sai daqui e do site. Baixe antes se quiser guardar.', { titulo: 'Apagar vídeo', sim: 'Apagar', perigo: true }).then(function (sim) {
         if (!sim) return;
@@ -462,7 +487,7 @@
         secao.appendChild(el('article', { class: 'srv-cartao srv-no-site' }, [
           el('button', { class: 'srv-poster-botao', type: 'button', 'aria-label': 'Assistir ' + sel.titulo, onclick: function () { tocarVideo(midia('v', sel.id), sel.titulo); } }, [capaDeVideo(sel, 'grande')]),
           el('div', { class: 'srv-no-site-texto' }, [
-            el('h3', { class: 'srv-h3', text: sel.titulo }),
+            el('div', { class: 'srv-titulo-editavel' }, [el('h3', { class: 'srv-h3', text: sel.titulo }), el('button', { class: 'srv-icone-botao srv-icone-mini', type: 'button', 'aria-label': 'Trocar o nome de ' + sel.titulo, onclick: function () { renomear(sel); } }, [ico('lapis')])]),
             el('span', { class: 'srv-meta', text: (sel.dur ? sel.dur + ' segundos, ' : '') + 'entregue em ' + diaMes(sel.em) }),
             el('span', { class: 'srv-status srv-st-pronto' }, [el('span', { class: 'srv-ponto' }), 'No site agora']),
             el('div', { class: 'srv-no-site-acoes' }, [
@@ -483,6 +508,7 @@
               el('strong', { text: v.titulo }), el('span', { class: 'srv-meta', text: (v.dur ? v.dur + ' segundos, ' : '') + 'entregue em ' + diaMes(v.em) }),
               el('div', { class: 'srv-linha-video-acoes' }, [
                 el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function () { mudar(v.id); } }, 'Pôr no site'),
+                el('button', { class: 'srv-icone-botao', type: 'button', 'aria-label': 'Trocar o nome de ' + v.titulo, onclick: function () { renomear(v); } }, [ico('lapis')]),
                 el('button', { class: 'srv-icone-botao', type: 'button', 'aria-label': 'Apagar ' + v.titulo, onclick: function () { apagar(v); } }, [ico('lixeira')]),
               ]),
             ]),

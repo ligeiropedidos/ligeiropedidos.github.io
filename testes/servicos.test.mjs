@@ -359,5 +359,42 @@ console.log('== video combinado por fora (Enviar video, na Central) ==');
   ok(cobrancasAntes <= cobrancasFora, 'fora: contagem de cobrancas coerente');
 }
 
+console.log('== trocar o nome do video (dono) ==');
+{
+  const lista = JSON.parse(kv.get('srv:loja:outra').valor);
+  const vid = (lista.videos || []).find((x) => x.id === lista.noSite) || lista.videos[0];
+  ok(!!vid, 'renomear: ha um video da loja para o teste');
+  let r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-ze');
+  ok(r.status === 403, 'renomear: dono de outra loja nao troca o nome (403)');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: ' ' }, 'tok-outro');
+  ok(r.status === 400, 'renomear: nome vazio recusado');
+  r = await chamar('renomear-video', { loja: 'outra', video: 'a'.repeat(20), titulo: 'Qualquer' }, 'tok-outro');
+  ok(r.status === 404, 'renomear: video que nao e da loja: 404');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: '<img src=x onerror=alert(1)> Promoção de sábado' + 'x'.repeat(80) }, 'tok-outro');
+  const novo = (r.j.videos || []).find((x) => x.id === vid.id);
+  ok(r.status === 200 && novo && !/[<>]/.test(novo.titulo) && novo.titulo.length <= 60, 'renomear: sem < e > e no maximo 60 letras');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-outro');
+  ok(r.status === 200 && r.j.videos.find((x) => x.id === vid.id).titulo === 'Promoção de sábado', 'renomear: o dono troca o nome');
+  const salvo = JSON.parse(kv.get('srv:loja:outra').valor);
+  ok(salvo.videos.find((x) => x.id === vid.id).titulo === 'Promoção de sábado' && salvo.renomes && salvo.renomes.n >= 1, 'renomear: gravado na lista da loja, com a contagem do dia');
+  if (salvo.noSite === vid.id) {
+    const noSite = JSON.parse(kv.get('srv:video:outra').valor);
+    ok(noSite.titulo === 'Promoção de sábado', 'renomear: o video do site mudou de nome junto');
+  }
+  const pedidos = salvo.pedidos.filter((x) => x.video === vid.id);
+  ok(pedidos.every((x) => x.titulo !== 'Promoção de sábado'), 'renomear: o pedido guarda o nome original');
+  const antes = JSON.parse(kv.get('srv:loja:outra').valor).renomes.n;
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-outro');
+  ok(r.status === 200 && JSON.parse(kv.get('srv:loja:outra').valor).renomes.n === antes, 'renomear: o mesmo nome de novo nao gasta troca');
+  let ultimo = null;
+  for (let i = 0; i < 25; i++) { ultimo = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Nome ' + i }, 'tok-outro'); if (ultimo.status !== 200) break; }
+  ok(ultimo.status === 429, 'renomear: passa de 20 trocas no dia: 429');
+  ok(JSON.parse(kv.get('srv:loja:outra').valor).renomes.n === 20, 'renomear: a contagem para em 20');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Pela Central' }, 'tok-admin');
+  ok(r.status === 429, 'renomear: o limite vale tambem para a Central (protege a cota)');
+  const lojaDepois = JSON.parse(kv.get('srv:loja:outra').valor);
+  ok(Array.isArray(lojaDepois.pedidos) && lojaDepois.pedidos.length >= 1, 'renomear: a lista de pedidos da loja continua inteira');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
