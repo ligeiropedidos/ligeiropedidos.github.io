@@ -225,12 +225,14 @@
           el('h2', { class: 'centro', text: 'Central do Ligeiro' }),
           el('p', { class: 'centro muted', text: 'Entre com a conta Google do Ligeiro.' }),
           erro,
-          el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function () {
+          el('button', { class: 'btn btn-google btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function (ev) {
+            var soltar = UI.ocupar(ev.currentTarget, 'Abrindo o Google…');
+            if (!soltar) return;
             store.entrarComGoogle().then(function (u) {
-              if (!ehAdmin(u)) { UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro. Saia dela em "Minha conta" e entre com a certa.'; return; }
+              if (!ehAdmin(u)) { soltar(); UI.soar('erro'); erro.hidden = false; erro.textContent = 'Essa conta Google não é a do Ligeiro. Saia dela em "Minha conta" e entre com a certa.'; return; }
               try { sessionStorage.setItem(chave, '1'); } catch (_) { /* ignora */ }
               parar = montar();
-            }).catch(function (e) { erro.hidden = false; erro.textContent = D.erroAmigavel(e, 'Não deu para entrar.'); });
+            }).catch(function (e) { soltar(); erro.hidden = false; erro.textContent = D.erroAmigavel(e, 'Não deu para entrar.'); });
           } }),
         ]));
         return;
@@ -384,22 +386,29 @@
       if (!Object.keys(mudancas).length) return;
       salvarCapacidade(mudancas, mudancas.fechado === true ? 'O limite de lojas chegou: vagas fechadas. Cliente novo agora entra na lista de espera.' : '');
     }
+    /* devolve true se salvou (quem chamou decide se fecha a janela ou solta o botao) */
     function salvarCapacidade(mudancas, aviso) {
       return store.salvarCapacidade(mudancas).then(function () {
         var f = window.LigeiroFundadores || { usados: 0 };
         window.LigeiroFundadores = { usados: f.usados || 0, capacidade: Object.assign({}, f.capacidade || {}, mudancas) };
         if (aviso) UI.avisar(aviso);
         if (estado.aba === 'geral') pintar();
-      }).catch(function (e) { UI.avisar('Não deu para salvar as vagas. ' + erroTexto(e, '')); });
+        return true;
+      }).catch(function (e) { UI.avisar('Não deu para salvar as vagas. ' + erroTexto(e, '')); return false; });
     }
     function mudarLimite() {
       var cap = R.capacidadeLojas();
       var campo = el('input', { type: 'number', min: '0', step: '1', inputmode: 'numeric', value: String(cap.max || ''), placeholder: 'Ex: 60' });
       var ok = el('button', { class: 'btn btn-principal', type: 'button', text: 'Salvar limite', onclick: function () {
+        var soltar = UI.ocupar(ok, 'Salvando…');
+        if (!soltar) return;
         var v = Math.max(0, Math.floor(Number(campo.value) || 0));
         var m = R.novoLimite(window.LigeiroFundadores.capacidade, lojasNoSistema(), v);
-        UI.fecharModal();
-        salvarCapacidade(m, v ? 'Limite salvo: ' + v + ' lojas.' : 'Sem limite de lojas.');
+        /* a janela fica aberta ate gravar: deu errado, da para tentar de novo sem digitar outra vez */
+        salvarCapacidade(m, v ? 'Limite salvo: ' + v + ' lojas.' : 'Sem limite de lojas.').then(function (salvou) {
+          if (!salvou) { soltar(); return; }
+          if (ok.isConnected) UI.fecharModal();
+        });
       } });
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } });
       UI.abrirModal({ titulo: 'Limite de lojas', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
@@ -457,22 +466,28 @@
           : [
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Mudar limite', onclick: mudarLimite }),
             naMao
-              ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Abrir vagas', onclick: function () { salvarCapacidade({ fechado: false, automatico: false }, 'Vagas abertas.'); } })
-              : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Fechar vagas', onclick: function () { salvarCapacidade({ fechado: true, automatico: false }, 'Vagas fechadas: cliente novo vai para a lista de espera.'); } }),
+              ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Abrir vagas', onclick: function (ev) { salvarVagas(ev.currentTarget, { fechado: false, automatico: false }, 'Vagas abertas.'); } })
+              : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Fechar vagas', onclick: function (ev) { salvarVagas(ev.currentTarget, { fechado: true, automatico: false }, 'Vagas fechadas: cliente novo vai para a lista de espera.'); } }),
           ]),
       ]);
+    }
+    /* Abrir/Fechar vagas: o botao gira ate gravar (deu certo, o quadro e redesenhado) */
+    function salvarVagas(botao, mudancas, aviso) {
+      var soltar = UI.ocupar(botao, 'Salvando…');
+      if (!soltar) return;
+      salvarCapacidade(mudancas, aviso).then(function () { soltar(); });
     }
 
     function atualizar() {
       var b = estado.btnAtualizar;
-      if (b && b.disabled) return;
-      if (b) b.disabled = true;
+      var soltar = b ? UI.ocupar(b, 'Atualizando…') : function () {};
+      if (!soltar) return;
       estado.hoje = null;
       estado.hojeFresco = true; /* o Atualizar sempre soma de novo no banco */
       estado.pedidosLoja = {};
       conferirBorda();
       desenhar().then(function (ok) {
-        if (b) b.disabled = false;
+        soltar();
         if (ok) { soltarTravasParadas(); UI.avisar('Dados atualizados às ' + horaBR(new Date()) + '.'); }
       });
     }
@@ -888,13 +903,16 @@
       var detalhes = [c.loja, c.cidade ? c.cidade + (c.uf ? '/' + c.uf : '') : '', c.whatsapp ? R.formatarTelefone(c.whatsapp) : '', c.origem === 'lista-espera' ? 'lista de espera' : (c.origem ? 'veio de: ' + c.origem : '')].filter(Boolean);
       var trava = { ocupado: false };
       function marcar(atendido) {
-        return function () {
+        return function (ev) {
           if (trava.ocupado) return;
+          var soltar = UI.ocupar(ev.currentTarget, 'Salvando…');
+          if (!soltar) return;
           trava.ocupado = true;
           store.atualizarLead(c.id, { atendidoEm: atendido ? new Date().toISOString() : '' }).then(function () {
             UI.avisar(atendido ? 'Contato marcado como atendido' : 'Contato voltou para lista de chamar');
-            desenhar();
-          }).catch(function (e) { trava.ocupado = false; UI.avisar(erroTexto(e, 'Não deu agora.')); });
+            /* a lista nova troca a linha; se nao vier, o botao volta (nao fica girando para sempre) */
+            desenhar().then(function (ok) { if (!ok) { trava.ocupado = false; soltar(); } });
+          }).catch(function (e) { trava.ocupado = false; soltar(); UI.avisar(erroTexto(e, 'Não deu agora.')); });
         };
       }
       return el('div', { class: 'adm-contato' + (pendente ? '' : ' feito') }, [
@@ -947,7 +965,7 @@
         : 'Cole o token do Cloudflare Web Analytics em config.js (analytics.cloudflareToken) e as visitas de cada página aparecem no painel do Cloudflare, de graça e sem cookie.',
       el('a', { class: 'btn btn-fantasma', href: 'https://dash.cloudflare.com/?to=/:account/web-analytics', target: '_blank', rel: 'noopener', text: 'Abrir o Cloudflare' })));
       cards.push(ferramenta('dinheiro', 'Preços em vigor', null, null, tabelaPrecos()));
-      var src = (document.querySelector('script[src*="js/admin.js"]') || {}).src || '';
+      var src = (document.querySelector('script[src*="/admin.js"]') || {}).src || '';
       var tag = (src.match(/\?v=([0-9a-z]+)/i) || [])[1] || 'sem número';
       cards.push(ferramenta('site', 'Versão do site', 'Versão ' + tag + '. ' + (D.modoDemo ? 'Modo demonstração: os dados ficam só neste navegador.' : 'Modo nuvem: dados no Firebase, iguais em todo aparelho.'),
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Recarregar o site', onclick: function () { location.reload(); } })));
@@ -1047,7 +1065,8 @@
         ' do relatório e apagar ' + plural(a.leads.length, 'contato', 'contatos') + '? Os valores das vendas das lojas continuam. Não dá para desfazer: se a pessoa pediu uma cópia, baixe o arquivo antes.';
       UI.perguntar(texto, { titulo: 'Apagar os dados desta pessoa?', sim: 'Apagar', perigo: true }).then(function (sim) {
         if (!sim) return;
-        UI.avisar('Apagando…');
+        /* a pergunta fechou a janela: a espera fica no lugar dela ate o resultado chegar */
+        UI.abrirModal({ titulo: 'Apagando…', corpo: UI.carregandoMascote('Apagando os dados…') });
         store.anonimizarTitular(a).then(function (r) {
           UI.abrirModal({ titulo: 'Dados apagados', corpo: el('div', { class: 'titular' }, [
             el('div', { class: 'adm-lista' }, [el('div', { class: 'adm-tudo-ok' }, [
@@ -1057,7 +1076,7 @@
             ])]),
             el('p', { class: 'titular-nota', text: 'Avise a pessoa que foi feito e guarde a conversa como registro do pedido.' }),
           ]) });
-        }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para apagar agora. Tente de novo.')); });
+        }).catch(function (e) { UI.fecharModal(); UI.avisar(D.erroAmigavel(e, 'Não deu para apagar agora. Tente de novo.')); });
       });
     }
 
@@ -1124,8 +1143,9 @@
     /* depois de uma acao (deu certo ou nao): busca os dados de novo; so com eles solta a trava e reabre a ficha */
     function concluir(marca, trava) {
       desenhar().then(function (ok) {
-        if (ok) { if (trava) trava.ocupado = false; reabrir(marca); return; }
-        /* sem dados frescos: fecha a ficha velha e a trava fica ate o Atualizar dar certo */
+        if (ok) { if (trava) trava.ocupado = false; reabrir(marca); }
+        /* sem dados frescos (a trava fica ate o Atualizar dar certo) ou a ficha nao voltou (loja sumiu da lista): fecha a
+           ficha velha ou a espera, que nao ficam paradas na tela */
         if (marca && marca === estado.ficha) { estado.ficha = null; UI.fecharModal(); }
       });
     }
@@ -1134,10 +1154,23 @@
       if (marca.tipo === 'loja') abrirLoja(marca.slug);
       else abrirConta(marca.email);
     }
+    /* toque com a ficha ainda gravando (ou esperando os dados novos): avisa em vez de ignorar calado */
+    function avisarOcupado(trava) { UI.avisar(trava.voando ? 'Salvando, espere um instante…' : 'Buscando os dados novos. Se demorar, toque em Atualizar.'); }
     /* acao simples de uma ficha: trava o toque duplo, avisa e reabre a ficha atualizada.
-       textoOk pode ser uma funcao (o texto depende do que o banco devolveu, como a data nova do Pagou) */
-    function executar(trava, marca, fazer, textoOk) {
-      if (trava.ocupado) return;
+       textoOk pode ser uma funcao (o texto depende do que o banco devolveu, como a data nova do Pagou).
+       botao: o que foi tocado na ficha; ele gira com o texto de espera e a ficha fica desligada ate ser redesenhada.
+       Sem botao, a pergunta ja fechou a ficha: a espera aparece numa janela ate a ficha voltar (ou fechar) */
+    function executar(trava, marca, fazer, textoOk, botao) {
+      if (trava.ocupado) { avisarOcupado(trava); if (!botao) reabrir(marca); return; }
+      if (botao) {
+        if (botao.tagName === 'SELECT') UI.avisar('Salvando…'); /* select nao gira: o texto vai no aviso */
+        else if (!UI.ocupar(botao, 'Salvando…')) return;
+        var ficha = botao.closest ? botao.closest('.adm-ficha') : null;
+        if (ficha) {
+          ficha.setAttribute('aria-busy', 'true');
+          [].forEach.call(ficha.querySelectorAll('button, select'), function (x) { x.disabled = true; });
+        }
+      } else UI.abrirModal({ titulo: 'Salvando…', corpo: UI.carregandoMascote('Salvando…') });
       trava.ocupado = true;
       trava.voando = true;
       Promise.resolve().then(fazer).then(function (r) {
@@ -1205,14 +1238,15 @@
           var texto = l.nome + '\nCardápio: ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
           UI.copiar(texto).then(function () { UI.avisar('Links da loja e do painel copiados'); });
         } }, [UI.iconeLinha('copiar'), 'Copiar links']),
-        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : 'Verificar', onclick: function () {
-          executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, verificada: l.verificada !== true }); }, l.verificada === true ? l.nome + ' sem o selo' : l.nome + ' verificada');
+        el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : 'Verificar', onclick: function (ev) {
+          executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, verificada: l.verificada !== true }); }, l.verificada === true ? l.nome + ' sem o selo' : l.nome + ' verificada', ev.currentTarget);
         } }),
         l.ativa === false
-          ? el('button', { class: 'btn btn-principal', type: 'button', text: 'Reativar loja', onclick: function () {
-            executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, ativa: true }); }, l.nome + ' voltou para o site');
+          ? el('button', { class: 'btn btn-principal', type: 'button', text: 'Reativar loja', onclick: function (ev) {
+            executar(trava, marca, function () { return store.salvarLoja({ slug: l.slug, ativa: true }); }, l.nome + ' voltou para o site', ev.currentTarget);
           } })
           : el('button', { class: 'btn btn-erro', type: 'button', text: 'Desativar', onclick: function () {
+            if (trava.ocupado) { avisarOcupado(trava); return; }
             UI.perguntar('Desativar ' + l.nome + '? A loja sai do site e para de receber pedidos. Dá para reativar depois, aqui mesmo.', { titulo: 'Desativar loja?', sim: 'Desativar', perigo: true }).then(function (sim) {
               if (!sim) { reabrir(marca); return; }
               /* na nuvem excluirLoja so marca ativa: false; na demonstracao ela apagaria de vez, entao ali so desliga */
@@ -1227,7 +1261,7 @@
         var rotulos = { teste: 'Teste grátis', ativo: 'Pagando', pausado: 'Pausado', cancelado: 'Cancelado' };
         var sel = el('select', { 'aria-label': 'Situação do plano' }, ['teste', 'ativo', 'pausado', 'cancelado'].map(function (v) { var o = el('option', { value: v, text: rotulos[v] }); if (plano.status === v) o.selected = true; return o; }));
         sel.addEventListener('change', function () {
-          if (trava.ocupado) { sel.value = plano.status; return; }
+          if (trava.ocupado) { sel.value = plano.status; avisarOcupado(trava); return; }
           var novo = sel.value;
           /* so os campos que mudam, sobre a loja lida agora (a ficha pode estar velha). Loja desativada continua
              desativada: so o "Reativar loja" poe de volta no site (antes qualquer troca de situacao reativava) */
@@ -1236,13 +1270,13 @@
               var pa = atual.plano || { status: 'teste' };
               return { plano: Object.assign({}, pa, { status: novo, desde: novo === pa.status ? pa.desde : new Date().toISOString() }), ativa: novo === 'cancelado' ? false : atual.ativa !== false };
             });
-          }, 'Plano de ' + l.nome + ': ' + rotulos[novo] + (l.ativa === false && novo !== 'cancelado' ? '. A loja continua desativada: toque em Reativar loja para voltar ao site.' : ''));
+          }, 'Plano de ' + l.nome + ': ' + rotulos[novo] + (l.ativa === false && novo !== 'cancelado' ? '. A loja continua desativada: toque em Reativar loja para voltar ao site.' : ''), sel);
         });
         var precos = (window.LIGEIRO_CONFIG || {}).precos || {};
         /* Confirmar pagamento: soma os dias a partir do fim atual (ou de hoje, se ja venceu), com a loja lida agora (a
            mesma conta do mensageiro do Asaas: dentro da tolerancia conta do vencimento). Se o plano mudou desde que a
            ficha abriu (outro Pagou, em outro aparelho), nao grava: somaria os dias duas vezes */
-        var confirmarLoja = function (dias) {
+        var confirmarLoja = function (dias, botao) {
           var esperado = { pagoAte: plano.pagoAte || '', ultimoPagamentoEm: plano.ultimoPagamentoEm || '' };
           executar(trava, marca, function () {
             return store.mudarPlanoDaLoja(l.slug, function (atual) {
@@ -1250,11 +1284,11 @@
               var m = k.plano;
               return { pagoAte: k.pagoAte, plano: Object.assign({}, atual.plano || {}, { status: m.status, tipo: m.tipo, pagoAte: m.pagoAte, avisoPagamentoEm: '', avisoValor: 0, ultimoPagamentoEm: m.ultimoPagamentoEm }), ativa: true };
             });
-          }, function (r) { return l.nome + ' liberada até ' + dataBR(r && r.pagoAte); });
+          }, function (r) { return l.nome + ' liberada até ' + dataBR(r && r.pagoAte); }, botao);
         };
         corpo.appendChild(el('div', { class: 'adm-caixa adm-plano' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Situação' }), sel]),
-          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', onclick: function () { confirmarLoja(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(precos.mensal || 8900) + ' (+30 dias)']),
+          el('button', { class: 'btn btn-principal', type: 'button', title: 'Loja sem conta: libera direto nela', onclick: function (ev) { confirmarLoja(30, ev.currentTarget); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(precos.mensal || 8900) + ' (+30 dias)']),
         ]));
       } else {
         /* loja com dono: o plano e da conta dele, aqui so aponta pra ficha da conta */
@@ -1334,17 +1368,17 @@
           });
         });
       }
-      function confirmar(dias) {
+      function confirmar(dias, botao) {
         executar(trava, marca, function () {
           return mudar(function (atual, vagas) { return D.contas.pagou(atual, dias, vagas, { esperado: esperado }); }, 'Pagamento salvo');
         }, function (r) {
           var k = (r && r.feito) || {};
           return c.email + ' liberada até ' + dataBR(k.pagoAte) + (k.viraFundador ? ', agora fundador' : '') + ' (' + plural(minhas.length, 'loja', 'lojas') + ')';
-        });
+        }, botao);
       }
-      function tornarFundador() {
+      function tornarFundador(ev) {
         /* so solta com os dados frescos: ai a ficha mostra se ja virou fundador */
-        executar(trava, marca, function () { return mudar(function (atual, vagas) { return D.contas.virouFundador(atual, vagas); }, 'Fundador salvo'); }, c.email + ' agora é fundador');
+        executar(trava, marca, function () { return mudar(function (atual, vagas) { return D.contas.virouFundador(atual, vagas); }, 'Fundador salvo'); }, c.email + ' agora é fundador', ev && ev.currentTarget);
       }
       /* Desfaz o ultimo "Pagou" da Central (teste ou toque sem querer): volta exatamente ao que estava antes dele (datas,
          situacao, plano pago e fundador), pela foto que o Pagou guardou. Pagamento do Asaas nao desfaz por aqui */
@@ -1364,7 +1398,7 @@
       }
       /* pergunta antes (a pergunta ocupa o modal); "Voltar" reabre a ficha. fazer(conta, vagas) e a conta da acao */
       function comPergunta(texto, opcoes, fazer, textoOk, textoSalvo) {
-        if (trava.ocupado) return;
+        if (trava.ocupado) { avisarOcupado(trava); return; }
         UI.perguntar(texto, opcoes).then(function (sim) {
           if (!sim) { reabrir(marca); return; }
           executar(trava, marca, function () { return mudar(fazer, textoSalvo || 'Conta salva'); }, textoOk);
@@ -1408,17 +1442,17 @@
 
       corpo.appendChild(el('h3', { text: 'Ações' }));
       corpo.appendChild(el('div', { class: 'adm-acoes-linha' }, [
-        el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { confirmar(30); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)']),
-        temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', onclick: function () { confirmar(365); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)']) : null,
+        el('button', { class: 'btn btn-principal', type: 'button', onclick: function (ev) { confirmar(30, ev.currentTarget); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorMensal) + ' (+30 dias)']),
+        temAnual ? el('button', { class: 'btn btn-escuro', type: 'button', onclick: function (ev) { confirmar(365, ev.currentTarget); } }, [UI.iconeLinha('check'), 'Pagou ' + R.dinheiro(valorAnual) + ' (+1 ano)']) : null,
         podeDesfazer ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Foi teste ou toque sem querer: a conta volta a ficar como estava antes do último Pagou', onclick: desfazerPagamento }, [UI.iconeLinha('desfazer'), 'Desfazer o último pagamento']) : null,
       ]));
       corpo.appendChild(grade([
-        desencontradas.length ? el('button', { class: 'btn btn-principal', type: 'button', title: 'Copia o plano da conta para as lojas dela', text: 'Atualizar as lojas', onclick: function () {
+        desencontradas.length ? el('button', { class: 'btn btn-principal', type: 'button', title: 'Copia o plano da conta para as lojas dela', text: 'Atualizar as lojas', onclick: function (ev) {
           executar(trava, marca, function () {
             return store.espelharPlanoNasLojas(c.email).then(function (ok) {
               if (ok === false) { var e = new Error('Não deu para ler a conta agora. Tente de novo.'); e.publico = true; throw e; }
             });
-          }, 'Plano copiado para ' + plural(minhas.length, 'loja', 'lojas'));
+          }, 'Plano copiado para ' + plural(minhas.length, 'loja', 'lojas'), ev.currentTarget);
         } }) : null,
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Libera a conta sem data para vencer', text: 'Cortesia', onclick: function () {
           /* cortesia nao e pagamento: o Desfazer do ultimo Pagou deixa de valer (voltaria a data e tiraria a cortesia) */
@@ -1427,9 +1461,9 @@
           }, c.email + ' em cortesia');
         } }),
         parada
-          ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Volta a assinatura, do jeito que o dono faz em Minha conta', text: 'Reativar', onclick: function () {
+          ? el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Volta a assinatura, do jeito que o dono faz em Minha conta', text: 'Reativar', onclick: function (ev) {
             /* volta para o que era antes da pausa (cortesia continua cortesia), com a conta lida agora */
-            executar(trava, marca, function () { return mudar(function (atual) { return D.contas.reativou(atual); }, 'Conta reativada'); }, c.email + ' reativada');
+            executar(trava, marca, function () { return mudar(function (atual) { return D.contas.reativou(atual); }, 'Conta reativada'); }, c.email + ' reativada', ev.currentTarget);
           } })
           : el('button', { class: 'btn btn-erro', type: 'button', text: 'Pausar', onclick: function () {
             comPergunta('Pausar a assinatura de ' + c.email + '? ' + (minhas.length ? 'As lojas dela param de receber pedidos na hora.' : 'A conta fica parada até você reativar.'), { titulo: 'Pausar assinatura?', sim: 'Pausar', perigo: true }, function (atual) {

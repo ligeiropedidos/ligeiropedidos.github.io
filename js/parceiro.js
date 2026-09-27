@@ -69,6 +69,8 @@
   function barraTopo() {
     /* "Entrar" e o botao da conta tem o mesmo desenho: ao entrar, so a bolinha troca o bonequinho pela inicial */
     var entrar = el('a', { class: 'btn btn-conta btn-entrar', href: '#/entrar' }, [el('span', { class: 'conta-bolinha sem-letra', 'aria-hidden': 'true' }), el('span', { text: 'Entrar' })]);
+    /* o dedo encostou no Entrar: o banco ja comeca a baixar, e o botao do Google chega pronto mais cedo */
+    entrar.addEventListener('pointerdown', function () { var s = D() && D().store; if (s && s.aquecer) s.aquecer(); });
     /* celular pequeno (ate 360): "Assinar"; o "agora" nao cabe do lado do Entrar */
     var assinar = el('a', { class: 'btn btn-principal btn-pequeno btn-assinar', href: '#/comecar' }, [el('span', { class: 'rot-longo', text: 'Começar grátis' }), el('span', { class: 'rot-curto', text: 'Começar' })]);
     var acoes = el('div', { class: 'barra-acoes' }, [entrar, assinar]);
@@ -164,10 +166,11 @@
       if (whatsapp.length < 10) { UI.avisar('Digite o WhatsApp com DDD.'); f.whatsapp.input.focus(); return; }
       /* cidade: da lista, ou o que a pessoa digitou (contato nao pode travar por isso) */
       var cid = (f.cidade.valor && f.cidade.valor()) || { nome: f.cidade.input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };
-      btn.disabled = true;
+      var soltar = UI.ocupar(btn, 'Enviando…');
+      if (!soltar) return;
       D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: '#/' + window.LigeiroApp.rota() })
         .then(function () { UI.soar('sucesso'); contatoRecebido(nome, f.whatsapp.input.value, espera); })
-        .catch(function (e) { btn.disabled = false; UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.')); });
+        .catch(function (e) { soltar(); UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.')); });
     } }, [UI.iconeLinha('check'), espera ? ESPERA.botao : 'Pode me chamar']);
     [f.nome, f.whatsapp, f.loja].forEach(function (c) { c.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } }); });
     UI.abrirModal({ titulo: espera ? ESPERA.titulo : 'Fale com a gente', corpo: corpo, rodape: [btn] });
@@ -661,15 +664,27 @@
           ev.preventDefault();
           /* encerrada, mas a assinatura do Asaas ainda nao saiu (o Cron tira): primeiro reativa */
           if ((conta.assinaturaAsaas || conta.assinaturaPendente) && (conta.plano || {}).status === 'cancelado') { UI.avisar('Reative a assinatura em Minha conta antes de trocar.'); return; }
+          var soltar = UI.ocupar(continuar, comAssinatura ? 'Calculando a troca…' : 'Trocando…');
+          if (!soltar) return;
+          /* volta como era (uma vez so) e redesenha: a pessoa pode ter trocado mensal e anual enquanto esperava */
+          var olho = null, voltou = false;
+          var voltar = function () { if (voltou) return; voltou = true; if (olho) olho.disconnect(); soltar(); desenhar(); };
           if (comAssinatura) {
-            C.trocarPlano({ tipo: tipo, nomePlano: plano.nome + ' ' + porExtenso(tipo), aoTerminar: function () { window.LigeiroApp.ir('conta'); } }).catch(function (e) { UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
+            /* a janela da troca abriu: o botao volta (fechar ela no X nao deixa ele girando para sempre) */
+            var modal = document.getElementById('modal');
+            if (modal && window.MutationObserver) {
+              olho = new MutationObserver(function () { if (modal.classList.contains('aberto')) voltar(); });
+              olho.observe(modal, { attributes: true, attributeFilter: ['class'] });
+            }
+            C.trocarPlano({ tipo: tipo, nomePlano: plano.nome + ' ' + porExtenso(tipo), aoTerminar: function () { window.LigeiroApp.ir('conta'); } })
+              .then(function (t) { if (!t) voltar(); }, function (e) { voltar(); UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
             return;
           }
           D().store.salvarConta(conta.email, { plano: { planoId: plano.id, tipo: tipo } }).then(function () {
             UI.soar('sucesso');
             UI.avisar('Pronto: ' + porExtenso(tipo) + ' a partir do próximo pagamento.');
             window.LigeiroApp.ir('conta');
-          }).catch(function (e) { UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
+          }).catch(function (e) { voltar(); UI.avisar(D().erroAmigavel(e, 'Não deu para trocar agora.')); });
         };
       } else {
         resumo.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Hoje' }), el('b', { text: R.dinheiro(0) })]));
@@ -687,11 +702,17 @@
       }
     }
     desenhar();
+    /* botao esperando (girando): nem o Enter do teclado segue o link */
+    continuar.addEventListener('click', function (ev) { if (continuar.getAttribute('aria-busy') === 'true') ev.preventDefault(); });
+    /* ja entrou neste aparelho: o botao espera a conta chegar (um toque rapido mandaria o dono criar outra loja).
+       Solta antes de redesenhar: o soltar poe de volta o texto de antes */
+    var soltarConta = D().store.pareceLogado && D().store.pareceLogado() ? UI.ocupar(continuar, 'Conferindo sua conta…') : null;
+    var contaConferida = function () { if (!soltarConta) return; soltarConta(); soltarConta = null; desenhar(); };
     D().store.usuarioAtual().then(function (u) {
       if (!u || !raiz.isConnected) return;
       /* o tipo da conta so vale quando o link nao escolheu ("Começar grátis" do anual abre no anual, mesmo logado) */
-      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; if (!linkTipo) tipo = porExtenso((c.plano && c.plano.tipo) || tipo); desenhar(); } });
-    });
+      return D().store.obterConta(u.email).then(function (c) { if (c) { conta = c; if (!linkTipo) tipo = porExtenso((c.plano && c.plano.tipo) || tipo); if (soltarConta) contaConferida(); else desenhar(); } });
+    }).then(contaConferida, contaConferida);
 
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Assinar' }),
@@ -724,9 +745,16 @@
     function depois(u) { if (u) { UI.soar('sucesso'); window.LigeiroApp.ir(destino()); } }
 
     var btnGoogle = el('button', { class: 'btn btn-google btn-largo', type: 'button', text: D().modoDemo ? 'Entrar na demonstração' : 'Entrar com o Google', onclick: function () {
-      btnGoogle.disabled = true;
-      store.entrarComGoogle().then(depois).catch(function (e) { falhar(D().erroAmigavel(e)); }).then(function () { btnGoogle.disabled = false; });
+      /* a janela do Google abre aqui dentro do toque (o banco ja esta pronto: o botao so libera depois disso) */
+      var soltar = UI.ocupar(btnGoogle, 'Abrindo o Google…');
+      if (!soltar) return;
+      store.entrarComGoogle().then(function (u) { depois(u); if (btnGoogle.isConnected) soltar(); }).catch(function (e) { soltar(); falhar(D().erroAmigavel(e)); });
     } });
+    /* o banco ainda baixando: o botao espera girando (tocar antes so dava o "toque de novo") */
+    if (store.pronto) {
+      var soltarPreparo = UI.ocupar(btnGoogle, 'Preparando o login…');
+      store.pronto().then(soltarPreparo, soltarPreparo);
+    }
 
     corpo.appendChild(el('div', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Conta do dono' }),

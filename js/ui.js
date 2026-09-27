@@ -696,9 +696,9 @@
   function aplicarTemaOficial(raiz, slug) {
     var o = lojaOficial(slug);
     if (!o || !o.tema || !raiz) return null;
-    var src = (document.querySelector('script[src*="js/ui.js"]') || {}).src || '';
+    var src = (document.querySelector('script[src*="/ui.js"]') || {}).src || '';
     var tag = (src.match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
-    temaPronto = carregarCss('css/temas/' + o.tema + '.css?v=' + tag);
+    temaPronto = carregarCss(caminho('css/temas/' + o.tema + '.css') + '?v=' + tag);
     raiz.classList.add('tema-' + o.tema, 'loja-oficial');
     /* as janelas (modal) moram fora da tela da loja: levam o tema junto, senao abriam no visual padrao */
     var modal = document.getElementById('modal');
@@ -767,6 +767,35 @@
 
   /* espera com o mascote: ele pula de leve, as tres bolinhas do Ligeiro andam e o texto diz o que esta acontecendo.
      Surge depois de um instante (quem abre rapido nem ve piscar) */
+  /* Botao esperando a internet (o padrao do site todo): desliga (o segundo toque nao faz nada), mostra o circulo girando
+     e o texto da acao ("Salvando…"), e devolve a funcao que volta o botao como era (chamar no erro; no acerto a tela
+     costuma se redesenhar sozinha). Botao ja ocupado: devolve null, e quem chamou para ali. Serve para <button> e <a>. */
+  /* De onde vem o codigo: o site publicado baixa a copia enxuta (js/m/ e css/m/, feita por ferramentas/enxugar.mjs);
+     a copia de teste baixa os arquivos de trabalho (js/ e css/). Tudo o que a pagina carrega depois segue o mesmo lado. */
+  var ENXUTO = (function () {
+    if (typeof document === 'undefined') return false;
+    var s = document.querySelector('script[src*="/ui.js"]');
+    return !!(s && /(^|\/)js\/m\/ui\.js/.test(s.getAttribute('src') || ''));
+  })();
+  function caminho(arquivo) { return ENXUTO ? String(arquivo).replace(/^(js|css)\//, '$1/m/') : String(arquivo); }
+  function ocupar(botao, texto) {
+    if (!botao || botao.getAttribute('aria-busy') === 'true') return null;
+    var antes = Array.prototype.slice.call(botao.childNodes);
+    var estavaDesligado = !!botao.disabled;
+    if ('disabled' in botao) botao.disabled = true;
+    botao.setAttribute('aria-busy', 'true');
+    botao.classList.add('ocupado');
+    botao.textContent = '';
+    botao.appendChild(el('span', { class: 'girando', 'aria-hidden': 'true' }));
+    botao.appendChild(document.createTextNode(texto || 'Aguarde…'));
+    return function soltar() {
+      botao.textContent = '';
+      antes.forEach(function (n) { botao.appendChild(n); });
+      if ('disabled' in botao) botao.disabled = estavaDesligado;
+      botao.removeAttribute('aria-busy');
+      botao.classList.remove('ocupado');
+    };
+  }
   function carregandoMascote(texto) {
     return el('div', { class: 'espera-mascote', role: 'status', 'aria-live': 'polite' }, [
       el('div', { class: 'espera-mascote-palco', 'aria-hidden': 'true' }, [
@@ -895,7 +924,7 @@
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, ocupar: ocupar, caminho: caminho, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem,

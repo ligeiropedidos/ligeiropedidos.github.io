@@ -221,21 +221,28 @@
             : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && a.estado !== 'ativa') ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
           a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para o ' + outroTipo }),
           p.status === 'cancelado'
-            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague ' + (p.tipo === 'anual' ? 'a fatura' : 'a mensalidade') + ' para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { var soltar = UI.ocupar(this, 'Reativando…'); if (!soltar) return; store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague ' + (p.tipo === 'anual' ? 'a fatura' : 'a mensalidade') + ' para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
             /* no gratis sem assinatura nao ha o que encerrar (nada e cobrado e o teste acaba sozinho): o botao so cortaria os dias gratis */
             : (a.estado !== 'pausada' && !(a.estado === 'gratis' && !comAssinatura) ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Encerrar assinatura', onclick: function () {
+                var b = this;
                 UI.perguntar('Encerrar a assinatura?' + (comAssinatura ? ' A cobrança automática é cancelada agora.' : '') + ' Sua loja continua no ar até ' + (a.limite ? dataBR(a.limite) : 'o fim do período') + ' e depois para de receber pedidos.' + (p.fundador === true ? ' E o preço de fundador acaba: se voltar, volta no preço normal.' : ''), { sim: 'Encerrar', perigo: true }).then(function (sim) {
                   if (!sim) return;
+                  /* um encerrar so: o botao e o cartao do plano esperam a resposta */
+                  var soltar = UI.ocupar(b, 'Encerrando…');
+                  if (!soltar) return;
+                  var cartao = b.closest ? b.closest('.conta-plano') : null;
+                  if (cartao) cartao.setAttribute('aria-busy', 'true');
+                  var voltar = function () { soltar(); if (cartao) cartao.removeAttribute('aria-busy'); };
                   /* com assinatura no Asaas, o mensageiro cancela ela junto (direto no banco, o cartao seguiria cobrando) */
                   if (comAssinatura) {
-                    C.pedirAoMensageiro('encerrar', {}).then(function () { UI.avisar('Assinatura encerrada. Nenhuma cobrança nova.'); carregar(); }).catch(function (e) { UI.avisar(e.message); });
+                    C.pedirAoMensageiro('encerrar', {}).then(function () { UI.avisar('Assinatura encerrada. Nenhuma cobrança nova.'); carregar(); }).catch(function (e) { voltar(); UI.avisar(e.message); });
                     return;
                   }
                   /* encerrou, o preco de fundador acaba (o mensageiro faz o mesmo quando ha assinatura). So vai no pedido de quem
                      e fundador: para os outros nada muda (e a regra antiga do banco, antes de publicar a nova, nao recusa) */
                   var fim = { status: 'cancelado', canceladoEm: new Date().toISOString() };
                   if (p.fundador === true) fim.fundador = false;
-                  store.salvarConta(conta.email, { plano: fim }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
+                  store.salvarConta(conta.email, { plano: fim }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { voltar(); UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
                 });
               } }) : null),
         ]),
@@ -286,10 +293,11 @@
 
     function abrirPagamento(conta, valor, periodo, aoAvisar, extra) {
       var p = conta.plano || {};
+      /* falhou: devolve false e a janela do Pix fica aberta para tocar de novo */
       function avisar() {
         return store.salvarConta(conta.email, { plano: { avisoPagamentoEm: new Date().toISOString(), avisoValor: valor } })
           .then(function (c) { UI.soar('sucesso'); UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); aoAvisar(c); })
-          .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); });
+          .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); return false; });
       }
       window.LigeiroCobranca.abrir({
         fatura: window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(conta, { todas: true }) : null,

@@ -218,6 +218,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .escolha-grande .meu-status { display: block; margin-top: 2px; font-size: 14px; font-weight: 700; color: var(--muted); }
 .escolha-grande .meu-status.andando { color: var(--deep2); }
 .escolha-grande .meu-status.cancelado { color: var(--erro); }
+/* abrindo um pedido do historico: a seta vira um circulo girando e o status diz "Abrindo o pedido..." */
+.escolha-grande.abrindo { cursor: progress; }
+.escolha-grande.abrindo .meu-status { color: var(--deep2); }
+.escolha-grande.abrindo .seta { position: relative; width: 22px; height: 22px; font-size: 0; }
+.escolha-grande.abrindo .seta::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid var(--line-forte); border-top-color: var(--deep2); animation: girar 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .escolha-grande.abrindo .seta::after { animation: none; } }
 
 /* ---------- Hub ---------- */
 
@@ -559,6 +565,18 @@ a.selo-google:hover { background: var(--lime-suave); }
 .codigo-pix { display: block; width: 100%; max-width: 440px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); word-break: break-all; background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 10px; text-align: left; }
 .esperando { display: flex; align-items: center; gap: 10px; color: var(--muted); font-weight: 600; }
 .girando { width: 18px; height: 18px; border: 3px solid var(--line-forte); border-top-color: var(--lime-escuro); border-radius: 50%; animation: girar 0.9s linear infinite; }
+/* botao esperando a internet (UI.ocupar): circulo do tamanho da letra, na cor do texto do botao; o toque nao passa */
+.ocupado { cursor: progress; pointer-events: none; }
+.ocupado > .girando { flex: none; width: 1em; height: 1em; border-width: 2.5px; border-color: currentColor; border-top-color: transparent; opacity: 0.85; margin-right: 8px; display: inline-block; vertical-align: -0.15em; }
+.btn.ocupado > .girando { margin-right: 0; } /* o botao ja tem o vao entre as pecas */
+.btn.ocupado:disabled { opacity: 0.85; } /* ocupado nao e desligado: o botao continua legivel */
+@media (prefers-reduced-motion: reduce) { .ocupado > .girando { animation: none; border-top-color: currentColor; opacity: 0.5; } }
+/* chave (liga e desliga) esperando: a meia luz */
+.chave:disabled, .chave[aria-busy="true"] { opacity: 0.5; cursor: progress; }
+/* faixa "Meu pedido" abrindo: o mesmo circulo no lugar da seta */
+.faixa-acompanhar.abrindo .seta { position: relative; width: 20px; height: 20px; font-size: 0; }
+.faixa-acompanhar.abrindo .seta::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid currentColor; border-top-color: transparent; animation: girar 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .faixa-acompanhar.abrindo .seta::after { animation: none; } }
 @keyframes girar { to { transform: rotate(360deg); } }
 
 /* ---------- Senha ---------- */
@@ -1532,6 +1550,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .btn-google { font-size: 16px; padding-left: 14px; padding-right: 14px; } /* "Entrar com o Google" numa linha so, com o G do lado */
 }
 .btn-google::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(#EA4335 0 25%, #FBBC05 0 50%, #34A853 0 75%, #4285F4 0); mask: radial-gradient(circle, transparent 42%, #000 44%); -webkit-mask: radial-gradient(circle, transparent 42%, #000 44%); }
+.btn-google.ocupado::before { display: none; } /* esperando o Google: so o girador, sem o G do lado */
 .login-caixa { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
 @media (max-width: 360px) { .login-caixa { padding: 16px; } } /* sobra espaco pro "Entrar com o Google" */
 .login-caixa .ou, .contato-ou { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }

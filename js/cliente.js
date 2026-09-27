@@ -345,7 +345,11 @@
 
     busca.addEventListener('input', function () { estadoHub.termo = busca.value; desenharLista(); });
 
+    /* espera com o mascote no lugar da lista (antes ficava vazio ate as lojas chegarem) */
+    var esperaLojas = UI.carregandoMascote('Buscando as lojas…');
+    lista.appendChild(esperaLojas);
     store.listarLojas(cidadeSlug).then(function (lojas) {
+      if (esperaLojas.parentNode) esperaLojas.parentNode.removeChild(esperaLojas);
       /* so lembra a cidade quando ela existe de verdade (senao "#/painel" digitado errado virava a cidade da pessoa) */
       if (lojas && lojas.length) UI.guardarLocal(CHAVE_CIDADE, cidadeSlug);
       desenhar(lojas);
@@ -512,6 +516,8 @@
     else tirarSplash = UI.splashLoja(slug);
     var o = opcoes || {};
     var balcao = !!o.balcao;
+    /* link do pedido (a volta do app do banco): o programa do banco comeca a baixar junto com a loja */
+    if (o.pedidoId && !balcao && store.aquecer) store.aquecer();
 
     var estado = {
       loja: null,
@@ -626,7 +632,7 @@
     estado.pararLoja = lojaViva.parar;
     lojaViva.primeira.catch(function () { return { _erro: true }; }).then(function (dados) {
       if (!vivo) return;
-      if (!dados || dados._erro || dados.ativa === false) tirarSplash();
+      if (!dados || dados._erro || (dados.ativa === false && !o.pedidoId)) tirarSplash();
       if (dados && dados._erro) {
         raiz.innerHTML = '';
         raiz.appendChild(UI.erroCarregar('Não deu para abrir a loja agora.'));
@@ -678,7 +684,8 @@
         lojaViva.assistir(function (nova) {
           if (nova && vivo) carregarFotos(nova).then(function () { if (vivo) aplicarLoja(nova, true); });
         });
-        if (o.pedidoId) abrirPedidoSalvo(o.pedidoId);
+        /* link do pedido: a tela de carregamento so sai quando o pedido abrir (na loja oficial, tambem com o tema pronto) */
+        if (o.pedidoId) abrirPedidoSalvo(o.pedidoId, function () { (estado.oficial ? UI.oficialPronto(estado.oficial, 0) : Promise.resolve()).then(tirarSplash); }, true);
       };
       carregarFotos(dados).then(function (mudou) {
         if (!vivo) return;
@@ -701,6 +708,8 @@
       try {
         var r = JSON.parse(sessionStorage.getItem(CHAVE_RASCUNHO) || 'null');
         if (!r || !Array.isArray(r.carrinho) || !r.carrinho.length) return;
+        /* carrinho guardado voltou: o programa do banco comeca a baixar ja (como no primeiro item) */
+        if (store.aquecer && !balcao) store.aquecer();
         estado.carrinho = r.carrinho;
         estado.tipoEntrega = r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
         estado.cupom = r.cupom || { codigo: '', percentual: 0, desconto: 0 };
@@ -752,8 +761,8 @@
       estado.oficial = lojaOficial(dados.slug);
       UI.aplicarTema(dados.cor, dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
-      if (primeira && estado.oficial) UI.oficialPronto(estado.oficial, 600).then(tirarSplash);
-      if (primeira && !estado.oficial) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
+      if (primeira && estado.oficial && !o.pedidoId) UI.oficialPronto(estado.oficial, 600).then(tirarSplash);
+      if (primeira && !estado.oficial && !o.pedidoId) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
       UI.lembrarCor(dados.slug, dados.cor || '#84CC16');
       montarInicio();
       /* o carrinho guardado volta ANTES de montar o fluxo: se a loja desligou a entrega enquanto a pessoa estava em outro
@@ -796,7 +805,7 @@
       /* o mesmo molde dos "Os mais pedidos": titulo da secao igual, capa quadrada a esquerda (so o play em cima, nada
          escrito por cima da capa, que costuma ter texto) e nome, duracao e ASSISTIR a direita, no lugar do PEDIR */
       caixa.appendChild(el('div', { class: 'video-loja-titulo' }, [el('b', { text: 'Vídeo da loja' })]));
-      caixa.appendChild(el('button', { class: 'card-produto card-video', type: 'button', 'aria-label': 'Assistir o vídeo ' + (v.titulo || 'da loja'), onclick: function () { tocarVideoDaLoja(url('v'), v.titulo); } }, [
+      caixa.appendChild(el('button', { class: 'card-produto card-video', type: 'button', 'aria-label': 'Assistir o vídeo ' + (v.titulo || 'da loja'), onclick: function () { tocarVideoDaLoja(url('v'), v.titulo, v.capa || D.modoDemo ? url('c') : null); } }, [
         el('span', { class: 'foto' }, [
           v.capa || D.modoDemo ? el('img', { src: url('c'), alt: '', loading: 'lazy' }) : null,
           el('span', { class: 'video-loja-bolinha', 'aria-hidden': 'true' }, [UI.iconeLinha('tocar')]),
@@ -808,9 +817,10 @@
         ]),
       ]));
     }
-    function tocarVideoDaLoja(src, titulo) {
+    /* capa: a mesma da vitrine, no lugar do preto enquanto o video carrega */
+    function tocarVideoDaLoja(src, titulo, capa) {
       var fundo = el('div', { class: 'srv-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Vídeo da loja' });
-      var video = el('video', { src: src, autoplay: true, playsinline: true, controls: true, preload: 'auto' });
+      var video = el('video', { src: src, autoplay: true, playsinline: true, controls: true, preload: 'auto', poster: capa || null });
       var tecla = function (e) { if (e.key === 'Escape') fechar(); };
       function fechar() { try { video.pause(); } catch (_) { /* ja parou */ } if (fundo.parentNode) fundo.parentNode.removeChild(fundo); document.removeEventListener('keydown', tecla); UI.travarRolagem('video', false); }
       fundo.appendChild(video);
@@ -1423,16 +1433,18 @@
         .catch(function () { return { erro: 'Sem internet agora. Confira e tente de novo.' }; });
     }
     function aplicarCupom() {
+      var botao = $('btnAplicarCupom');
+      if (botao.disabled) return; /* o Enter do campo tambem chega aqui: um codigo por vez */
       var digitado = $('campoCupom').value.trim();
       var msg = $('msgCupom');
       if (!digitado) { msg.hidden = false; msg.textContent = 'Digite o código para aplicar.'; return; }
       if (estado.carrinho.length === 0) { msg.hidden = false; msg.textContent = 'Adicione um item antes do código.'; return; }
       var codigo = R.semAcento(digitado).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
       var conhecido = (estado.loja.cupons || []).some(function (x) { return x.codigo === codigo; });
-      var botao = $('btnAplicarCupom');
-      botao.disabled = true;
+      var soltar = UI.ocupar(botao, 'Conferindo…');
+      if (!soltar) return;
       (conhecido ? Promise.resolve(null) : buscarCupom(codigo)).then(function (res) {
-        botao.disabled = false;
+        soltar();
         if (res && res.erro) { UI.soar('erro'); msg.hidden = false; msg.textContent = res.erro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
         if (res && res.cupom) {
           estado.cuponsExtra = (estado.cuponsExtra || []).filter(function (x) { return x.codigo !== res.cupom.codigo; }).concat([res.cupom]);
@@ -1467,6 +1479,8 @@
       prepararAvisoCel();
       /* o QR do Pix (57 KB) baixa agora, enquanto a pessoa preenche os dados: a tela do Pix abre com ele pronto */
       if (Pix.carregarQr && !balcao) Pix.carregarQr().catch(function () { /* o Copiar codigo continua valendo */ });
+      /* o programa do banco tambem (se ainda nao veio): a tela de pagar ja abre acompanhando o pedido */
+      if (store.aquecer && !balcao) store.aquecer();
       irPara('tela-dados');
     });
 
@@ -2029,28 +2043,58 @@
       });
     }
 
+    /* o bloco de espera das telas de pagar (circulo girando e o texto): "Gerando o seu Pix…", "Cancelando o pedido…" */
+    function textoDaEspera(caixa, texto) {
+      UI.limpar(caixa);
+      caixa.appendChild(el('span', { class: 'girando' }));
+      caixa.appendChild(document.createTextNode(' ' + texto));
+    }
+
     /* Tela de pagar abrindo com o prazo vencido pelo relogio daqui (pedido velho, ou celular com a hora adiantada):
-       confere com o servidor antes. Ainda vale: abre a tela (uma vez por pedido; depois quem vigia e o relogio da tela) */
+       confere com o servidor antes. Ainda vale: abre a tela (uma vez por pedido; depois quem vigia e o relogio da tela).
+       Resposta na hora: a tela de pagar ja aparece, com "Conferindo…" no lugar do QR (ou do cartao) */
     function prazoEmDuvida(pedido, aviso, abrir) {
       if (estado.prazoConferido === pedido.id || !R.pixVencido(pedido, agoraCerto())) return false;
+      if (abrir === mostrarCartao) {
+        desmontarCartao();
+        $('cartaoRecusado').hidden = true;
+        $('cartaoFalhou').hidden = true;
+        $('btnOutraForma').hidden = true;
+        $('btnCancelarCartao').hidden = emAnalise(pedido, agoraCerto());
+        textoDaEspera($('cartaoCarregando'), 'Conferindo o pagamento…');
+        $('cartaoCarregando').hidden = false;
+        irPara('tela-cartao');
+      } else {
+        $('pixFalhou').hidden = true;
+        $('pixPagar').hidden = true;
+        $('passosPix').hidden = true;
+        textoDaEspera($('pixGerando'), 'Conferindo o seu Pix…');
+        $('pixGerando').hidden = false;
+        irPara('tela-pagamento');
+      }
+      if (estado.prazoConferindo === pedido.id) return true; /* ja conferindo: o toque de novo nao pergunta outra vez */
+      estado.prazoConferindo = pedido.id;
       cancelarSeVenceu(pedido, aviso).then(function (cancelou) {
-        if (cancelou || !aindaEsperandoPix(pedido.id)) return;
+        estado.prazoConferindo = null;
+        /* a pessoa desistiu enquanto conferia: quem cuida da tela e o cancelamento dela */
+        if (cancelou || estado.cancelando || !aindaEsperandoPix(pedido.id)) return;
         estado.prazoConferido = pedido.id;
         abrir(estado.pedido);
-      }).catch(function () { if (vivo) irPara('tela-inicio'); });
+      }).catch(function () { estado.prazoConferindo = null; if (vivo) irPara('tela-inicio'); });
       return true;
     }
 
     function mostrarPagamento(pedido) {
       estado.pedido = pedido;
       var codigo = pedido.pixCodigo || '';
-      /* pedido de Pix antigo (aberto pelo "Meus pedidos" horas depois, ou que nunca ganhou codigo): confere o prazo com o
-         servidor ANTES de mostrar a tela. Antes, com codigo, a tela abria com o QR ja vencido e so depois de ate 10 s a vigia
-         cancelava e jogava a pessoa para o inicio. Vencido de verdade: cancela e avisa; pago nesse meio tempo: a senha */
-      if (prazoEmDuvida(pedido, 'Esse Pix passou do prazo e o pedido foi cancelado.', mostrarPagamento)) return;
       $('pixValor').textContent = dinheiro(pedido.total);
       $('pixNomeLoja').textContent = 'Para: ' + estado.loja.nome;
+      /* pedido de Pix antigo (aberto pelo "Meus pedidos" horas depois, ou que nunca ganhou codigo): confere o prazo com o
+         servidor ANTES de mostrar o QR. Antes, com codigo, a tela abria com o QR ja vencido e so depois de ate 10 s a vigia
+         cancelava e jogava a pessoa para o inicio. Vencido de verdade: cancela e avisa; pago nesse meio tempo: a senha */
+      if (prazoEmDuvida(pedido, 'Esse Pix passou do prazo e o pedido foi cancelado.', mostrarPagamento)) return;
       var gerando = $('pixGerando');
+      textoDaEspera(gerando, 'Gerando o seu Pix…');
       var falhou = $('pixFalhou');
       var pronto = !!codigo;
       gerando.hidden = pronto;
@@ -2169,13 +2213,13 @@
 
     function mostrarCartao(pedido) {
       estado.pedido = pedido;
-      /* pedido de cartao velho (a pagina ficou aberta): o mensageiro recusa depois de 40 min. Vencido de verdade (o
-         servidor confirma): cancela e devolve os itens */
-      if (prazoEmDuvida(pedido, 'O tempo para pagar acabou e o pedido foi cancelado.', mostrarCartao)) return;
       $('cartaoValor').textContent = dinheiro(pedido.total);
       $('cartaoNomeLoja').textContent = 'Para: ' + estado.loja.nome;
       $('cartaoTaxa').hidden = !(pedido.acrescimoCartao > 0);
       $('cartaoTaxa').textContent = pedido.acrescimoCartao > 0 ? 'Inclui ' + dinheiro(pedido.acrescimoCartao) + ' de taxa do cartão' : '';
+      /* pedido de cartao velho (a pagina ficou aberta): o mensageiro recusa depois de 40 min. Vencido de verdade (o
+         servidor confirma): cancela e devolve os itens */
+      if (prazoEmDuvida(pedido, 'O tempo para pagar acabou e o pedido foi cancelado.', mostrarCartao)) return;
       $('cartaoRecusado').hidden = true;
       $('btnOutraForma').hidden = true;
       $('btnCancelarCartao').hidden = false;
@@ -2280,6 +2324,7 @@
       desmontarCartao();
       var chave = pedido.id + ':' + Date.now();
       estado.montandoCartao = chave;
+      textoDaEspera($('cartaoCarregando'), 'Abrindo o pagamento seguro…');
       $('cartaoCarregando').hidden = false;
       $('cartaoFalhou').hidden = true;
       if (D.modoDemo) { montarCartaoDeTeste(pedido); return; }
@@ -2386,7 +2431,7 @@
 
     /* desistir do cartao (o X) e trocar de forma: o pedido sai da fila e os itens voltam */
     function sairDoCartao(trocar) {
-      if (!estado.pedido) return;
+      if (!estado.pedido || estado.cancelando) return;
       if (estado.pagandoCartao) { UI.avisar('Espere um instante: o pagamento está sendo conferido.'); return; }
       /* cobranca sem resposta do banco: o dinheiro pode estar saindo, ninguem desiste agora */
       if (emAnalise(estado.pedido, agoraCerto())) { UI.avisar(TEXTO_ANALISE_CURTO); return; }
@@ -2394,27 +2439,42 @@
         ? UI.perguntar('Pagar de outro jeito? Este pedido é cancelado e seus itens voltam para você escolher Pix ou pagar na entrega.', { sim: 'Trocar', nao: 'Continuar no cartão' })
         : UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam para o carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true });
       pergunta.then(function (sim) {
-        if (!sim || !estado.pedido) return;
+        if (!sim || !estado.pedido || estado.cancelando) return;
         /* o formulario sai antes: ninguem paga enquanto o pedido esta sendo cancelado */
         desmontarCartao();
+        /* resposta na hora: "Cancelando o pedido…" no lugar do formulario, sem o X e sem o "Pagar de outro jeito" */
+        $('cartaoRecusado').hidden = true;
+        $('cartaoFalhou').hidden = true;
+        $('btnCancelarCartao').hidden = true;
+        $('btnOutraForma').hidden = true;
+        textoDaEspera($('cartaoCarregando'), 'Cancelando o pedido…');
+        $('cartaoCarregando').hidden = false;
         cancelarPedidoDoPix(trocar ? 'Escolha outra forma de pagamento.' : 'Pedido cancelado.', true).then(function (cancelou) {
+          if (!cancelou) { voltarAoCartao(); return; }
           /* trocar: volta direto para o fechamento, ja sem o cartao marcado */
-          if (!cancelou || !trocar || !estado.carrinho.length || !$('tela-carrinho').classList.contains('ativa')) return;
+          if (!trocar || !estado.carrinho.length || !$('tela-carrinho').classList.contains('ativa')) return;
           $('btnIrDados').click();
           var outra = ['pgtoPix', 'pgtoCartao', 'pgtoDinheiro'].filter(function (id) { return !$(id).parentNode.hidden; })[0];
           if (outra) { $(outra).checked = true; marcarFormaEscolhida(); atualizarBotaoPagar(); $('blocoTroco').hidden = formaEscolhida() !== 'dinheiro_entrega'; if (!$('blocoTroco').hidden) atualizarTroco(); }
-        }).catch(function () { UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
+        }).catch(function () { voltarAoCartao(); UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
       });
+    }
+    /* nao cancelou e ninguem remontou a tela do cartao (o naoCancelou remonta; um erro no meio, nao): ela volta */
+    function voltarAoCartao() {
+      if (vivo && estado.pedido && $('tela-cartao').classList.contains('ativa') && !estado.montandoCartao && !emAnalise(estado.pedido, agoraCerto())) mostrarCartao(estado.pedido);
     }
     $('btnCancelarCartao').addEventListener('click', function () { sairDoCartao(false); });
     $('btnOutraForma').addEventListener('click', function () { sairDoCartao(true); });
 
     /* o cardapio mudou depois do pedido (item desligado, preco novo): este pedido sai da fila e os itens voltam para o
        carrinho, que mostra a conta de agora e o item que saiu */
-    function montarDeNovo() {
-      if (!estado.pedido) return;
+    function montarDeNovo(ev) {
+      if (!estado.pedido || estado.cancelando) return;
+      var soltar = UI.ocupar(ev.currentTarget, 'Cancelando…');
+      if (!soltar) return;
       desmontarCartao();
-      cancelarPedidoDoPix('Pedido cancelado.', true).catch(function () { UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
+      /* o botao fica no esqueleto da tela (volta a aparecer num proximo pedido): solta sempre */
+      cancelarPedidoDoPix('Pedido cancelado.', true).then(function () { soltar(); }, function () { soltar(); UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
     }
     $('btnRemontarCartao').addEventListener('click', montarDeNovo);
     $('btnRemontarPix').addEventListener('click', montarDeNovo);
@@ -2453,7 +2513,10 @@
        manterCarrinho: so o X "desistir" (quem esta no tablet troca a forma de pagamento sem montar tudo de novo).
        conferido: quem chamou acabou de perguntar ao mensageiro (nao pergunta de novo). Devolve true se cancelou */
     function cancelarPedidoDoPix(aviso, manterCarrinho, motivo, conferido) {
-      if (!estado.pedido) return Promise.resolve(false);
+      /* um cancelamento por vez: o segundo toque (ou a vigia do prazo no meio) nao comeca outro */
+      if (!estado.pedido || estado.cancelando) return Promise.resolve(false);
+      estado.cancelando = true;
+      var terminou = function () { estado.cancelando = false; };
       var cancelado = estado.pedido;
       var idCancelado = cancelado.id;
       var gravar = function (quem) { return store.atualizarPedido(estado.loja.slug, idCancelado, { status: R.STATUS.CANCELADO, canceladoPor: quem }); };
@@ -2497,7 +2560,7 @@
         }
         return true;
       };
-      var antes = conferido ? Promise.resolve({ pode: true }) : situacaoParaCancelar(cancelado);
+      var antes = conferido ? Promise.resolve({ pode: true }) : Promise.resolve(cancelado).then(situacaoParaCancelar);
       return antes.then(function (sit) {
         if (sit.jaCancelado) return depois();
         if (!sit.pode) { naoCancelou(idCancelado, sit); return false; }
@@ -2513,13 +2576,27 @@
             return false;
           });
         });
-      });
+      }).then(function (r) { terminou(); return r; }, function (e) { terminou(); throw e; });
     }
     $('btnCancelarPix').addEventListener('click', function () {
+      if (estado.cancelando) return;
       UI.perguntar('Desistir deste pedido? Ele sai da fila da loja e seus itens voltam para o carrinho.', { sim: 'Desistir', nao: 'Continuar pagando', perigo: true }).then(function (sim) {
-        if (!sim || !estado.pedido) return;
+        if (!sim || !estado.pedido || estado.cancelando) return;
+        /* resposta na hora: o X desliga e o "Cancelando o pedido…" fica no lugar do QR */
+        var id = estado.pedido.id;
+        $('btnCancelarPix').disabled = true;
+        $('pixPagar').hidden = true;
+        $('pixFalhou').hidden = true;
+        $('passosPix').hidden = true;
+        textoDaEspera($('pixGerando'), 'Cancelando o pedido…');
+        $('pixGerando').hidden = false;
+        /* nao cancelou (sem internet, por exemplo): a tela do Pix volta como era. Pagou nesse meio tempo: ja e a senha */
+        var voltar = function () {
+          $('btnCancelarPix').disabled = false;
+          if (aindaEsperandoPix(id) && $('tela-pagamento').classList.contains('ativa')) mostrarPagamento(estado.pedido);
+        };
         /* o Pix pago no app do banco (aviso do Mercado Pago ainda a caminho) vira a senha, nao "cancelado" */
-        cancelarPedidoDoPix('Pedido cancelado.', true).catch(function () { UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
+        cancelarPedidoDoPix('Pedido cancelado.', true).then(voltar, function () { voltar(); UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
       });
     });
 
@@ -2693,9 +2770,10 @@
           : el('span', { text: g.chamada }),
       ]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function () {
-        btn.disabled = true;
+        var soltar = UI.ocupar(btn, 'Abrindo…');
+        if (!soltar) return;
         carregarJogo(g).then(function (J) {
-          btn.disabled = false;
+          soltar(); /* o convite fica na tela por baixo do jogo */
           if (!vivo || !estado.pedido) return;
           /* um jogo por vez */
           var outro = false;
@@ -2717,7 +2795,7 @@
             rotulo: 'Senha ' + estado.pedido.senha + '\u00a0· ' + R.rotuloStatusCliente(estado.pedido),
             aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
           });
-        }, function () { btn.disabled = false; UI.avisar('Não deu para abrir o jogo agora. Confira a internet.'); });
+        }, function () { soltar(); UI.avisar('Não deu para abrir o jogo agora. Confira a internet.'); });
       } }, 'Jogar');
       caixa.appendChild(btn);
     }
@@ -2731,10 +2809,10 @@
       if (window[g.global]) return Promise.resolve(window[g.global]);
       estado.jogosBaixando = estado.jogosBaixando || {};
       if (estado.jogosBaixando[g.global]) return estado.jogosBaixando[g.global];
-      var tag = (((document.querySelector('script[src*="js/cliente.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+      var tag = (((document.querySelector('script[src*="/cliente.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
       estado.jogosBaixando[g.global] = new Promise(function (ok, falhou) {
         var s = document.createElement('script');
-        s.src = g.arquivo + '?v=' + tag;
+        s.src = UI.caminho(g.arquivo) + '?v=' + tag; /* na copia enxuta: js/m/jogo.js */
         s.onload = function () { if (window[g.global]) ok(window[g.global]); else falhou(new Error('jogo')); };
         s.onerror = function () { estado.jogosBaixando[g.global] = null; if (s.parentNode) s.parentNode.removeChild(s); falhou(new Error('jogo')); };
         document.body.appendChild(s);
@@ -2762,14 +2840,15 @@
       }
       caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer saber quando sair?' }), el('span', { text: 'Avisamos no celular, mesmo com a tela apagada.' })]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Avisar', onclick: function () {
-        btn.disabled = true;
+        var soltar = UI.ocupar(btn, 'Ligando…');
+        if (!soltar) return;
         A.ligarNoPedido(estado.loja.cidadeSlug, estado.loja.slug, pedido.id).then(function (aviso) {
           UI.soar('toque');
           pedido.aviso = aviso;
           if (estado.pedido && estado.pedido.id === pedido.id) estado.pedido.aviso = aviso;
           desenharAvisoCelPedido(pedido, false);
         }, function (e) {
-          btn.disabled = false;
+          soltar();
           UI.avisar((e && e.message) || 'Não deu para ligar os avisos neste celular.');
         });
       } });
@@ -2808,7 +2887,8 @@
         estado.pedido = novo;
         atualizarMeuPedido(novo);
         if (mudou && novo.status !== R.STATUS.AGUARDANDO && novo.status !== R.STATUS.CANCELADO) esquecerCarrinho(novo.id);
-        if (codigoNovo && !mudou && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
+        /* desistindo: o QR nao volta por cima do "Cancelando o pedido…" (se nao cancelar, a tela volta ja com ele) */
+        if (codigoNovo && !mudou && !estado.cancelando && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
         /* a loja devolveu o dinheiro de um pedido ja cancelado (o status nao muda): o rotulo muda na hora */
         if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto); montarLinhaDoTempo(novo); return; }
         /* cartao ainda esperando: a analise do banco comecou ou acabou sem aprovar (o X some ou volta) */
@@ -2839,10 +2919,14 @@
       estado.pararPedido = null;
     }
 
-    function abrirPedidoSalvo(id) {
+    /* sozinho: aberto pelo link, sem toque (quem ja entrou num pedido novo nesse meio tempo fica onde esta) */
+    function abrirPedidoSalvo(id, aoTerminar, sozinho) {
+      var fim = function () { if (aoTerminar) aoTerminar(); };
       store.obterPedido(slug, id).then(function (p) {
-        if (!vivo) return;
-        if (!p) { UI.avisar('Não achamos esse pedido.'); return; }
+        if (!vivo) { fim(); return; }
+        if (!p) { fim(); UI.avisar('Não achamos esse pedido.'); return; }
+        var agora = raiz.querySelector('.tela.ativa');
+        if (sozinho && agora && TELAS_DE_MONTAR.indexOf(agora.id) >= 0) { fim(); return; }
         /* pedido que nao foi feito neste aparelho (link copiado da barra e mandado pra alguem):
            mostra so a senha e o andamento, sem a tela do Pix e sem o "desistir" */
         var meu = balcao || lerMeusPedidos().some(function (x) { return x.id === p.id; });
@@ -2850,7 +2934,9 @@
         estado.pedido = p;
         if (p.status === R.STATUS.AGUARDANDO && meu) mostrarPagar(p);
         else mostrarSenha(p);
+        fim(); /* depois da troca de tela: o "Abrindo…" so sai com o pedido ja na frente */
       }).catch(function (e) {
+        fim();
         if (!vivo) return;
         /* passou dos 3 dias do link: o banco nao mostra mais o pedido (nome, telefone, endereco) para quem so tem o link */
         var semAcesso = e && (e.code === 'permission-denied' || /permission/i.test(String(e.message || '')));
@@ -2881,18 +2967,26 @@
       faixa.hidden = balcao || andando.length === 0 || !$('tela-inicio').classList.contains('ativa');
       var btnMeus = $('btnMeusPedidosRodape');
       if (btnMeus) btnMeus.hidden = balcao || !lerMeusPedidos().some(function (p) { return p.lojaSlug === slug; });
+      if (andando.length && !faixa.hidden && store.aquecer) store.aquecer(); /* pedido andando: o toque na faixa abre sem esperar */
       if (andando.length) {
         /* o numero numa etiqueta colada no texto: no celular estreito o "(3)" caia sozinho na linha de baixo */
         $('faixaTexto').textContent = andando.length === 1 ? 'Meu pedido' : 'Meus pedidos';
         $('faixaQtd').textContent = andando.length === 1 ? 'senha ' + andando[0].senha : String(andando.length);
         faixa.onclick = function () {
-          if (andando.length === 1) abrirPedidoSalvo(andando[0].id);
-          else abrirMeusPedidos();
+          if (andando.length !== 1) { abrirMeusPedidos(); return; }
+          /* resposta na hora, como na lista: "Abrindo..." ate o pedido chegar */
+          if (faixa.classList.contains('abrindo')) return;
+          var txt = $('faixaTexto'), antes = txt.textContent;
+          faixa.classList.add('abrindo'); txt.textContent = 'Abrindo…';
+          abrirPedidoSalvo(andando[0].id, function () { faixa.classList.remove('abrindo'); txt.textContent = antes; });
         };
       }
     }
 
     function abrirMeusPedidos() {
+      /* o programa do banco (uns 150 KB) comeca a vir agora: ate o toque num pedido ele ja chegou (antes baixava so no
+         toque, e a pessoa esperava uns 2 s sem nada mudar na tela) */
+      if (store.aquecer) store.aquecer();
       var lista = $('listaMeusPedidos');
       UI.limpar(lista);
       var meus = lerMeusPedidos().filter(function (p) { return p.lojaSlug === slug; });
@@ -2904,7 +2998,14 @@
         var sabido = !andando || andandoAgora(p);
         var cancelado = p.status === R.STATUS.CANCELADO;
         var velho = pedidoVelho(p);
-        lista.appendChild(el('button', { class: 'escolha-grande', onclick: function () { if (velho) UI.avisar(PEDIDO_SO_COM_A_LOJA); else abrirPedidoSalvo(p.id); } }, [
+        lista.appendChild(el('button', { class: 'escolha-grande', onclick: function (ev) {
+          if (velho) { UI.avisar(PEDIDO_SO_COM_A_LOJA); return; }
+          /* resposta na hora: a linha diz que esta abrindo (a busca do pedido leva um instante com internet fraca) */
+          var linha = ev.currentTarget; if (linha.classList.contains('abrindo')) return;
+          var st = linha.querySelector('.meu-status'); var antes = st ? st.textContent : '';
+          linha.classList.add('abrindo'); linha.setAttribute('aria-busy', 'true'); if (st) st.textContent = 'Abrindo o pedido…';
+          abrirPedidoSalvo(p.id, function () { linha.classList.remove('abrindo'); linha.removeAttribute('aria-busy'); if (st) st.textContent = antes; });
+        } }, [
           el('span', { class: 'icone' }, [UI.iconeLinha(!sabido ? 'recibo' : cancelado ? 'fechar' : andando ? 'relogio' : 'feito')]),
           el('span', {}, [
             el('span', { class: 'rotulo', text: 'Senha ' + p.senha }),

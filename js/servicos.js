@@ -341,16 +341,24 @@
       var doc = docCampo.hidden ? '' : $doc().value.replace(/\D/g, '');
       if (!docCampo.hidden && !/^(\d{11}|\d{14})$/.test(doc)) { mostrarErro('Digite o CPF (11 números) ou o CNPJ (14 números).'); return; }
       UI.guardarLocal(CHAVE_WHATS, whats.value);
-      botao.disabled = true;
+      var soltar = UI.ocupar(botao, 'Abrindo o pagamento…');
+      if (!soltar) return;
       api('comprar', { loja: slug, servico: s.id, whatsapp: numero, termos: cfg().termos, documento: doc || undefined }).then(function (r) {
-        UI.fecharModal();
         try { sessionStorage.setItem('ligeiro:servico-novo', r.pedido.id); } catch (_) { /* segue */ }
         /* volta do Asaas cai em Meus servicos (o endereco desta aba ja e o de la) */
-        /* com o link: a aba vai para o Asaas e, na volta, cai em Meus servicos; sem ele (demonstracao), abre Meus servicos ja */
-        if (/^https:\/\//.test(String(r.link || ''))) { window.LigeiroApp.substituir('servicos/' + slug + '/meus'); window.location.href = r.link; }
-        else window.LigeiroApp.trocar('servicos/' + slug + '/meus');
+        /* com o link: a aba vai para o Asaas e, na volta, cai em Meus servicos; sem ele (demonstracao), abre Meus servicos ja.
+           A janela fica aberta com o botao girando ate a pagina sair: um segundo toque criaria outra cobranca */
+        if (/^https:\/\//.test(String(r.link || ''))) {
+          window.LigeiroApp.substituir('servicos/' + slug + '/meus');
+          /* voltou do Asaas pelo "voltar" com a pagina guardada: sem a janela parada, ja em Meus servicos */
+          window.addEventListener('pageshow', function (ev) { if (ev.persisted) { UI.fecharModal(); window.LigeiroApp.trocar('servicos/' + slug + '/meus'); } }, { once: true });
+          window.location.href = r.link;
+          return;
+        }
+        UI.fecharModal();
+        window.LigeiroApp.trocar('servicos/' + slug + '/meus');
       }).catch(function (e) {
-        botao.disabled = false;
+        soltar();
         if (e.dados && e.dados.precisaDocumento) { docCampo.hidden = false; mostrarErro(e.message); $doc().focus(); return; }
         mostrarErro(e.message || 'Não deu agora. Tente de novo em instantes.');
       });
@@ -430,7 +438,7 @@
         /* pedido esperando pagamento: confere de novo a cada 20 s por 10 min (1 leitura do KV, nada no banco) */
         clearTimeout(relogio);
         if (pedidos.some(function (p) { return p.status === 'aguardando_pagamento'; }) && voltas++ < 30) relogio = setTimeout(function () { if (!document.hidden) desenhar(); else relogio = setTimeout(desenhar, 20000); }, 20000);
-      }).catch(function (e) { mensagemTela(secao, 'Não abriu agora', e.message || 'Tente de novo em instantes.', el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: desenhar }, 'Tentar de novo')); });
+      }).catch(function (e) { mensagemTela(secao, 'Não abriu agora', e.message || 'Tente de novo em instantes.', el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function () { carregando(secao, 'Buscando os seus serviços…'); desenhar(); } }, 'Tentar de novo')); });
     }
     /* voltou para a aba (do app do banco, do Asaas): confere na hora */
     var aoVoltar = function () { if (!document.hidden && secao.isConnected) { clearTimeout(relogio); desenhar(); } };
@@ -447,8 +455,13 @@
     raiz.appendChild(secao);
     carregando(secao, 'Buscando os vídeos da loja…');
     var estado = null;
-    function mudar(video) {
-      return api('video', { loja: slug, video: video }).then(function (r) { estado.noSite = r.noSite; desenhar(); UI.avisar(r.noSite ? 'Pronto: o site da loja já mostra esse vídeo.' : 'Pronto: o site da loja está sem vídeo agora.'); }).catch(function (e) { UI.avisar(e.message); });
+    /* um de cada vez: o botao tocado gira e a lista e redesenhada quando o site muda */
+    function mudar(video, botao) {
+      if (estado.mudando) return;
+      var soltar = UI.ocupar(botao, video ? 'Pondo no site…' : 'Tirando…');
+      if (!soltar) return;
+      estado.mudando = true;
+      return api('video', { loja: slug, video: video }).then(function (r) { estado.mudando = false; estado.noSite = r.noSite; desenhar(); UI.avisar(r.noSite ? 'Pronto: o site da loja já mostra esse vídeo.' : 'Pronto: o site da loja está sem vídeo agora.'); }).catch(function (e) { estado.mudando = false; soltar(); UI.avisar(e.message); });
     }
     function renomear(v) {
       var campo = el('input', { id: 'srvNomeVideo', type: 'text', maxlength: '60', value: v.titulo || '', autocomplete: 'off' });
@@ -461,20 +474,36 @@
       ]), rodape: [botao] });
       setTimeout(function () { try { campo.focus(); campo.select(); } catch (_) { /* sem foco */ } }, 60);
       function salvar() {
+        if (botao.getAttribute('aria-busy') === 'true') return; /* o Enter tambem espera o que ja esta salvando */
         erro.hidden = true;
         var nome = campo.value.trim();
         if (nome.length < 2) { erro.textContent = 'Escreva o nome do vídeo.'; erro.hidden = false; return; }
-        botao.disabled = true;
+        var soltar = UI.ocupar(botao, 'Salvando…');
+        if (!soltar) return;
         api('renomear-video', { loja: slug, video: v.id, titulo: nome }).then(function (r) { estado.videos = r.videos; estado.noSite = r.noSite; UI.fecharModal(); desenhar(); UI.avisar('Nome trocado.'); })
-          .catch(function (e) { botao.disabled = false; erro.textContent = e.message; erro.hidden = false; });
+          .catch(function (e) { soltar(); erro.textContent = e.message; erro.hidden = false; });
       }
       botao.addEventListener('click', salvar);
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
     }
-    function apagar(v) {
+    function apagar(v, botao) {
       UI.perguntar('Apagar o vídeo "' + v.titulo + '"? Ele sai daqui e do site. Baixe antes se quiser guardar.', { titulo: 'Apagar vídeo', sim: 'Apagar', perigo: true }).then(function (sim) {
         if (!sim) return;
-        api('apagar-video', { loja: slug, video: v.id }).then(function (r) { estado.videos = r.videos; estado.noSite = r.noSite; desenhar(); UI.avisar('Vídeo apagado.'); }).catch(function (e) { UI.avisar(e.message); });
+        /* a linha espera desligada, com o aviso de apagando no botao de texto dela; a lista nova troca a linha */
+        var linha = botao && botao.closest ? botao.closest('.srv-linha-video') : null;
+        if (linha && linha.getAttribute('aria-busy') === 'true') return;
+        var botoes = linha ? [].slice.call(linha.querySelectorAll('button')) : [];
+        var principal = linha ? linha.querySelector('.srv-btn-p') : null;
+        var soltar = principal ? UI.ocupar(principal, 'Apagando…') : null;
+        if (!soltar) UI.avisar('Apagando…');
+        if (linha) linha.setAttribute('aria-busy', 'true');
+        botoes.forEach(function (b) { b.disabled = true; });
+        api('apagar-video', { loja: slug, video: v.id }).then(function (r) { estado.videos = r.videos; estado.noSite = r.noSite; desenhar(); UI.avisar('Vídeo apagado.'); }).catch(function (e) {
+          if (soltar) soltar();
+          if (linha) linha.removeAttribute('aria-busy');
+          botoes.forEach(function (b) { b.disabled = false; });
+          UI.avisar(e.message);
+        });
       });
     }
     function desenhar() {
@@ -497,7 +526,7 @@
             el('span', { class: 'srv-status srv-st-pronto' }, [el('span', { class: 'srv-ponto' }), 'No site agora']),
             el('div', { class: 'srv-no-site-acoes' }, [
               el('a', { class: 'btn srv-btn-p btn-fantasma', href: midia('v', sel.id), target: '_blank', rel: 'noopener', download: '' }, [ico('baixar'), 'Baixar']),
-              el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { mudar(null); } }, 'Tirar do site'),
+              el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function (ev) { mudar(null, ev.currentTarget); } }, 'Tirar do site'),
             ]),
           ]),
         ]));
@@ -512,9 +541,9 @@
             el('div', { class: 'srv-linha-texto' }, [
               el('strong', { text: v.titulo }), el('span', { class: 'srv-meta', text: (v.dur ? v.dur + ' segundos, ' : '') + 'entregue em ' + diaMes(v.em) }),
               el('div', { class: 'srv-linha-video-acoes' }, [
-                el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function () { mudar(v.id); } }, 'Pôr no site'),
+                el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function (ev) { mudar(v.id, ev.currentTarget); } }, 'Pôr no site'),
                 el('button', { class: 'srv-icone-botao', type: 'button', 'aria-label': 'Trocar o nome de ' + v.titulo, onclick: function () { renomear(v); } }, [ico('lapis')]),
-                el('button', { class: 'srv-icone-botao', type: 'button', 'aria-label': 'Apagar ' + v.titulo, onclick: function () { apagar(v); } }, [ico('lixeira')]),
+                el('button', { class: 'srv-icone-botao', type: 'button', 'aria-label': 'Apagar ' + v.titulo, onclick: function (ev) { apagar(v, ev.currentTarget); } }, [ico('lixeira')]),
               ]),
             ]),
           ]);
@@ -570,7 +599,10 @@
           el('div', { class: 'srv-central-botoes' }, [
             el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function () { enviarVideo(); } }, [ico('subir'), 'Enviar vídeo']),
             el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function () { criar(); } }, [ico('telefone'), 'Pedido do WhatsApp']),
-            el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: carregar }, [ico('atualizar'), 'Atualizar']),
+            el('button', { class: 'btn srv-btn btn-fantasma', type: 'button', onclick: function (ev) {
+              var soltar = UI.ocupar(ev.currentTarget, 'Atualizando…');
+              if (soltar) carregar().then(function () { soltar(); });
+            } }, [ico('atualizar'), 'Atualizar']),
           ]),
         ]),
         el('div', { class: 'srv-kpis' }, [
@@ -588,7 +620,12 @@
       var zap = /^\d{10,11}$/.test(String(p.whatsapp || '')) ? el('a', { class: 'btn srv-btn-p btn-whats srv-btn-icone', href: 'https://wa.me/55' + p.whatsapp, target: '_blank', rel: 'noopener', 'aria-label': 'Chamar a loja no WhatsApp' }, [ico('telefone')]) : null;
       var acao = null;
       if (p.status === 'aguardando_pagamento') acao = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { UI.copiar(p.link || '').then(function (ok) { UI.avisar(ok ? 'Link de pagamento copiado. Mande no WhatsApp da loja.' : 'Não copiou.'); }); } }, [ico('copiar'), 'Copiar link']);
-      else if (p.status === 'material') acao = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { acaoCentral('etapa', { id: p.id }, 'Material recebido. O prazo começou.'); } }, [ico('check'), 'Material chegou']);
+      else if (p.status === 'material') acao = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function (ev) {
+        var soltar = UI.ocupar(ev.currentTarget, 'Salvando…');
+        if (!soltar) return;
+        /* deu certo, o quadro e redesenhado; deu errado, o aviso ja saiu no acaoCentral e o botao volta */
+        acaoCentral('etapa', { id: p.id }, 'Material recebido. O prazo começou.').catch(function () { soltar(); });
+      } }, [ico('check'), 'Material chegou']);
       else if (p.status === 'producao') acao = el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function () { entregar(p); } }, [ico(p.servico === 'video' ? 'subir' : 'check'), p.servico === 'video' ? 'Entregar vídeo' : 'Marcar entregue']);
       var rot = ROTULOS[p.status] || [p.status, 'srv-st-neutro'];
       var linhaStatus = p.status === 'producao' ? 'Entregar até ' + diaMes(p.prazoAte) : p.status === 'aguardando_pagamento' ? 'Link vale até ' + diaMes(p.venceEm) : p.status === 'entregue' ? 'Entregue em ' + diaMes(p.entregueEm) : rot[0];
@@ -619,10 +656,12 @@
         erro,
       ]), rodape: [botao] });
       botao.addEventListener('click', function () {
-        erro.hidden = true; botao.disabled = true;
+        var soltar = UI.ocupar(botao, 'Gerando o link…');
+        if (!soltar) return;
+        erro.hidden = true;
         api('criar', { loja: selLoja.value, servico: selServ.value, whatsapp: whats.value.replace(/\D/g, ''), documento: doc.value.replace(/\D/g, '') || undefined }).then(function (r) {
           return UI.copiar(r.link || '').then(function (ok) { UI.fecharModal(); UI.avisar(ok ? 'Link copiado. Mande no WhatsApp da loja junto com os termos.' : 'Pedido criado. Copie o link no quadro.'); carregar(); });
-        }).catch(function (e) { botao.disabled = false; erro.textContent = e.message; erro.hidden = false; });
+        }).catch(function (e) { soltar(); erro.textContent = e.message; erro.hidden = false; });
       });
     }
     function entregar(p) {
@@ -645,7 +684,12 @@
       botao.addEventListener('click', function () {
         erro.hidden = true;
         var fim = function (e) { botao.disabled = false; erro.textContent = e.message; erro.hidden = false; };
-        if (!video) { botao.disabled = true; acaoCentral('entregar', { id: p.id, titulo: titulo.value, avisar: avisar.checked }, 'Pedido entregue.').catch(fim); return; }
+        if (!video) {
+          var soltar = UI.ocupar(botao, 'Salvando…');
+          if (!soltar) return;
+          acaoCentral('entregar', { id: p.id, titulo: titulo.value, avisar: avisar.checked }, 'Pedido entregue.').catch(function (e) { soltar(); fim(e); });
+          return;
+        }
         var f = arquivo.files && arquivo.files[0];
         if (!f) return fim(new Error('Escolha o vídeo.'));
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
@@ -727,8 +771,9 @@
         var centavos = null;
         if (parte.checked) { centavos = Math.round(Number(String(valor.value).replace(/\./g, '').replace(',', '.')) * 100); if (!(centavos > 0 && centavos <= pago - ja)) { erro.textContent = 'Valor inválido: até ' + reais(pago - ja) + '.'; erro.hidden = false; return; } }
         if (motivo.value.trim().length < 5) { erro.textContent = 'Escreva o motivo (a loja vê).'; erro.hidden = false; return; }
-        botao.disabled = true;
-        acaoCentral('reembolsar', { id: p.id, valor: centavos == null ? undefined : centavos, motivo: motivo.value, manual: manual.checked }, 'Reembolso feito.').catch(function (e) { botao.disabled = false; erro.textContent = e.message; erro.hidden = false; if (e.dados && e.dados.manual) manual.focus(); });
+        var soltar = UI.ocupar(botao, 'Reembolsando…');
+        if (!soltar) return;
+        acaoCentral('reembolsar', { id: p.id, valor: centavos == null ? undefined : centavos, motivo: motivo.value, manual: manual.checked }, 'Reembolso feito.').catch(function (e) { soltar(); erro.textContent = e.message; erro.hidden = false; if (e.dados && e.dados.manual) manual.focus(); });
       });
     }
     function carregar() {
@@ -775,10 +820,10 @@
   function carregarVideoLeve() {
     if (window.LigeiroVideoLeve) return Promise.resolve(window.LigeiroVideoLeve);
     if (videoLeve) return videoLeve;
-    var tag = ((document.querySelector('script[src*="js/servicos.js"]') || {}).src || '').split('?v=')[1] || '1';
+    var tag = ((document.querySelector('script[src*="/servicos.js"]') || {}).src || '').split('?v=')[1] || '1';
     videoLeve = new Promise(function (ok) {
       var s = document.createElement('script');
-      s.src = 'js/video-leve.js?v=' + tag;
+      s.src = UI.caminho('js/video-leve.js') + '?v=' + tag; /* na copia enxuta: js/m/video-leve.js */
       s.onload = function () { ok(window.LigeiroVideoLeve || null); };
       s.onerror = function () { videoLeve = null; ok(null); };
       document.head.appendChild(s);

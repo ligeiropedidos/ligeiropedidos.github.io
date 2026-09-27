@@ -89,6 +89,8 @@
     var limpar = function () {};
     var vivo = true;
     UI.abrirOficialCedo(raiz, slug);
+    /* o programa do banco ja comeca a baixar enquanto a borda responde (a fila e o balcao abrem mais cedo) */
+    if (store.aquecer) store.aquecer();
     /* a copia da borda (0 leituras no banco); sem ela, o banco */
     (store.lojaDaEquipe ? store.lojaDaEquipe(slug) : store.obterLoja(slug)).catch(function () { return { _erro: true }; }).then(function (loja) {
       if (!vivo) return;
@@ -124,8 +126,9 @@
       var entrando = false; /* Enter + toque no botao: uma entrada so, senao a tela monta duas vezes */
       function entrar() {
         if (entrando) return;
+        var soltar = UI.ocupar(btnEntrar, 'Entrando…');
+        if (!soltar) return;
         entrando = true;
-        btnEntrar.disabled = true;
         store.entrarPainel(slug, campo.value).then(function (ok) {
           if (!vivo) return;
           if (!ok) { erro.textContent = 'Senha errada.'; erro.hidden = false; campo.value = ''; campo.focus(); UI.soar('erro'); return; }
@@ -138,7 +141,7 @@
           if (!vivo) return;
           erro.textContent = D.erroAmigavel(e, 'Não deu para entrar agora. Tente de novo.');
           erro.hidden = false; UI.soar('erro');
-        }).then(function () { entrando = false; btnEntrar.disabled = false; });
+        }).then(function () { entrando = false; soltar(); });
       }
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(el('div', { class: 'login' }, [
@@ -165,11 +168,17 @@
     ]);
     /* a resposta do mensageiro ("senha facil demais: ...") vira frase: maiuscula no comeco e ponto no fim */
     function frase(t) { var s = String(t || '').trim(); if (!s) return s; s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + '.'; }
+    var btnSalvar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Salvar senha', onclick: salvar });
+    var salvando = false; /* Enter + toque no botao: um envio so */
     function salvar() {
+      if (salvando) return;
       var pin = campo.value.replace(/\D/g, '');
       if (pin.length < 6 || pin.length > 8) return UI.avisar('Use de 6 a 8 números.');
       /* a mesma conta do mensageiro: 123456, 111111 e 654321 sao as primeiras que alguem tenta */
       if (/^(\d)\1+$/.test(pin) || '0123456789'.indexOf(pin) >= 0 || '9876543210'.indexOf(pin) >= 0) return UI.avisar('Senha fácil demais. Evite números repetidos ou em sequência, como 123456.');
+      var soltar = UI.ocupar(btnSalvar, 'Salvando…');
+      if (!soltar) return;
+      salvando = true;
       var promessa = D.modoDemo
         ? store.salvarLoja({ slug: loja.slug, senhaPainel: pin })
         : store.obterIdToken().then(function (idToken) {
@@ -186,12 +195,12 @@
               });
             });
         });
-      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para salvar agora.')); });
+      promessa.then(function () { UI.fecharModal(); UI.soar('sucesso'); UI.avisar('Senha da equipe salva.'); }).catch(function (e) { salvando = false; soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu para salvar agora.')); });
     }
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
     UI.abrirModal({ titulo: 'Senha da equipe', corpo: corpo, rodape: [
       el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Cancelar', onclick: UI.fecharModal }),
-      el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Salvar senha', onclick: salvar }),
+      btnSalvar,
     ] });
     setTimeout(function () { campo.focus(); }, 50);
   }
@@ -303,7 +312,8 @@
     b.addEventListener('click', function () {
       var ligado = A.aparelhoLigado(slug, papel);
       if (!ligado && A.situacao() === 'instalar') { A.explicarIphone(); return; }
-      b.disabled = true;
+      var soltar = UI.ocupar(b, ligado ? 'Testando…' : 'Ligando…');
+      if (!soltar) return;
       (ligado ? A.testarAparelho(slug, papel) : A.ligarAparelho(slug, papel)).then(function (j) {
         if (!ligado) UI.soar('sucesso');
         var oque = papel === 'entregas' ? 'Entrega pronta' : 'Pedido novo';
@@ -311,7 +321,7 @@
       }, function (err) {
         if (err && err.motivo === 'instalar') { A.explicarIphone(); return; }
         UI.avisar((err && err.message) || 'Não deu para ligar os avisos agora.');
-      }).then(function () { b.disabled = false; pintar(); });
+      }).then(function () { soltar(); pintar(); });
     });
     pintar();
     /* so aparece quando o mensageiro ja tem os avisos e o aparelho consegue receber */
@@ -353,6 +363,7 @@
       raiz.appendChild(topoEquipe(slug, 'Cozinha · ' + estado.loja.nome, [], [btnSom, botaoAvisos(slug, 'cozinha')]));
       var colunas = el('div', { class: 'cozinha' });
       raiz.appendChild(colunas);
+      desenhar(); /* o mascote ate a fila chegar */
       /* o cardapio do dono chega aqui quando muda (preco novo, item novo): o aviso de valor confere com o de agora */
       var loja = lojaAtualizada(slug, function (l) { estado.loja = l; desenhar(); });
       estado.parar.push(loja.parar);
@@ -368,8 +379,16 @@
       }
 
       function desenhar() {
+        /* antes da fila chegar, o mascote esperando (e nao "nada esperando", que engana a cozinha) */
+        if (!estado.filaChegou) {
+          if (colunas.querySelector('.espera-mascote')) return;
+          var espera = UI.carregandoMascote('Carregando os pedidos…');
+          espera.style.gridColumn = '1 / -1'; /* no meio das duas colunas */
+          colunas.appendChild(espera);
+          return;
+        }
         UI.limpar(colunas);
-        var fazer = estado.pedidos.filter(function (p) { return p.status === R.STATUS.PAGO; });
+        var fazer =estado.pedidos.filter(function (p) { return p.status === R.STATUS.PAGO; });
         var fazendo = estado.pedidos.filter(function (p) { return p.status === R.STATUS.PRODUCAO; });
         fazer.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
         fazendo.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
@@ -398,13 +417,19 @@
         var proximo = R.proximoStatus(p);
         var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
         if (proximo) {
-          f.appendChild(el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', text: rotulo, onclick: function () {
+          var btnAndar = el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', text: rotulo, onclick: function () {
+            /* a tela redesenha na hora e a proxima ficha sobe para baixo do dedo: o toque duplo nao anda outro pedido */
+            if (Date.now() < (estado.travaAte || 0)) return;
+            estado.travaAte = Date.now() + 700;
+            var soltar = UI.ocupar(btnAndar, p.status === R.STATUS.PAGO ? 'Começando…' : 'Marcando…');
+            if (!soltar) return;
             if (proximo !== R.STATUS.PRODUCAO) estado.movidosAqui[p.id] = true; /* saiu da fila por esta tela: nao e cancelamento */
             store.atualizarPedido(slug, p.id, { status: proximo }).then(function () {
               UI.soar('toque');
               avisarQueAndou(slug, p, proximo);
-            }).catch(function (e) { UI.avisar(D.erroAmigavel(e)); });
-          } }));
+            }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e)); });
+          } });
+          f.appendChild(btnAndar);
         }
         return f;
       }
@@ -416,6 +441,7 @@
       var fila = filaQueVolta(raiz, function (voltou, noLimite) {
         return store.assistirPedidos(slug, function (lista, doCache) {
         if (!doCache) voltou(); /* a do cache chega antes da recusa do banco: so a do servidor tira a faixa */
+        estado.filaChegou = true;
         lista = desdeOntem(lista);
         var novos = 0;
         if (estado.conhecidos) lista.forEach(function (p) { if (p.status === R.STATUS.PAGO && !estado.conhecidos[p.id + p.status]) novos += 1; });
@@ -493,6 +519,7 @@
       raiz.appendChild(topoEquipe(slug, 'Entregador\u00a0· ' + estado.loja.nome, [], [botaoApito(estado), botaoAvisos(slug, 'entregas')]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
+      desenhar(); /* o mascote ate a fila chegar */
       /* o cardapio de agora (preco novo, item novo), como na cozinha */
       var loja = lojaAtualizada(slug, function (l) { estado.loja = l; desenhar(); });
       estado.parar.push(loja.parar);
@@ -507,8 +534,13 @@
       }
 
       function desenhar() {
+        /* antes da fila chegar, o mascote esperando (e nao "nenhuma entrega", que engana o entregador) */
+        if (!estado.filaChegou) {
+          if (!lista.querySelector('.espera-mascote')) lista.appendChild(UI.carregandoMascote('Carregando os pedidos…'));
+          return;
+        }
         UI.limpar(lista);
-        var entregas = estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega'; });
+        var entregas =estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega'; });
         var naRua = entregas.filter(function (p) { return p.status === R.STATUS.PRONTO; });
         var vindo = entregas.filter(function (p) { return p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO; });
         naRua.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
@@ -542,7 +574,12 @@
         if (p.cliente.telefone) acoes.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(p.cliente.telefone, 'Olá! Sou o entregador da ' + estado.loja.nome + ', estou chegando com o seu pedido (senha ' + p.senha + ').'), target: '_blank', rel: 'noopener', title: 'Manda para o cliente, no WhatsApp: estou chegando com o seu pedido' }, [UI.icone('zap'), 'Chegando']));
         if (naRua) acoes.appendChild(el('button', { class: 'btn btn-principal' }, [UI.iconeLinha('check'), 'Entregue']));
         if (naRua) acoes.lastChild.addEventListener('click', function () {
-          store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { UI.avisar(D.erroAmigavel(err)); });
+          /* o cartao de baixo sobe para baixo do dedo: o toque duplo nao entrega outro pedido */
+          if (Date.now() < (estado.travaAte || 0)) return;
+          estado.travaAte = Date.now() + 700;
+          var soltar = UI.ocupar(this, 'Marcando…');
+          if (!soltar) return;
+          store.atualizarPedido(slug, p.id, { status: R.STATUS.FINALIZADO }).then(function () { UI.soar('sucesso'); }).catch(function (err) { soltar(); UI.avisar(D.erroAmigavel(err)); });
         });
         card.appendChild(acoes);
         return card;
@@ -554,6 +591,7 @@
       var fila = filaQueVolta(raiz, function (voltou, noLimite) {
         return store.assistirPedidos(slug, function (lista, doCache) {
           if (!doCache) voltou();
+          estado.filaChegou = true;
           estado.pedidos = desdeOntem(lista);
           /* entrega nova em "Para entregar agora" apita e vibra, como pedido novo na cozinha. A primeira lista so conta (e
              a do cache tambem: a primeira do servidor ainda e o ponto de partida, sem apito de coisa que ja estava la) */

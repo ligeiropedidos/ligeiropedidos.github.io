@@ -96,7 +96,7 @@
   /* Cada tela baixa so o codigo que roda nela (antes vinha tudo junto: o entregador baixava o painel e a Central,
      360 KB que nunca rodam, e o cliente da loja baixava a pagina de vendas). Arquivo baixado uma vez nao baixa de novo;
      a ordem de cada lista vale. As telas de venda ja trazem cidades e parceiro pelo index (ver o script de la). */
-  var TAG = ((((document.querySelector('script[src*="js/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+  var TAG = ((((document.querySelector('script[src*="/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
   var VENDAS = ['js/cidades.js', 'js/parceiro.js'];
   var EQUIPE = ['js/equipe.js'];
   /* a loja do cliente (e a lista de lojas da cidade): so quem vai pedir baixa; a pagina de vendas nao traz mais os 54 KB */
@@ -113,13 +113,14 @@
   };
   var baixados = {}, baixando = {};
   /* o que ja veio no index (as telas de venda, ou tudo na copia de teste) ja rodou */
-  Array.prototype.forEach.call(document.querySelectorAll('script[src]'), function (s) { var m = (s.getAttribute('src') || '').match(/^(js\/[a-z]+\.js)/); if (m) baixados[m[1]] = true; });
+  /* (na copia enxuta o caminho e js/m/cliente.js: conta como js/cliente.js) */
+  Array.prototype.forEach.call(document.querySelectorAll('script[src]'), function (s) { var m = (s.getAttribute('src') || '').match(/^js\/(?:m\/)?([a-z-]+\.js)/); if (m) baixados['js/' + m[1]] = true; });
   function baixar(src) {
     if (baixados[src]) return Promise.resolve();
     if (baixando[src]) return baixando[src];
     baixando[src] = new Promise(function (ok, falhou) {
       var s = document.createElement('script');
-      s.src = src + '?v=' + TAG;
+      s.src = UI.caminho(src) + '?v=' + TAG;
       s.async = false; /* na ordem da lista */
       s.onload = function () { baixados[src] = true; delete baixando[src]; ok(); };
       s.onerror = function () { delete baixando[src]; if (s.parentNode) s.parentNode.removeChild(s); falhou(new Error('Não carregou ' + src)); };
@@ -333,7 +334,7 @@
      Assim ninguem fica preso na versao antiga (celular segura cache por varios minutos). */
   (function () {
     if (location.protocol === 'file:' || !window.fetch) return;
-    var meu = ((document.querySelector('script[src*="js/app.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/);
+    var meu = ((document.querySelector('script[src*="/app.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/);
     if (!meu) return;
     fetch('index.html?agora=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (html) {
       var novo = html.match(/js\/app\.js\?v=([0-9a-z]+)/);

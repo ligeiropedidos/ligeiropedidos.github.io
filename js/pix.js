@@ -175,7 +175,7 @@
     if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.reject(new Error('sem navegador'));
     if (window.qrcode) return Promise.resolve(window.qrcode);
     if (carregandoQr) return carregandoQr;
-    var tag = ((((document.querySelector('script[src*="js/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
+    var tag = ((((document.querySelector('script[src*="/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
     carregandoQr = new Promise(function (ok, nao) {
       var s = document.createElement('script');
       s.src = 'vendor/qrcode.js?v=' + tag;

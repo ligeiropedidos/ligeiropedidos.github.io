@@ -83,14 +83,14 @@
       return new Promise(function (fim) {
         var confirmar = el('button', { class: 'btn btn-principal', style: { flex: '1' }, type: 'button', text: 'Confirmar troca' });
         confirmar.addEventListener('click', function () {
-          if (confirmar.disabled) return;
-          confirmar.disabled = true;
+          var soltar = UI.ocupar(confirmar, 'Trocando…');
+          if (!soltar) return;
           pedirAoMensageiro('trocar', { planoId: 'uma', tipo: o.tipo }).then(function (t) {
             UI.fecharModal();
             UI.avisar('Pronto: ' + (o.tipo === 'anual' ? 'anual' : 'mensal') + ' a partir da próxima fatura.');
             if (o.aoTerminar) o.aoTerminar(t);
             fim(t);
-          }).catch(function (e) { confirmar.disabled = false; UI.avisar(e.message); });
+          }).catch(function (e) { soltar(); UI.avisar(e.message); });
         });
         UI.abrirModal({
           titulo: 'Trocar para ' + o.nomePlano,
@@ -221,7 +221,13 @@
     }
 
     var rodape = [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Depois', onclick: UI.fecharModal })];
-    if (pixL.chave) rodape.push(el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Já paguei no Pix', onclick: function () { o.avisar().then(function () { UI.fecharModal(); }); } }));
+    if (pixL.chave) rodape.push(el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Já paguei no Pix', onclick: function () {
+      var b = this;
+      var soltar = UI.ocupar(b, 'Avisando…');
+      if (!soltar) return;
+      /* nao gravou (avisar devolve false): a janela fica aberta para tocar de novo */
+      o.avisar().then(function (r) { if (r === false) { soltar(); return; } UI.fecharModal(); }, function () { soltar(); });
+    } }));
     UI.abrirModal({ titulo: 'Pagar assinatura', corpo: corpo, rodape: rodape });
   }
 

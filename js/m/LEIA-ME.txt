@@ -1,0 +1,1 @@
+Copia enxuta gerada por ferramentas/enxugar.mjs. Nao edite aqui: edite js/ e css/ e rode a ferramenta de novo.

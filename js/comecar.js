@@ -183,7 +183,8 @@
     function avancar() { erro.hidden = true; if (atual < PASSOS.length - 1) { atual++; desenhar(); } else criar(); }
     function falhar(msg) { erro.hidden = false; erro.textContent = msg; UI.soar('erro'); if (botao) { botao.disabled = false; botao.textContent = textoBotao(); } }
     var botao = null;
-    function textoBotao() { return atual === PASSOS.length - 1 && PASSOS[atual] !== 'acesso' ? 'Criar minha loja' : 'Continuar'; }
+    /* no passo do acesso o botao e o do Google: depois de um erro ele volta com o mesmo nome (virava "Continuar") */
+    function textoBotao() { return PASSOS[atual] === 'acesso' ? 'Entrar com o Google' : (atual === PASSOS.length - 1 ? 'Criar minha loja' : 'Continuar'); }
     function pergunta(titulo, ajuda) {
       return [el('h2', { class: 'cadastro-pergunta', text: titulo }), ajuda ? el('p', { class: 'muted cadastro-ajuda', text: ajuda }) : null];
     }
@@ -340,7 +341,9 @@
           el('button', { class: 'btn btn-google btn-gigante btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function (e) {
             botao = e.currentTarget;
             if (!exigirAceite()) return;
-            store.entrarComGoogle().then(function (u) { if (u) { contaLogada = u; criar(); } }).catch(function (x) { falhar(x.message); });
+            var soltar = UI.ocupar(botao, 'Abrindo o Google…');
+            if (!soltar) return;
+            store.entrarComGoogle().then(function (u) { if (u) { contaLogada = u; criar(); } else soltar(); }).catch(function (x) { soltar(); falhar(x.message); });
           } }),
           erro,
         ])));

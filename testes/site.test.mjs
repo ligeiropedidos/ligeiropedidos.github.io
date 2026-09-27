@@ -150,5 +150,22 @@ console.log('== login do Google no nosso dominio (/__/auth/) ==');
   ok(r.headers.get('X-De') !== 'firebase', 'as lojas continuam no site');
 }
 
+console.log('copia enxuta (js/m e css/m, o que o site publicado baixa)');
+{
+  /* cada arquivo de trabalho tem que estar igual ao que gerou a copia enxuta: mexeu e nao rodou
+     node ferramentas/enxugar.mjs, o site publicaria o codigo velho */
+  const crypto = await import('node:crypto');
+  const hash = (a) => crypto.createHash('sha1').update(fs.readFileSync(path.resolve(a))).digest('hex').slice(0, 16);
+  let lista = {};
+  try { lista = JSON.parse(fs.readFileSync(path.resolve('js/m/fontes.json'), 'utf8')); } catch (_) { /* sem lista */ }
+  const fontes = fs.readdirSync(path.resolve('js')).filter((f) => f.endsWith('.js')).map((f) => 'js/' + f)
+    .concat(['css/ligeiro.css'], fs.readdirSync(path.resolve('css/temas')).filter((f) => f.endsWith('.css')).map((f) => 'css/temas/' + f));
+  const velhos = fontes.filter((a) => lista[a] !== hash(a) || !fs.existsSync(path.resolve(a.replace(/^(js|css)\//, '$1/m/'))));
+  ok(velhos.length === 0, 'copia enxuta em dia com os arquivos de trabalho' + (velhos.length ? ' (velhos: ' + velhos.join(', ') + '; rode node ferramentas/enxugar.mjs)' : ''));
+  /* o index publicado usa a copia enxuta, e a copia enxuta de cada arquivo que ele chama existe */
+  const chamados = (INDEX.match(/(?:src|href)="((?:js|css)\/[^"?]+)/g) || []).map((x) => x.replace(/^(?:src|href)="/, ''));
+  ok(chamados.length > 0 && chamados.every((c) => /^(js|css)\/m\//.test(c) && fs.existsSync(path.resolve(c))), 'o index chama so a copia enxuta, e ela existe');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
