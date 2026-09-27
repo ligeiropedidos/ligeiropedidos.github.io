@@ -251,6 +251,7 @@
     var rodape = o.botao ? el('div', { class: 'player-rodape' }, [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: o.botao.texto, onclick: function () { fechar(); if (o.botao.acao) o.botao.acao(); } })]) : null;
     var botaoSom = el('button', { class: 'player-botao', type: 'button', onclick: function () { video.muted = !video.muted; pintarSom(); } });
     var botaoFechar = el('button', { class: 'player-botao', type: 'button', 'aria-label': 'Fechar o vídeo', onclick: fechar }, [iconeLinha('fechar')]);
+    var topo = el('div', { class: 'player-topo' }, [el('span', { class: 'player-nome', text: o.titulo || '' }), el('div', { class: 'player-acoes' }, [botaoSom, botaoFechar])]);
     var fechou = false, doVoltar = false, carregando = true;
     /* proporcao: a da capa ate o video contar a dele; sem nenhuma das duas, em pe (os videos das lojas sao para o celular) */
     var proporcao = 9 / 16;
@@ -263,7 +264,10 @@
       var w = Math.min(largura, altura * proporcao);
       quadro.style.width = Math.floor(w) + 'px';
       quadro.style.height = Math.floor(w / proporcao) + 'px';
-      if (rodape) rodape.style.maxWidth = Math.max(Math.floor(w), Math.min(280, largura)) + 'px';
+      /* a barra de cima e o botao de pedir na largura do video: tudo numa coluna so (no PC o nome e o X nao ficam nos cantos da tela) */
+      var coluna = Math.max(Math.floor(w), Math.min(280, largura)) + 'px';
+      topo.style.maxWidth = coluna;
+      if (rodape) rodape.style.maxWidth = coluna;
     }
     /* o sinal no meio: girando enquanto carrega, play quando parado, assistir de novo no fim, nada tocando */
     function pintar() {
@@ -317,7 +321,7 @@
         if (this.naturalWidth && this.naturalHeight && !video.videoWidth) { proporcao = this.naturalWidth / this.naturalHeight; ajustar(); }
       } })]));
     }
-    fundo.appendChild(el('div', { class: 'player-topo' }, [el('span', { class: 'player-nome', text: o.titulo || '' }), el('div', { class: 'player-acoes' }, [botaoSom, botaoFechar])]));
+    fundo.appendChild(topo);
     fundo.appendChild(palco);
     if (rodape) fundo.appendChild(rodape); else fundo.classList.add('sem-botao');
     quadro.addEventListener('click', alternar);
