@@ -873,7 +873,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto .emoji { font-size: 26px; width: 36px; text-align: center; flex: none; }
 .linha-produto .nome { flex: 1; min-width: 0; font-weight: 600; }
 .linha-produto .nome small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.linha-produto input.preco { width: 110px; min-height: 48px; padding: 8px 10px; border: 1.5px solid var(--line-forte); border-radius: 10px; text-align: right; font-weight: 700; }
+.linha-produto input.preco { width: 120px; min-height: 48px; padding: 8px 10px; border: 1.5px solid var(--line-forte); border-radius: 10px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; } /* valor no meio da caixa em toda largura (encostado na direita sobrava um vao do lado); numeros da mesma largura */
 .linha-produto .editar { border: 1.5px solid var(--line-forte); background: var(--card); border-radius: 10px; min-height: 44px; padding: 0 12px; font-weight: 700; }
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
@@ -1118,7 +1118,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .oficial-extra span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
 .painel-topo .logo-mini { height: 40px; width: 40px; object-fit: contain; flex: none; }
 /* conexao com o Mercado Pago (painel) */
-.mp-conexao { display: flex; flex-direction: column; gap: 12px; margin: 0; container: mp-conexao / inline-size; }
+.mp-conexao { display: flex; flex-direction: column; gap: 12px; margin: 0; }
 /* Pagamento: a linha do Pix leva a conexao dentro dela, com a mesma borda e o mesmo recuo das outras linhas */
 .forma-pix { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .forma-pix > .interruptor { border: 0; background: transparent; }
@@ -1129,29 +1129,30 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-mp:hover { background: #0089c5; }
 /* selo na linha de cima inteira; embaixo a data (nunca quebra) e o Desconectar a direita. No celular o botao desce
    e ocupa a linha toda, igual aos botoes dos blocos Senha da equipe e Avisos */
-/* Mercado Pago conectado: selo redondo, titulo, dados em rotulo + valor e o Desconectar na ponta (embaixo no celular) */
-.mp-conectado { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; padding: 16px; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio-p); }
-.mp-conectado-ico { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--lime-escuro); color: #fff; }
-.mp-conectado-ico .ico-traco svg { width: 22px; height: 22px; stroke-width: 3; }
-.mp-conectado-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.mp-selo { font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1.2; color: var(--deep2); }
-.mp-dados { display: flex; flex-wrap: wrap; gap: 4px 24px; min-width: 0; }
-.mp-dado { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; } /* sem espaco, o valor desce inteiro para a linha de baixo (nunca passa da caixa) */
-.mp-dado b { white-space: nowrap; } /* a data nunca parte; o rotulo pode quebrar numa tela estreitissima */
-.mp-dado small { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.mp-dado b { font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-.mp-conectado .btn { min-height: 44px; }
-/* celular: circulo e titulo numa linha, os dados embaixo na largura toda e o botao no pe (como os outros cartoes com circulo) */
-@media (max-width: 600px) {
-  .mp-conectado { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico selo" "dados dados" "btn btn"; row-gap: 8px; }
-  .mp-conectado-texto { display: contents; }
-  .mp-conectado-ico { grid-area: ico; }
-  .mp-conectado .mp-selo { grid-area: selo; }
-  .mp-conectado .mp-dados { grid-area: dados; }
-  .mp-conectado .btn { grid-area: btn; width: 100%; margin-top: 4px; }
+/* (o quadrinho desce 2,5 px no desenho largo: pela tinta das letras, o nome com os dados fica esse tanto abaixo do meio da caixa deles) */
+/* Mercado Pago conectado, como as integracoes das plataformas grandes: marca, nome e o selo "Conectado" numa linha, os
+   dados embaixo do nome e o Desconectar pequeno no pe da caixa. Sem cartao dentro do cartao: e o topo da propria caixa */
+.mp-conectado { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "marca nome status" "marca dados dados"; column-gap: 12px; row-gap: 4px; align-items: center; margin-bottom: 2px; } /* +2: o mesmo respiro acima e abaixo da primeira linha */
+.mp-marca { grid-area: marca; position: relative; top: 2.5px; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--lime-suave); color: var(--deep2); }
+.mp-marca .ico-traco svg { width: 22px; height: 22px; }
+.mp-nome { grid-area: nome; font-family: var(--display); font-size: 17px; line-height: 1.2; color: var(--ink); min-width: 0; }
+.mp-status { grid-area: status; justify-self: end; padding: 4px 10px; font-size: 13px; }
+.mp-dados { grid-area: dados; display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 14px; line-height: 1.25; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 0; } /* entrelinha perto da do nome: o quadrinho fica no meio dos dois */
+.mp-rodape { display: flex; justify-content: flex-end; border-top: 1px solid var(--line); }
+.mp-rodape[hidden] { display: none; }
+.mp-desconectar { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.mp-desconectar .ico-traco svg { width: 16px; height: 16px; }
+@media (hover: hover) { .mp-desconectar:hover { color: var(--erro); } }
+/* caixa estreita (celular pequeno, janela estreita): o selo desce para baixo do nome e os dados ganham a linha inteira */
+.mp-conexao { container: mp-conexao / inline-size; }
+@container mp-conexao (max-width: 360px) {
+  .mp-conectado { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "marca nome" "marca status" "dados dados"; }
+  .mp-status { justify-self: start; }
+  .mp-dados { margin-top: 8px; }
+  .mp-marca { top: 1.5px; } .tema-conizza .mp-marca { top: 0; } /* estreito: no meio do nome com o selo (medido pela tinta) */
 }
-/* janela estreitissima (menos que um celular): o titulo desce para baixo do circulo, sem palavra passando da caixa */
-@container mp-conexao (max-width: 240px) { .mp-conectado { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ico" "selo" "dados" "btn"; } }
+/* janela estreitissima (menos que um celular): marca, nome, selo e dados um embaixo do outro */
+@container mp-conexao (max-width: 220px) { .mp-conectado { grid-template-columns: minmax(0, 1fr); grid-template-areas: "marca" "nome" "status" "dados"; } .mp-dados { margin-top: 4px; } }
 /* tela do Pix do cliente: gerando / falhou */
 .pix-gerando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 12px; font-weight: 700; color: var(--deep2); }
 .pix-gerando .girando { width: 22px; height: 22px; border: 3px solid var(--line-forte); border-top-color: var(--deep2); border-radius: 50%; animation: girar 0.9s linear infinite; }
@@ -2419,6 +2420,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .adm-selo .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }
 /* painel: o que era cor fixa no codigo (o tema da loja oficial nao pegava) */
 .fila-mostrar { cursor: pointer; color: var(--muted); font-weight: 600; padding: 6px 0; }
+.fila-nenhum { margin: 0; padding: 6px 0; color: var(--muted); font-size: 15px; } /* no lugar do Mostrar, na mesma altura */
 .editar-grupo { border: 1.5px solid var(--line-forte); background: var(--card); border-radius: 10px; min-height: 40px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; }
 .editar-grupo .ico-traco svg { width: 18px; height: 18px; }
 
@@ -2493,7 +2495,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .mp-caixa { display: flex; flex-direction: column; gap: 12px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .mp-caixa .mp-formas { display: flex; flex-direction: column; gap: 12px; }
 .mp-caixa .mp-formas[hidden] { display: none; }
-.mp-caixa .interruptor { padding: 10px 0 0; min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.mp-caixa .interruptor { padding: 11px 0 0; min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
 .mp-caixa .mp-liberar { display: flex; flex-direction: column; gap: 8px; }
 .mp-caixa .mp-liberar[hidden] { display: none; }
 .mp-convite { display: flex; flex-direction: column; gap: 4px; }

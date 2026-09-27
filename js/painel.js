@@ -1095,6 +1095,11 @@
         }
       });
       if (!algum) caixa.appendChild(el('div', { class: 'vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('recibo')]), el('p', { text: 'Nenhum pedido por enquanto. Quando entrar, ele aparece aqui apitando.' })]));
+      /* carregou e o dia nao tem concluido nem cancelado: o titulo fica e diz isso (antes o "Mostrar" sumia sem explicar) */
+      if (encerrados && !encerrados.some(function (p) { return p.status === R.STATUS.FINALIZADO || (p.status === R.STATUS.CANCELADO && !devolver[p.id]); })) {
+        caixa.appendChild(el('div', { class: 'fila-titulo' }, [el('span', { text: 'Concluídos e cancelados hoje' }), el('span')]));
+        caixa.appendChild(el('p', { class: 'fila-nenhum', text: 'Nenhum pedido concluído ou cancelado hoje.' }));
+      }
       /* concluidos e cancelados do dia: um toque carrega (uma leitura por pedido do dia, so quando o dono quer ver) */
       if (!encerrados && store.pedidosDoDia) {
         var carregar = el('details', {}, [el('summary', { class: 'fila-mostrar', text: estado.carregandoEncerrados ? 'Carregando…' : 'Mostrar' })]);
@@ -2392,7 +2397,9 @@
       pintarTaxa();
       var formasDoSite = el('div', { class: 'mp-formas', hidden: true }, [f.mpAtivo, f.aceitaCartaoOnline, taxaDoCartao, liberarCartao]);
       var conexao = el('div', { class: 'mp-conexao' });
-      var caixaMP = el('div', { class: 'mp-caixa' }, [conexao, formasDoSite]);
+      /* pe da caixa: o Desconectar fica aqui, pequeno, depois dos interruptores (acao de sair nunca e o maior botao) */
+      var rodapeMP = el('div', { class: 'mp-rodape', hidden: true });
+      var caixaMP = el('div', { class: 'mp-caixa' }, [conexao, formasDoSite, rodapeMP]);
       function mostrarFormasDoSite(sim) { formasDoSite.hidden = !sim; f.mpAtivo.chave.hidden = !sim; }
       function botaoConectar() {
         return el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function () {
@@ -2404,6 +2411,7 @@
       }
       /* caixa da conexao: desconectada ensina em 3 passos; conectada, o selo com a data e o Desconectar */
       function desenharConexao(c) {
+        UI.limpar(rodapeMP); rodapeMP.hidden = true; /* o Desconectar so aparece conectado */
         f.mpToken.lido = true;
         f.mpToken.erro = false;
         UI.limpar(conexao);
@@ -2415,17 +2423,20 @@
         pintarCartao();
         pintarResumo();
         if (conectado) {
-          /* conectado: selo redondo, o titulo e os dados da conexao em quadrinhos (rotulo pequeno e valor), como os da Minha conta */
+          /* conectado, como as integracoes das plataformas grandes: marca, nome e o selo "Conectado" no topo, os dados numa
+             linha discreta embaixo e o Desconectar pequeno no pe da caixa */
           var dadosMP = [];
-          if (c.mpUserId) dadosMP.push(el('span', { class: 'mp-dado' }, [el('small', { text: 'Conta' }), el('b', { text: String(c.mpUserId) })]));
-          if (c.conectadoEm) dadosMP.push(el('span', { class: 'mp-dado' }, [el('small', { text: 'Conectado em' }), el('b', { text: new Date(c.conectadoEm).toLocaleDateString('pt-BR') })]));
+          if (c.mpUserId) dadosMP.push('Conta ' + c.mpUserId);
+          if (c.conectadoEm) dadosMP.push('desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR'));
           conexao.appendChild(el('div', { class: 'mp-conectado' }, [
-            el('span', { class: 'mp-conectado-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]), /* o circulo ja e o anel: so o risco do conferido, no meio */
-            el('div', { class: 'mp-conectado-texto' }, [
-              el('b', { class: 'mp-selo', text: 'Mercado Pago conectado' }),
-              dadosMP.length ? el('div', { class: 'mp-dados' }, dadosMP) : null,
-            ]),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
+            el('span', { class: 'mp-marca', 'aria-hidden': 'true' }, [UI.iconeLinha('cartao')]),
+            el('b', { class: 'mp-nome', text: 'Mercado Pago' }),
+            el('span', { class: 'selo mp-status' }, [el('span', { class: 'bolinha', 'aria-hidden': 'true' }), 'Conectado']),
+            /* "Conta 538606607 · desde 24/09/2026": se nao couber, quebra depois do ponto (a data nunca parte) */
+            dadosMP.length ? el('span', { class: 'mp-dados' }, dadosMP.map(function (t, i) { return el('span', { class: 'sem-quebra', text: t + (i < dadosMP.length - 1 ? ' ·' : '') }); })) : null,
+          ]));
+          rodapeMP.hidden = false;
+          rodapeMP.appendChild(el('button', { class: 'mp-desconectar', type: 'button', onclick: function () {
               UI.perguntar('Desconectar o Mercado Pago? O Pix e o cartão pelo site param até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
                 if (!sim) return;
                 /* redesenha so a caixa da conexao (e desliga as chaves do site): o resto dos Ajustes, talvez com algo
@@ -2435,8 +2446,7 @@
                     .then(function () { if (conexao.isConnected) desenharConexao(null); }, function () { /* salvarLoja ja avisou */ });
                 }, function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para desconectar agora. Tente de novo.')); });
               });
-            } }),
-          ]));
+            } }, [UI.iconeLinha('sair'), 'Desconectar o Mercado Pago']));
           return;
         }
         conexao.appendChild(el('div', { class: 'mp-convite' }, [
@@ -2453,7 +2463,7 @@
       }
       /* a leitura falhou (internet caiu): diz e deixa tentar de novo. Os interruptores ficam como estavam: salvar nao mexe */
       function erroConexao() {
-        UI.limpar(conexao);
+        UI.limpar(conexao); UI.limpar(rodapeMP); rodapeMP.hidden = true;
         f.mpToken.lido = true;
         f.mpToken.erro = true;
         formasDoSite.hidden = true;
@@ -2462,7 +2472,7 @@
         conexao.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: lerConexaoAgora }));
       }
       function lerConexaoAgora() {
-        UI.limpar(conexao);
+        UI.limpar(conexao); UI.limpar(rodapeMP); rodapeMP.hidden = true;
         formasDoSite.hidden = true;
         conexao.appendChild(el('p', { class: 'mp-lendo' }, [el('span', { class: 'girando' }), 'Conferindo a conexão com o Mercado Pago…']));
         window.LigeiroMP.lerConexao(l.slug).then(desenharConexao, erroConexao);
