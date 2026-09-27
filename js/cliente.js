@@ -97,7 +97,7 @@
       if (!lojas) return;
       var mapa = Object.create(null); /* cidade "__proto__" gravada por fora nao contamina o site */
       lojas.forEach(function (l) {
-        if (l.ativa === false || R.lojaBloqueada(l)) return;
+        if (l.ativa === false || R.lojaBloqueada(l) || l.amostra === true) return;
         if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: [] };
         mapa[l.cidadeSlug].lojas.push(l);
       });
@@ -357,7 +357,7 @@
       if (store.listarVitrine) store.listarVitrine().then(function (todas) {
         var mapa = Object.create(null);
         todas.forEach(function (l) {
-          if (l.ativa === false || R.lojaBloqueada(l)) return;
+          if (l.ativa === false || R.lojaBloqueada(l) || l.amostra === true) return;
           if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: 0, abertas: 0 };
           mapa[l.cidadeSlug].lojas++;
           if (R.lojaAberta(l)) mapa[l.cidadeSlug].abertas++;
@@ -814,23 +814,29 @@
         el('span', { class: 'video-loja-play' }, [el('span', { class: 'video-loja-bolinha', 'aria-hidden': 'true' }, [UI.iconeLinha('tocar')]), 'Assistir']),
       ]));
     }
-    /* capa: a mesma da vitrine, no lugar do preto enquanto o video carrega */
+    /* o player em tela cheia (UI.tocarVideo, o mesmo da Loja do Ligeiro) com o PEDIR AGORA embaixo, fora do video.
+       Loja fechada: o botao leva ao cardapio (da para ver, so nao da para pedir agora) */
     function tocarVideoDaLoja(src, titulo, capa) {
-      var fundo = el('div', { class: 'srv-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Vídeo da loja' });
-      var video = el('video', { src: src, autoplay: true, playsinline: true, controls: true, preload: 'auto', poster: capa || null });
-      var tecla = function (e) { if (e.key === 'Escape') fechar(); };
-      function fechar() { try { video.pause(); } catch (_) { /* ja parou */ } if (fundo.parentNode) fundo.parentNode.removeChild(fundo); document.removeEventListener('keydown', tecla); UI.travarRolagem('video', false); }
-      fundo.appendChild(video);
-      fundo.appendChild(el('button', { class: 'srv-player-fechar', type: 'button', 'aria-label': 'Fechar o vídeo', onclick: fechar }, [UI.iconeLinha('fechar')]));
-      fundo.appendChild(el('div', { class: 'srv-player-rodape' }, [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'PEDIR AGORA', onclick: function () { fechar(); var b = $('btnComecar'); if (b && !b.disabled) b.click(); } })]));
-      document.body.appendChild(fundo);
-      document.addEventListener('keydown', tecla);
-      UI.travarRolagem('video', true);
+      var aberta = !!($('btnComecar') && !$('btnComecar').disabled);
+      UI.tocarVideo({ src: src, titulo: titulo, capa: capa, botao: {
+        texto: aberta ? (($('btnComecarForte') || {}).textContent || 'PEDIR AGORA') : 'VER O CARDÁPIO',
+        acao: function () { var b = $(aberta ? 'btnComecar' : 'btnCardapio'); if (b && !b.disabled) b.click(); },
+      } });
+    }
+
+    /* amostra fora do Google (a pagina da loja nao entra na busca enquanto for amostra) */
+    function marcarForaDaBusca(sim) {
+      var m = document.querySelector('meta[name="robots"][data-amostra]');
+      if (sim && !m) document.head.appendChild(el('meta', { name: 'robots', content: 'noindex', 'data-amostra': '1' }));
+      if (!sim && m) m.parentNode.removeChild(m);
     }
 
     function montarInicio() {
       var l = estado.loja;
-      document.title = l.nome + ' · Ligeiro';
+      document.title = (l.amostra === true ? 'Amostra · ' : '') + l.nome + ' · Ligeiro';
+      /* amostra: a faixa em cima de todas as telas e fora da busca do Google */
+      if ($('faixaAmostra')) $('faixaAmostra').hidden = l.amostra !== true;
+      marcarForaDaBusca(l.amostra === true);
       if (!balcao && window.LigeiroApp && window.LigeiroApp.manifestDaLoja) window.LigeiroApp.manifestDaLoja((l.cidadeSlug || 'loja') + '/' + l.slug, l.nome);
       var logo = $('logoLoja');
       UI.limpar(logo);
@@ -1790,6 +1796,17 @@
         estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
+        return;
+      }
+      /* amostra (loja montada pelo Ligeiro para apresentar ao dono): tudo funciona ate aqui, mas o pedido nao sai */
+      if (estado.loja && estado.loja.amostra === true) {
+        estado.enviandoPedido = false;
+        botao.disabled = false;
+        atualizarBotaoPagar();
+        UI.abrirModal({ titulo: 'Esta loja é uma amostra', corpo: el('div', { class: 'pilha' }, [
+          el('p', { text: 'Ela foi montada pelo Ligeiro para apresentação e ainda não recebe pedidos.' }),
+          el('p', { class: 'muted', text: 'Quando a loja for ativada, o pedido chega na hora no painel e o cliente paga no Pix ou no cartão, como você acabou de ver.' }),
+        ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: function () { UI.fecharModal(); } })] });
         return;
       }
       /* banco no limite de hoje (a borda avisou, ou o banco ja recusou antes): o pedido vai pronto pelo WhatsApp */
@@ -3087,6 +3104,7 @@
 
   function esqueletoDaLoja(balcao) {
     return '' +
+    '<div class="faixa-teste faixa-amostra" id="faixaAmostra" role="note" hidden>AMOSTRA: esta loja ainda não recebe pedidos</div>' +
     '<button class="faixa-acompanhar" id="faixaAcompanhar" hidden>' + UI.iconeHtml('recibo') + '<span class="faixa-texto" id="faixaTexto"></span><span class="faixa-qtd" id="faixaQtd"></span><span class="seta">' + UI.iconeHtml('avancar') + '</span></button>' +
 
     '<section class="tela ativa" id="tela-inicio">' +

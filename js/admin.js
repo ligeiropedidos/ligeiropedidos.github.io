@@ -22,7 +22,7 @@
   function din(v) { return R.dinheiro(v).replace(/ /g, '\u00A0'); }
   /* aba: chave, nome no PC, icone e nome curto do celular (no celular as cinco numa linha, como as abas do painel) */
   var ABAS = [['geral', 'Visão geral', 'vendas', 'Geral'], ['lojas', 'Lojas', 'loja', 'Lojas'], ['contas', 'Assinaturas', 'dinheiro', 'Contas'], ['contatos', 'Contatos', 'telefone', 'Contatos'], ['servicos', 'Loja do Ligeiro', 'retirada', 'Serviços'], ['ferramentas', 'Ferramentas', 'ferramenta', 'Mais']];
-  var FILTROS_LOJAS = [['todas', 'Todas'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['desativadas', 'Desativadas'], ['verificadas', 'Verificadas']];
+  var FILTROS_LOJAS = [['todas', 'Todas'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['desativadas', 'Desativadas'], ['verificadas', 'Verificadas'], ['amostras', 'Amostras']];
   var FILTROS_CONTAS = [['todas', 'Todas'], ['avisos', 'Avisaram pagamento'], ['pagando', 'Pagando'], ['teste', 'Teste'], ['vencidas', 'Vencidas'], ['pausadas', 'Pausadas'], ['fundadores', 'Fundadores']];
   var FILTROS_CONTATOS = [['pendentes', 'Para chamar'], ['chamados', 'Já chamados'], ['todos', 'Todos']];
 
@@ -84,6 +84,7 @@
   /* situacao da assinatura em palavra curta (selo), cor do selo e a data (linha de apoio) */
   function situacao(a, loja) {
     if (loja && loja.ativa === false) return { texto: 'Desativada', tom: 'cinza', data: 'fora do site' };
+    if (loja && loja.amostra === true) return { texto: 'Amostra', tom: 'laranja', data: 'não recebe pedidos' };
     var ate = a.limite ? dataBR(a.limite) : '';
     if (a.estado === 'ativa') {
       if (a.ligeiro) return { texto: 'Do Ligeiro', tom: '', data: 'sem vencimento' };
@@ -723,7 +724,8 @@
       if (f === 'todas') return true;
       if (f === 'desativadas') return l.ativa === false;
       if (f === 'verificadas') return l.verificada === true;
-      if (l.ativa === false) return false;
+      if (f === 'amostras') return l.amostra === true && l.ativa !== false;
+      if (l.ativa === false || l.amostra === true) return false; /* amostra nao paga nem esta em teste: so no filtro dela */
       var a = R.assinatura(l);
       if (f === 'pagando') return pagando(a);
       if (f === 'teste') return a.estado === 'gratis';
@@ -1185,6 +1187,113 @@
       });
     }
 
+    /* ============================================================
+     * Amostra: loja montada pelo Ligeiro (na conta do Ligeiro) para apresentar a um dono que ainda nao fechou.
+     * O site mostra a faixa AMOSTRA e nao deixa o pedido sair. Daqui: colar o cardapio pronto e, quando o dono
+     * fechar, entregar a loja para o e-mail do Google dele (a faixa some e os dias gratis comecam no dia).
+     * ========================================================== */
+    function blocoAmostra(l, marca, trava) {
+      return el('div', { class: 'adm-caixa adm-amostra' }, [
+        el('div', { class: 'adm-textos' }, [
+          el('b', { text: 'Esta loja é uma amostra' }),
+          el('span', { class: 'muted', text: 'Mande o link para o dono ver. O site mostra a faixa AMOSTRA e o pedido não sai. Quando ele fechar, entregue a loja para o e-mail do Google dele.' }),
+        ]),
+        el('div', { class: 'adm-amostra-botoes' }, [
+          el('button', { class: 'btn btn-fantasma', type: 'button', onclick: function () { colarCardapio(l, marca, trava); } }, [UI.iconeLinha('cardapio'), 'Colar cardápio']),
+          el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { entregarAmostra(l, marca, trava); } }, [UI.iconeLinha('presente'), 'Entregar ao cliente']),
+        ]),
+      ]);
+    }
+
+    /* cardapio colado (o texto que o Ligeiro prepara): confere tudo antes de gravar e devolve so os campos do cardapio */
+    function lerCardapioColado(texto) {
+      var lim = (window.LIGEIRO_CONFIG || {}).limites || { categorias: 20, itens: 300, grupos: 30, opcoes: 30 };
+      var x;
+      try { x = JSON.parse(String(texto || '').trim()); } catch (_) { throw new Error('O texto colado não é um cardápio. Copie de novo o texto inteiro que o Ligeiro mandou.'); }
+      var ID = /^[a-z0-9][a-z0-9-]{0,39}$/i;
+      var txt = function (v, max) { return typeof v === 'string' && v.trim().length > 0 && v.length <= max; };
+      var preco = function (v) { return typeof v === 'number' && Math.floor(v) === v && v >= 0 && v <= 1000000; };
+      if (!x || !Array.isArray(x.categorias) || !Array.isArray(x.produtos)) throw new Error('Faltam as categorias ou os itens no texto colado.');
+      if (!x.categorias.length || x.categorias.length > lim.categorias) throw new Error('O cardápio precisa ter de 1 a ' + lim.categorias + ' categorias.');
+      if (!x.produtos.length || x.produtos.length > lim.itens) throw new Error('O cardápio precisa ter de 1 a ' + lim.itens + ' itens.');
+      var cats = {}, ids = {};
+      var categorias = x.categorias.map(function (c) {
+        if (!c || !ID.test(c.id) || cats[c.id] || !txt(c.nome, 40)) throw new Error('Categoria com problema: ' + JSON.stringify(c).slice(0, 60));
+        cats[c.id] = true;
+        return { id: c.id, nome: c.nome.trim(), emoji: typeof c.emoji === 'string' ? c.emoji.slice(0, 8) : '' };
+      });
+      var produtos = x.produtos.map(function (p, i) {
+        if (!p || !ID.test(p.id) || ids[p.id] || !cats[p.categoria] || !txt(p.nome, 80) || !preco(p.preco)) throw new Error('Item com problema: ' + JSON.stringify(p).slice(0, 60));
+        ids[p.id] = true;
+        return { id: p.id, categoria: p.categoria, nome: p.nome.trim(), descricao: typeof p.descricao === 'string' ? p.descricao.trim().slice(0, 300) : '', preco: p.preco,
+          emoji: typeof p.emoji === 'string' ? p.emoji.slice(0, 8) : '', ingredientes: Array.isArray(p.ingredientes) ? p.ingredientes.filter(function (s) { return txt(s, 40); }).slice(0, 20) : [], ativo: true, ordem: i };
+      });
+      var grupos = {}, gx = x.grupos && typeof x.grupos === 'object' ? x.grupos : {};
+      if (Object.keys(gx).length > lim.grupos) throw new Error('Grupos de opções demais: o limite é ' + lim.grupos + '.');
+      Object.keys(gx).forEach(function (k) {
+        var g = gx[k];
+        if (!ID.test(k) || !g || !txt(g.titulo, 60) || (g.tipo !== 'unico' && g.tipo !== 'varios') || !Array.isArray(g.opcoes) || !g.opcoes.length || g.opcoes.length > lim.opcoes) throw new Error('Grupo de opções com problema: ' + k);
+        var vistos = {};
+        grupos[k] = { titulo: g.titulo.trim(), tipo: g.tipo, opcoes: g.opcoes.map(function (o) {
+          if (!o || !ID.test(o.id) || vistos[o.id] || !txt(o.nome, 60) || !preco(o.preco || 0)) throw new Error('Opção com problema no grupo ' + k + ': ' + JSON.stringify(o).slice(0, 50));
+          vistos[o.id] = true;
+          var op = { id: o.id, nome: o.nome.trim(), preco: o.preco || 0, ativo: true };
+          if (o.padrao === true) op.padrao = true;
+          if (typeof o.descricao === 'string' && o.descricao.trim()) op.descricao = o.descricao.trim().slice(0, 80);
+          return op;
+        }) };
+        if (g.tipo === 'varios' && typeof g.max === 'number' && g.max >= 1) grupos[k].max = Math.min(Math.floor(g.max), grupos[k].opcoes.length);
+      });
+      var porCategoria = {};
+      categorias.forEach(function (c) {
+        var lista = x.gruposPorCategoria && Array.isArray(x.gruposPorCategoria[c.id]) ? x.gruposPorCategoria[c.id] : [];
+        lista.forEach(function (g) { if (!grupos[g]) throw new Error('A categoria ' + c.nome + ' usa um grupo que não existe: ' + g); });
+        porCategoria[c.id] = lista.slice();
+      });
+      return { categorias: categorias, produtos: produtos, grupos: grupos, gruposPorCategoria: porCategoria };
+    }
+
+    function colarCardapio(l, marca, trava) {
+      var campo = el('textarea', { rows: 8, placeholder: 'Cole aqui o texto do cardápio que o Ligeiro preparou', spellcheck: 'false', style: { width: '100%', fontFamily: 'monospace', fontSize: '13px' } });
+      var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
+      UI.abrirModal({ titulo: 'Colar cardápio', corpo: el('div', { class: 'pilha' }, [
+        el('p', { class: 'muted', text: 'Troca as categorias, os itens e as opções de ' + l.nome + ' pelo cardápio colado. Fotos, logo e cores continuam como estão (as fotos dos itens entram pelo painel).' }),
+        campo, erro,
+      ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Conferir e trocar', onclick: function () {
+        var novo;
+        try { novo = lerCardapioColado(campo.value); } catch (e) { erro.textContent = e.message; erro.hidden = false; return; }
+        erro.hidden = true;
+        var grupos = Object.keys(novo.grupos).length;
+        UI.perguntar('Trocar o cardápio de ' + l.nome + ' por ' + novo.categorias.length + (novo.categorias.length === 1 ? ' categoria, ' : ' categorias, ') + novo.produtos.length + (novo.produtos.length === 1 ? ' item' : ' itens') + (grupos ? ' e ' + grupos + (grupos === 1 ? ' grupo de opções' : ' grupos de opções') : '') + '? O cardápio de agora sai.', { titulo: 'Trocar o cardápio?', sim: 'Trocar' }).then(function (sim) {
+          if (!sim) { reabrir(marca); return; }
+          executar(trava, marca, function () { return store.salvarLoja(Object.assign({ slug: l.slug }, novo)); }, 'Cardápio de ' + l.nome + ' trocado');
+        });
+      } })] });
+      setTimeout(function () { campo.focus(); }, 60);
+    }
+
+    function entregarAmostra(l, marca, trava) {
+      if (trava.ocupado) { avisarOcupado(trava); return; }
+      var email = el('input', { type: 'email', maxlength: 80, placeholder: 'email.do.dono@gmail.com', autocomplete: 'off', inputmode: 'email' });
+      var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
+      var passos = el('ul', { class: 'termos-resumo' }, [
+        'A loja passa para a conta do Google deste e-mail, com cardápio, fotos e link iguais.',
+        'A faixa AMOSTRA some na hora e os pedidos passam a sair.',
+        'Os ' + ((((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis) || 7) + ' dias grátis começam hoje.',
+        'Ele entra no painel com o Google e conecta o Mercado Pago dele.',
+      ].map(function (t) { return el('li', { text: t }); }));
+      UI.abrirModal({ titulo: 'Entregar ' + l.nome, corpo: el('div', { class: 'pilha' }, [
+        D.modoDemo ? null : el('div', { class: 'campo' }, [el('label', { text: 'E-mail do Google do dono' }), email]),
+        erro, passos,
+      ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entregar a loja', onclick: function () {
+        var e = D.modoDemo ? 'dono@demonstracao.com' : email.value.trim().toLowerCase();
+        if (!D.modoDemo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { erro.textContent = 'Confira o e-mail do dono.'; erro.hidden = false; return; }
+        erro.hidden = true;
+        executar(trava, marca, function () { return store.entregarAmostra(l.slug, e); }, function () { return l.nome + ' entregue' + (D.modoDemo ? '' : ' para ' + e) + '. Mande o link do painel para ele.'; });
+      } })] });
+      setTimeout(function () { if (!D.modoDemo) email.focus(); }, 60);
+    }
+
     function abrirLoja(slug) {
       var l = acharLoja(slug);
       if (!l) { UI.avisar('Loja não encontrada. Toque em Atualizar.'); return; }
@@ -1205,6 +1314,8 @@
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(linkLoja).then(function () { UI.avisar('Link copiado'); }); } }, [UI.iconeLinha('copiar'), 'Copiar']),
       ]));
       if (!l.donoEmail && plano.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(plano.avisoValor || 0) + ' em ' + dataBR(plano.avisoPagamentoEm) + '. Confira no banco e confirme.'));
+
+      if (l.amostra === true) corpo.appendChild(blocoAmostra(l, marca, trava));
 
       corpo.appendChild(el('h3', { text: 'Dados' }));
       var cat = R.catalogo(l);
@@ -1508,7 +1619,17 @@
         : campo('E-mail do dono (login do painel)', '', { max: 80, tipo: 'email', ajuda: 'O dono entra com o Google deste e-mail.' });
       var modeloSel = el('select', {}, MODELOS.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
       f.modelo = el('div', { class: 'campo largo' }, [el('label', { text: 'Começar com que cardápio?' }), el('p', { class: 'ajuda', text: 'O modelo vem com categorias, itens e adicionais típicos. Depois é só ajustar nome e preço no painel.' }), modeloSel]);
-      var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.cidade, f.whatsapp, f.senha, f.modelo]);
+      /* amostra: a loja nasce na conta do Ligeiro, sem o e-mail do dono (ele ainda nao fechou). Entrega depois, na ficha */
+      var chaveAmostra = el('button', { class: 'chave', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'É uma amostra' });
+      chaveAmostra.ligado = false;
+      chaveAmostra.addEventListener('click', function () {
+        chaveAmostra.ligado = !chaveAmostra.ligado;
+        chaveAmostra.classList.toggle('on', chaveAmostra.ligado);
+        chaveAmostra.setAttribute('aria-checked', chaveAmostra.ligado ? 'true' : 'false');
+        if (!D.modoDemo) f.senha.hidden = chaveAmostra.ligado;
+      });
+      f.amostra = el('div', { class: 'interruptor largo' }, [el('div', { class: 'texto' }, ['É uma amostra', el('small', { text: 'Para mostrar a um dono que ainda não fechou. Fica na conta do Ligeiro, com a faixa AMOSTRA, e não recebe pedidos.' })]), chaveAmostra]);
+      var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.cidade, f.whatsapp, f.amostra, f.senha, f.modelo]);
 
       UI.abrirModal({ titulo: 'Cadastrar estabelecimento', corpo: corpo, rodape: [el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Cadastrar', onclick: function () {
         var nome = f.nome.input.value.trim();
@@ -1520,10 +1641,11 @@
           cidade: (f.cidade.valor() || { nome: 'Juquiá', uf: 'SP' }).nome, uf: (f.cidade.valor() || { nome: 'Juquiá', uf: 'SP' }).uf,
           whatsapp: f.whatsapp.input.value.replace(/\D/g, ''),
           senhaPainel: D.modoDemo ? (f.senha.input.value.trim() || '1234') : undefined,
-          donoEmail: D.modoDemo ? undefined : f.senha.input.value.trim().toLowerCase(),
+          donoEmail: D.modoDemo ? undefined : (chaveAmostra.ligado ? String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase() : f.senha.input.value.trim().toLowerCase()),
           aceitaPix: false, mpAtivo: false,
           categorias: [], produtos: [], grupos: {}, gruposPorCategoria: {},
         };
+        if (chaveAmostra.ligado) dadosLoja.amostra = true;
         var modelo = modeloSel.value;
         if (modelo !== 'vazio' && window.LigeiroSeed) {
           var base = window.LigeiroSeed().lojas[modelo];
@@ -1577,7 +1699,7 @@
     function mostrarLinks(loja) {
       estado.ficha = null;
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-        el('p', { text: 'Pronto! Entregue estes dois links para o dono:' }),
+        el('p', { text: loja.amostra === true ? 'Amostra pronta. Monte o cardápio (Colar cardápio, na ficha) e mande o link do cardápio para o dono ver. O painel é o seu, com o login do Ligeiro.' : 'Pronto! Entregue estes dois links para o dono:' }),
         el('div', {}, [el('b', { text: 'Cardápio (para o cliente)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDaLoja(loja)))]),
         el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDoPainel(loja))), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
       ]);

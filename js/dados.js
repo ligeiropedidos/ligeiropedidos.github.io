@@ -101,7 +101,7 @@
       tempoEntrega: l.tempoEntrega || 40, tempoPreparo: l.tempoPreparo || 20,
       aceitaEntrega: l.aceitaEntrega !== false, aceitaRetirada: l.aceitaRetirada !== false,
       freteGratis: !!l.freteGratis, taxaEntrega: l.taxaEntrega || 0, entregaGratisAcima: l.entregaGratisAcima || 0,
-      plano: l.plano || null, ativa: l.ativa !== false, verificada: l.verificada === true, criadoEm: l.criadoEm || '',
+      plano: l.plano || null, ativa: l.ativa !== false, verificada: l.verificada === true, criadoEm: l.criadoEm || '', amostra: l.amostra === true,
       categorias: (l.categorias || []).map(function (c) { return { id: c.id, nome: c.nome, ativa: c.ativa !== false }; }),
       produtos: ativos.slice(0, 40).map(function (p) { return { id: p.id, nome: p.nome, categoria: p.categoria, ativo: true }; }),
       atualizadoEm: agoraISO(),
@@ -376,7 +376,7 @@
     var mapa = {};
     Object.keys(db.lojas).forEach(function (slug) {
       var l = db.lojas[slug];
-      if (l.ativa === false || R.lojaBloqueada(l)) return;
+      if (l.ativa === false || R.lojaBloqueada(l) || l.amostra === true) return; /* amostra: so quem tem o link ve */
       var k = l.cidadeSlug;
       if (!mapa[k]) mapa[k] = { slug: k, nome: l.cidade, uf: l.uf || '', lojas: 0 };
       mapa[k].lojas += 1;
@@ -388,7 +388,7 @@
   DemoStore.prototype.listarLojas = function (cidadeSlug) {
     var db = this._ler();
     var lista = Object.keys(db.lojas).map(function (s) { return db.lojas[s]; })
-      .filter(function (l) { return l.ativa !== false && (!cidadeSlug || l.cidadeSlug === cidadeSlug); })
+      .filter(function (l) { return l.ativa !== false && l.amostra !== true && (!cidadeSlug || l.cidadeSlug === cidadeSlug); })
       .map(clonar)
       .sort(function (a, b) { return a.nome.localeCompare(b.nome); });
     return Promise.resolve(lista);
@@ -461,6 +461,51 @@
     if (R.ehDoLigeiro({ email: email })) { espelho.status = 'ativo'; espelho.pagoAte = ''; espelho.avisoPagamentoEm = ''; espelho.avisoValor = 0; }
     return espelho;
   }
+
+  /* ---- Amostra: loja montada pelo Ligeiro (na conta do Ligeiro) para apresentar a um dono ----
+     Entregar: a loja passa para a conta do Google do dono, com cardapio, fotos e link iguais, e deixa de ser amostra
+     (a faixa some e os pedidos passam a sair). Os dias gratis comecam no dia da entrega. Recusa se o e-mail ja tem
+     loja (uma por conta) e se a amostra estiver com o Mercado Pago ligado (o dinheiro cairia na conta errada) */
+  function conferirEntrega(loja, email, minhas) {
+    if (!loja) throw erroPublico('Não achamos essa loja.');
+    if (loja.amostra !== true) throw erroPublico('Esta loja não é uma amostra.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw erroPublico('Confira o e-mail do dono.');
+    var admin = String(((window.LIGEIRO_CONFIG || {}).adminEmail) || '').toLowerCase();
+    if ((admin && email === admin) || R.ehDoLigeiro({ email: email })) throw erroPublico('Use o e-mail do Google do dono, não o do Ligeiro.');
+    if (loja.mpAtivo) throw erroPublico('Desconecte o Mercado Pago da amostra antes de entregar (em Ajustes, no painel dela): senão o dinheiro dos pedidos cairia na conta errada.');
+    var dele = (minhas || []).filter(function (l) { return l.slug !== loja.slug && l.ativa !== false && String(l.donoEmail || '').toLowerCase() === email; });
+    if (dele.length) throw erroPublico('O e-mail ' + email + ' já tem uma loja (' + (dele[0].nome || dele[0].slug) + '). Cada conta tem uma loja só.');
+  }
+  /* o plano da conta do dono: conta nova ou ainda no teste ganha os dias gratis contando de hoje */
+  function planoDaEntrega(conta) {
+    var p = (conta && conta.plano) || {};
+    if (p.status && p.status !== 'teste') return p;
+    return Object.assign({ planoId: 'uma', tipo: 'mensal' }, p, { status: 'teste', desde: agoraISO() });
+  }
+  DemoStore.prototype.entregarAmostra = function (slug, email) {
+    var e = String(email || '').trim().toLowerCase();
+    var eu = this;
+    var db = this._ler();
+    var loja = db.lojas[slug];
+    return this.listarMinhasLojas(e).then(function (minhas) {
+      conferirEntrega(loja, e, minhas);
+      var plano = planoDaEntrega((db.contas || {})[e]);
+      return eu.salvarConta(e, { plano: plano }).then(function () {
+        return eu.salvarLoja({ slug: slug, amostra: false, plano: planoDaLoja(e, plano) });
+      });
+    });
+  };
+  FirebaseStore.prototype.entregarAmostra = function (slug, email) {
+    var e = String(email || '').trim().toLowerCase();
+    var eu = this;
+    return Promise.all([this.obterLoja(slug), this.listarMinhasLojas(e), this.obterConta(e)]).then(function (r) {
+      conferirEntrega(r[0], e, r[1]);
+      var plano = planoDaEntrega(r[2]);
+      return eu.salvarConta(e, { plano: plano }).then(function () {
+        return eu.salvarLoja({ slug: slug, donoEmail: e, amostra: false, plano: planoDaLoja(e, plano) });
+      }).then(function () { return eu.publicarLoja(slug, { agora: true }); });
+    });
+  };
 
   /* ---- Central: Pagou, Desfazer, Pausar, Reativar e Tornar fundador ----
      Contas puras (sem banco). O mudarConta chama dentro da transacao, com a conta e o contador de fundadores lidos na
@@ -1688,7 +1733,7 @@
     return this.listarVitrine().then(function (lojas) {
       var mapa = {};
       lojas.forEach(function (l) {
-        if (l.ativa === false || R.lojaBloqueada(l)) return;
+        if (l.ativa === false || R.lojaBloqueada(l) || l.amostra === true) return; /* amostra: so quem tem o link ve */
         if (!mapa[l.cidadeSlug]) mapa[l.cidadeSlug] = { slug: l.cidadeSlug, nome: l.cidade, uf: l.uf || '', lojas: 0 };
         mapa[l.cidadeSlug].lojas += 1;
       });
@@ -1698,7 +1743,7 @@
 
   FirebaseStore.prototype.listarLojas = function (cidadeSlug) {
     return this.listarVitrine().then(function (lojas) {
-      return lojas.filter(function (l) { return l.ativa !== false && (!cidadeSlug || l.cidadeSlug === cidadeSlug); });
+      return lojas.filter(function (l) { return l.ativa !== false && l.amostra !== true && (!cidadeSlug || l.cidadeSlug === cidadeSlug); });
     });
   };
 

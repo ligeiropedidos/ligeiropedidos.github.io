@@ -230,6 +230,124 @@
       raiz.style.removeProperty('--trava');
     }
   }
+  /* Player de video em tela cheia (site da loja e Loja do Ligeiro), no jeito dos Stories: sem a barra do navegador por
+     cima do video. Tocar no video pausa e continua (parado aparece o play no meio; no fim, assistir de novo), uma linha
+     fina de progresso na borda de baixo, o som ao lado do X. Fundo com a capa desfocada; em cima o nome, no meio o video
+     inteiro (a largura vem da proporcao dele) e, se vier o "botao", ele embaixo na largura do video. O "voltar" do
+     celular fecha o video em vez de sair da pagina; o foco volta para onde estava. Devolve a funcao que fecha.
+     o: { src, titulo, capa, botao: { texto, acao } } */
+  var fecharVideoAberto = null;
+  function fecharVideo() { if (fecharVideoAberto) fecharVideoAberto(); }
+  function tocarVideo(o) {
+    fecharVideo();
+    var antes = document.activeElement;
+    var tema = (($('modal') || {}).className || '').match(/tema-[a-z0-9-]+/g) || [];
+    var fundo = el('div', { class: ['player'].concat(tema).join(' '), role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo || 'Vídeo' });
+    var video = el('video', { class: 'player-video', src: o.src, playsinline: true, 'webkit-playsinline': true, preload: 'auto', poster: o.capa || null });
+    var sinal = el('span', { class: 'player-sinal', 'aria-hidden': 'true' });
+    var barra = el('span', { class: 'player-progresso-barra' });
+    var quadro = el('button', { class: 'player-quadro', type: 'button', 'aria-label': 'Pausar o vídeo' }, [video, sinal, el('span', { class: 'player-progresso', 'aria-hidden': 'true' }, [barra])]);
+    var palco = el('div', { class: 'player-palco' }, [quadro]);
+    var rodape = o.botao ? el('div', { class: 'player-rodape' }, [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: o.botao.texto, onclick: function () { fechar(); if (o.botao.acao) o.botao.acao(); } })]) : null;
+    var botaoSom = el('button', { class: 'player-botao', type: 'button', onclick: function () { video.muted = !video.muted; pintarSom(); } });
+    var botaoFechar = el('button', { class: 'player-botao', type: 'button', 'aria-label': 'Fechar o vídeo', onclick: fechar }, [iconeLinha('fechar')]);
+    var fechou = false, doVoltar = false, carregando = true;
+    /* proporcao: a da capa ate o video contar a dele; sem nenhuma das duas, em pe (os videos das lojas sao para o celular) */
+    var proporcao = 9 / 16;
+    function ajustar() {
+      var a = palco.getBoundingClientRect();
+      var cs = getComputedStyle(palco);
+      var largura = a.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      var altura = a.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      if (largura <= 0 || altura <= 0) return;
+      var w = Math.min(largura, altura * proporcao);
+      quadro.style.width = Math.floor(w) + 'px';
+      quadro.style.height = Math.floor(w / proporcao) + 'px';
+      if (rodape) rodape.style.maxWidth = Math.max(Math.floor(w), Math.min(280, largura)) + 'px';
+    }
+    /* o sinal no meio: girando enquanto carrega, play quando parado, assistir de novo no fim, nada tocando */
+    function pintar() {
+      if (fechou) return;
+      var parado = !carregando && (video.paused || video.ended);
+      quadro.classList.toggle('carregando', carregando);
+      quadro.classList.toggle('parado', parado);
+      limpar(sinal);
+      if (carregando) sinal.appendChild(el('span', { class: 'girando' }));
+      else if (video.ended) sinal.appendChild(iconeLinha('atualizar'));
+      else if (video.paused) sinal.appendChild(el('span', { class: 'player-tocar' }, [iconeLinha('tocar')]));
+      quadro.setAttribute('aria-label', video.ended ? 'Assistir de novo' : video.paused ? 'Continuar o vídeo' : 'Pausar o vídeo');
+    }
+    function pintarSom() {
+      limpar(botaoSom);
+      botaoSom.appendChild(iconeLinha(video.muted ? 'mudo' : 'som'));
+      botaoSom.setAttribute('aria-label', video.muted ? 'Ligar o som' : 'Tirar o som');
+    }
+    /* com som quando o navegador deixa (a pessoa tocou em Assistir); se ele recusar, tenta sem som e mostra o som desligado */
+    function tocar() {
+      var p = video.play();
+      if (!p || !p.catch) return;
+      p.catch(function () {
+        if (fechou) return;
+        if (!video.muted) { video.muted = true; pintarSom(); var q = video.play(); if (q && q.catch) q.catch(function () { carregando = false; pintar(); }); return; }
+        carregando = false; pintar();
+      });
+    }
+    function alternar() {
+      if (video.ended) { video.currentTime = 0; tocar(); return; }
+      if (video.paused) tocar(); else video.pause();
+    }
+    function tecla(e) { if (e.key === 'Escape') fechar(); }
+    function voltou() { doVoltar = true; fechar(); }
+    function fechar() {
+      if (fechou) return;
+      fechou = true;
+      if (fecharVideoAberto === fechar) fecharVideoAberto = null;
+      try { video.pause(); video.removeAttribute('src'); video.load(); } catch (_) { /* ja parou */ }
+      if (fundo.parentNode) fundo.parentNode.removeChild(fundo);
+      document.removeEventListener('keydown', tecla);
+      window.removeEventListener('resize', ajustar);
+      window.removeEventListener('popstate', voltou);
+      travarRolagem('video', false);
+      /* fechou pelo X, pelo Esc ou pelo botao: tira o passo que o video pos no historico */
+      if (!doVoltar && history.state && history.state.videoAberto) { try { history.back(); } catch (_) { /* sem historico */ } }
+      if (antes && antes.focus) { try { antes.focus({ preventScroll: true }); } catch (_) { /* saiu da tela */ } }
+    }
+    if (o.capa) {
+      fundo.appendChild(el('div', { class: 'player-fundo', 'aria-hidden': 'true' }, [el('img', { src: o.capa, alt: '', onload: function () {
+        if (this.naturalWidth && this.naturalHeight && !video.videoWidth) { proporcao = this.naturalWidth / this.naturalHeight; ajustar(); }
+      } })]));
+    }
+    fundo.appendChild(el('div', { class: 'player-topo' }, [el('span', { class: 'player-nome', text: o.titulo || '' }), el('div', { class: 'player-acoes' }, [botaoSom, botaoFechar])]));
+    fundo.appendChild(palco);
+    if (rodape) fundo.appendChild(rodape); else fundo.classList.add('sem-botao');
+    quadro.addEventListener('click', alternar);
+    video.addEventListener('loadedmetadata', function () { if (video.videoWidth && video.videoHeight) { proporcao = video.videoWidth / video.videoHeight; ajustar(); } });
+    video.addEventListener('waiting', function () { carregando = true; pintar(); });
+    video.addEventListener('playing', function () { carregando = false; pintar(); });
+    video.addEventListener('canplay', function () { if (carregando && video.paused) { carregando = false; pintar(); } });
+    video.addEventListener('pause', pintar);
+    video.addEventListener('ended', pintar);
+    video.addEventListener('volumechange', pintarSom);
+    video.addEventListener('timeupdate', function () { barra.style.width = (video.duration ? Math.min(100, video.currentTime / video.duration * 100) : 0) + '%'; });
+    /* internet caiu ou o arquivo sumiu: diz o que houve no lugar do video (o botao continua) */
+    video.addEventListener('error', function () {
+      if (fechou || !video.getAttribute('src')) return;
+      botaoSom.hidden = true;
+      palco.replaceChild(el('div', { class: 'player-erro', role: 'alert' }, [el('b', { text: 'Não deu para carregar o vídeo agora' }), el('span', { text: 'Confira a internet e tente de novo daqui a pouco.' })]), quadro);
+    });
+    pintarSom();
+    pintar();
+    document.body.appendChild(fundo);
+    ajustar();
+    document.addEventListener('keydown', tecla);
+    window.addEventListener('resize', ajustar);
+    try { history.pushState({ videoAberto: true }, '', location.href); window.addEventListener('popstate', voltou); } catch (_) { /* sem historico */ }
+    travarRolagem('video', true);
+    tocar();
+    try { botaoFechar.focus({ preventScroll: true }); } catch (_) { botaoFechar.focus(); }
+    fecharVideoAberto = fechar;
+    return fechar;
+  }
   /* largura da barra de rolagem do corpo (0 no celular), pro CSS descontar do padding da direita */
   function medirBarraDoModal() {
     var caixa = $('modalCaixa');
@@ -861,6 +979,8 @@
     cadeado: '<rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/>', /* do alto da alca (4) ao pe (20): o meio no 12 */
     cupom: '<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14.5 6.5v2"/><path d="M14.5 11v2"/><path d="M14.5 15.5v2"/>',
     sino: '<g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g>',
+    som: '<path d="M3.5 9.5h3l5-4v13l-5-4h-3z"/><path d="M15 9.2a4 4 0 0 1 0 5.6"/><path d="M17.8 6.5a8 8 0 0 1 0 11"/>',
+    mudo: '<path d="M3.5 9.5h3l5-4v13l-5-4h-3z"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>',
     semsino: '<g transform="translate(0 -1)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/></g>',
     celular: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/><path d="M3.5 9v6"/><path d="M20.5 9v6"/>',
     entrega: '<g transform="translate(0.1 -1.4)"><circle cx="6" cy="17" r="2.8"/><circle cx="18" cy="17" r="2.8"/><path d="M8.8 17h6.4"/><path d="M18 17 15.5 8h-2.5"/><path d="M15.9 9.6 11.5 14H8.8"/><rect x="3" y="7" width="6.5" height="5" rx="1.2"/></g>', /* o desenho vai de 7 a 19,8: sobe 1,4 para o meio cair no 12 */
@@ -927,7 +1047,7 @@
     $: $, el: el, limpar: limpar, ocupar: ocupar, caminho: caminho, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
-    abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem,
+    abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem, tocarVideo: tocarVideo, fecharVideo: fecharVideo,
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,

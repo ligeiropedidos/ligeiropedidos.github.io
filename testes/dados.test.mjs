@@ -286,5 +286,38 @@ console.log('Mercado Pago: leitura que falhou nunca apaga a conexao');
   ok(c && c.token === 'APP_USR-123', 'e a conexao aparece como conectada');
 }
 
+console.log('Amostra: fora da lista da cidade e entrega para o dono');
+{
+  const rel = relogio();
+  const n = navegador({ adminEmail: 'ligeiro.pedidos@gmail.com' }, rel);
+  const store = n.janela.LigeiroDados.store;
+  const base = { cidade: 'Juquiá', cidadeSlug: 'juquia', uf: 'SP', ativa: true, categorias: [], produtos: [], plano: { status: 'ativo' } };
+  n.janela.localStorage.setItem('ligeiro.demo.v3', JSON.stringify({ lojas: {
+    'amostra-teste': Object.assign({ slug: 'amostra-teste', nome: 'Amostra Teste', amostra: true }, base),
+    'amostra-mp': Object.assign({ slug: 'amostra-mp', nome: 'Amostra Com MP', amostra: true, mpAtivo: true }, base),
+    'loja-normal': Object.assign({ slug: 'loja-normal', nome: 'Loja Normal' }, base),
+  }, pedidos: {}, contas: {} }));
+  const lojas = await store.listarLojas('juquia');
+  ok(lojas.length === 1 && lojas[0].slug === 'loja-normal', 'a lista da cidade nao mostra a amostra');
+  const cidades = await store.listarCidades();
+  ok(cidades.length === 1 && cidades[0].lojas === 1, 'a cidade conta so a loja de verdade');
+  const vitrine = await store.listarVitrine();
+  ok(vitrine.some((l) => l.slug === 'amostra-teste' && l.amostra === true), 'o resumo da loja leva a marca de amostra (a borda repassa)');
+  const erro = async (slug, email) => { try { await store.entregarAmostra(slug, email); return ''; } catch (e) { return e.message; } };
+  ok(/não é uma amostra/.test(await erro('loja-normal', 'dono@gmail.com')), 'loja de verdade nao se entrega');
+  ok(/Mercado Pago/.test(await erro('amostra-mp', 'dono@gmail.com')), 'amostra com o Mercado Pago ligado nao se entrega (o dinheiro cairia na conta errada)');
+  ok(/não o do Ligeiro/.test(await erro('amostra-teste', 'ligeiro.pedidos@gmail.com')), 'o e-mail do Ligeiro nao recebe a amostra');
+  ok(/e-mail/.test(await erro('amostra-teste', 'sem-arroba')), 'e-mail torto e recusado');
+  const antes = Date.now();
+  await store.entregarAmostra('amostra-teste', ' Dono@Gmail.com ');
+  const db = JSON.parse(n.janela.localStorage.getItem('ligeiro.demo.v3'));
+  const l = db.lojas['amostra-teste'];
+  ok(l.amostra === false, 'entregue: deixa de ser amostra (a faixa some e o pedido sai)');
+  ok(l.plano && l.plano.status === 'teste' && new Date(l.plano.desde).getTime() >= antes - 1000, 'os dias gratis comecam no dia da entrega');
+  ok(db.contas && db.contas['dono@gmail.com'] && db.contas['dono@gmail.com'].plano.status === 'teste', 'a conta do dono nasce no teste, com o e-mail em minusculas');
+  const depois = await store.listarLojas('juquia');
+  ok(depois.some((x) => x.slug === 'amostra-teste'), 'e a loja entra na lista da cidade');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' ok' + (falhas ? ', ' + falhas + ' falharam' : ''));
 if (falhas) process.exit(1);

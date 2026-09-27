@@ -599,13 +599,25 @@
       return cartao;
     }
 
+    /* amostra: loja montada pelo Ligeiro para apresentar a um dono. Nao recebe pedidos, e o Mercado Pago e os avisos do
+       celular ficam desligados (o dinheiro e os apitos seriam de quem montou, nao do dono) */
+    function avisoAmostra() {
+      return el('div', { class: 'aviso-plano aviso-espera', role: 'note' }, [
+        el('span', { class: 'aviso-plano-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('loja')]),
+        el('span', { class: 'aviso-plano-texto' }, [
+          el('b', { text: 'Esta loja é uma amostra' }),
+          el('span', { text: 'O site mostra a faixa AMOSTRA e não recebe pedidos. Quando o dono fechar, entregue pela Central.' }),
+        ]),
+      ]);
+    }
+
     function desenharCabecaPedidos() {
       var s = $('secaoPainel');
       if (!s) return;
       var antigo = $('cabecaPedidos');
       var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' } }, [UI.iconeLinha('raio'), el('span', { text: estado.mpStatus })]) : null;
       /* equipe: sem assinatura, primeiros passos e interruptor da loja (so o dono mexe na loja) */
-      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]);
+      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : (estado.loja.amostra === true ? [avisoAmostra(), interruptorLoja()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]));
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
     }
 
@@ -613,7 +625,7 @@
     /* Cartao na aba Pedidos ate ligar (ou "Agora nao", que esconde por 7 dias). Depois some: Testar e Desligar ficam em Minha loja. */
     function cartaoAvisos() {
       var A = window.LigeiroAvisos;
-      if (!A || A.aparelhoLigado(slug, 'painel')) return null;
+      if (!A || A.aparelhoLigado(slug, 'painel') || estado.loja.amostra === true) return null;
       var sit = A.situacao();
       if (sit === 'sem' || (Number(UI.lerLocal('ligeiro:avisos-depois:' + slug)) || 0) > Date.now()) return null;
       var texto = sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá. Leva 20 segundos.'
@@ -2575,6 +2587,11 @@
           el('b', { text: 'Receba Pix e cartão pelo site' }),
           el('span', { class: 'muted pequeno', text: 'O pedido chega pago na cozinha. Ninguém confere comprovante, e print falso não passa.' }),
         ]));
+        /* amostra: o Mercado Pago e do dono, depois da entrega (conectado aqui, o dinheiro cairia na conta de quem montou) */
+        if (estado.loja.amostra === true) {
+          conexao.appendChild(el('p', { class: 'aviso', role: 'note', style: { fontSize: '14px' } }, [UI.iconeLinha('cadeado'), el('span', { text: 'Na amostra o Mercado Pago fica desligado. O dono conecta o dele depois que você entregar a loja pela Central.' })]));
+          return;
+        }
         conexao.appendChild(el('ol', { class: 'passos-conectar' }, [
           el('li', {}, [el('span', { class: 'numero', text: '1' }), el('span', {}, ['Toque em ', el('b', { text: 'Conectar Mercado Pago' })])]),
           el('li', {}, [el('span', { class: 'numero', text: '2' }), el('span', { text: 'Entre na sua conta do Mercado Pago (ou crie uma, grátis)' })]),
@@ -3108,6 +3125,7 @@
       var sit = A.situacao();
       var ligado = A.aparelhoLigado(slug, 'painel');
       if (sit === 'sem' && !ligado) return null;
+      if (estado.loja.amostra === true && !ligado) return null; /* amostra: os apitos seriam de quem montou */
       var texto = ligado ? 'Ligados neste aparelho: pedido novo e Pix pago apitam aqui mesmo com a tela apagada.'
         : sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá.'
         : sit === 'pronto' ? 'Desligados neste aparelho. Ligue para receber pedido novo com a tela apagada.'

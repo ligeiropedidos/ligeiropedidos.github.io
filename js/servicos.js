@@ -132,20 +132,8 @@
     if (v.dur) caixa.appendChild(el('span', { class: 'srv-tempo', text: '0:' + String(Math.min(59, v.dur)).padStart(2, '0') }));
     return caixa;
   }
-  /* o player em tela cheia (o mesmo do site da loja) */
-  function tocarVideo(url, titulo, rodape) {
-    var fundo = el('div', { class: 'srv-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Vídeo' });
-    var video = el('video', { src: url, autoplay: true, playsinline: true, controls: true, preload: 'auto' });
-    var fechar = function () { try { video.pause(); } catch (_) { /* ja parou */ } fundo.remove(); document.removeEventListener('keydown', tecla); UI.travarRolagem && UI.travarRolagem('video', false); };
-    var tecla = function (e) { if (e.key === 'Escape') fechar(); };
-    fundo.appendChild(video);
-    fundo.appendChild(el('button', { class: 'srv-player-fechar', type: 'button', 'aria-label': 'Fechar o vídeo', onclick: fechar }, [ico('fechar')]));
-    if (rodape) fundo.appendChild(el('div', { class: 'srv-player-rodape' }, rodape));
-    document.body.appendChild(fundo);
-    document.addEventListener('keydown', tecla);
-    if (UI.travarRolagem) UI.travarRolagem('video', true);
-    return fechar;
-  }
+  /* o player em tela cheia: o mesmo do site da loja (UI.tocarVideo) */
+  function tocarVideo(url, titulo, capa) { return UI.tocarVideo({ src: url, titulo: titulo, capa: capa }); }
 
   /* ---------- banner no painel (aba Minha loja) ---------- */
   function banner(slug, email) {
@@ -186,7 +174,7 @@
       if (qual === 'termos') return telaTermos(raiz, slug);
       return telaLoja(raiz, slug, u);
     }).catch(function () { if (vivo) mensagemTela(raiz, 'Não abriu agora', 'Confira a internet e tente de novo.'); });
-    return function () { vivo = false; paradas.forEach(function (f) { f(); }); var m = document.querySelector('.srv-player'); if (m) m.remove(); };
+    return function () { vivo = false; paradas.forEach(function (f) { f(); }); UI.fecharVideo(); };
   }
 
   function cartaoServico(slug, s) {
@@ -253,7 +241,7 @@
         } }, [ico('descer'), 'Ver os serviços']),
       ]),
       vx
-        ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro (40 segundos)', onclick: function () { tocarVideo(vxSrc, 'Como funciona a Loja do Ligeiro'); } }, [
+        ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro (40 segundos)', onclick: function () { tocarVideo(vxSrc, 'Como funciona a Loja do Ligeiro', vxCapa); } }, [
           el('img', { src: vxCapa, alt: '', width: '540', height: '960' }), el('span', { class: 'srv-tocar' }, [ico('tocar')]), el('span', { class: 'srv-tempo', text: '0:40' })])
         : el('img', { class: 'srv-hero-mascote', src: 'img/mascote.webp', alt: '', width: '124', height: '124' }),
     ]);
@@ -288,7 +276,7 @@
     var vitrine = null;
     if (s.id === 'video') {
       vitrine = el('div', { class: 'srv-vitrine srv-grad' }, [
-        el('button', { class: 'srv-vitrine-video', type: 'button', 'aria-label': 'Assistir o exemplo', onclick: function () { tocarVideo('midia/comercial-ligeiro.mp4', 'Exemplo de vídeo'); } }, [el('img', { src: 'img/loja-ligeiro/exemplo-video.webp', alt: '' }), el('span', { class: 'srv-tocar' }, [ico('tocar')])]),
+        el('button', { class: 'srv-vitrine-video', type: 'button', 'aria-label': 'Assistir o exemplo', onclick: function () { tocarVideo('midia/comercial-ligeiro.mp4', 'Exemplo de vídeo', 'midia/comercial-ligeiro.jpg'); } }, [el('img', { src: 'img/loja-ligeiro/exemplo-video.webp', alt: '' }), el('span', { class: 'srv-tocar' }, [ico('tocar')])]),
         el('span', { class: 'srv-vitrine-legenda', text: 'Exemplo: o comercial do próprio Ligeiro' }),
       ]);
     } else if (s.premium) vitrine = el('div', { class: 'srv-vitrine srv-grad' }, [comparar()]);
@@ -519,7 +507,7 @@
       secao.appendChild(el('h2', { class: 'srv-h2 srv-antes-titulo', text: 'No site agora' }));
       if (sel) {
         secao.appendChild(el('article', { class: 'srv-cartao srv-no-site' }, [
-          el('button', { class: 'srv-poster-botao', type: 'button', 'aria-label': 'Assistir ' + sel.titulo, onclick: function () { tocarVideo(midia('v', sel.id), sel.titulo); } }, [capaDeVideo(sel, 'grande')]),
+          el('button', { class: 'srv-poster-botao', type: 'button', 'aria-label': 'Assistir ' + sel.titulo, onclick: function () { tocarVideo(midia('v', sel.id), sel.titulo, sel.capa ? midia('c', sel.id) : null); } }, [capaDeVideo(sel, 'grande')]),
           el('div', { class: 'srv-no-site-texto' }, [
             el('div', { class: 'srv-titulo-editavel' }, [el('h3', { class: 'srv-h3', text: sel.titulo }), el('button', { class: 'srv-icone-botao srv-icone-mini', type: 'button', 'aria-label': 'Trocar o nome de ' + sel.titulo, onclick: function () { renomear(sel); } }, [ico('lapis')])]),
             el('span', { class: 'srv-meta', text: (sel.dur ? sel.dur + ' segundos, ' : '') + 'entregue em ' + diaMes(sel.em) }),
@@ -537,7 +525,7 @@
         secao.appendChild(el('div', { class: 'srv-titulo-linha srv-antes-titulo' }, [el('h2', { class: 'srv-h2', text: 'Outros vídeos' }), el('span', { class: 'srv-peq', text: videos.length + ' de ' + (estado.maxVideos || 10) })]));
         secao.appendChild(el('div', { class: 'srv-cartao srv-lista-videos' }, (mostrarTodos ? outros : outros.slice(0, 5)).map(function (v) {
           return el('div', { class: 'srv-linha-video' }, [
-            el('button', { class: 'srv-poster-botao', type: 'button', 'aria-label': 'Assistir ' + v.titulo, onclick: function () { tocarVideo(midia('v', v.id), v.titulo); } }, [capaDeVideo(v, 'mini')]),
+            el('button', { class: 'srv-poster-botao', type: 'button', 'aria-label': 'Assistir ' + v.titulo, onclick: function () { tocarVideo(midia('v', v.id), v.titulo, v.capa ? midia('c', v.id) : null); } }, [capaDeVideo(v, 'mini')]),
             el('div', { class: 'srv-linha-texto' }, [
               el('strong', { text: v.titulo }), el('span', { class: 'srv-meta', text: (v.dur ? v.dur + ' segundos, ' : '') + 'entregue em ' + diaMes(v.em) }),
               el('div', { class: 'srv-linha-video-acoes' }, [

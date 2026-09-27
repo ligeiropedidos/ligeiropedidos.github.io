@@ -2065,6 +2065,11 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .adm-link { display: flex; align-items: stretch; gap: 12px; }
 .adm-link .caixa-link { flex: 1; min-width: 0; display: flex; align-items: center; }
 .adm-link .btn { flex: none; min-height: 48px; white-space: nowrap; }
+/* ficha da amostra na Central: o texto e os dois botoes (Colar cardapio e Entregar ao cliente) */
+.adm-amostra { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.adm-amostra .adm-textos { display: flex; flex-direction: column; gap: 4px; }
+.adm-amostra-botoes { display: flex; flex-wrap: wrap; gap: 12px; }
+.adm-amostra-botoes .btn { flex: 1 1 200px; }
 .adm-alerta { padding: 12px 16px; background: var(--orange-suave); border: 1px solid #F7D2B8; border-radius: var(--raio-p); color: #7A3B10; font-size: 15px; font-weight: 600; line-height: 1.4; }
 .adm-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin: 0; padding: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .adm-par { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -3000,11 +3005,33 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .srv-linha-video-acoes .srv-btn-p { flex: 1 1 auto; }
 .srv-icone-botao { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 /* player em tela cheia (video da loja e exemplos) */
-.srv-player { position: fixed; inset: 0; z-index: 120; background: #000; display: flex; align-items: center; justify-content: center; }
-.srv-player video { width: 100%; height: 100%; max-width: 100vw; object-fit: contain; background: #000; }
-.srv-player-fechar { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.45); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
-.srv-player-fechar .ico-traco svg { width: 22px; height: 22px; stroke-width: 2.2; }
-.srv-player-rodape { position: absolute; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); max-width: 440px; margin: 0 auto; z-index: 2; }
+/* player do video em tela cheia, no jeito dos Stories: fundo com a capa desfocada; em cima o nome, o som e o X; no meio
+   o video (a largura vem da proporcao dele, medida no JS), sem a barra do navegador: tocar pausa e continua, o sinal no
+   meio aparece so parado, e uma linha fina de progresso na borda de baixo; embaixo o botao de pedir na largura do video */
+.player { position: fixed; inset: 0; z-index: 120; isolation: isolate; overflow: hidden; background: #000; display: flex; flex-direction: column; }
+.player-fundo { position: absolute; inset: -40px; z-index: -1; }
+.player-fundo img { width: 100%; height: 100%; object-fit: cover; display: block; filter: blur(28px) brightness(0.35) saturate(1.2); }
+.player-topo { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(16px + env(safe-area-inset-top)) 16px 0; } /* 16 em volta de tudo: botoes, video e botao de pedir na mesma regua (o vao de cima e de baixo do video e o padding do palco) */
+.player-nome { min-width: 0; color: #fff; font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35); }
+.player-acoes { flex: none; display: flex; gap: 8px; }
+.player-botao { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; background: rgba(255, 255, 255, 0.16); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.player-botao:hover { background: rgba(255, 255, 255, 0.24); }
+.player-botao .ico-traco svg { width: 22px; height: 22px; stroke-width: 2.2; }
+.player-palco { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.player-quadro { position: relative; display: block; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #000; cursor: pointer; }
+.player-quadro video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; pointer-events: none; }
+.player-sinal { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); color: #fff; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s ease; pointer-events: none; }
+.player-quadro.parado .player-sinal, .player-quadro.carregando .player-sinal { opacity: 1; }
+.player-sinal .ico-traco svg { width: 28px; height: 28px; stroke-width: 2.2; }
+.player-tocar .ico-traco svg { fill: currentColor; stroke: none; }
+.player-sinal .girando { width: 28px; height: 28px; border-color: rgba(255, 255, 255, 0.3); border-top-color: #fff; }
+.player-progresso { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.25); pointer-events: none; }
+.player-progresso-barra { display: block; width: 0; height: 100%; background: #fff; }
+.player-erro { max-width: 320px; display: flex; flex-direction: column; gap: 4px; text-align: center; color: #fff; }
+.player-erro b { font-family: var(--display); font-size: 18px; }
+.player-erro span { font-size: 15px; color: rgba(255, 255, 255, 0.75); }
+.player-rodape { flex: none; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); }
+.player.sem-botao .player-palco { padding-bottom: calc(16px + env(safe-area-inset-bottom)); } /* sem o botao: o video nao encosta no pe da tela */
 /* Central */
 .srv-central { display: flex; flex-direction: column; gap: 16px; }
 .srv-central-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
