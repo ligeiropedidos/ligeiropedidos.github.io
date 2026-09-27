@@ -204,8 +204,11 @@
           quadro('Valor', a.cortesia ? R.dinheiro(0) : R.dinheiro(valor), a.cortesia ? 'cortesia' : (p.tipo === 'anual' ? 'por ano' : 'por mês') + (p.fundador === true ? ', travado' : '')),
         ]),
         a.estado === 'gratis' ? porQueAssinar(p.tipo === 'anual') : null,
+        /* em dia (paga ou liberada): o fundador ve o preco travado e todo mundo ve o que o plano inclui, no lugar do vazio */
+        a.estado === 'ativa' && !a.encerrando && !a.cortesia && p.fundador === true ? avisoPlano('fundador', 'estrela', 'Preço de fundador travado', ['Fica em ', el('b', { text: R.dinheiro(valor) }), (p.tipo === 'anual' ? ' por ano' : ' por mês') + ' enquanto a assinatura continuar.']) : null,
+        a.estado === 'ativa' && !a.encerrando ? inclusoNoPlano(conta) : null,
         (alerta || a.encerrando || a.estado === 'pausada' || a.estado === 'cancelada') ? el('p', { class: 'pequeno plano-recado' + (alerta ? ' com-alerta' : '') }, [alerta ? UI.iconeLinha('alerta') : null, el('span', { text: textos[a.estado] || '' })]) : null,
-        p.fundador === true ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', 'estrela', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
+        p.fundador === true || a.cortesia ? null : (fundador && !R.ehDoLigeiro(conta) && R.vagasFundador() > 0 ? avisoPlano('fundador', 'estrela', 'Preço de fundador', ['Assine agora e trave este valor. Restam ', el('b', { text: R.vagasFundador() + (R.vagasFundador() === 1 ? ' vaga' : ' vagas') }), '.']) : null),
         p.pagamentoParcial && p.pagamentoParcial.cobrado > 0 ? avisoPlano('espera', 'recibo', 'Pagamento abaixo do plano', 'O último pagamento foi de ' + R.dinheiro(p.pagamentoParcial.cobrado) + ' e o plano é ' + R.dinheiro(p.pagamentoParcial.cheio) + ': valeu ' + (Number(p.pagamentoParcial.dias) || 0) + ' dias. A próxima fatura já vem no valor certo.') : null,
         p.avisoPagamentoEm ? avisoPlano('espera', 'ampulheta', 'Pagamento avisado', 'Em ' + dataBR(p.avisoPagamentoEm) + '. Assim que confirmarmos, os dias entram na hora.') : null,
         fatura ? avisoPlano('espera', 'recibo', (p.tipo === 'anual' ? 'Fatura de ' : 'Mensalidade de ') + R.dinheiro(fatura.valor), C.textoFatura(fatura).replace(/^./, function (c) { return c.toUpperCase(); }) + (fatura.cartao && fatura.vencida ? '. O cartão não passou: pague pela fatura.' : '. Pix, boleto ou cartão.')) : null,
@@ -241,16 +244,34 @@
 
     /* No periodo gratis: o que ganha assinando agora. Nao repete a data nem o valor (estao nos quadros de cima): diz o que
        os quadros nao dizem (os dias gratis continuam, o cartao cobra sozinho, e o que acontece se nao assinar) */
+    function itemPlano(icone, partes) {
+      return el('li', {}, [el('span', { class: 'plano-gratis-ico', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { class: 'plano-gratis-txt' }, partes)]);
+    }
     function porQueAssinar(anual) {
-      function item(icone, partes) {
-        return el('li', {}, [el('span', { class: 'plano-gratis-ico', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { class: 'plano-gratis-txt' }, partes)]);
-      }
+      var item = itemPlano;
       return el('div', { class: 'plano-gratis' }, [
         el('b', { class: 'plano-gratis-titulo', text: 'Por que assinar agora?' }),
         el('ul', { class: 'plano-gratis-lista' }, [
           item('presente', ['Os dias grátis ', el('b', { text: 'não se perdem' }), ': os pagos só contam depois deles.']),
           item('cartao', ['No cartão, a ' + (anual ? 'renovação' : 'mensalidade') + ' ', el('b', { text: 'cai sozinha' }), anual ? ' todo ano.' : ' todo mês.']),
           item('relogio', ['Sem assinar, ', el('b', { text: 'os pedidos param' }), ' quando o grátis acabar.']),
+        ]),
+      ]);
+    }
+
+    /* Em dia: o que o plano inclui (so coisa real), no mesmo desenho do "Por que assinar agora?". O suporte abre o
+       WhatsApp do Ligeiro (na conta do proprio Ligeiro fica so o texto) */
+    function inclusoNoPlano(conta) {
+      var cfg = window.LIGEIRO_CONFIG || {};
+      var zap = cfg.whatsappLigeiro && !R.ehDoLigeiro(conta) ? R.linkWhatsapp(cfg.whatsappLigeiro, 'Oi! Tenho uma dúvida sobre a minha assinatura do Ligeiro.') : '';
+      var suporte = el('b', { text: 'pelo WhatsApp' });
+      return el('div', { class: 'plano-gratis' }, [
+        el('b', { class: 'plano-gratis-titulo', text: 'Incluso no seu plano' }),
+        el('ul', { class: 'plano-gratis-lista' }, [
+          itemPlano('dinheiro', ['Pedidos ilimitados, ', el('b', { text: 'sem comissão' }), '.']),
+          itemPlano('escudo', ['Pix e cartão ', el('b', { text: 'confirmados sozinhos' }), ' pelo Mercado Pago.']),
+          itemPlano('chef', ['Telas de ', el('b', { text: 'cozinha e entregador' }), '.']),
+          itemPlano('telefone', ['Suporte ', zap ? el('a', { class: 'plano-suporte', href: zap, target: '_blank', rel: 'noopener' }, [suporte]) : suporte, '.']),
         ]),
       ]);
     }

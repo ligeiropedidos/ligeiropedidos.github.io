@@ -208,9 +208,10 @@
       /* icones de traco do mesmo desenho (os emojis variavam de estilo e o bonequinho cinza destoava) */
       var ICONES_TOPO = {
         loja: '<path d="M4 10v10h16V10"/><path d="M2.5 10 5 4h14l2.5 6z"/><path d="M10 20v-5h4v5"/>',
-        conta: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
-        sino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
-        semsino: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
+        /* desenhos com o meio no 12,12 (o sino e o boneco ficavam baixos no quadrinho) */
+        conta: '<g transform="translate(0 -0.5)"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></g>',
+        sino: '<g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g>',
+        semsino: '<g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g><path d="M3.5 3.5l17 17"/>',
         impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>',
         sair: '<path d="M10 4H5.5v16H10"/><path d="M14.5 8 18.5 12l-4 4"/><path d="M18.5 12H9"/>',
         site: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18"/><path d="M12.5 3a17 17 0 0 1 0 18"/>',
@@ -242,7 +243,7 @@
       /* Impressao automatica: cada pedido novo (pago ou pra cobrar na entrega) sai na impressora sozinho.
          No computador do caixa, abra o Chrome com --kiosk-printing pra nao aparecer a janela de imprimir. */
       function pintarImp() {
-        rotuloTopo(btnImp, 'impressora', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Automático' : 'Manual');
+        rotuloTopo(btnImp, 'impressora', estado.impressaoAuto ? 'Imprime sozinho' : 'Impressão manual', estado.impressaoAuto ? 'Auto' : 'Manual'); /* nome curto que cabe no quadrinho de 320 */
       }
       var btnImp = el('button', { class: 'btn btn-pequeno' + (estado.impressaoAuto ? ' on' : ''), title: 'Imprimir cada pedido novo sozinho', onclick: function () {
         estado.impressaoAuto = !estado.impressaoAuto;
@@ -2420,9 +2421,16 @@
         pintarCartao();
         pintarResumo();
         if (conectado) {
+          /* conectado: selo redondo, o titulo e os dados da conexao em quadrinhos (rotulo pequeno e valor), como os da Minha conta */
+          var dadosMP = [];
+          if (c.mpUserId) dadosMP.push(el('span', { class: 'mp-dado' }, [el('small', { text: 'Conta' }), el('b', { text: String(c.mpUserId) })]));
+          if (c.conectadoEm) dadosMP.push(el('span', { class: 'mp-dado' }, [el('small', { text: 'Conectado em' }), el('b', { text: new Date(c.conectadoEm).toLocaleDateString('pt-BR') })]));
           conexao.appendChild(el('div', { class: 'mp-conectado' }, [
-            el('span', { class: 'mp-selo' }, [UI.iconeLinha('feito'), 'Mercado Pago conectado']),
-            el('span', { class: 'muted pequeno', text: (c.conectadoEm ? 'desde ' + new Date(c.conectadoEm).toLocaleDateString('pt-BR') : '') + (c.mpUserId ? ' · conta ' + c.mpUserId : '') }),
+            el('span', { class: 'mp-conectado-ico', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]), /* o circulo ja e o anel: so o risco do conferido, no meio */
+            el('div', { class: 'mp-conectado-texto' }, [
+              el('b', { class: 'mp-selo', text: 'Mercado Pago conectado' }),
+              dadosMP.length ? el('div', { class: 'mp-dados' }, dadosMP) : null,
+            ]),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Desconectar', onclick: function () {
               UI.perguntar('Desconectar o Mercado Pago? O Pix e o cartão pelo site param até conectar de novo.', { sim: 'Desconectar', perigo: true }).then(function (sim) {
                 if (!sim) return;
@@ -3035,6 +3043,28 @@
       var qr = el('div', { class: 'qr-caixa divulgar-qr' }); /* tamanho no CSS: no PC ele estica ate a altura da coluna do lado */
       /* justo na caixa (209 no PC, 180 no celular): tira a borda (3) e pelo menos 4 px de respiro de cada lado */
       Pix.desenharQr(qr, linkLoja, (window.matchMedia && window.matchMedia('(min-width: 900px)').matches ? 209 : 180) - 11, true);
+      /* no PC, com a caixa na tela, confere com a borda e o canto do tema: no da Dom Conizza (borda 3, canto 18) o QR
+         encostava. O respiro cresce com o canto (a quina do QR fica fora da curva): 4 px no tema padrao, 6 no de borda
+         grossa. No celular fica como esta (ja tem respiro; um quadradinho a menos ali deixava o QR pequeno demais) */
+      /* a caixa pode entrar na tela depois (aba fechada): confere quando ela ganha tamanho */
+      var tentativasQr = 0;
+      function ajustarQr() {
+        if (!(window.matchMedia && window.matchMedia('(min-width: 900px)').matches)) return true;
+        var caixa = qr.getBoundingClientRect().width;
+        if (!caixa) return false;
+        /* o programa do QR pode chegar depois (baixa na primeira vez): espera o desenho */
+        if (!qr.querySelector('svg')) { if (tentativasQr++ < 40) setTimeout(ajustarQr, 150); return true; }
+        var cs = getComputedStyle(qr), borda = parseFloat(cs.borderTopWidth) || 0, canto = parseFloat(cs.borderTopLeftRadius) || 0;
+        var folga = Math.max(4, Math.ceil((canto - borda) * 0.3) + 1);
+        var lado = Math.floor(caixa - 2 * borda - 2 * folga);
+        var atual = qr.querySelector('svg');
+        if (lado > 0 && atual && Math.round(atual.getBoundingClientRect().width) > lado) Pix.desenharQr(qr, linkLoja, lado, true);
+        return true;
+      }
+      if (window.ResizeObserver) {
+        var olhoQr = new ResizeObserver(function () { if (ajustarQr()) olhoQr.disconnect(); });
+        olhoQr.observe(qr);
+      }
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-cabeca' }, [
           el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('megafone'), 'Divulgar o ' + R.catalogo(estado.loja).nome]),

@@ -286,6 +286,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aviso:not(.aviso-falta) { background: var(--cz-verde-claro); }
 .tema-conizza .aviso:not(.aviso-falta) > .ico-traco, .tema-conizza .mp-selo { color: var(--cz-verde); }
 .tema-conizza .mp-conectado { background: var(--cz-verde-claro); border-color: #B9DCBB; }
+.tema-conizza .mp-conectado-ico { background: var(--cz-verde); border: 2.5px solid var(--cz-tinta); }
+.tema-conizza .mp-selo { font-family: var(--cz-display); }
 /* situacao da loja no painel, nas cores da casa: borda grossa e sombra dura como os outros cartoes daqui */
 .tema-conizza .status-loja { border: 3px solid var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); background: var(--cz-branco); }
 .tema-conizza .status-loja .status-titulo { font-family: var(--cz-display); font-weight: 800; font-size: 18px; color: var(--cz-tinta); }

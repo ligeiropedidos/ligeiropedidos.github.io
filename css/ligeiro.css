@@ -611,6 +611,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .topo-app .topo-ico svg { width: 24px; height: 24px; }
 }
 @media (max-width: 360px) { .topo-app .btn-pequeno { font-size: 12.5px; } }
+@media (max-width: 340px) { .painel-topo-acoes { gap: 6px; } .topo-app .btn-pequeno { font-size: 12px; padding-left: 2px; padding-right: 2px; } } /* 320: "Manual" dentro do quadrinho, com a borda grossa do tema tambem */
 /* cores do Ligeiro (loja sem tema oficial): vidro claro sobre o verde; aceso = limao */
 .topo-ligeiro .btn-pequeno { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); color: #fff; }
 @media (hover: hover) { .topo-ligeiro .btn-pequeno:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.34); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18); } }
@@ -714,6 +715,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .previa-home { width: 104px; height: 5px; border-radius: 3px; background: #111614; opacity: 0.35; margin: 6px auto 9px; }
 .previa-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; } /* os dois botoes lado a lado em qualquer celular */
 .previa-acoes .btn { min-width: 0; white-space: nowrap; }
+.previa-acoes.so-logo { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 400px) { .previa-acoes { grid-template-columns: minmax(0, 1fr); } } /* celular: "Trocar capa" e "Trocar logo" um embaixo do outro (lado a lado nao cabiam com a letra do iPhone) */ /* design exclusivo: so o Trocar logo, na fileira inteira (como o cartao do design logo embaixo) */
 .previa-tirar-linha { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
 .previa-tirar-linha .btn { align-self: auto; color: var(--muted); }
 .previa-tirar-linha .ico-traco svg { width: 14px; height: 14px; }
@@ -911,7 +914,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .seletor-periodo .aba-painel { min-height: 44px; min-width: 88px; justify-content: center; }
 .barras { display: flex; align-items: stretch; gap: 4px; height: 190px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 16px 12px 10px; }
 .barras.poucos { gap: 10px; }
-.barras .b { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.barras .b { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .barras .b .area { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; border-bottom: 1.5px solid var(--line); }
 .barras .b .col { width: 100%; max-width: 44px; background: var(--lime-suave); border: 1.5px solid var(--lime); border-bottom: 0; border-radius: 8px 8px 0 0; min-height: 2px; }
 .barras .b.zero .col { border-color: var(--line); background: var(--line); }
@@ -923,7 +926,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .grafico-vazio .icone { font-size: 34px; line-height: 1; margin-bottom: 8px; }
 .grafico-vazio p { margin: 0; text-wrap: balance; }
 @media (max-width: 480px) { .metricas { grid-template-columns: 1fr 1fr; } .metricas .metrica:first-child { grid-column: 1 / -1; } .metrica .v { font-size: 22px; } }
-.lista-simples { display: flex; flex-direction: column; gap: 6px; }
+.lista-simples { display: flex; flex-direction: column; gap: 8px; }
 .lista-simples .linha { display: flex; justify-content: space-between; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .passo-config { width: 100%; text-align: left; min-height: 48px; align-items: center; gap: 10px; font-size: 15.5px; color: var(--ink); }
 .passo-config b { color: var(--deep2); white-space: nowrap; }
@@ -1051,7 +1054,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* avisos do plano (Minha conta): cartao com icone, titulo e uma linha */
 .aviso-plano { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid; text-align: left; }
 .aviso-plano-ico { flex: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
-.aviso-plano-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aviso-plano-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .aviso-plano-texto b { font-family: var(--display); font-size: 16px; line-height: 1.25; }
 .aviso-plano-texto span { font-size: 14px; line-height: 1.4; }
 .aviso-plano-texto span b { font-family: inherit; font-size: inherit; white-space: nowrap; } /* "17 vagas" nunca separa */
@@ -1114,7 +1117,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .oficial-extra span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
 .painel-topo .logo-mini { height: 40px; width: 40px; object-fit: contain; flex: none; }
 /* conexao com o Mercado Pago (painel) */
-.mp-conexao { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.mp-conexao { display: flex; flex-direction: column; gap: 12px; margin: 0; container: mp-conexao / inline-size; }
 /* Pagamento: a linha do Pix leva a conexao dentro dela, com a mesma borda e o mesmo recuo das outras linhas */
 .forma-pix { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); }
 .forma-pix > .interruptor { border: 0; background: transparent; }
@@ -1125,12 +1128,29 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-mp:hover { background: #0089c5; }
 /* selo na linha de cima inteira; embaixo a data (nunca quebra) e o Desconectar a direita. No celular o botao desce
    e ocupa a linha toda, igual aos botoes dos blocos Senha da equipe e Avisos */
-.mp-conectado { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: center; padding: 12px 14px; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio-p); }
-.mp-selo { font-weight: 700; color: var(--deep2); }
-.mp-conectado > .mp-selo { flex: 1 1 100%; }
-.mp-conectado > .muted { white-space: nowrap; }
-.mp-conectado .btn { margin-left: auto; }
-@media (max-width: 600px) { .mp-conectado .btn { flex: 1 1 100%; margin-left: 0; } }
+/* Mercado Pago conectado: selo redondo, titulo, dados em rotulo + valor e o Desconectar na ponta (embaixo no celular) */
+.mp-conectado { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; padding: 16px; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio-p); }
+.mp-conectado-ico { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--lime-escuro); color: #fff; }
+.mp-conectado-ico .ico-traco svg { width: 22px; height: 22px; stroke-width: 3; }
+.mp-conectado-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mp-selo { font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1.2; color: var(--deep2); }
+.mp-dados { display: flex; flex-wrap: wrap; gap: 4px 24px; min-width: 0; }
+.mp-dado { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; } /* sem espaco, o valor desce inteiro para a linha de baixo (nunca passa da caixa) */
+.mp-dado b { white-space: nowrap; } /* a data nunca parte; o rotulo pode quebrar numa tela estreitissima */
+.mp-dado small { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mp-dado b { font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mp-conectado .btn { min-height: 44px; }
+/* celular: circulo e titulo numa linha, os dados embaixo na largura toda e o botao no pe (como os outros cartoes com circulo) */
+@media (max-width: 600px) {
+  .mp-conectado { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico selo" "dados dados" "btn btn"; row-gap: 8px; }
+  .mp-conectado-texto { display: contents; }
+  .mp-conectado-ico { grid-area: ico; }
+  .mp-conectado .mp-selo { grid-area: selo; }
+  .mp-conectado .mp-dados { grid-area: dados; }
+  .mp-conectado .btn { grid-area: btn; width: 100%; margin-top: 4px; }
+}
+/* janela estreitissima (menos que um celular): o titulo desce para baixo do circulo, sem palavra passando da caixa */
+@container mp-conexao (max-width: 240px) { .mp-conectado { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ico" "selo" "dados" "btn"; } }
 /* tela do Pix do cliente: gerando / falhou */
 .pix-gerando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 12px; font-weight: 700; color: var(--deep2); }
 .pix-gerando .girando { width: 22px; height: 22px; border: 3px solid var(--line-forte); border-top-color: var(--deep2); border-radius: 50%; animation: girar 0.9s linear infinite; }
@@ -1242,7 +1262,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .grade-form > .campo > label { margin-bottom: 8px; }
 /* campo sozinho no fim da grade nao fica pela metade */
 .grade-form > .campo:last-child:nth-child(odd) { grid-column: 1 / -1; }
-.grade-form > .campo > .ajuda { margin: -2px 0 8px; }
+.grade-form > .campo > .ajuda { margin: -4px 0 8px; } /* rotulo ate a ajuda: 4 (titulo e texto) */
 
 /* ---------- Pagina de vendas (#/lojas) ---------- */
 
@@ -1516,7 +1536,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .login-caixa .ou::before, .login-caixa .ou::after, .contato-ou::before, .contato-ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .login-caixa .linha-botoes { justify-content: space-between; }
 .login-caixa .linha-botoes .btn { flex: none; }
-.conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 16px; }
+.conta { max-width: 900px; margin: 0 auto; width: 100%; gap: 12px; }
+/* a regua: 12 entre itens e 24 antes de titulo de secao no celular; 24 e 40 no computador */
+.conta > .conta-arranjo { margin-top: 12px; }
+@media (min-width: 760px) { .conta { gap: 24px; } .conta > .conta-arranjo { margin-top: 16px; } .conta-arranjo { row-gap: 40px; } }
 .conta-carregando { display: flex; justify-content: center; padding: 48px 0; }
 /* site em pausa (banco no limite de hoje) e loja parada: o desenho da faixa do teste gratis. Fundo escuro com brilhos,
    cartao de vidro transparente (desfoca o que esta atras), selo em pilula, titulo branco com destaque e botao de contorno */
@@ -1556,10 +1579,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-carregando .carregando-pontos span { background: #84CC16; }
 .conta-carregando .carregando-pontos span:nth-child(2) { background: #1B6B4A; }
 .conta-carregando .carregando-pontos span:nth-child(3) { background: #0F3D2E; }
-.conta .hub-secao { margin-top: 8px; } /* 16 do vao + 8 = 24 antes de secao */
+.conta .hub-secao { margin-top: 0; } /* o vao da pagina ja da 24 (40 no computador) antes de secao */
 .conta .conta-lojas { margin-top: -4px; } /* titulo da secao a 12 dos cartoes */
 /* a loja e a assinatura (ver conta.js): colunas com o mesmo ritmo da pagina (16 entre blocos, 12 do titulo ao cartao) */
-.conta-arranjo { display: flex; flex-direction: column; gap: 16px; }
+.conta-arranjo { display: flex; flex-direction: column; gap: 24px; }
 .conta-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .conta-col > .hub-secao:not([hidden]) + * { margin-top: -4px; }
 .conta-col > .conta-lojas { margin-top: 0; }
@@ -1585,11 +1608,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-cabeca { display: flex; align-items: center; gap: 12px; padding: 6px 0 4px; }
 .conta-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; background: var(--lime-suave); }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--deep); }
-.conta-texto { flex: 1; min-width: 0; }
+.conta-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; } /* titulo e texto a 4 um do outro (a regua) */
 .conta-texto p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conta-cabeca > .btn { flex: none; }
 @media (max-width: 420px) { .conta-foto { width: 52px; height: 52px; } .conta-texto h1 { font-size: 22px; } }
-.conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 2px 0; }
+.conta-texto h1 { font-size: 26px; line-height: 1.1; margin: 0; }
 .conta-lojas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; } /* minmax: texto comprido nunca alarga o cartao alem da tela */
 .conta-loja { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--sombra); container: conta-loja / inline-size; }
 .conta-loja-topo { display: flex; align-items: flex-start; gap: 14px; } /* logo no alto, igual em todo cartao (centrada, descia quando o nome quebrava em mais linhas) */
@@ -1621,9 +1644,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 @container conta-loja (max-width: 345.9px) { .conta-ladrilho .rot-longo { display: none; } .conta-ladrilho .rot-curto { display: inline; } }
 @container conta-loja (max-width: 270.9px) { .conta-ladrilho { font-size: 13px; } }
 .conta-painel { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 18px; text-align: left; border-radius: 16px; }
-.conta-painel-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.conta-painel-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .conta-painel-texto b { font-family: var(--display); font-size: 19px; line-height: 1.15; }
-.conta-painel-texto small { font-size: 13.5px; font-weight: 600; line-height: 1.5; opacity: 0.8; text-wrap: balance; } /* nao corta: na fonte larga do iPhone quebra em duas linhas iguais */
+.conta-painel-texto small { font-size: 13.5px; font-weight: 600; line-height: 1.3; opacity: 0.8; text-wrap: balance; } /* nao corta: na fonte larga do iPhone quebra em duas linhas iguais */
 .conta-painel-seta { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(14, 31, 20, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; line-height: 1; }
 .conta-central .conta-painel-seta { background: rgba(255, 255, 255, 0.16); } /* seta clara no botao escuro */
 .conta-painel-seta .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.4; display: block; }
@@ -1633,7 +1656,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-plano { display: flex; flex-direction: column; gap: 12px; container: conta-plano / inline-size; }
 .conta-plano > .selo { align-self: flex-start; }
 .plano-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.plano-dado { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
+.plano-dado { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); min-width: 0; }
 .plano-dado-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .plano-dado-valor { font-family: var(--display); font-size: clamp(18px, 5vw, 22px); font-size: clamp(18px, 6cqi, 22px); line-height: 1.15; color: var(--ink); white-space: nowrap; }
 /* a data pela largura do cartao (nao da tela: no PC o cartao fica na metade e "01/10/2026" passava do quadro). Cartao
@@ -1650,6 +1673,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .plano-gratis-txt { text-wrap: balance; } /* duas linhas do mesmo tamanho: nada de palavra sozinha embaixo */
 .plano-gratis-ico { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; }
 .plano-gratis-ico .ico-traco svg { width: 18px; height: 18px; }
+.plano-suporte { color: inherit; text-decoration: underline; text-decoration-color: var(--lime); text-decoration-thickness: 2px; text-underline-offset: 5px; } /* o suporte e um link: abre o WhatsApp (o traco passa embaixo das pernas do "pp") */
 /* botoes do plano um embaixo do outro, com a largura toda ("Mudar para o mensal" encostava na borda no iPhone); lado a
    lado so quando o cartao e largo e cada um cabe com folga */
 .plano-acoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -1809,7 +1833,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .sons-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .som-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 60px; padding: 10px 12px; text-align: left; font: inherit; color: inherit; background: var(--card); border: 1.5px solid var(--line-forte); border-radius: 14px; cursor: pointer; }
 .som-linha:active { transform: scale(0.98); }
-.som-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.som-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .som-texto b { font-size: 15px; line-height: 1.2; }
 .som-texto small { font-size: 12.5px; line-height: 1.25; color: var(--muted); }
 .som-tocar { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); display: inline-flex; align-items: center; justify-content: center; }
@@ -2170,7 +2194,6 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .linha-produto .editar .ico-traco svg { width: 18px; height: 18px; }
 .sem-foto .ico-traco { color: var(--muted); }
 .sem-foto .ico-traco svg { width: 32px; height: 32px; stroke-width: 1.6; }
-.mp-selo { display: inline-flex; align-items: center; gap: 8px; }
 .som-texto b { display: inline-flex; align-items: center; gap: 8px; }
 .som-texto b .ico-traco svg { width: 18px; height: 18px; }
 .bloco-titulo .ico-traco { color: var(--deep2); }
@@ -2282,14 +2305,18 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* aba Pedidos: cartao ate ligar */
 .cartao-avisos { display: flex; flex-direction: column; gap: 16px; }
 .cartao-avisos > .linha-botoes { margin-top: 0; } /* so os 16 do gap entre o texto e os botoes */
-.avisos-linha { display: flex; align-items: center; gap: 16px; }
-.avisos-ico { width: 48px; height: 48px; padding: 12px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
+/* circulo e titulo na mesma linha, centrados; a explicacao embaixo na largura toda (igual ao cartao do design exclusivo) */
+.avisos-linha { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; }
+.avisos-linha > .avisos-texto { display: contents; }
+.avisos-linha > .avisos-texto > span { grid-column: 1 / -1; }
+.avisos-ico { width: 40px; height: 40px; padding: 10px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
 .avisos-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .avisos-texto b { font-family: var(--display); font-size: 17px; line-height: 1.25; color: var(--ink); text-wrap: balance; }
 .avisos-texto span { font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
 .avisos-botoes .btn { min-height: 48px; flex: 1 1 auto; white-space: nowrap; }
 @media (max-width: 640px) { .avisos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .avisos-botoes .btn { min-width: 0; padding: 0 12px; } } /* celular: os dois lado a lado, do mesmo tamanho, ate no 320 */
 @media (min-width: 641px) { .avisos-botoes .btn { flex: 0 0 auto; min-width: 168px; } }
+@media (max-width: 360px) { .avisos-botoes { grid-template-columns: minmax(0, 1fr); gap: 8px; } } /* 320: um embaixo do outro, com folga dentro do botao */
 /* Minha loja: ligar, testar e desligar (mesmo desenho da senha da equipe) */
 .bloco-avisos-botoes { display: flex; gap: 12px; flex: none; }
 .bloco-avisos-botoes .btn { min-height: 48px; padding: 0 20px; white-space: nowrap; }
@@ -2599,10 +2626,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 
 /* ---------- design exclusivo: a aparencia travada (so a logo troca) ---------- */
 .design-exclusivo { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid #C9E7A1; border-radius: var(--raio-p); background: var(--lime-suave); }
-.design-exclusivo-topo { display: flex; align-items: flex-start; gap: 12px; }
+.design-exclusivo-topo { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; } /* cadeado e titulo na mesma linha, centrados; o texto embaixo */
+.design-exclusivo-topo > .design-exclusivo-texto { display: contents; }
+.design-exclusivo-topo > .design-exclusivo-texto > span { grid-column: 1 / -1; }
 .design-exclusivo-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--deep); color: var(--lime2); display: inline-flex; align-items: center; justify-content: center; }
 .design-exclusivo-ico .ico-traco svg { width: 20px; height: 20px; }
-.design-exclusivo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.4; color: var(--body); }
+.design-exclusivo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.4; color: var(--body); }
 .design-exclusivo-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
 
 /* ---------- fale com a gente ---------- */
