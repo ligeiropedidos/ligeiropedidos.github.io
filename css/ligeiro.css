@@ -309,6 +309,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .abertura.com-capa .logo-grande { position: relative; border: 4px solid var(--card); }
 .logo-grande { width: 120px; height: 120px; border-radius: var(--raio-logo, 34px); background: var(--card); border: 1.5px solid var(--line); box-shadow: var(--sombra); display: flex; align-items: center; justify-content: center; font-size: 62px; overflow: hidden; }
 .logo-grande img { width: 100%; height: 100%; object-fit: cover; }
+/* enquanto a loja nao chega, o nome, a linha de baixo e a frase do botao ja ocupam uma linha cada (um espaco invisivel,
+   na letra de cada um): quando chegam, nada embaixo pula. O rodape so aparece com a loja (senao os mais pedidos o empurram) */
+.abertura:not(.pronta) #nomeLoja:empty::before, .abertura:not(.pronta) #descLoja:empty::before, .abertura:not(.pronta) #btnComecarFraca:empty::before { content: "\00a0"; }
+#tela-inicio > .abertura:not(.pronta) ~ .rodape { display: none; }
 .promessa { font-size: 30px; line-height: 1.12; }
 .promessa span { display: block; font-family: var(--corpo); font-weight: 400; font-size: 17px; color: var(--muted); margin-top: 8px; }
 .como-funciona { display: flex; gap: 8px; width: 100%; max-width: 440px; }
@@ -1065,73 +1069,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 .hub-cidade-seletor { font: inherit; color: inherit; background: rgba(255, 255, 255, 0.14); border: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 14px; padding: 5px 14px 7px; line-height: 1.1; cursor: pointer; display: inline-flex; align-items: baseline; gap: 8px; text-shadow: inherit; }
 .hub-cidade-seletor .seta { display: inline-flex; }
 .hub-cidade-seletor:hover { background: rgba(255, 255, 255, 0.22); }
-/* servico extra: loja com design exclusivo (pagina de vendas). Vitrine escura: e um produto, tem que chamar. */
-.exclusiva { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; padding: 28px 20px; border-radius: 28px; color: #fff;
-  background: radial-gradient(circle at 12% 0%, rgba(253, 230, 138, 0.22), transparent 46%), radial-gradient(circle at 100% 100%, rgba(132, 204, 22, 0.22), transparent 50%), linear-gradient(160deg, #0F3D2E, #0A241B);
-  box-shadow: 0 24px 50px rgba(14, 31, 20, 0.24); }
-.ex-vitrine { display: flex; align-items: flex-end; justify-content: center; gap: 14px; }
-.ex-seta { align-self: center; font-size: 26px; color: #FDE68A; font-weight: 700; }
-.ex-cel { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.ex-tela { width: 132px; height: 236px; border: 6px solid #0B1510; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px 10px; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4); }
-.ex-cel-exclusivo .ex-tela { width: 150px; height: 268px; border-color: #0B1510; transform: rotate(2deg); box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(253, 230, 138, 0.55); }
-.ex-cel-padrao .ex-tela { background: #FAFDF6; transform: rotate(-2deg); opacity: 0.92; }
-.ex-cel-exclusivo .ex-tela { background: radial-gradient(circle at 50% 12%, rgba(239, 169, 44, 0.35), transparent 60%), #f6e6c4; }
-.ex-logo { width: 58px; height: 58px; object-fit: contain; flex: none; }
-.ex-cel-exclusivo .ex-logo { width: 84px; height: 84px; }
-.ex-logo-emoji { display: flex; align-items: center; justify-content: center; font-size: 28px; background: #EEF9DC; border-radius: 16px; }
-.ex-nome { font-family: var(--display); font-weight: 700; font-size: 13px; color: #0E1F14; line-height: 1; }
-.ex-cel-exclusivo .ex-nome { color: #241708; font-size: 14px; }
-.ex-botao { width: 100%; text-align: center; font-family: var(--display); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; padding: 8px 0; border-radius: 10px; background: #84CC16; color: #0E1F14; }
-.ex-cel-exclusivo .ex-botao { background: linear-gradient(180deg, #e05543, #c0392b); color: #fbf0d9; border: 2px solid #241708; box-shadow: 0 3px 0 #8e2318, 0 5px 0 #241708; margin-bottom: 4px; }
-.ex-item { width: 100%; display: flex; align-items: center; gap: 7px; padding: 6px; border-radius: 9px; background: #fff; border: 1px solid #DCE7D3; }
-.ex-cel-exclusivo .ex-item { background: #fffdf7; border: 2px solid #241708; box-shadow: 0 2px 0 #241708; }
-.ex-foto { width: 22px; height: 22px; border-radius: 6px; background: #EEF9DC; flex: none; }
-.ex-cel-exclusivo .ex-foto { background: linear-gradient(160deg, #f7c948, #efa92c); border: 1.5px solid #241708; }
-.ex-linhas { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.ex-linhas i { display: block; height: 4px; border-radius: 2px; background: #DCE7D3; }
-.ex-linhas i:last-child { width: 60%; }
-.ex-cel-exclusivo .ex-linhas i { background: #e8d3a6; }
-.ex-cel-exclusivo .ex-linhas i:last-child { background: #c0392b; }
-.ex-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
-.ex-cel-exclusivo .ex-rotulo { color: #FDE68A; }
-.ex-texto { display: flex; flex-direction: column; gap: 16px; min-width: 0; container-type: inline-size; }
-.ex-kicker { font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #FDE68A; }
-.exclusiva h2 { color: #fff; font-size: 28px; line-height: 1.12; margin: -8px 0 0; }
-.ex-sub { margin: 0; color: rgba(255, 255, 255, 0.86); font-size: 16px; line-height: 1.5; }
-.ex-recursos { display: grid; grid-template-columns: 1fr; gap: 12px 20px; margin: 0; padding: 0; list-style: none; } /* lista leve, sem cartao: a vitrine ja chama bastante */
-.ex-recurso { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.ex-icone { width: 38px; height: 38px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 19px; line-height: 1; } /* bolinha fixa: o texto comeca no mesmo x em todas as linhas */
-.ex-selo { width: 21px; height: 21px; display: block; } /* o selo verde de verdade, do tamanho visual dos emojis ao lado */
-.ex-recurso > b { font-size: 15px; line-height: 1.3; color: #fff; }
-.ex-preco { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
-.ex-apartir { font-size: 14px; color: rgba(255, 255, 255, 0.78); }
-.ex-preco b { font-family: var(--display); font-size: 38px; line-height: 1; color: #FDE68A; }
-.ex-obs { font-size: 14px; color: rgba(255, 255, 255, 0.86); flex-basis: 100%; }
-.ex-botoes { display: flex; gap: 12px; flex-wrap: wrap; }
-.ex-botoes .btn { flex: 1 1 260px; min-width: max-content; min-height: 60px; white-space: nowrap; } /* base maior que o texto mais largo: lado a lado so com os dois do mesmo tamanho; senao desce */
-.ex-botoes .ex-ver { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.5); }
-@container (min-width: 500px) {
-  .ex-recursos { grid-template-columns: 1fr 1fr; } /* duas colunas so quando cada linha cabe inteira */
-}
-@media (max-width: 420px) {
-  .exclusiva { padding: 24px 16px; gap: 20px; border-radius: 24px; }
-  .ex-vitrine { gap: 8px; }
-  .ex-tela { width: 108px; height: 196px; border-width: 5px; border-radius: 20px; padding: 10px 8px 8px; gap: 6px; }
-  .ex-cel-exclusivo .ex-tela { width: 124px; height: 224px; }
-  .ex-logo { width: 44px; height: 44px; } .ex-cel-exclusivo .ex-logo { width: 66px; height: 66px; }
-  .ex-seta { font-size: 20px; }
-  .exclusiva h2 { font-size: 24px; }
-  .ex-preco b { font-size: 32px; }
-  .ex-botoes .btn { flex: 1 1 100%; }
-}
-/* 320: os dois celulares de exemplo (e a inclinacao deles) cabem dentro do quadro escuro */
-@media (max-width: 340px) {
-  .ex-tela { width: 98px; height: 178px; }
-  .ex-cel-exclusivo .ex-tela { width: 114px; height: 206px; }
-}
-@media (min-width: 900px) { .exclusiva { grid-template-columns: 360px minmax(0, 1fr); gap: 36px; padding: 40px 44px; } .ex-tela { width: 148px; height: 264px; } .ex-cel-exclusivo .ex-tela { width: 168px; height: 300px; } .exclusiva h2 { font-size: 34px; } }
-@media (prefers-reduced-motion: no-preference) { .ex-cel-exclusivo .ex-tela { animation: ex-flutuar 5s ease-in-out infinite; } }
-@keyframes ex-flutuar { 0%, 100% { transform: rotate(2deg) translateY(0); } 50% { transform: rotate(2deg) translateY(-8px); } }
 .exclusivo-convite { margin: 0; }
 /* tela de carregamento da loja oficial */
 .splash-oficial { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; transition: opacity 0.3s ease; }
@@ -1307,7 +1244,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 
 /* ---------- Pagina de vendas (#/lojas) ---------- */
 
-.vender-capa { padding: 34px var(--margem) 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
+.vender-capa { padding: 24px var(--margem) 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
 /* no computador a faixa do topo vai de ponta a ponta; o conteudo continua centrado na largura da pagina */
 @media (min-width: 1181px) { .vender-capa { width: var(--vw, 100vw); margin-left: calc(50% - var(--vw, 100vw) / 2); padding-left: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); padding-right: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); } } /* --vw: largura sem a barra de rolagem */
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
@@ -1342,7 +1279,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .calc-trilho span { display: block; height: 100%; background: var(--orange); border-radius: 5px; transition: width 0.25s; }
 .calc-linha.ligeiro .calc-trilho span { background: var(--lime); }
 .calc-linha small { font-size: 13px; color: var(--muted); }
-.calc-frase { font-weight: 700; color: var(--deep); font-size: 17px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 12px 14px; }
+.calc-frase { font-weight: 500; color: var(--body); font-size: 17px; line-height: 1.45; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 12px 14px; }
+.calc-frase b { font-weight: 700; color: var(--deep); } /* a conta em texto normal; o que fica com o dono em negrito */
 .passos-venda { display: flex; flex-direction: column; gap: 12px; }
 .passo-venda { display: flex; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 14px 16px; }
 .passo-venda .n { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--deep); color: var(--lime); font-family: var(--display); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
@@ -1362,6 +1300,27 @@ a.selo-google:hover { background: var(--lime-suave); }
 .duvida summary::after { content: "+"; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
 .duvida[open] summary::after { content: "−"; }
 .duvida p { padding: 0 0 14px; color: var(--body); font-size: 15.5px; line-height: 1.45; }
+/* heroi: a garantia colada no botao de comecar */
+.garantia-botao { margin: 0; text-align: center; text-wrap: balance; font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--body); } /* 320: quebra em duas linhas centradas, com o check junto da primeira palavra */
+.garantia-botao .ico-traco { display: inline-flex; vertical-align: -2px; margin-right: 6px; color: var(--lime-escuro); }
+.garantia-botao .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.6; }
+/* faixa de fundador antes da primeira vaga usada: so o texto, sem contagem */
+.fundador.sem-contagem { grid-template-columns: minmax(0, 1fr); }
+/* loja de verdade: texto, o celular com a loja da Dom Conizza saindo de baixo do quadro e o botao */
+.loja-real-texto { display: contents; }
+.loja-real-botao { order: 2; align-self: stretch; }
+.loja-real-vitrine { order: 1; position: relative; display: flex; justify-content: center; height: 300px; padding-top: 24px; overflow: hidden; border-radius: var(--raio); background: radial-gradient(circle at 50% 100%, rgba(132, 204, 22, 0.28), transparent 62%), var(--lime-suave); border: 1px solid #CFE3B4; }
+.loja-real-cel { display: block; width: 232px; flex: none; align-self: flex-start; border: 7px solid #0E1F14; border-bottom: 0; border-radius: 34px 34px 0 0; overflow: hidden; background: #f6e6c4; box-shadow: 0 16px 36px rgba(14, 31, 20, 0.22); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.loja-real-cel img { display: block; width: 100%; height: auto; }
+@media (hover: hover) { .loja-real-vitrine:hover .loja-real-cel { transform: translateY(-4px); } }
+@media (min-width: 900px) {
+  .loja-real { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 40px; align-items: center; }
+  .loja-real-texto { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .loja-real-texto > * { margin: 0; }
+  .loja-real-botao { align-self: flex-start; }
+  .loja-real-vitrine { height: 340px; padding-top: 32px; }
+  .loja-real-cel { width: 256px; }
+}
 .vender-final { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 6px; }
 .rodape .ligeiro a { color: inherit; text-decoration: none; font-weight: 600; }
 .chamada { width: 100%; max-width: 440px; }
@@ -1382,7 +1341,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 480px) { .barra-topo .btn-conta { min-height: 40px; padding: 3px 12px 3px 3px; gap: 8px; font-size: 14px; } .barra-topo .conta-bolinha { width: 32px; height: 32px; font-size: 16px; } .barra-topo .btn-assinar { min-height: 40px; padding: 6px 14px; } }
 @media (max-width: 360px) { .barra-topo .btn-entrar .conta-bolinha { display: none; } .barra-topo .btn-entrar { padding: 6px 14px; } } /* 320: "Entrar" e "Assinar" cabem do lado da marca */
 .preco-destaque { color: var(--lime-escuro); white-space: nowrap; }
-.heroi-mascote { position: relative; z-index: 1; width: 150px; height: 150px; object-fit: contain; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
+.heroi-mascote { position: relative; z-index: 1; width: 120px; height: 120px; object-fit: contain; animation: flutuar 4s ease-in-out infinite; transform-origin: 50% 90%; }
 /* sombra de chao em elipse (o filter:drop-shadow numa imagem animada as vezes aparecia como um quadrado) */
 .heroi-mascote-caixa { position: relative; flex: none; display: flex; }
 .heroi-mascote-caixa::after { content: ""; position: absolute; left: 20%; right: 20%; bottom: 3%; height: 8%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(15, 61, 46, 0.24), rgba(15, 61, 46, 0) 70%); z-index: 0; }
@@ -1437,6 +1396,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* celular estreito: "Quero que montem para mim" numa linha so, medido com a letra do iPhone (mais larga que a do PC) */
 @media (max-width: 380px) { .teste-botoes .btn { font-size: 17px; } }
 @media (max-width: 340px) { .teste-banner { padding-left: 12px; padding-right: 12px; } .teste-botoes .btn { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
+/* o mesmo par de botoes no fechamento da pagina: "Quero que montem para mim" numa linha so ate 320 */
+@media (max-width: 380px) { .vender-final .btn-fantasma { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
+@media (max-width: 340px) { .vender-final .btn-fantasma { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 /* mensal e anual lado a lado, ate no celular (as partes dos dois na mesma altura, pelo subgrid); o incluso embaixo */
@@ -1709,6 +1671,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 @keyframes pulsarPonto { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 @media (hover: hover) { .zap-flutuante:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 30px rgba(37, 211, 102, 0.42); } }
 .zap-flutuante:active { transform: scale(0.97); }
+a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um link direto */
+@media (max-width: 759px) { .zap-flutuante { transition: opacity 0.2s ease, visibility 0.2s; } .zap-flutuante.no-heroi { opacity: 0; visibility: hidden; pointer-events: none; } }
 /* barra fixa de chamada no celular */
 .cta-fixa { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); animation: subir 0.25s ease-out; }
 .cta-fixa b { color: var(--deep); }
@@ -1734,6 +1698,7 @@ a.selo-google:hover { background: var(--lime-suave); }
   .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
   .heroi-texto .vender-selos { justify-content: flex-start; }
+  .heroi-texto .garantia-botao { text-align: left; }
   .vender-titulo { font-size: 44px; max-width: 640px; }
   .vender-sub { font-size: 19px; max-width: 560px; } .vender-oferta { font-size: 26px; max-width: 640px; }
   .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 40px; } /* PC: 40 antes de cada secao (a regua do PC) */
@@ -2401,7 +2366,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* pagina de vendas e Central: icones de traco */
 .item-venda .icone { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
 .item-venda .icone .ico-traco svg { width: 22px; height: 22px; }
-.ex-icone .ico-traco svg { width: 20px; height: 20px; }
 .fundador-relogio .ico-traco svg, .fundador-selo .estrela .ico-traco svg { width: 16px; height: 16px; }
 .fundador-relogio { display: inline-flex; vertical-align: -2px; }
 .fundador-selo .estrela { display: inline-flex; }

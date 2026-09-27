@@ -21,6 +21,7 @@ globalThis.fetch = async (alvo, op) => {
   if (u === 'https://ligeiropedidos.com.br/index.html') return new Response(INDEX, { headers: { 'Content-Type': 'text/html' } });
   const m = /^https:\/\/ligeiro-mp\.ligeiro-pedidos\.workers\.dev\/loja\/(.+)$/.exec(u);
   if (m) return lojas[m[1]] ? new Response(JSON.stringify({ borda: 1, loja: lojas[m[1]] })) : new Response('{"borda":1,"erro":"nao-existe"}', { status: 404 });
+  if (u.indexOf('https://ligeiro-18df1.firebaseapp.com/') === 0) return new Response('firebase ' + u, { headers: { 'X-De': 'firebase' } });
   return new Response('arquivo ' + u, { headers: { 'X-De': 'github' } });
 };
 const WHATS = 'WhatsApp/2.23.20.0 A';
@@ -132,6 +133,22 @@ for (const [a, n] of [['name', 'description'], ['property', 'og:url'], ['propert
   ok(meta(INDEX, a, n) != null, 'index tem ' + n);
 }
 ok(/<link rel="canonical" href="[^"]*">/.test(INDEX) && /<title>[^<]*<\/title>/.test(INDEX), 'index tem canonical e title');
+
+console.log('== login do Google no nosso dominio (/__/auth/) ==');
+{
+  let r = await pedir('/__/auth/handler?apiKey=x&authType=signInViaPopup');
+  ok(r.headers.get('X-De') === 'firebase' && /ligeiro-18df1\.firebaseapp\.com\/__\/auth\/handler\?apiKey=x&authType=signInViaPopup$/.test(await r.text()), 'handler do login vai para o Firebase, com a consulta inteira');
+  r = await pedir('/__/auth/iframe.js');
+  ok(r.headers.get('X-De') === 'firebase', 'arquivo do login (/__/auth/iframe.js) tambem vai para o Firebase, nao para o GitHub');
+  r = await pedir('/__/firebase/init.json');
+  ok(r.headers.get('X-De') === 'firebase', '/__/firebase/init.json vai para o Firebase');
+  r = await pedir('/__/auth/handler', IPHONE, 'POST');
+  ok(r.headers.get('X-De') === 'firebase', 'POST no handler tambem e repassado');
+  r = await pedir('/__/outra/coisa');
+  ok(r.headers.get('X-De') !== 'firebase', 'so /__/auth/ e /__/firebase/ vao para o Firebase');
+  r = await pedir('/juquia/dom-conizza');
+  ok(r.headers.get('X-De') !== 'firebase', 'as lojas continuam no site');
+}
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

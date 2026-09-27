@@ -849,6 +849,7 @@
       capa.hidden = !srcCapa;
       if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
       capa.parentNode.classList.toggle('com-capa', !!srcCapa);
+      capa.parentNode.classList.add('pronta'); /* fim da reserva de lugar do nome, da linha de baixo e do rodape (ver o css) */
       $('nomeLoja').textContent = l.nome;
       var seloV = UI.seloVerificada(l, 'no-nome');
       if (seloV) $('nomeLoja').appendChild(seloV);

@@ -99,9 +99,12 @@
   var TAG = ((((document.querySelector('script[src*="js/app.js"]') || {}).src) || '').match(/\?v=([0-9a-z]+)/) || [])[1] || '1';
   var VENDAS = ['js/cidades.js', 'js/parceiro.js'];
   var EQUIPE = ['js/equipe.js'];
+  /* a loja do cliente (e a lista de lojas da cidade): so quem vai pedir baixa; a pagina de vendas nao traz mais os 54 KB */
+  var CLIENTE = ['js/cliente.js'];
   var ARQUIVOS = {
     '': VENDAS, lojas: VENDAS, assinar: VENDAS, entrar: VENDAS, termos: VENDAS, privacidade: VENDAS,
-    cozinha: EQUIPE, entrega: EQUIPE, balcao: EQUIPE,
+    cidades: CLIENTE,
+    cozinha: EQUIPE, entrega: EQUIPE, balcao: CLIENTE.concat(EQUIPE), /* o balcao abre a loja do cliente por dentro */
     painel: ['js/cidades.js', 'js/mp.js', 'js/cobranca.js', 'js/equipe.js', 'js/servicos.js', 'js/painel.js'],
     servicos: ['js/servicos.js'],
     conta: VENDAS.concat(['js/cobranca.js', 'js/equipe.js', 'js/conta.js']),
@@ -124,7 +127,8 @@
     });
     return baixando[src];
   }
-  function arquivosDa(p) { return ARQUIVOS[p.length ? p[0] : ''] || []; }
+  /* o que nao e tela conhecida e cidade ou loja: /juquia, /juquia/dom-conizza */
+  function arquivosDa(p) { var k = p.length ? p[0] : ''; return Object.prototype.hasOwnProperty.call(ARQUIVOS, k) ? ARQUIVOS[k] : CLIENTE; }
   function faltaDa(p) { return arquivosDa(p).filter(function (src) { return !baixados[src]; }); }
   function carregarRota(p) { return Promise.all(arquivosDa(p).map(baixar)); }
 
@@ -158,7 +162,7 @@
     /* paginas de venda: o proximo passo do dono e o cadastro ou a conta; o codigo deles vem em segundo plano, depois que
        a pagina aparece (nunca o painel nem a Central, que quem esta so olhando nao usa) */
     if (p.length === 0 || ['lojas', 'assinar', 'entrar'].indexOf(p[0]) >= 0) {
-      setTimeout(function () { carregarRota(['comecar']).then(function () { return carregarRota(['conta']); }).catch(function () { /* tenta de novo quando precisar */ }); }, 2500);
+      depoisDeAbrir(2500).then(function () { return carregarRota(['comecar']); }).then(function () { return carregarRota(['conta']); }).catch(function () { /* tenta de novo quando precisar */ });
     }
     var C = window.LigeiroCliente;
     var P = window.LigeiroPainel;
@@ -272,6 +276,14 @@
     window.scrollTo(0, alvo ? alvo.getBoundingClientRect().top + window.scrollY + dentro : y);
   }
   var vagasBuscadas = false;
+  /* espera a pagina terminar de abrir (imagens e tudo) e mais um pouco: o banco (uns 180 KB) nao disputa a internet
+     com o que a pessoa esta vendo */
+  function depoisDeAbrir(ms) {
+    return new Promise(function (ok) {
+      function vai() { setTimeout(ok, ms); }
+      if (document.readyState === 'complete') vai(); else window.addEventListener('load', vai, { once: true });
+    });
+  }
   function buscarVagas() {
     var p = partes();
     /* telas do dono e do admin usam o banco (e o login do Google tem que estar pronto no toque): ja comeca a baixar */
@@ -280,7 +292,7 @@
     var raizVendas = !p.length;
     if (vagasBuscadas || (!raizVendas && ROTAS_COM_VAGAS.indexOf(p[0]) < 0)) return;
     vagasBuscadas = true;
-    (raizVendas ? new Promise(function (r) { setTimeout(r, 2500); }) : Promise.resolve()).then(function () { return window.LigeiroDados.store.obterFundadores(); }).then(function (f) {
+    (raizVendas ? depoisDeAbrir(2500) : Promise.resolve()).then(function () { return window.LigeiroDados.store.obterFundadores(); }).then(function (f) {
       if (!f) return; /* nao deu para ler: fica o que tinha */
       var antes = window.LigeiroFundadores.usados;
       var fechadoAntes = window.LigeiroRegras.capacidadeLojas().fechado;

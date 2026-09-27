@@ -115,9 +115,20 @@ async function logo(slug) {
   return new Response(bytes, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' } });
 }
 
+const FIREBASE_AUTH = 'https://ligeiro-18df1.firebaseapp.com';
+async function loginFirebase(request, url) {
+  const cab = new Headers(request.headers);
+  cab.delete('host');
+  const corpo = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
+  return fetch(FIREBASE_AUTH + url.pathname + url.search, { method: request.method, headers: cab, body: corpo, redirect: 'manual' });
+}
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    /* login do Google no nosso dominio: o Firebase atende em /__/auth/ e /__/firebase/ (a tela de permissao do Google
+       mostra ligeiropedidos.com.br em vez de ligeiro-18df1.firebaseapp.com); tudo repassado como veio */
+    if (url.hostname === 'ligeiropedidos.com.br' && /^\/__\/(auth|firebase)\//.test(url.pathname)) return loginFirebase(request, url);
     /* www, outro metodo e arquivo (tem extensao: .js, .css, .webp, index.html...): direto para o GitHub */
     if (url.hostname !== 'ligeiropedidos.com.br' || (request.method !== 'GET' && request.method !== 'HEAD')) return fetch(request);
     if (/\.[A-Za-z0-9]{1,12}$/.test(url.pathname) || url.pathname.indexOf('/.well-known/') === 0) return fetch(request);

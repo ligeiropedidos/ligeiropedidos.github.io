@@ -44,12 +44,14 @@
     var total = (cfg().fundador || {}).vagas || 0;
     if (!restam || !total) return null;
     var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': 'Restam ' + restam + ' de ' + total + ' vagas' }, el('i', { style: { width: Math.max(4, Math.round(restam / total * 100)) + '%' } }));
-    return el('div', { class: 'fundador' }, [
+    /* nenhuma vaga usada ainda: sem a contagem ("restam 5 de 5" com a barra cheia parecia que ninguem comprou) */
+    var nenhumaUsada = restam >= total;
+    return el('div', { class: 'fundador' + (nenhumaUsada ? ' sem-contagem' : '') }, [
       el('div', { class: 'fundador-lado' }, [
         el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Preço de fundador']),
-        el('p', { class: 'fundador-texto', text: 'Para as ' + total + ' primeiras lojas. O preço fica travado enquanto você não cancelar.' }),
+        el('p', { class: 'fundador-texto', text: 'Para as ' + total + ' primeiras lojas: ' + reais(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado enquanto você não cancelar.' }),
       ]),
-      el('div', { class: 'fundador-conta' }, [
+      nenhumaUsada ? null : el('div', { class: 'fundador-conta' }, [
         el('span', { class: 'fundador-vagas' }, [el('span', { class: 'fundador-relogio', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
         barra,
       ]),
@@ -99,9 +101,16 @@
     }
     var store = D() && D().store;
     /* ja entrou antes neste aparelho: abre direto com a conta, sem piscar "Entrar" */
-    if (store && store.pareceLogado && store.pareceLogado()) comoLogado(true);
-    /* o Firebase confirma (e traz o nome) ou corrige se a sessao tiver caido */
-    if (store && store.usuarioAtual) store.usuarioAtual().then(function (u) { comoLogado(!!u, u); });
+    var logado = !!(store && store.pareceLogado && store.pareceLogado());
+    if (logado) comoLogado(true);
+    /* o Firebase confirma (e traz o nome) ou corrige se a sessao tiver caido. Quem nunca entrou neste aparelho nao
+       espera por ele: o banco (uns 180 KB) so vem depois que a pagina terminou de abrir */
+    function conferir() { store.usuarioAtual().then(function (u) { comoLogado(!!u, u); }); }
+    if (store && store.usuarioAtual) {
+      if (logado) conferir();
+      else if (document.readyState === 'complete') setTimeout(conferir, 3000);
+      else window.addEventListener('load', function () { setTimeout(conferir, 3000); }, { once: true });
+    }
     return barra;
   }
 
@@ -184,11 +193,16 @@
 
   /* Botao verde flutuante, igual ao das startups: aparece em todas as paginas de venda. */
   function botaoFlutuante(raiz) {
-    raiz.appendChild(el('button', { class: 'zap-flutuante', type: 'button', 'aria-label': 'Fale conosco no WhatsApp', onclick: function () { abrirContato('botao-flutuante'); } }, [
+    /* abre o WhatsApp direto, como o nome promete (antes abria um formulario: dois toques e outra coisa) */
+    var zap = linkWhats('Oi! Quero saber mais sobre o Ligeiro para minha loja.');
+    var filhos = [
       el('span', { class: 'zap-icone' }, el('span', { class: 'icone-zap', 'aria-hidden': 'true' })),
-      el('span', { class: 'zap-texto', text: 'Fale conosco no WhatsApp' }),
+      el('span', { class: 'zap-texto', text: 'Chamar no WhatsApp' }),
       el('span', { class: 'zap-ponto' }),
-    ]));
+    ];
+    raiz.appendChild(zap
+      ? el('a', { class: 'zap-flutuante', href: zap, target: '_blank', rel: 'noopener', 'aria-label': 'Chamar no WhatsApp' }, filhos)
+      : el('button', { class: 'zap-flutuante', type: 'button', 'aria-label': 'Chamar no WhatsApp', onclick: function () { abrirContato('botao-flutuante'); } }, filhos));
   }
 
   function rodape() {
@@ -209,13 +223,14 @@
   /* ============================================================ landing */
   function abrir(raiz) {
     var lojaDemo = cfg().lojaDemo || 'juquia/dom-conizza';
-    var temWhats = !!cfg().whatsappLigeiro;
     var pr = precos();
     document.title = 'Ligeiro: sistema de pedidos para delivery, sem comissão';
 
-    function botoesChamada(grande) {
+    function botoesChamada(grande, garantia) {
       /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/comecar', text: 'Começar grátis' })];
+      /* o que mais tira o medo de comecar fica colado no botao, sem precisar rolar */
+      if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Sem cartão de crédito e sem fidelidade.']));
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '51 s' }),
@@ -295,10 +310,12 @@
     function seloFundador() {
       var restam = R.vagasFundador();
       if (!(restam > 0)) return null;
+      var total = (cfg().fundador || {}).vagas || 0;
+      var rotulo = restam >= total ? 'Preço de fundador: ' + reais(pr.mensal) + ' travado' : 'Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador';
       return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) {
         var alvo = document.getElementById('planos');
         if (alvo) { e.preventDefault(); alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador']);
+      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), rotulo]);
     }
 
     raiz.appendChild(barraTopo());
@@ -313,11 +330,9 @@
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
         el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: 'Cardápio num link, o pedido caindo no seu celular e o pagamento confirmado sozinho pelo Mercado Pago, no Pix ou no cartão: comprovante falso não passa. Sem app para instalar.' }),
-        botoesChamada(true),
+        el('p', { class: 'vender-sub', text: 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
+        botoesChamada(true, true),
         el('div', { class: 'vender-selos' }, [
-          el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'Sem cartão de crédito']),
-          el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'Sem fidelidade']),
           el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'A gente monta para você']),
           seloFundador(),
           seloLojas,
@@ -359,9 +374,13 @@
           el('small', { text: linha[2] }),
         ]));
       });
-      var economia = Math.min(c.ifoodBasico, c.anotaAi) - c.ligeiro;
-      if (economia > 0) frase.textContent = 'Só a diferença para o mais barato deles são ' + dinheiro(economia) + ' por mês. Em um ano, ' + dinheiro(economia * 12) + ' que ficam com você.';
-      else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o mais barato deles. A diferença é que ele continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
+      /* a frase fecha a conta contra o iFood (o que a pagina promete no titulo); o Anota AI fica nas barras */
+      var economia = c.ifoodBasico - c.ligeiro;
+      UI.limpar(frase);
+      if (economia > 0) {
+        frase.appendChild(document.createTextNode('Pelo iFood, no plano Básico, iriam ' + dinheiro(c.ifoodBasico) + ' por mês. No Ligeiro, ' + dinheiro(c.ligeiro) + '. '));
+        frase.appendChild(el('b', { text: 'Ficam ' + dinheiro(economia) + ' por mês com você, ' + dinheiro(economia * 12) + ' em um ano.' }));
+      } else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o iFood. A diferença é que ele continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
       else frase.textContent = 'Com esse volume, a comissão do iFood ainda sai mais barata que ' + dinheiro(pr.mensal) + '. A conta vira a seu favor a partir de uns ' + dinheiro(Math.ceil(pr.mensal / 0.152 / 10000) * 10000) + ' por mês de vendas.';
     }
     vendas.addEventListener('input', calcular);
@@ -378,7 +397,7 @@
           el('div', { class: 'campo' }, [el('label', { text: 'Pedidos' }), pedidos]),
         ]),
       ]),
-      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Quero essa economia' })]),
+      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Começar grátis' })]),
     ]));
 
     /* ---------- antes e depois ---------- */
@@ -396,9 +415,23 @@
       el('div', { class: 'kicker', text: 'Como funciona' }),
       el('h2', { text: 'Três passos, e o pedido cai' }),
       el('div', { class: 'passos-venda' }, [
-        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio já vem montado para o seu tipo de loja; você só ajusta preços. Se preferir, a gente vai até você e deixa tudo pronto, com fotos.'),
+        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio já vem montado para o seu tipo de loja; você só ajusta preços. Se preferir, a gente monta o cardápio para você, com as fotos que você já tem.'),
         passo('2', 'Você espalha o link', 'Bio do Instagram, status e saudação automática do WhatsApp, QR no balcão. Quem pede uma vez, pede de novo pelo link.'),
         passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com senha, itens, endereço com referência e o pagamento já conferido para você.'),
+      ]),
+    ]));
+
+    /* ---------- loja de verdade: o que o cliente do dono vai ver ---------- */
+    corpo.appendChild(el('section', { class: 'vender-bloco loja-real' }, [
+      /* no celular o texto vem primeiro, o celular no meio e o botao embaixo; no computador o texto fica ao lado */
+      el('div', { class: 'loja-real-texto' }, [
+        el('div', { class: 'kicker', text: 'Loja de verdade' }),
+        el('h2', { text: 'Veja o que o seu cliente vai ver' }),
+        el('p', { class: 'muted', text: 'A Dom Conizza, de Juquiá/SP, montada no Ligeiro. Abra o cardápio e veja como o cliente escolhe e paga.' }),
+        el('a', { class: 'btn btn-fantasma loja-real-botao', href: '/' + lojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']),
+      ]),
+      el('a', { class: 'loja-real-vitrine', href: '/' + lojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
+        el('span', { class: 'loja-real-cel' }, el('img', { src: 'img/loja-ligeiro/exclusivo.webp', alt: 'A loja da Dom Conizza no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' })),
       ]),
     ]));
 
@@ -425,7 +458,7 @@
         el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Todos os recursos'].map(function (t) { return el('li', { text: t }); })),
       ]),
       el('div', { class: 'teste-botoes' }, [
-        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Criar minha loja grátis' }),
+        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
       ]),
     ]));
@@ -465,78 +498,35 @@
       el('h2', { text: 'O que todo dono pergunta' }),
       el('div', { class: 'faq' }, [
         duvida('Preciso cadastrar cartão para testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
-        duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
-        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
-        duvida('Como eu recebo o dinheiro do Pix?', 'Pela sua conta Mercado Pago (grátis, abre em 5 minutos no app), que você conecta no painel com um clique, sem copiar nada. O cliente paga, o Mercado Pago confirma na hora e o pedido já entra na cozinha. O dinheiro fica na sua conta Mercado Pago (taxa deles, cerca de 1% por Pix) e você transfere para o banco quando quiser. O Ligeiro nunca encosta no dinheiro. Sem Mercado Pago, a loja recebe na maquininha e em dinheiro.'),
-        duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão com o Mercado Pago: você liga com um toque em Ajustes. O cliente digita o cartão no formulário seguro do próprio Mercado Pago (os números não passam pelo Ligeiro nem pela loja), paga à vista e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, com o dinheiro na hora. Se preferir, repasse a taxa ao cliente (a lei permite): ele vê o valor antes de pagar, e no Pix não muda nada. Cancelou um pedido pago? O dinheiro volta sozinho para o cliente.'),
-        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
-        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 a R$ 299,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago. Cardápio, painel, cozinha e entregador em qualquer plano.'),
+        duvida('Eu não entendo de internet. Vou conseguir?', 'Vai. Se preferir, a gente monta a loja para você e tira dúvidas pelo WhatsApp. Depois, mudar preço ou pausar um item é um toque no celular.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
-        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
+        duvida('Como eu recebo o dinheiro do Pix?', 'Direto na sua conta do Mercado Pago, que você conecta no painel com um toque; o Ligeiro nunca encosta no dinheiro. O Mercado Pago confirma na hora e o pedido já entra pago na cozinha (taxa deles, cerca de 1% por Pix).'),
+        duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão: o cliente digita o cartão no formulário seguro do Mercado Pago e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, e você pode repassar ao cliente.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio com foto: toca no lanche, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
+        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
+        duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
+        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
+        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 a R$ 299,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
+        duvida('Minha loja pode ter a cara da minha marca?', 'Pode. No painel você escolhe cor, logo e capa. Se quiser algo feito sob medida, dentro do painel tem a Loja do Ligeiro, com logo, fotos, vídeo e design exclusivo, pagos uma vez só.'),
         duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. O sistema é enxuto, e o preço acompanha.'),
       ]),
     ]));
 
-    /* ---------- servico extra: loja com design exclusivo ---------- */
-    (function () {
-      var lc = cfg().lojaCustomizada || {};
-      var msg = 'Oi! Quero um orçamento de loja com design exclusivo no Ligeiro.';
-      var pedir = linkWhats(msg)
-        ? el('a', { class: 'btn btn-principal', href: linkWhats(msg), target: '_blank', rel: 'noopener', text: 'Pedir orçamento' })
-        : el('button', { class: 'btn btn-principal', type: 'button', text: 'Pedir orçamento', onclick: function () { abrirContato('loja-exclusiva'); } });
-      /* celular de mentira: mostra a diferenca entre a loja padrao e a exclusiva */
-      function celular(tipo) {
-        var exclusivo = tipo === 'exclusivo';
-        return el('div', { class: 'ex-cel ' + (exclusivo ? 'ex-cel-exclusivo' : 'ex-cel-padrao') }, [
-          el('div', { class: 'ex-tela' }, [
-            exclusivo ? el('img', { class: 'ex-logo', src: 'img/oficial/dom-conizza-logo.webp', alt: '' }) : el('div', { class: 'ex-logo ex-logo-emoji', text: '🍕' }),
-            el('div', { class: 'ex-nome', text: exclusivo ? 'Dom Conizza' : 'Sua loja' }),
-            el('div', { class: 'ex-botao', text: 'PEDIR AGORA' }),
-            el('div', { class: 'ex-item' }, [el('span', { class: 'ex-foto' }), el('span', { class: 'ex-linhas' }, [el('i'), el('i')])]),
-            el('div', { class: 'ex-item' }, [el('span', { class: 'ex-foto' }), el('span', { class: 'ex-linhas' }, [el('i'), el('i')])]),
-          ]),
-          el('div', { class: 'ex-rotulo', text: exclusivo ? 'Exclusivo' : 'Padrão' }),
-        ]);
-      }
-      /* icone: um emoji, ou uma imagem (o selo verde), na mesma bolinha de 38px: o texto comeca no mesmo x em todas as linhas */
-      function recurso(icone, titulo) {
-        var caixa = typeof icone === 'string' ? el('span', { class: 'ex-icone', text: icone }) : el('span', { class: 'ex-icone' }, icone);
-        return el('li', { class: 'ex-recurso' }, [caixa, el('b', { text: titulo })]);
-      }
-      corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-        el('div', { class: 'exclusiva' }, [
-          el('div', { class: 'ex-vitrine', 'aria-hidden': 'true' }, [celular('padrao'), el('span', { class: 'ex-seta', text: '→' }), celular('exclusivo')]),
-          el('div', { class: 'ex-texto' }, [
-            el('div', { class: 'ex-kicker', text: 'Serviço extra' }),
-            el('h2', { text: 'Uma loja com a cara da sua marca' }),
-            el('p', { class: 'ex-sub', text: 'No painel, toda loja já escolhe cor, logo e capa. No exclusivo, a gente desenha a loja inteira do seu jeito, como fez na Dom Conizza, e você não mexe em nada.' }),
-            /* quatro linhas curtas (eram seis cartoes com subtitulo): numero par, nas duas colunas nao sobra linha sozinha */
-            el('ul', { class: 'ex-recursos' }, [
-              recurso([UI.iconeLinha('imagem')], 'Suas cores, letras e botões'),
-              recurso([UI.iconeLinha('estrela')], 'Abertura com a sua logo'),
-              recurso([UI.iconeLinha('chef')], 'Combinando até na cozinha'),
-              recurso(el('img', { class: 'ex-selo', src: 'img/selo-verificado.svg', alt: '' }), 'Selo de loja verificada'),
-            ]),
-            el('div', { class: 'ex-preco' }, [
-              el('span', { class: 'ex-apartir', text: lc.aPartirDe ? 'a partir de' : '' }),
-              el('b', { text: lc.aPartirDe ? reais(lc.aPartirDe) : 'Sob orçamento' }),
-              el('span', { class: 'ex-obs' }, [el('span', { class: 'sem-quebra', text: 'Pago uma vez só.' }), ' ', el('span', { class: 'sem-quebra', text: 'A mensalidade não muda.' })]), /* se quebrar, quebra entre as frases */
-            ]),
-            el('div', { class: 'ex-botoes' }, [pedir, el('a', { class: 'btn btn-fantasma ex-ver', href: '#/' + lojaDemo, text: 'Ver a Dom Conizza' })]),
-          ]),
-        ]),
-      ]));
-    })();
+    /* o design exclusivo (servico extra) saiu daqui: oferecer R$ 399 a quem ainda nao decidiu os R$ 79 atrapalhava o
+       cadastro. Ele mora na Loja do Ligeiro, dentro do painel, e aparece numa pergunta das duvidas */
 
     /* ---------- fechamento ---------- */
     corpo.appendChild(el('section', { class: 'vender-final' }, [
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
-      el('p', { class: 'muted', text: 'Comece grátis agora ou chame a gente: vamos até você, cadastramos tudo e os primeiros dias são por nossa conta.' }),
-      botoesChamada(true),
-      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Prefiro que me chamem', onclick: function () { abrirContato('fechamento'); } }),
+      el('p', { class: 'muted', text: 'Comece grátis agora ou peça para a gente montar: cadastramos tudo e os primeiros dias são por nossa conta.' }),
+      /* dois caminhos so: comecar sozinho ou pedir para a gente montar */
+      el('div', { class: 'pilha chamada' }, [
+        el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
+        el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('fechamento'); } }),
+      ]),
     ]));
     raiz.appendChild(rodape());
     botaoFlutuante(raiz);
@@ -547,7 +537,16 @@
       el('a', { class: 'btn btn-principal btn-pequeno', href: '#/comecar', text: 'Começar grátis' }),
     ]);
     raiz.appendChild(barra);
-    function conferirBarra() { barra.hidden = capa.getBoundingClientRect().bottom > 0; }
+    /* some tambem quando um "Começar grátis" grande ja esta na tela (dois botoes iguais, um em cima do outro, confundem) */
+    var grandes = [].slice.call(corpo.querySelectorAll('a.btn-principal[href="#/comecar"]'));
+    function naTela(e) { var r = e.getBoundingClientRect(); return r.height > 0 && r.bottom > 0 && r.top < window.innerHeight; }
+    /* no celular o botao do WhatsApp so aparece depois do heroi: na primeira tela ele ficava em cima do "Começar grátis" */
+    var zapBotao = raiz.querySelector('.zap-flutuante');
+    function conferirBarra() {
+      var heroi = capa.getBoundingClientRect().bottom > 0;
+      barra.hidden = heroi || grandes.some(naTela);
+      if (zapBotao) zapBotao.classList.toggle('no-heroi', heroi);
+    }
     window.addEventListener('scroll', conferirBarra, { passive: true });
     window.addEventListener('resize', conferirBarra);
     conferirBarra();
@@ -837,9 +836,6 @@
       ['Ligeiro', reais(pr.mensal) + ' fixo', 'Nenhuma', true],
       ['iFood', 'R$ 110 a R$ 150', '15,2% a 26,2% de cada venda'],
       ['Anota AI', 'R$ 99,99 a R$ 299,99', 'Nenhuma'],
-      ['Goomer', 'R$ 99,90 a R$ 299,90', 'Nenhuma'],
-      ['Cardápio Web', 'R$ 169,99 a R$ 269,99', 'Nenhuma'],
-      ['Delivery Direto', 'R$ 129 a R$ 289', 'Nenhuma'],
       ['aiqfome', 'Sem mensalidade', '12% a 18% de cada venda + taxa do pagamento'],
     ];
     return el('div', { class: 'comparativo' }, [
