@@ -527,6 +527,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .campo input.erro, .campo select.erro { border-color: var(--erro); background: var(--erro-suave); }
 .linha-campos { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
 .linha-campos > * { min-width: 0; }
+.vender-calc .linha-campos { gap: 12px; } /* pagina inicial: a regua de 12 entre itens */
 .msg-erro { background: var(--erro-suave); border: 1px solid #F3C4BE; color: var(--erro); padding: 12px 14px; border-radius: var(--raio-p); font-weight: 600; }
 .aviso { background: var(--lime-suave); border: 1px solid #C9E7A1; border-radius: var(--raio-p); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; font-weight: 600; }
 .forma-pgto { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 14px; cursor: pointer; }
@@ -1022,7 +1023,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (hover: hover) { .ps-tile:hover { transform: scale(1.03); opacity: 1; } .ps-tile.escolhida:hover { transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .ps-tile, .ps-fundo { transition: none; } }
 /* preco de fundador: primeira linha da grade de planos, da largura exata dos cartoes */
-.fundador { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px 18px; text-align: left; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 20px; }
+.fundador { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px; text-align: left; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 20px; }
 .fundador-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fundador-selo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; color: #3F2A00; }
 .fundador-selo .estrela { color: #D97706; }
@@ -1166,6 +1167,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .comparativo { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
 .tabela-concorrentes { min-width: 480px; }
+.tabela-concorrentes th, .tabela-concorrentes td { padding: 12px 16px; } /* o texto a 16 da borda, como nos cartoes da pagina */
 .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: nowrap; }
 .tabela-concorrentes td:first-child b { white-space: nowrap; } /* nome do concorrente inteiro ("Delivery Direto") */
 .tabela-concorrentes tr.destaque td { background: var(--lime-suave); }
@@ -1176,10 +1178,10 @@ a.selo-google:hover { background: var(--lime-suave); }
   .tabela-concorrentes { min-width: 0; border: 0; }
   .tabela-concorrentes thead { display: none; }
   .tabela-concorrentes tbody, .tabela-concorrentes tr, .tabela-concorrentes td { display: block; }
-  .tabela-concorrentes tr { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .tabela-concorrentes tr { padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .tabela-concorrentes tr:last-child { border-bottom: 0; }
   .tabela-concorrentes td { padding: 0; border: 0; white-space: normal; font-size: 14px; }
-  .tabela-concorrentes td:first-child { font-size: 15px; margin-bottom: 2px; }
+  .tabela-concorrentes td:first-child { font-size: 15px; margin-bottom: 4px; }
   .tabela-concorrentes td:nth-child(2)::before { content: 'Por mês: '; color: var(--muted); }
   .tabela-concorrentes td:nth-child(3)::before { content: 'Comissão: '; color: var(--muted); }
   .tabela-concorrentes tr.destaque { background: var(--lime-suave); box-shadow: inset 4px 0 0 var(--lime); }
@@ -1244,7 +1246,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 
 /* ---------- Pagina de vendas (#/lojas) ---------- */
 
-.vender-capa { padding: 24px var(--margem) 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
+.vender-capa { padding: 24px var(--margem) 8px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; background: linear-gradient(180deg, var(--lime-suave), var(--bg)); }
 /* no computador a faixa do topo vai de ponta a ponta; o conteudo continua centrado na largura da pagina */
 @media (min-width: 1181px) { .vender-capa { width: var(--vw, 100vw); margin-left: calc(50% - var(--vw, 100vw) / 2); padding-left: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); padding-right: calc(var(--vw, 100vw) / 2 - 590px + var(--margem)); } } /* --vw: largura sem a barra de rolagem */
 .vender-titulo { font-size: 30px; line-height: 1.12; max-width: 560px; }
@@ -1267,19 +1269,19 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vender-bloco > .cartao > * { margin: 0; }
 .vender-bloco > .cartao b { display: block; font-family: var(--display); font-size: 18px; }
 .calc-linhas { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
-.calc-linha { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.calc-linha { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
 .calc-linha.ligeiro { border-color: var(--lime); background: var(--lime-suave); }
 .calc-cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .calc-valor { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--deep); white-space: nowrap; }
 /* celular: nome em cima e valor embaixo em todas as linhas (lado a lado, "iFood, plano Entrega" quebrava em tres e so
    aquelas linhas ficavam mais altas) */
-@media (max-width: 480px) { .calc-cabeca { flex-direction: column; align-items: flex-start; gap: 2px; } }
+@media (max-width: 480px) { .calc-cabeca { flex-direction: column; align-items: flex-start; gap: 4px; } }
 .calc-linha.ligeiro .calc-valor { color: var(--lime-escuro); }
 .calc-trilho { height: 10px; background: #E6EFDD; border-radius: 5px; overflow: hidden; }
 .calc-trilho span { display: block; height: 100%; background: var(--orange); border-radius: 5px; transition: width 0.25s; }
 .calc-linha.ligeiro .calc-trilho span { background: var(--lime); }
 .calc-linha small { font-size: 13px; color: var(--muted); }
-.calc-frase { font-weight: 500; color: var(--body); font-size: 17px; line-height: 1.45; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 12px 14px; }
+.calc-frase { font-weight: 500; color: var(--body); font-size: 17px; line-height: 1.45; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio-p); padding: 12px 16px; }
 .calc-frase b { font-weight: 700; color: var(--deep); } /* a conta em texto normal; o que fica com o dono em negrito */
 .passos-venda { display: flex; flex-direction: column; gap: 12px; }
 .passo-venda { display: flex; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); padding: 14px 16px; }
@@ -1309,17 +1311,27 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* loja de verdade: texto, o celular com a loja da Dom Conizza saindo de baixo do quadro e o botao */
 .loja-real-texto { display: contents; }
 .loja-real-botao { order: 2; align-self: stretch; }
-.loja-real-vitrine { order: 1; position: relative; display: flex; justify-content: center; height: 300px; padding-top: 24px; overflow: hidden; border-radius: var(--raio); background: radial-gradient(circle at 50% 100%, rgba(132, 204, 22, 0.28), transparent 62%), var(--lime-suave); border: 1px solid #CFE3B4; }
-.loja-real-cel { display: block; width: 232px; flex: none; align-self: flex-start; border: 7px solid #0E1F14; border-bottom: 0; border-radius: 34px 34px 0 0; overflow: hidden; background: #f6e6c4; box-shadow: 0 16px 36px rgba(14, 31, 20, 0.22); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.loja-real-cel img { display: block; width: 100%; height: auto; }
+.loja-real-vitrine { order: 1; position: relative; display: flex; text-decoration: none; justify-content: center; height: 330px; padding-top: 24px; overflow: hidden; border-radius: var(--raio); background: radial-gradient(circle at 50% 100%, rgba(132, 204, 22, 0.28), transparent 62%), var(--lime-suave); border: 1px solid #CFE3B4; }
+.loja-real-cel { position: relative; display: block; width: 232px; flex: none; align-self: flex-start; padding: 7px 7px 0; border-radius: 38px 38px 0 0; background: #0E1F14; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 0 3px #0E1F14, inset 0 0 0 4px rgba(255, 255, 255, 0.05), 0 18px 40px rgba(14, 31, 20, 0.24); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* botoes do aparelho: volume na esquerda, liga/desliga na direita */
+.loja-real-cel::before, .loja-real-cel::after { content: ""; position: absolute; width: 3px; background: #0E1F14; }
+.loja-real-cel::before { left: -3px; top: 92px; height: 40px; border-radius: 2px 0 0 2px; }
+.loja-real-cel::after { right: -3px; top: 104px; height: 58px; border-radius: 0 2px 2px 0; }
+.loja-real-tela { position: relative; display: block; overflow: hidden; border-radius: 31px 31px 0 0; background: #f5dcaa; } /* o creme do topo da loja da Dom Conizza */
+.loja-real-status { position: relative; display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 20px 0 26px; color: #241708; font: 700 12.5px/1 -apple-system, system-ui, "Segoe UI", sans-serif; }
+.loja-real-status .ilha { position: absolute; left: 50%; top: 8px; width: 64px; height: 19px; margin-left: -32px; border-radius: 10px; background: #0B120E; }
+.loja-real-status .icones { display: flex; align-items: center; gap: 5px; }
+.loja-real-status svg { display: block; fill: currentColor; }
+.loja-real-tela img { display: block; width: 100%; height: auto; }
 @media (hover: hover) { .loja-real-vitrine:hover .loja-real-cel { transform: translateY(-4px); } }
 @media (min-width: 900px) {
   .loja-real { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 40px; align-items: center; }
   .loja-real-texto { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
   .loja-real-texto > * { margin: 0; }
   .loja-real-botao { align-self: flex-start; }
-  .loja-real-vitrine { height: 340px; padding-top: 32px; }
-  .loja-real-cel { width: 256px; }
+  .loja-real-vitrine { height: 372px; padding-top: 32px; }
+  .loja-real-cel { width: 256px; padding: 8px 8px 0; border-radius: 40px 40px 0 0; }
+  .loja-real-tela { border-radius: 32px 32px 0 0; }
 }
 .vender-final { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 6px; }
 .rodape .ligeiro a { color: inherit; text-decoration: none; font-weight: 600; }
@@ -1428,12 +1440,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .planos-caixa { width: 100%; }
 /* pagina de vendas: cartoes, incluso e o botao grande na largura de um celular grande, no meio. Blocos a 12 na secao:
    texto ate a faixa 24 (igual a faixa ate os cartoes) e 24 ate a tabela */
-#planos > .planos-venda { max-width: 560px; width: 100%; margin: 12px auto; }
+#planos > .planos-venda { max-width: 560px; width: 100%; margin: 0 auto 12px; } /* 12 do texto ate os cartoes, como nas outras secoes; 24 ate o comparativo (que tem titulo) */
 /* computador: a secao de preco em duas colunas, alinhada com o titulo e com a tabela de baixo (antes era uma coluna de 560
    no meio, com sobra branca dos dois lados). A faixa do fundador na largura toda; os cartoes e o botao na esquerda; o que
    vem incluso na direita, do topo dos cartoes ao fim do botao */
 @media (min-width: 900px) {
-  #planos > .planos-venda { max-width: none; margin: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); grid-template-areas: "faixa faixa" "cartoes incluso" "botao incluso"; column-gap: 24px; row-gap: 12px; }
+  #planos > .planos-venda { max-width: none; margin: 0 0 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); grid-template-areas: "faixa faixa" "cartoes incluso" "botao incluso"; column-gap: 24px; row-gap: 12px; }
   #planos > .planos-venda > .fundador { grid-area: faixa; }
   #planos > .planos-venda > .planos-caixa { grid-area: cartoes; }
   #planos > .planos-venda > .btn { grid-area: botao; }
@@ -1464,7 +1476,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 
 .antes-depois { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.antes-depois .lado p { margin: 6px 0 0; font-size: 15.5px; }
+.antes-depois .lado { padding: 16px; } /* o mesmo recuo dos outros cartoes da pagina */
+.antes-depois .lado p { margin: 8px 0 0; font-size: 15.5px; }
 .antes-depois .sem { background: #FBF4F2; border-color: #F0D5CF; color: #7A3B2E; }
 .antes-depois .com { background: var(--lime-suave); border-color: #CFE3B4; color: var(--deep); }
 
@@ -1693,7 +1706,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* Computador: a pagina de vendas ganha colunas em vez de esticar a coluna do celular */
 
 @media (min-width: 900px) {
-  .vender-capa { padding: 56px var(--margem) 40px; flex-direction: row-reverse; justify-content: center; align-items: center; gap: 48px; text-align: left; }
+  .vender-capa { padding: 56px var(--margem) 24px; flex-direction: row-reverse; justify-content: center; align-items: center; gap: 48px; text-align: left; }
   .heroi-mascote { width: 340px; height: 340px; flex: none; }
   .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
@@ -1706,7 +1719,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .passos-venda { flex-direction: row; align-items: stretch; }
   .passo-venda { flex: 1; flex-direction: column; gap: 12px; }
   .vender-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } /* 6 cartoes: 3 x 2 no computador, 2 x 3 no celular */
-  .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .duvida { align-self: start; }
   .vender-final { padding: 16px 0 10px; }
 }

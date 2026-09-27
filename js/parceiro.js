@@ -431,7 +431,13 @@
         el('a', { class: 'btn btn-fantasma loja-real-botao', href: '/' + lojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']),
       ]),
       el('a', { class: 'loja-real-vitrine', href: '/' + lojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
-        el('span', { class: 'loja-real-cel' }, el('img', { src: 'img/loja-ligeiro/exclusivo.webp', alt: 'A loja da Dom Conizza no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' })),
+        /* o aparelho: borda, ilha, hora e bateria em CSS (sem imagem a mais); a tela e o print da loja */
+        el('span', { class: 'loja-real-cel' }, el('span', { class: 'loja-real-tela' }, [
+          el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>19:30</b><i class="ilha"></i><span class="icones">' +
+            '<svg viewBox="0 0 18 12" width="16" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
+            '<svg viewBox="0 0 27 13" width="24" height="12"><rect x="0.75" y="0.75" width="22" height="11.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"/><rect x="2.75" y="2.75" width="15" height="7.5" rx="2"/><path d="M24.5 4.5v4c.9-.3 1.5-1.1 1.5-2s-.6-1.7-1.5-2z" opacity="0.4"/></svg></span>' }),
+          el('img', { src: 'img/loja-ligeiro/exclusivo.webp', alt: 'A loja da Dom Conizza no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' }),
+        ])),
       ]),
     ]));
 
