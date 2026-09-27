@@ -394,6 +394,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .passos-feitos { margin-bottom: 3px; }
 .tema-conizza .painel-senha { margin-bottom: 6px; }
 .tema-conizza .btn-gigante { margin-bottom: 10px; }
+.player.tema-conizza .player-rodape { padding-bottom: calc(20px + env(safe-area-inset-bottom)); } /* player: a sombra de 4 do botao come o pe; o espaco que se ve fica 16, como em cima */
 /* opcoes da janela do item: la as margens se juntam (nao somam), entao o espaco vai em cima de cada opcao (12 menos a
    sombra = 8, igual as outras lojas) e um respiro embaixo do grupo (16 ate o proximo, contando a sombra) */
 .tema-conizza .grupo > .opcao { margin-bottom: 0; }

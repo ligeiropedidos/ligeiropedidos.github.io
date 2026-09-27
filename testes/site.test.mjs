@@ -165,6 +165,20 @@ console.log('copia enxuta (js/m e css/m, o que o site publicado baixa)');
   /* o index publicado usa a copia enxuta, e a copia enxuta de cada arquivo que ele chama existe */
   const chamados = (INDEX.match(/(?:src|href)="((?:js|css)\/[^"?]+)/g) || []).map((x) => x.replace(/^(?:src|href)="/, ''));
   ok(chamados.length > 0 && chamados.every((c) => /^(js|css)\/m\//.test(c) && fs.existsSync(path.resolve(c))), 'o index chama so a copia enxuta, e ela existe');
+  /* todo arquivo que o CSS enxuto chama (fontes, imagens) existe de verdade: ele mora uma pasta mais fundo, e um
+     endereco relativo copiado igual apontou para css/fontes/ (a Dom Conizza abriu sem as letras da marca) */
+  const cssEnxutos = ['css/m/ligeiro.css'].concat(fs.readdirSync(path.resolve('css/m/temas')).filter((f) => f.endsWith('.css')).map((f) => 'css/m/temas/' + f));
+  const quebrados = [];
+  cssEnxutos.forEach((c) => {
+    const texto = fs.readFileSync(path.resolve(c), 'utf8');
+    (texto.match(/url\((['"]?)[^'")]+\1\)/g) || []).forEach((u) => {
+      const alvo = u.replace(/^url\((['"]?)/, '').replace(/['"]?\)$/, '');
+      if (/^(data:|https?:|#)/i.test(alvo)) return;
+      const arquivo = alvo.startsWith('/') ? path.resolve(alvo.slice(1)) : path.resolve(path.dirname(path.resolve(c)), alvo);
+      if (!fs.existsSync(arquivo.split('?')[0])) quebrados.push(c + ' -> ' + alvo);
+    });
+  });
+  ok(quebrados.length === 0, 'todo arquivo que o CSS enxuto chama existe' + (quebrados.length ? ' (quebrados: ' + quebrados.join(', ') + ')' : ''));
 }
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');

@@ -49,6 +49,15 @@ for (const a of arquivos) {
   const args = [ESBUILD, path.join(RAIZ, a), '--minify', '--charset=utf8', '--legal-comments=none', '--log-level=error', '--outfile=' + destino];
   if (a.endsWith('.js')) args.push('--target=es5');
   execFileSync(process.execPath, args, { stdio: 'inherit' });
+  /* o CSS enxuto mora uma pasta mais fundo (css/m/temas): endereco relativo dentro dele (fontes, imagens) apontaria para
+     uma pasta que nao existe. Vira endereco a partir da raiz do site, calculado de onde o arquivo de trabalho esta */
+  if (a.endsWith('.css')) {
+    const css = fs.readFileSync(destino, 'utf8').replace(/url\((['"]?)([^'")]+)\1\)/g, (tudo, aspas, u) => {
+      if (/^(data:|https?:|\/|#)/i.test(u)) return tudo;
+      return 'url(' + aspas + '/' + path.posix.normalize(path.posix.join(path.posix.dirname(a), u)) + aspas + ')';
+    });
+    fs.writeFileSync(destino, css);
+  }
   lista[a] = hash(a);
   antes += fs.statSync(path.join(RAIZ, a)).size; depois += fs.statSync(destino).size;
 }

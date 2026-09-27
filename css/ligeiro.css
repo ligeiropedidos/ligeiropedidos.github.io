@@ -2062,9 +2062,13 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .adm-ficha { display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px; }
 .adm-ficha h3 { font-size: 17px; margin-top: 8px; }
 .adm-selos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.adm-link { display: flex; align-items: stretch; gap: 12px; }
-.adm-link .caixa-link { flex: 1; min-width: 0; display: flex; align-items: center; }
+.adm-link { display: flex; align-items: center; gap: 12px; }
+/* o link quebra nas barras (UI.pedacosDeLink) em vez de vazar por tras do Copiar; numa linha so fica com os 48 do botao */
+.adm-link .caixa-link { flex: 1; min-width: 0; display: block; line-height: 22px; }
 .adm-link .btn { flex: none; min-height: 48px; white-space: nowrap; }
+/* ficha estreita: o Copiar desce e ocupa a linha (o comeco do link, https://ligeiropedidos.com.br/, nao quebra e tem ~250 px) */
+.adm-ficha { container-type: inline-size; }
+@container (max-width: 419px) { .adm-link { flex-direction: column; align-items: stretch; } }
 /* ficha da amostra na Central: o texto e os dois botoes (Colar cardapio e Entregar ao cliente) */
 .adm-amostra { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
 .adm-amostra .adm-textos { display: flex; flex-direction: column; gap: 4px; }
