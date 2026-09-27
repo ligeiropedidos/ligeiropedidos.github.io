@@ -223,6 +223,9 @@
   /* ============================================================ landing */
   function abrir(raiz) {
     var lojaDemo = cfg().lojaDemo || 'juquia/dom-conizza';
+    /* o link da loja de exemplo no formato de cada lugar: sem # no site publicado, com # na copia de teste (la o endereco
+       sem # dava "arquivo nao encontrado") */
+    var linkLojaDemo = UI.linkDoSite(lojaDemo);
     var pr = precos();
     document.title = 'Ligeiro: sistema de pedidos para delivery, sem comissão';
 
@@ -428,9 +431,9 @@
         el('div', { class: 'kicker', text: 'Loja de verdade' }),
         el('h2', { text: 'Veja o que o seu cliente vai ver' }),
         el('p', { class: 'muted', text: 'A Dom Conizza, de Juquiá/SP, montada no Ligeiro. Abra o cardápio e veja como o cliente escolhe e paga.' }),
-        el('a', { class: 'btn btn-fantasma loja-real-botao', href: '/' + lojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']),
+        el('a', { class: 'btn btn-fantasma loja-real-botao', href: linkLojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']),
       ]),
-      el('a', { class: 'loja-real-vitrine', href: '/' + lojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
+      el('a', { class: 'loja-real-vitrine', href: linkLojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
         /* o aparelho: borda, ilha, hora e bateria em CSS (sem imagem a mais); a tela e o print da loja */
         el('span', { class: 'loja-real-cel' }, el('span', { class: 'loja-real-tela' }, [
           el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>19:30</b><i class="ilha"></i><span class="icones">' +
