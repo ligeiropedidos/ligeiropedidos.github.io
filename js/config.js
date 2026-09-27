@@ -113,7 +113,7 @@ window.LIGEIRO_CONFIG = {
   lojaLigeiro: {
     ligada: true,
     termos: '2026-09-26',
-    videoExplicativo: 'midia/loja-ligeiro.mp4?v=1', /* tutorial de 40 s (comercial/loja, 26/09/2026) */
+    videoExplicativo: 'midia/loja-ligeiro.mp4?v=2', /* v2: capa nova (o mascote no balcao, sem repetir o titulo do lado) */ /* tutorial de 40 s (comercial/loja, 26/09/2026) */
     atendimento: 'Atendimento de segunda a sexta, das 9h às 18h',
     servicos: [
       { id: 'fotos', nome: 'Fotos do cardápio', icone: 'camera', valor: 6900, dias: 3, ajustes: 1, sub: 'até 10 fotos',

@@ -243,9 +243,14 @@
         el('span', { class: 'srv-sobre', text: 'Feito sob medida' }),
         el('h2', { class: 'srv-hero-titulo', text: 'Sua loja com cara de marca grande' }),
         el('p', { class: 'srv-hero-frase', text: vx ? 'Veja em 40 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
-        el('div', { class: 'srv-hero-garantias' }, [['check', 'Preço fechado, sem surpresa'], ['ampulheta', 'Prazo em dias úteis'], ['lista', 'Você acompanha cada etapa']].map(function (g) {
+        el('div', { class: 'srv-hero-garantias' }, [['check', 'Preço fechado'], ['ampulheta', 'Prazo em dias úteis'], ['lista', 'Acompanhe cada etapa']].map(function (g) {
           return el('span', { class: 'srv-hero-garantia' }, [ico(g[0]), g[1]]);
         })),
+        /* PC: o proximo passo no banner (desce ate a lista); no celular a lista ja vem logo embaixo */
+        el('button', { class: 'btn btn-principal srv-hero-cta', type: 'button', onclick: function () {
+          var alvo = secao.querySelector('.srv-antes-titulo');
+          if (alvo) alvo.scrollIntoView({ behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+        } }, [ico('descer'), 'Ver os serviços']),
       ]),
       vx
         ? el('button', { class: 'srv-video-hero', type: 'button', 'aria-label': 'Assistir: como funciona a Loja do Ligeiro (40 segundos)', onclick: function () { tocarVideo(vxSrc, 'Como funciona a Loja do Ligeiro'); } }, [
