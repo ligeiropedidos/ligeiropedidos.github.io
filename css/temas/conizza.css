@@ -152,6 +152,10 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 
 /* destaques da primeira tela */
 .tema-conizza #destaques b, .tema-conizza .video-loja-titulo b { font-family: var(--cz-display); font-size: 15px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cz-tinta-suave); }
+.tema-conizza .video-loja-titulo span { color: var(--cz-tinta-suave); font-weight: 600; }
+/* o cartao do video com a moldura de todo cartao da casa: traco de 3 e a sombra chapada de 4 */
+.tema-conizza .video-loja-capa { border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); margin-bottom: 4px; }
+.tema-conizza .video-loja-capa:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .cupom-abrir { color: var(--cz-vermelho); font-family: var(--cz-display); font-weight: 800; }
 
 /* ---------- cabecalho das telas internas ---------- */
@@ -171,6 +175,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* a letra da casa e mais alta: o texto do cartao tem 116px, entao foto (e o mascote do cartao da casa) com 116 deixa a sobra igual nos quatro lados */
 .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 116px; height: 116px; }
 @media (max-width: 360px) { .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 96px; height: 96px; } } /* celular pequeno: preco e PEDIR cabem na mesma linha */
+@media (max-width: 319px) { .tema-conizza .card-produto .foto { width: 100%; height: auto; } } /* janela espremida: a foto em cima, na largura do cartao (o mesmo do ligeiro.css) */
 .tema-conizza .card-produto:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .card-produto .foto { border: 3px solid var(--cz-tinta); border-radius: 14px; background: linear-gradient(160deg, var(--cz-ouro-claro), var(--cz-ouro)); }
 .tema-conizza .card-produto .nome { font-family: var(--cz-display); font-weight: 800; font-size: 20px; line-height: 1.2; } /* a Baloo tem entrelinha alta: em duas linhas abria um buraco */

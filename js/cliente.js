@@ -802,19 +802,16 @@
       var base = String(((window.LIGEIRO_CONFIG || {}).cobranca || {}).mensageiro || '').replace(/\/+$/, '');
       var url = function (q) { return D.modoDemo ? (q === 'v' ? 'midia/comercial-ligeiro.mp4' : 'midia/comercial-ligeiro.jpg') : base + '/servicos/' + q + '/' + v.id; };
       var dur = Number(v.dur) || 0;
-      /* o mesmo molde dos "Os mais pedidos": titulo da secao igual, capa quadrada a esquerda (so o play em cima, nada
-         escrito por cima da capa, que costuma ter texto) e nome, duracao e ASSISTIR a direita, no lugar do PEDIR */
-      caixa.appendChild(el('div', { class: 'video-loja-titulo' }, [el('b', { text: 'Vídeo da loja' })]));
-      caixa.appendChild(el('button', { class: 'card-produto card-video', type: 'button', 'aria-label': 'Assistir o vídeo ' + (v.titulo || 'da loja'), onclick: function () { tocarVideoDaLoja(url('v'), v.titulo, v.capa || D.modoDemo ? url('c') : null); } }, [
-        el('span', { class: 'foto' }, [
-          v.capa || D.modoDemo ? el('img', { src: url('c'), alt: '', loading: 'lazy' }) : null,
-          el('span', { class: 'video-loja-bolinha', 'aria-hidden': 'true' }, [UI.iconeLinha('tocar')]),
-        ]),
-        el('span', { class: 'info' }, [
-          el('span', { class: 'nome', text: v.titulo || 'Vídeo da loja' }),
-          el('span', { class: 'desc', text: dur ? 'Vídeo de ' + dur + ' segundos' : 'Vídeo da loja' }),
-          el('span', { class: 'rodape-card' }, [el('span'), el('span', { class: 'mais', text: 'ASSISTIR' })]),
-        ]),
+      /* o molde que ele prefere (cartao escuro, nome em cima e o Assistir branco embaixo), sem nada escrito por cima da
+         imagem: o fundo e a propria capa desfocada e escurecida, e a capa nitida fica no meio, na largura toda. O nome e o
+         botao ficam no fundo desfocado e nunca atropelam o texto que a capa costuma ter */
+      var temCapa = !!(v.capa || D.modoDemo);
+      caixa.appendChild(el('div', { class: 'video-loja-titulo' }, [el('b', { text: 'Vídeo da loja' }), dur ? el('span', { text: dur + ' segundos' }) : null]));
+      caixa.appendChild(el('button', { class: 'video-loja-capa', type: 'button', 'aria-label': 'Assistir o vídeo ' + (v.titulo || 'da loja'), onclick: function () { tocarVideoDaLoja(url('v'), v.titulo, temCapa ? url('c') : null); } }, [
+        temCapa ? el('span', { class: 'video-loja-fundo', 'aria-hidden': 'true' }, [el('img', { src: url('c'), alt: '', loading: 'lazy' })]) : null,
+        v.titulo ? el('span', { class: 'video-loja-nome', text: v.titulo }) : null,
+        el('span', { class: 'video-loja-quadro' }, [temCapa ? el('img', { src: url('c'), alt: '', loading: 'lazy' }) : el('span', { class: 'video-loja-bolinha', 'aria-hidden': 'true' }, [UI.iconeLinha('tocar')])]),
+        el('span', { class: 'video-loja-play' }, [el('span', { class: 'video-loja-bolinha', 'aria-hidden': 'true' }, [UI.iconeLinha('tocar')]), 'Assistir']),
       ]));
     }
     /* capa: a mesma da vitrine, no lugar do preto enquanto o video carrega */
