@@ -2302,14 +2302,8 @@
       s.appendChild(aparencia);
       [f.nome, f.tipo, f.descricao, f.avisoTopo, f.cidade, f.endereco, f.whatsapp, f.instagram, f.google, f.cnpj].forEach(function (c) { g1.appendChild(c); });
       identidade.appendChild(g1);
-      /* ID da loja: o codigo unico dela (o mesmo do link). E o que o dono manda para o Ligeiro para ganhar o design exclusivo. */
-      identidade.appendChild(el('div', { class: 'id-loja' }, [
-        el('div', { class: 'id-loja-texto' }, [el('b', { text: 'ID da loja' }), el('span', { class: 'muted pequeno', text: 'É o código único desta loja. Para pedir o design exclusivo, mande ele para o Ligeiro.' })]),
-        el('div', { class: 'id-loja-linha' }, [
-          el('code', { class: 'id-loja-valor', text: l.slug }),
-          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(l.slug).then(function (ok) { UI.avisar(ok ? 'ID copiado: ' + l.slug : 'Toque e segure no código para copiar'); }); } }, [UI.iconeLinha('copiar'), 'Copiar']),
-        ]),
-      ]));
+      /* sem o "ID da loja": o design exclusivo e pedido pela Loja do Ligeiro (o pedido ja sabe a loja) e a Central acha a
+         loja pelo nome ou pelo e-mail do dono */
       s.appendChild(identidade);
 
       var funcionamento = el('div', { class: 'bloco-form', id: 'aj-funcionamento' }, [el('div', { class: 'bloco-titulo', text: 'Funcionamento' })]);

@@ -2126,12 +2126,6 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .bloco-form.realce { animation: realce-bloco 2.4s ease-out; }
 @keyframes realce-bloco { 0%, 30% { box-shadow: 0 0 0 4px var(--lime), var(--sombra); } 100% { box-shadow: 0 0 0 0 rgba(132, 204, 22, 0), var(--sombra); } }
 @media (prefers-reduced-motion: reduce) { .bloco-form.realce { animation: none; box-shadow: 0 0 0 4px var(--lime); } }
-/* Ajustes: ID da loja (codigo unico, com botao de copiar) */
-.id-loja { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
-.id-loja-texto { display: flex; flex-direction: column; gap: 4px; }
-.id-loja-linha { display: flex; align-items: stretch; gap: 10px; } /* codigo com a altura do botao ao lado */
-/* o endereco inteiro, sempre (e para copiar): endereco comprido quebra linha em vez de sumir com reticencias */
-.id-loja-valor { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; display: flex; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--lime-suave); color: var(--deep); font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 15px; font-weight: 700; }
 
 /* icone de traco dentro de botao e de selo (Entrega, Retirada, Mapa, Entregue, relogio) */
 .ico-traco { display: inline-flex; flex: none; line-height: 1; }

@@ -331,8 +331,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza :where(a.btn) { line-height: inherit; } /* forca de .btn: regras mais especificas (topo do painel) continuam valendo */
 .tema-conizza :where(button.btn) { line-height: normal; }
 
-/* ID da loja no tema: fundo creme da casa (o verde-claro e do Ligeiro) */
-.tema-conizza .id-loja-valor { background: var(--cz-creme); color: var(--cz-tinta); border-radius: 14px; }
 
 /* ---------- avisos com a tela apagada e WhatsApp do pedido, nas cores da casa ---------- */
 .tema-conizza .avisos-ico, .tema-conizza .aviso-cel-ico { background: var(--cz-ouro-claro); color: var(--cz-tinta); }
