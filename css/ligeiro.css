@@ -965,8 +965,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .link-grupo { display: flex; flex-direction: column; gap: 8px; }
 .link-grupo .caixa-link { min-width: 0; margin: 0; padding: 11px 14px; line-height: 24px; } /* 11 + 24 + 11 + 2 de borda = 48, a altura dos botoes */
 .link-grupo .btn { flex: none; padding: 0 20px; }
-.divulgar-botoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.divulgar-botoes .btn { min-width: 0; white-space: nowrap; }
+/* lado a lado so quando os dois cabem inteiros e do mesmo tamanho (a base e maior que o texto mais largo: "Copiar
+   cardapio em texto" pede 276 na letra do iPhone); senao um embaixo do outro */
+.divulgar-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.divulgar-botoes .btn { flex: 1 1 280px; min-width: 0; white-space: nowrap; }
 /* onde usar: tres linhas curtas, com a linha fina de cima separando das acoes */
 .divulgar-onde { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .divulgar-onde li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 20px; color: var(--muted); text-wrap: pretty; }
@@ -978,7 +980,6 @@ a.selo-google:hover { background: var(--lime-suave); }
   .link-grupo { flex-direction: row; align-items: stretch; }
   .link-grupo .caixa-link { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
   .link-grupo .caixa-link wbr { display: none; } /* os pontos de quebra do link (UI.pedacosDeLink) furavam o nowrap */
-  .divulgar-botoes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* PC: o QR a esquerda com a altura exata da coluna da direita: 48 (link) + 12 + 48 (botoes) + 12 + 89 (a lista: 12 + 1 da
    linha + 3 x 20 + 2 x 8) = 209. As dicas ficam numa linha cada (textos curtos) para essa conta nao mudar */
@@ -2164,6 +2165,18 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* Central no celular: as cinco abas iguais as do painel; a contagem sai e fica so o aviso (contato para chamar,
    pagamento avisado) como bolinha no canto da aba */
 @media (max-width: 640px) {
+  .adm-abas .adm-aba-extra { position: absolute; top: 4px; right: 4px; gap: 4px; }
+  .adm-abas .adm-aba-extra .chip-qtd { display: none; }
+  .adm-abas .adm-aba-extra .badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; }
+}
+/* Central entre 641 e 959 (tablet, janela estreita no PC): as seis abas com o nome inteiro pedem uns 904 px e a ultima
+   ficava cortada na borda. Ali elas ficam como no celular, as seis iguais numa fileira, icone em cima e nome curto */
+@media (min-width: 641px) and (max-width: 959px) {
+  .abas-principais.adm-abas { display: grid; grid-template-columns: repeat(6, minmax(max-content, 1fr)); gap: 6px; overflow: visible; }
+  .adm-abas .aba-painel { position: relative; flex-direction: column; gap: 4px; min-height: 58px; padding: 9px 8px 7px; border-radius: 14px; font-size: 12.5px; line-height: 1.1; white-space: nowrap; }
+  .adm-abas .aba-painel .rot-longo { display: none; }
+  .adm-abas .aba-painel .rot-curto { display: inline; }
+  .adm-abas .aba-painel .ico-traco svg { width: 20px; height: 20px; }
   .adm-abas .adm-aba-extra { position: absolute; top: 4px; right: 4px; gap: 4px; }
   .adm-abas .adm-aba-extra .chip-qtd { display: none; }
   .adm-abas .adm-aba-extra .badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; }
