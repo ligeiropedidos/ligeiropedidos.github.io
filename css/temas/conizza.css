@@ -151,7 +151,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 }
 
 /* destaques da primeira tela */
-.tema-conizza #destaques b { font-family: var(--cz-display); font-size: 15px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cz-tinta-suave); }
+.tema-conizza #destaques b, .tema-conizza .video-loja-titulo b { font-family: var(--cz-display); font-size: 15px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cz-tinta-suave); }
 .tema-conizza .cupom-abrir { color: var(--cz-vermelho); font-family: var(--cz-display); font-weight: 800; }
 
 /* ---------- cabecalho das telas internas ---------- */
