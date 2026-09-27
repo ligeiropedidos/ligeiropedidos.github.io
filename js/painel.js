@@ -564,7 +564,8 @@
         return { classe: 'horario', titulo: 'Fora do horário', sub: abre ? 'Abre sozinha às ' + abre : 'Hoje não abre mais' };
       }
       var fecha = R.fechamentoDeHoje(l);
-      return { classe: 'aberta', titulo: 'Loja aberta', sub: fecha ? 'Fecha sozinha às ' + fecha : 'Recebendo pedidos' };
+      /* amostra: aparece aberta no site, mas o pedido nao sai */
+      return { classe: 'aberta', titulo: 'Loja aberta', sub: l.amostra === true ? 'Aparece aberta no site da amostra' : fecha ? 'Fecha sozinha às ' + fecha : 'Recebendo pedidos' };
     }
 
     function interruptorLoja() {
