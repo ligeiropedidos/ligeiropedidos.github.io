@@ -2396,7 +2396,7 @@
       f.endereco = campoTexto('Endereço da loja', l.endereco, { max: 120, largo: true });
       f.whatsapp = campoTexto('WhatsApp da loja', R.formatarTelefone(l.whatsapp), { max: 16, inputmode: 'numeric', ajuda: 'Com DDD. É para onde o cliente fala com você.' });
       UI.mascaraTelefone(f.whatsapp.input);
-      f.instagram = campoTexto('Instagram (sem @)', l.instagram, { max: 40 });
+      f.instagram = campoTexto('Instagram (sem @)', l.instagram, { max: 40, placeholder: 'nomedasualoja', ajuda: 'Aparece no rodapé do seu site, com o botão para o cliente seguir a loja.' });
       f.google = campoTexto('Avaliações no Google (opcional)', l.googleUrl, { max: 400, inputmode: 'url', placeholder: 'https://g.page/r/…/review', ajuda: 'No seu Perfil da Empresa no Google, toque em Pedir avaliações e cole o link aqui (serve também o link da loja no Maps). Depois da entrega, o cliente é convidado a avaliar: é o que faz a loja subir no Google.' });
       f.cnpj = campoTexto('CNPJ (opcional)', l.cnpj ? R.formatarCnpj(l.cnpj) : '', { max: 18, inputmode: 'numeric', placeholder: '00.000.000/0000-00', ajuda: 'Se preencher, aparece no rodapé do seu site. Passa confiança para o cliente.' });
       f.cnpj.input.addEventListener('input', function () { var n = f.cnpj.input.value.replace(/\D/g, '').slice(0, 14); f.cnpj.input.value = n.length === 14 ? R.formatarCnpj(n) : n; });
