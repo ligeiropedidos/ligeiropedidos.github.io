@@ -4,7 +4,7 @@
      - botao grande: dedo grosso acerta de primeira (min 60px)
      - texto grande (17px+), palavra do dia a dia, nada de jargao
      - uma decisao por tela; passo numerado; senha grande no fim
-     - limpo como o totem do McDonald's: fundo claro, cartao branco,
+     - limpo como o totem do McDonalds: fundo claro, cartao branco,
        UMA cor forte guardada para o que precisa de toque
    ========================================================== */
 
@@ -481,6 +481,19 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* foto grande do item: quadrado exato (igual a lista), a imagem preenche tudo recortando pelo centro, nunca estica */
 .foto-modal { position: relative; width: 100%; margin: 4px 0 10px; border-radius: 16px; overflow: hidden; background: var(--lime-suave); aspect-ratio: 1 / 1; }
 .foto-modal img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
+/* item com foto no celular, como no iFood e no totem do McDonalds: foto no alto (16 da borda), o X flutuando no canto
+   dela (12 para dentro), e embaixo nome, o que vem e o preco. Ritmo: 16 da foto ao nome, 8 entre nome, texto e preco,
+   16 ate as escolhas. Alturas de linha inteiras em pixel */
+.modal-caixa.foto-no-topo { position: relative; }
+.modal-item.foto-no-topo .modal-topo { position: absolute; top: 0; right: 0; z-index: 2; padding: 28px 28px 0 0; pointer-events: none; }
+.modal-item.foto-no-topo .modal-topo > div:first-child { display: none; }
+.modal-item.foto-no-topo .modal-topo .fechar { pointer-events: auto; border-color: transparent; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28); }
+.modal-item.foto-no-topo .modal-corpo { padding-top: 16px; }
+.modal-item.foto-no-topo .modal-corpo .foto-modal { margin-top: 0; }
+.item-cabeca { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.item-nome { margin: 0; font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 30px; color: var(--ink); }
+.item-desc { margin: 0; color: var(--muted); font-size: 15px; line-height: 22px; }
+.item-preco { font-family: var(--display); font-size: 20px; font-weight: 700; line-height: 24px; color: var(--deep); }
 /* item aberto em tela larga: a gaveta fica da largura de um celular grande e a foto quadrada ocupa a largura toda,
    alinhada com o titulo e as opcoes (igual no celular). A largura acompanha a altura da tela pra sobrar lugar pras opcoes. */
 @media (min-width: 480px) {
@@ -499,6 +512,13 @@ a.selo-google:hover { background: var(--lime-suave); }
   .com-lado .modal-corpo { grid-column: 2; grid-row: 2; }
   .com-lado .modal-rodape { grid-column: 2; grid-row: 3; margin: 0 var(--margem); padding: 16px 0 24px; } /* a linha de cima na regua do conteudo: 24 da foto e 24 da borda, sem encostar na foto */
   .com-lado .modal-corpo .foto-modal { display: none; }
+  /* PC: a foto na esquerda; nome e descricao voltam para o topo da direita, com o X no lugar de sempre */
+  .modal-item.com-lado.foto-no-topo .modal-topo { position: static; padding: 24px var(--margem) 12px; pointer-events: auto; }
+  .modal-item.com-lado.foto-no-topo .modal-topo > div:first-child { display: block; }
+  .modal-item.com-lado.foto-no-topo .modal-topo .fechar { border-color: var(--line-forte); box-shadow: none; }
+  .modal-item.com-lado.foto-no-topo .modal-corpo { padding-top: 0; }
+  .com-lado .modal-corpo .item-cabeca { margin-top: -4px; } /* no PC fica so o preco, 8 abaixo da descricao (o topo tem 12 embaixo), como no celular */
+  .com-lado .item-cabeca .item-nome, .com-lado .item-cabeca .item-desc { display: none; }
   /* item sem foto: janela no meio, 560 de largura, a mesma moldura de 24 */
   .modal-caixa.modal-item:not(.com-lado) { --margem: 24px; max-width: 560px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
   .modal-item:not(.com-lado) .modal-topo { padding-top: 24px; }

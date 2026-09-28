@@ -1172,12 +1172,20 @@
       /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
       function montarFoto() {
         var caixaFoto = el('div', { class: 'foto-modal' + (soDesenho ? ' foto-modal-desenho' : '') }, [el('img', { src: srcFoto, alt: soDesenho ? '' : produto.nome })]);
-        caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) cx.classList.remove('com-lado'); });
+        caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) { cx.classList.remove('com-lado'); cx.classList.remove('foto-no-topo'); var cab = cx.querySelector('.item-cabeca'); if (cab) cab.remove(); } }); /* sem a foto: o nome e a descricao voltam para o topo */
         /* loja com miniaturas: mostra a miniatura na hora e troca pela foto grande quando ela chegar */
         if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && caixaFoto.isConnected) caixaFoto.firstChild.src = cheia; }).catch(function () { /* fica a miniatura */ });
         return caixaFoto;
       }
       if (srcFoto) corpo.appendChild(montarFoto());
+      /* celular, como no iFood e no totem do McDonalds: a foto primeiro (o X fica por cima dela), embaixo o nome, o que vem
+         e o preco, depois as escolhas. No PC a foto fica na esquerda e o nome e a descricao no topo da direita, como sempre */
+      var fotoNoTopo = !!srcFoto;
+      if (fotoNoTopo) corpo.appendChild(el('div', { class: 'item-cabeca' }, [
+        el('h2', { class: 'item-nome', text: produto.nome }),
+        produto.descricao ? el('p', { class: 'item-desc', text: produto.descricao }) : null,
+        el('span', { class: 'item-preco', text: dinheiro(produto.preco) }),
+      ]));
 
       /* tamanho e adicionais sao do produto: aparecem sempre. A chave da loja so tira o "Tirar alguma coisa?" e o recado
          (antes sumia tudo junto, e a pizzaria que so nao queria recado nao vendia a pizza grande) */
@@ -1212,7 +1220,7 @@
       m.atualizarPreco = atualizarPreco;
 
       UI.abrirModal({
-        classe: 'modal-item',
+        classe: 'modal-item' + (fotoNoTopo ? ' foto-no-topo' : ''),
         centro: true,
         lado: srcFoto ? montarFoto() : null, /* no PC: foto quadrada na esquerda, escolhas na direita */
         titulo: produto.nome,
