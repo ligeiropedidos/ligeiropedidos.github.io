@@ -853,7 +853,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .previa-whats-dica { margin: -8px 0 0; line-height: 19px; text-wrap: pretty; }
 .previa-whats { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: var(--raio-p); background: #EFEAE2; }
 /* sem imagem: "Hoje" e "Com a sua imagem", 8 do rotulo ao balao e 16 entre os dois */
-.pw-rotulo { color: #54656F; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.pw-rotulo { color: #54656F; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; text-wrap: balance; }
 .pw-bolha + .pw-rotulo { margin-top: 8px; }
 .pw-bolha { position: relative; width: 100%; max-width: 320px; margin: 0 auto; padding: 4px 4px 22px; border-radius: 10px 0 10px 10px; background: #D9FDD3; box-shadow: 0 1px 1px rgba(11, 20, 26, 0.13); font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 .pw-link { display: flex; gap: 10px; align-items: stretch; padding: 6px; border-radius: 7px; background: rgba(11, 20, 26, 0.05); }

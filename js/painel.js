@@ -1862,9 +1862,9 @@
         UI.limpar(cartao);
         if (src) cartao.appendChild(bolha(src, titulo, texto, false));
         else {
-          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Hoje' }));
+          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Agora, sem imagem' }));
           cartao.appendChild(bolha('img/previa-link.jpg', titulo, texto, true));
-          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Com a sua imagem' }));
+          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Depois que você subir a imagem' }));
           cartao.appendChild(bolha(null, titulo, texto, false));
         }
         var qual = exclusiva ? 'a imagem da loja' : 'a logo';
