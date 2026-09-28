@@ -272,7 +272,8 @@
         var frete = l.aceitaEntrega === false ? '' : R.descreverFrete(l);
         UI.limpar(detalhe);
         detalhe.appendChild(el('div', { class: 'ps-texto' }, [
-          el('div', { class: 'ps-nome' }, [el('span', { text: l.nome }), UI.seloVerificada(l)]),
+          /* o selo no fluxo do texto, colado na ultima palavra: nome comprido nao deixa o selo sozinho na linha de baixo */
+          el('div', { class: 'ps-nome' }, [l.nome, UI.seloVerificada(l, 'no-nome')]),
           el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join('\u00a0· ') }),
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada' }, [el('span', { class: 'bolinha', 'aria-hidden': 'true' }), aberta ? 'Aberta agora' : (abreAs ? 'Abre às ' + abreAs : 'Fechada')]),
@@ -942,7 +943,7 @@
       var contatos = $('contatosLoja');
       UI.limpar(contatos);
       if (l.whatsapp) contatos.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(l.whatsapp, 'Olá! Vim pelo Ligeiro.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp']));
-      if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener' }, [UI.icone('insta'), '@' + String(l.instagram).replace(/^@/, '')]));
+      if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener' }, [UI.icone('insta'), el('span', { class: 'contato-texto', text: '@' + String(l.instagram).replace(/^@/, '') })]));
       var enderecoJaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
       var endLoja = $('enderecoLoja');
       UI.limpar(endLoja);
