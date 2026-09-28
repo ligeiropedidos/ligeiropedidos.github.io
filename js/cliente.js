@@ -1638,7 +1638,7 @@
       $('grupoNaPorta').hidden = !(agora && depois);
       $('grupoNaPorta').textContent = balcao ? 'Pague no caixa' : noBalcao ? 'Pague no balcão' : 'Pague na entrega';
       /* so o Pix combinado paga antes: nao e "pelo site" (o Pix vai direto para a loja, combinado no WhatsApp) */
-      $('grupoAgora').textContent = temPix || temCartaoSite ? 'Pague agora pelo site' : 'Pague no Pix';
+      $('grupoAgora').textContent = !temPixComb ? 'Pague agora pelo site' : (temPix || temCartaoSite) ? 'Pague agora' : 'Pague no Pix';
       $('nomePix').textContent = agora && depois ? 'Pix' : 'Pix agora';
       var disponiveis = { pix: temPix, cartao_online: temCartaoSite, pix_combinado: temPixComb, cartao_entrega: temCartao, dinheiro_entrega: temDinheiro };
       var formaAntes = formaEscolhida();

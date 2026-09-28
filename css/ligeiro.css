@@ -620,7 +620,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .forma-icone { font-size: 26px; width: 36px; text-align: center; }
 .forma-texto { flex: 1; }
 .forma-nome { display: block; font-weight: 700; }
-.forma-detalhe { display: block; font-size: 14px; color: var(--muted); }
+.forma-detalhe { display: block; font-size: 14px; color: var(--muted); text-wrap: pretty; } /* sem palavra sozinha na ultima linha ("site", "chegar") */
 .forma-marca { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line-forte); display: flex; align-items: center; justify-content: center; color: transparent; font-weight: 700; }
 .forma-pgto.marcada .forma-marca { background: var(--lime); border-color: var(--lime-escuro); color: var(--texto-no-destaque); }
 .troco-calculado { margin-top: 8px; font-weight: 700; color: var(--deep2); }
@@ -956,7 +956,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 .btn-mini { min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 10px; align-self: flex-start; }
 .interruptor .texto { flex: 1; font-weight: 600; }
-.interruptor .texto small { display: block; font-weight: 400; font-size: 13.5px; color: var(--muted); }
+.interruptor .texto small { display: block; font-weight: 400; font-size: 13.5px; color: var(--muted); text-wrap: pretty; } /* sem palavra sozinha embaixo ("caiu.", "site.") */
 .chave { position: relative; width: 58px; height: 34px; border-radius: 17px; background: #D3DCCB; border: 0; flex: none; transition: background 0.15s; }
 .chave { cursor: pointer; transition: background 0.2s; }
 .chave::after { content: ""; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; transition: left 0.22s cubic-bezier(0.3, 1.4, 0.5, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
