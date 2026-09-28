@@ -834,6 +834,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aparencia .previa-bloco > .ajuda { margin-bottom: 0; }
 .aparencia .previa-aparelho { margin-top: 12px; } /* 12 da ajuda ate o celular e 12 do celular ate os botoes */
 .aparencia .previa-acoes { margin-top: 12px; }
+.previa-acoes:empty { display: none; } /* design exclusivo sem o Trocar logo: sem os 12 de um bloco vazio (do celular ate o cadeado ficavam 32) */
 .aparencia-controles .estilo-linha { min-width: 0; }
 .aparencia-controles .estilo-linha .aba-painel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .previa-acoes { width: 100%; }
@@ -886,6 +887,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .turno .muted { font-size: 14px; min-width: 26px; }
 .turno .btn-mini { min-width: 40px; padding: 0; }
 .dia-mais { justify-self: end; white-space: nowrap; }
+.dia-linha .dia-tirar { align-self: end; margin-bottom: 2px; gap: 4px; } /* fica na linha do 2o turno (a de baixo quando os dois nao cabem lado a lado) */
+.turno .muted:first-child { min-width: 36px; text-align: right; } /* "das" e "e das" terminam no mesmo ponto: as horas das duas linhas ficam uma embaixo da outra */
 .dia-acao { display: none; }
 /* celular: cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
    [hora] ate [hora], ocupando a largura inteira, uma embaixo da outra. */
@@ -2405,7 +2408,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .avisos-ico { width: 40px; height: 40px; padding: 10px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); }
 .avisos-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .avisos-texto b { font-family: var(--display); font-size: 17px; line-height: 1.25; color: var(--ink); text-wrap: balance; }
-.avisos-texto span { font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: balance; } /* linhas parecidas, como no cartao do cliente */
+.avisos-texto span { font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; } /* ocupa a largura do cartao (com balance as linhas paravam no meio e sobrava um vao a direita) e nao deixa palavra sozinha na ultima linha */
 .avisos-botoes .btn { min-height: 48px; flex: 1 1 auto; white-space: nowrap; }
 @media (max-width: 640px) { .avisos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .avisos-botoes .btn { min-width: 0; padding: 0 12px; } } /* celular: os dois lado a lado, do mesmo tamanho, ate no 320 */
 @media (min-width: 641px) { .avisos-botoes .btn { flex: 0 0 auto; min-width: 168px; } }

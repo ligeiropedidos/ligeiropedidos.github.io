@@ -1805,7 +1805,7 @@
       obs.observe(f.capa, { subtree: true, attributes: true, childList: true });
       var bloco = el('div', { class: 'campo largo previa-bloco' }, [
         el('label', { text: 'A cara da sua loja' }),
-        el('p', { class: 'ajuda', text: exclusiva ? 'É assim que o cliente vê no celular. A logo você troca no botão embaixo; o resto é do seu design exclusivo.' : 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
+        el('p', { class: 'ajuda', text: exclusiva ? (logoLivre ? 'É assim que o cliente vê no celular. A logo você troca no botão embaixo; o resto é do design exclusivo.' : 'É assim que o cliente vê no celular, com o seu design exclusivo.') : 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
         aparelho,
         acoes,
         tirar,
@@ -2954,11 +2954,12 @@
               relogio(t[0], function (v) { t[0] = v; }),
               el('span', { class: 'muted', text: 'até' }),
               relogio(t[1], function (v) { t[1] = v; }),
-              i === 1 ? el('button', { type: 'button', class: 'btn btn-fantasma btn-mini', 'aria-label': 'Tirar o segundo turno', onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar')]) : null,
             ]);
             turnos.appendChild(turno);
           });
           linha.appendChild(turnos);
+          /* tirar o 2o turno: na mesma coluna e no mesmo formato do "+ 2º turno", na altura da linha do 2o turno */
+          if (e.turnos.length > 1) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais dia-tirar', 'aria-label': 'Tirar o 2º turno de ' + nomes[dia], onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar'), '2º turno']));
           if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }));
         }
         return linha;
