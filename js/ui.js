@@ -645,7 +645,7 @@
     ['', 'Verde limão (padrão)'], ['#FF8A3D', 'Laranja'], ['#E03131', 'Vermelho'], ['#E64980', 'Rosa'], ['#7048E8', 'Roxo'],
     ['#1C7ED6', 'Azul'], ['#2F9E44', 'Verde'], ['#FAB005', 'Amarelo'], ['#8D5524', 'Marrom'], ['#1F1F1F', 'Preto'],
   ];
-  var VARS_TEMA = ['--lime', '--lime-escuro', '--lime-suave', '--deep', '--deep2', '--senha', '--texto-no-destaque', '--raio', '--raio-p', '--raio-btn-p', '--raio-btn-g', '--raio-logo', '--raio-logo-p', '--display', '--altura-capa'];
+  var VARS_TEMA = ['--lime', '--lime-escuro', '--lime-suave', '--deep', '--deep2', '--senha', '--texto-no-destaque', '--raio', '--raio-p', '--raio-btn-p', '--raio-btn-g', '--raio-logo', '--raio-logo-p', '--display', '--altura-capa', '--anel'];
   var ESTILOS = {
     cantos: [['arredondado', 'Arredondados'], ['reto', 'Retos']],
     logo: [['quadrada', 'Quadrada'], ['redonda', 'Redonda']],
@@ -698,6 +698,9 @@
       v['--deep'] = hsl(c.h, Math.min(c.s, 45), 18);
       v['--deep2'] = hsl(c.h, Math.min(c.s, 50), 30);
       v['--texto-no-destaque'] = corDeTexto(cor);
+      /* o anel que pulsa em volta do botao grande de pedir: da cor da loja (era sempre o verde do Ligeiro) */
+      var rgb = hexParaRgb(cor);
+      v['--anel'] = 'rgba(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ', 0.45)';
       /* numero da senha em cima do fundo escuro da loja: a propria cor quando ela aparece; escura demais (Preto, Marrom),
          um tom claro da mesma cor */
       v['--senha'] = luminancia(cor) < 0.2 ? hsl(c.h, Math.min(c.s, 60), 80) : cor;

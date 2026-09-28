@@ -140,7 +140,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .btn-principal::after, .btn-whats::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent); transform: translateX(-150%) skewX(-20deg); animation: brilho 5s ease-in-out infinite; pointer-events: none; }
 @keyframes brilho { 0%, 70% { transform: translateX(-150%) skewX(-20deg); } 90%, 100% { transform: translateX(325%) skewX(-20deg); } }
 .btn-gigante { animation: pulsar 2.6s ease-in-out infinite; }
-@keyframes pulsar { 0%, 100% { box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.45); } 60% { box-shadow: 0 0 0 12px rgba(132, 204, 22, 0); } }
+@keyframes pulsar { 0%, 100% { box-shadow: 0 0 0 0 var(--anel, rgba(132, 204, 22, 0.45)); } 60% { box-shadow: 0 0 0 12px transparent; } } /* --anel: a cor da loja (ui.js varsDoTema) */
 @media (hover: hover) { .btn-gigante:hover { animation: none; } }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn-principal { background: var(--lime); color: var(--texto-no-destaque); }
@@ -353,7 +353,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 #enderecoLoja:not(:empty) + #legalLoja:not(:empty) { margin-top: -8px; }
 .rodape .contatos { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 /* Instagram comprido (ate 40 letras): o botao nunca passa da tela; o nome corta com reticencias e o icone fica dentro */
-.rodape .contatos .btn { max-width: 100%; min-width: 0; }
+.rodape .contatos .btn { max-width: 100%; min-width: 0; min-height: 48px; flex: 1 1 auto; } /* dividem a linha; sem espaco, cada um ocupa a linha inteira (antes ficavam de larguras e alturas diferentes) */
+.rodape .contatos { width: 100%; max-width: 440px; margin-left: auto; margin-right: auto; } /* a mesma coluna do resto da pagina */
+.rodape .contatos .btn:only-child { flex: 0 1 auto; } /* um botao so (so o WhatsApp) fica do tamanho dele, no meio */
 .contato-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rodape a.btn { min-height: 46px; font-size: 15px; border-radius: 12px; }
 .rodape .ligeiro { font-size: 12.5px; color: #97A399; }
