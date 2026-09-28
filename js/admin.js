@@ -1637,6 +1637,7 @@
         chaveAmostra.classList.toggle('on', chaveAmostra.ligado);
         chaveAmostra.setAttribute('aria-checked', chaveAmostra.ligado ? 'true' : 'false');
         if (!D.modoDemo) f.senha.hidden = chaveAmostra.ligado;
+        if (!D.modoDemo) f.whatsapp.classList.toggle('largo', chaveAmostra.ligado); /* sem o e-mail ao lado, o WhatsApp ocupa a linha (nao sobra meia linha vazia) */
       });
       f.amostra = el('div', { class: 'interruptor largo' }, [el('div', { class: 'texto' }, ['É uma amostra', el('small', { text: 'Para mostrar a um dono que ainda não fechou. Fica na conta do Ligeiro, com a faixa AMOSTRA, e não recebe pedidos.' })]), chaveAmostra]);
       var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.cidade, f.whatsapp, f.amostra, f.senha, f.modelo]);
