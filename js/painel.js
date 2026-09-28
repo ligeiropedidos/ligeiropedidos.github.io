@@ -1861,7 +1861,7 @@
         img.src = src || 'img/previa-link.jpg';
         cartao.classList.toggle('sem-imagem', !src);
         var medida = 'Quadrada, de 500 × 500 px para cima (JPG ou PNG). Ela aparece pequena, do lado do nome: use ' + (exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio') + ', sem letra miúda.';
-        var onde = exclusiva ? ' O site continua com a logo do design.' : ' É a mesma logo do topo do site (botão Trocar logo, embaixo do celular).';
+        var onde = exclusiva ? ' O site continua com a logo do design.' : ' É a mesma logo do topo do site.';
         dica.textContent = src
           ? 'É assim que o link da loja aparece no WhatsApp. ' + medida + onde
           : 'Hoje o link vai com o cartaz do Ligeiro (1200 × 630). Suba ' + (exclusiva ? 'a imagem da loja' : 'a logo') + ' para ela aparecer no lugar. ' + medida + onde;
@@ -1869,7 +1869,7 @@
       }
       new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
       [f.nome, f.tipo, f.descricao].forEach(function (c) { if (c) c.input.addEventListener('input', atualizar); });
-      var bloco = el('div', { class: 'campo previa-whats-bloco' }, [el('label', { text: 'O link no WhatsApp' }), dica, cartao, exclusiva ? trocar : null]);
+      var bloco = el('div', { class: 'campo previa-whats-bloco' }, [el('label', { text: 'O link no WhatsApp' }), dica, cartao, trocar]); /* na loja comum o botao repete o Trocar logo do celular: no celular do dono ele fica bem longe, la em cima */
       bloco.atualizar = atualizar;
       setTimeout(atualizar, 0);
       return bloco;
