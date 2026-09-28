@@ -172,9 +172,9 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .aba { border: 3px solid var(--cz-tinta); background: var(--cz-branco); color: var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .aba.ativa { background: var(--cz-vermelho); color: var(--cz-creme); border-color: var(--cz-tinta); }
 .tema-conizza .card-produto { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); transition: transform 0.08s ease, box-shadow 0.08s ease; }
-/* a letra da casa e mais alta: o texto do cartao tem 116px, entao foto (e o mascote do cartao da casa) com 116 deixa a sobra igual nos quatro lados */
-.tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 116px; height: 116px; }
-@media (max-width: 360px) { .tema-conizza .card-produto .foto, .tema-conizza .oficial-extra img { width: 96px; height: 96px; } } /* celular pequeno: preco e PEDIR cabem na mesma linha */
+/* a letra da casa e mais alta: o texto do cartao tem 116px, entao foto com 116 deixa a sobra igual nos quatro lados */
+.tema-conizza .card-produto { --foto-card: 116px; }
+@media (max-width: 340px) { .tema-conizza .card-produto { --foto-card: 96px; } } /* celular pequeno: preco e PEDIR cabem na mesma linha */
 @media (max-width: 319px) { .tema-conizza .card-produto .foto { width: 100%; height: auto; } } /* janela espremida: a foto em cima, na largura do cartao (o mesmo do ligeiro.css) */
 .tema-conizza .card-produto:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .card-produto .foto { border: 3px solid var(--cz-tinta); border-radius: 14px; background: linear-gradient(160deg, var(--cz-ouro-claro), var(--cz-ouro)); }
@@ -243,9 +243,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }
 
 /* ---------- fim da primeira tela ---------- */
-.tema-conizza .oficial-extra { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); }
-.tema-conizza .oficial-extra b { font-family: var(--cz-display); font-weight: 800; font-size: 19px; color: var(--cz-tinta); }
-.tema-conizza .oficial-extra span { color: var(--cz-tinta-suave); font-weight: 600; }
 .tema-conizza .confianca { color: var(--cz-tinta-suave); font-weight: 700; }
 
 /* ---------- painel, cozinha, entregador e balcao da loja oficial ---------- */
@@ -376,7 +373,6 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
    Nas colunas, a peca ganha embaixo o mesmo tanto da sombra: o espaco que se ve fica igual ao das outras lojas
    (16 entre blocos, 12 entre itens de lista, 8 entre opcoes). Botao em fileira (lado a lado) nao ganha: sairia do centro */
 .tema-conizza .card-produto,
-.tema-conizza .oficial-extra,
 .tema-conizza .aviso-topo,
 .tema-conizza .item-carrinho,
 .tema-conizza .totais,

@@ -845,16 +845,11 @@
       logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: l.nome }) : document.createTextNode(l.emoji || '🍽️'));
       /* a linha embaixo do nome: a frase do lojista ou "Lanchonete em Juquiá" */
       var textoTopo = l.descricao || (l.tipo ? R.tipoVisivel(l) + ' em ' + l.cidade : '');
-      /* fim da primeira tela: confianca (todas) e o bloco da loja oficial */
+      /* fim da primeira tela: a confianca (o cartao com desenho e frase da loja oficial saiu em 28/09/2026: repetia a loja
+         depois dos lanches e tinha cara de enfeite) */
       var fim = $('fimInicio');
       if (fim) {
         UI.limpar(fim);
-        if (estado.oficial && estado.oficial.ilustracao) {
-          fim.appendChild(el('div', { class: 'oficial-extra' }, [
-            el('img', { src: estado.oficial.ilustracao, alt: '' }),
-            el('div', {}, [el('b', { text: estado.oficial.frase || 'Feito na hora, do forno para sua porta' }), el('span', { text: estado.oficial.subfrase || '' })]),
-          ]));
-        }
         /* so o que nao foi dito em outro lugar: a entrega (gratis, taxa, tempo) ja esta no botao de pedir, e a cidade
            so entra se a linha embaixo do nome nao falou dela e se o endereco (logo abaixo, com a cidade) nao vai aparecer */
         var partes = [];
@@ -936,7 +931,7 @@
             el('span', { class: 'rodape-card' }, [el('span', { class: 'preco', text: dinheiro(p.preco) }), el('span', { class: 'mais', text: 'PEDIR' })]),
           ]),
         ]);
-        trilho.appendChild(card);
+        trilho.appendChild(observarCartao(card));
       });
 
       /* rodape */
@@ -981,6 +976,35 @@
       });
     }
 
+    /* todo cartao com a altura da foto (css: .card-produto .info): se o texto nao couber, encolhe a descricao para 1 linha,
+       depois tira a descricao, e so por ultimo corta o nome em 1 linha. Confere de novo quando o cartao aparece, quando a
+       largura muda e quando as letras terminam de chegar */
+    var PASSOS_CARTAO = [[], ['desc-1'], ['desc-0'], ['desc-0', 'nome-1']];
+    function encaixarCartao(card) {
+      var info = card && card.querySelector('.info');
+      if (!info || !info.clientHeight) return;
+      card.classList.remove('desc-1', 'desc-0', 'nome-1');
+      for (var i = 0; i < PASSOS_CARTAO.length; i++) {
+        PASSOS_CARTAO[i].forEach(function (c) { card.classList.add(c); });
+        if (info.scrollHeight <= info.clientHeight + 1) return;
+        PASSOS_CARTAO[i].forEach(function (c) { card.classList.remove(c); });
+      }
+      PASSOS_CARTAO[PASSOS_CARTAO.length - 1].forEach(function (c) { card.classList.add(c); });
+    }
+    var vigiaCartoes = window.ResizeObserver ? new ResizeObserver(function (lista) { lista.forEach(function (e) { if (!e.target.isConnected) vigiaCartoes.unobserve(e.target); else encaixarCartao(e.target.parentNode); }); }) : null;
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { [].forEach.call(raiz.querySelectorAll('.card-produto'), encaixarCartao); });
+    function observarCartao(card) {
+      if (vigiaCartoes) vigiaCartoes.observe(card.querySelector('.info'));
+      else setTimeout(function () { encaixarCartao(card); }, 0);
+      return card;
+    }
+
+    /* loja com design exclusivo: o desenho da categoria no lugar da foto que ainda nao chegou (no cartao, na janela do item
+       e no carrinho: o lojista ve a loja inteira como ela fica) */
+    function desenhoDoProduto(p) {
+      var desenhos = estado.oficial && estado.oficial.desenhos;
+      return p && desenhos && Object.prototype.hasOwnProperty.call(desenhos, p.categoria) ? desenhos[p.categoria] : null;
+    }
     function fotoDoProduto(p) {
       var src = D.fotoSrc(p, estado.fotos);
       if (src) {
@@ -988,9 +1012,8 @@
         img.addEventListener('error', function () { img.replaceWith(document.createTextNode(p.emoji || '🍽️')); });
         return img;
       }
-      /* loja com design exclusivo: o desenho da categoria no lugar da foto que ainda nao chegou */
-      var desenhos = estado.oficial && estado.oficial.desenhos;
-      if (desenhos && Object.prototype.hasOwnProperty.call(desenhos, p.categoria)) return el('img', { class: 'foto-desenho', src: desenhos[p.categoria], alt: '', loading: 'lazy' });
+      var desenho = desenhoDoProduto(p);
+      if (desenho) return el('img', { class: 'foto-desenho', src: desenho, alt: '', loading: 'lazy' });
       return document.createTextNode(p.emoji || '🍽️');
     }
 
@@ -1114,14 +1137,14 @@
         return;
       }
       lista.forEach(function (p) {
-        grade.appendChild(el('button', { class: 'card-produto', onclick: function () { abrirPersonalizacao(p); } }, [
+        grade.appendChild(observarCartao(el('button', { class: 'card-produto', onclick: function () { abrirPersonalizacao(p); } }, [
           el('span', { class: 'foto' }, fotoDoProduto(p)),
           el('span', { class: 'info' }, [
             el('span', { class: 'nome', text: p.nome }),
             el('span', { class: 'desc', text: p.descricao || '' }),
             el('span', { class: 'rodape-card' }, [el('span', { class: 'preco', text: dinheiro(p.preco) }), el('span', { class: 'mais', text: 'PEDIR' })]),
           ]),
-        ]));
+        ])));
       });
     }
 
@@ -1135,10 +1158,11 @@
       var podePersonalizar = estado.loja.permitePersonalizar !== false;
 
       var corpo = el('div');
-      var srcFoto = D.fotoSrc(produto, estado.fotos);
+      var srcFoto = D.fotoSrc(produto, estado.fotos) || desenhoDoProduto(produto);
+      var soDesenho = !D.fotoSrc(produto, estado.fotos) && !!srcFoto;
       /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
       function montarFoto() {
-        var caixaFoto = el('div', { class: 'foto-modal' }, [el('img', { src: srcFoto, alt: produto.nome })]);
+        var caixaFoto = el('div', { class: 'foto-modal' + (soDesenho ? ' foto-modal-desenho' : '') }, [el('img', { src: srcFoto, alt: soDesenho ? '' : produto.nome })]);
         caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) cx.classList.remove('com-lado'); });
         /* loja com miniaturas: mostra a miniatura na hora e troca pela foto grande quando ela chegar */
         if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && caixaFoto.isConnected) caixaFoto.firstChild.src = cheia; }).catch(function () { /* fica a miniatura */ });
@@ -1371,9 +1395,9 @@
         var det = el('div', { class: 'detalhes', text: detalhes.join('\u00a0· ') });
         if (removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
         var produtoDoItem = (estado.loja.produtos || []).filter(function (x) { return x.id === item.produtoId; })[0];
-        var srcItem = D.fotoSrc(produtoDoItem, estado.fotos);
+        var srcItem = D.fotoSrc(produtoDoItem, estado.fotos) || desenhoDoProduto(produtoDoItem);
         lista.appendChild(el('div', { class: 'item-carrinho' }, [
-          el('span', { class: 'miniatura' }, srcItem ? el('img', { src: srcItem, alt: '' }) : (item.emoji || '🍽️')),
+          el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? el('img', { src: srcItem, alt: '' }) : (item.emoji || '🍽️')),
           el('div', { class: 'corpo' }, [
             el('div', { class: 'nome', text: item.quantidade + 'x ' + (conta ? conta.nome : item.nome) }),
             det,
@@ -1804,15 +1828,19 @@
         atualizarBotaoPagar();
         return;
       }
-      /* amostra (loja montada pelo Ligeiro para apresentar ao dono): tudo funciona ate aqui, mas o pedido nao sai */
+      /* amostra (loja montada pelo Ligeiro para apresentar ao dono): tudo funciona ate aqui, mas o pedido nao sai. O dono
+         pode ver o resto do caminho do cliente numa demonstracao (a senha e cada etapa), sem nada ir para o banco */
       if (estado.loja && estado.loja.amostra === true) {
         estado.enviandoPedido = false;
         botao.disabled = false;
         atualizarBotaoPagar();
         UI.abrirModal({ titulo: 'Esta loja é uma amostra', corpo: el('div', { class: 'pilha' }, [
           el('p', { text: 'Ela foi montada pelo Ligeiro para apresentação e ainda não recebe pedidos.' }),
-          el('p', { class: 'muted', text: 'Quando a loja for ativada, o pedido chega na hora no painel e o cliente paga no Pix ou no cartão, como você acabou de ver.' }),
-        ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: function () { UI.fecharModal(); } })] });
+          el('p', { class: 'muted', text: 'Quer ver como o cliente acompanha o pedido? A demonstração mostra a senha e cada etapa, sem enviar nada para a loja.' }),
+        ]), rodape: [
+          el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Ver a demonstração', onclick: function () { UI.fecharModal(); demonstrarPedido(pedido); } }),
+          el('button', { class: 'btn btn-fantasma btn-largo', type: 'button', text: 'Voltar', onclick: function () { UI.fecharModal(); } }),
+        ] });
         return;
       }
       /* banco no limite de hoje (a borda avisou, ou o banco ja recusou antes): o pedido vai pronto pelo WhatsApp */
@@ -1883,6 +1911,37 @@
         botao.disabled = false;
         atualizarBotaoPagar();
       });
+    }
+
+    /* Demonstracao da amostra: o pedido de mentira ganha uma senha e vai para a tela da senha como um pedido de verdade
+       (pago ou para cobrar na entrega). Nada vai para o banco, nem para Meus pedidos, nem para o endereco da pagina */
+    function demonstrarPedido(pedido) {
+      var online = pedido.formaPagamento === 'pix' || pedido.formaPagamento === 'cartao_online';
+      var agora = new Date().toISOString();
+      var demo = Object.assign({}, pedido, { id: 'amostra-' + Date.now(), senha: pedido.senha || String(10 + Math.floor(Math.random() * 90)), criadoEm: agora, status: R.STATUS.PAGO }, online ? { pagamentoStatus: 'pago', pagoEm: agora } : {});
+      estado.pedidoAmostra = demo.id;
+      estado.pedidoDeFora = null;
+      estado.carrinho = [];
+      estado.cupom = { codigo: '', percentual: 0, desconto: 0 };
+      limparRascunho();
+      mostrarSenha(demo);
+      UI.avisar('Demonstração: este pedido não foi enviado para a loja.');
+    }
+    /* a demonstracao anda uma etapa a cada 6 s (preparando, saiu ou pronto, entregue), pelo mesmo caminho do pedido de verdade */
+    function andarDemonstracao(pedido) {
+      pararAcompanhar();
+      var etapas = [R.STATUS.PRODUCAO, R.STATUS.PRONTO, R.STATUS.FINALIZADO];
+      var i = 0, relogio = null;
+      function proxima() {
+        if (i >= etapas.length) return;
+        relogio = setTimeout(function () {
+          if (!vivo || !estado.pedido || estado.pedido.id !== pedido.id) return;
+          pedidoMudou(Object.assign({}, estado.pedido, { status: etapas[i++] }));
+          proxima();
+        }, 6000);
+      }
+      proxima();
+      estado.pararPedido = function () { clearTimeout(relogio); };
     }
 
     /* A forma escolhida saiu (o servidor recusou): a loja de agora chega, a forma que saiu some da lista (com o aviso
@@ -2675,13 +2734,15 @@
       var voltarPix = $('btnVoltarPix');
       voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora);
       voltarPix.textContent = pedido.formaPagamento === 'cartao_online' ? 'Voltar para o pagamento' : 'Ver o código Pix de novo';
-      desenharAvisoCelPedido(pedido, balcao || deFora);
+      var demo = estado.pedidoAmostra === pedido.id;
+      desenharAvisoCelPedido(pedido, balcao || deFora || demo);
       desenharAvaliarGoogle(pedido, balcao || deFora);
       desenharConviteJogo(pedido, balcao);
 
       irPara('tela-senha');
       if (pedido.status !== R.STATUS.CANCELADO) { UI.vibrar(); UI.soar('sucesso'); }
-      acompanhar(pedido);
+      if (demo) andarDemonstracao(pedido);
+      else acompanhar(pedido);
 
       if (balcao) {
         estado.relogioPixDe = null;
@@ -2899,39 +2960,42 @@
 
     function acompanhar(pedido) {
       pararAcompanhar();
-      estado.pararPedido = store.assistirPedido(estado.loja.slug, pedido.id, function (novo) {
-        if (!novo || !estado.pedido || novo.id !== estado.pedido.id) return;
-        var mudou = novo.status !== estado.pedido.status;
-        var codigoNovo = !!novo.pixCodigo && novo.pixCodigo !== estado.pedido.pixCodigo;
-        var devolveuAgora = foiDevolvido(novo) && !foiDevolvido(estado.pedido);
-        estado.pedido = novo;
-        atualizarMeuPedido(novo);
-        if (mudou && novo.status !== R.STATUS.AGUARDANDO && novo.status !== R.STATUS.CANCELADO) esquecerCarrinho(novo.id);
-        /* desistindo: o QR nao volta por cima do "Cancelando o pedido…" (se nao cancelar, a tela volta ja com ele) */
-        if (codigoNovo && !mudou && !estado.cancelando && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
-        /* a loja devolveu o dinheiro de um pedido ja cancelado (o status nao muda): o rotulo muda na hora */
-        if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto); montarLinhaDoTempo(novo); return; }
-        /* cartao ainda esperando: a analise do banco comecou ou acabou sem aprovar (o X some ou volta) */
-        if (!mudou && novo.status === R.STATUS.AGUARDANDO && $('tela-cartao').classList.contains('ativa')) { travaDoCartao(novo); return; }
-        if (!mudou) return;
-        /* jogando: a etiqueta do jogo muda; saiu, ficou pronto, chegou ou foi cancelado, o jogo pausa e pergunta */
-        cadaJogoAberto(function (J) { J.pedidoMudou(novo, 'Senha ' + novo.senha + '\u00a0· ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0); });
-        if ($('tela-cartao').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { desmontarCartao(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
-        if ($('tela-pagamento').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { pararVigia(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
-        if ($('tela-senha').classList.contains('ativa')) {
-          $('senhaInstrucao').textContent = R.textoDoEstagio(novo, estado.loja);
-          montarLinhaDoTempo(novo);
-          var deFora = estado.pedidoDeFora === novo.id;
-          desenharAvisoCelPedido(novo, balcao || deFora);
-          desenharAvaliarGoogle(novo, balcao || deFora);
-          desenharConviteJogo(novo, balcao);
-          desenharACobrar(novo);
-          if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo); rotuloConfirmado(rotuloN.icone, rotuloN.texto); }
-          $('btnVoltarPix').hidden = true;
-          UI.avisar(R.rotuloStatusCliente(novo));
-          UI.vibrar([120]);
-        }
-      });
+      estado.pararPedido = store.assistirPedido(estado.loja.slug, pedido.id, pedidoMudou);
+    }
+
+    /* o pedido mudou (o banco avisou, ou a demonstracao da amostra andou uma etapa): a tela aberta acompanha */
+    function pedidoMudou(novo) {
+      if (!novo || !estado.pedido || novo.id !== estado.pedido.id) return;
+      var mudou = novo.status !== estado.pedido.status;
+      var codigoNovo = !!novo.pixCodigo && novo.pixCodigo !== estado.pedido.pixCodigo;
+      var devolveuAgora = foiDevolvido(novo) && !foiDevolvido(estado.pedido);
+      estado.pedido = novo;
+      atualizarMeuPedido(novo);
+      if (mudou && novo.status !== R.STATUS.AGUARDANDO && novo.status !== R.STATUS.CANCELADO) esquecerCarrinho(novo.id);
+      /* desistindo: o QR nao volta por cima do "Cancelando o pedido…" (se nao cancelar, a tela volta ja com ele) */
+      if (codigoNovo && !mudou && !estado.cancelando && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
+      /* a loja devolveu o dinheiro de um pedido ja cancelado (o status nao muda): o rotulo muda na hora */
+      if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto); montarLinhaDoTempo(novo); return; }
+      /* cartao ainda esperando: a analise do banco comecou ou acabou sem aprovar (o X some ou volta) */
+      if (!mudou && novo.status === R.STATUS.AGUARDANDO && $('tela-cartao').classList.contains('ativa')) { travaDoCartao(novo); return; }
+      if (!mudou) return;
+      /* jogando: a etiqueta do jogo muda; saiu, ficou pronto, chegou ou foi cancelado, o jogo pausa e pergunta */
+      cadaJogoAberto(function (J) { J.pedidoMudou(novo, 'Senha ' + novo.senha + '\u00a0· ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0); });
+      if ($('tela-cartao').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { desmontarCartao(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
+      if ($('tela-pagamento').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { pararVigia(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
+      if ($('tela-senha').classList.contains('ativa')) {
+        $('senhaInstrucao').textContent = R.textoDoEstagio(novo, estado.loja);
+        montarLinhaDoTempo(novo);
+        var deFora = estado.pedidoDeFora === novo.id;
+        desenharAvisoCelPedido(novo, balcao || deFora || estado.pedidoAmostra === novo.id);
+        desenharAvaliarGoogle(novo, balcao || deFora);
+        desenharConviteJogo(novo, balcao);
+        desenharACobrar(novo);
+        if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo); rotuloConfirmado(rotuloN.icone, rotuloN.texto); }
+        $('btnVoltarPix').hidden = true;
+        UI.avisar(R.rotuloStatusCliente(novo));
+        UI.vibrar([120]);
+      }
     }
 
     function pararAcompanhar() {

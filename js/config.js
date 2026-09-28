@@ -139,9 +139,9 @@ window.LIGEIRO_CONFIG = {
      oficial: true = loja do proprio Ligeiro (ganha o selo "Loja oficial"). Cliente que contratou o design exclusivo
      entra aqui com oficial: false: tem o tema, a logo grande e a tela de carregamento, mas nao o selo. */
   lojasOficiais: {
-    'dom-conizza': { oficial: true, tema: 'conizza', fontes: ['700 1em "Baloo 2"', '800 1em "Baloo 2"', '400 1em Nunito', '700 1em Nunito', '800 1em Nunito'], logo: 'img/oficial/dom-conizza-logo.webp', ilustracao: 'img/oficial/dom-conizza-cozinhando.webp', frase: 'Sai do forno direto para sua porta', subfrase: 'Feito na hora, quentinho e caprichado do começo ao fim.', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
+    'dom-conizza': { oficial: true, tema: 'conizza', fontes: ['700 1em "Baloo 2"', '800 1em "Baloo 2"', '400 1em Nunito', '700 1em Nunito', '800 1em Nunito'], logo: 'img/oficial/dom-conizza-logo.webp', enfeites: ['🍕', '🧀', '🌶️', '🥓', '🍅', '🍄'] },
     /* cliente com design exclusivo (27/09/2026): palco escuro com fogo e grelha na abertura; desenhos no lugar das fotos que faltam */
-    'burger-house': { oficial: false, tema: 'burgerhouse', logo: 'img/oficial/burger-house-logo.webp', ilustracao: 'img/oficial/bh-chapa.svg', frase: 'Saiu da chapa, chegou na sua porta', subfrase: 'Pão de brioche, burger de 120 g e maionese artesanal da casa.', enfeites: ['', '', '', '', '', '', '', '', '', ''], corFundo: '#120A06',
+    'burger-house': { oficial: false, tema: 'burgerhouse', logo: 'img/oficial/burger-house-logo.webp', enfeites: ['', '', '', '', '', '', '', '', '', ''], corFundo: '#120A06',
       desenhos: { lanches: 'img/oficial/bh-burger.svg', porcoes: 'img/oficial/bh-batata.svg', refrigerantes: 'img/oficial/bh-bebida.svg', sucos: 'img/oficial/bh-bebida.svg', bebidas: 'img/oficial/bh-bebida.svg' } },
   },
 };

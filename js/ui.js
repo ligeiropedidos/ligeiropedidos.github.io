@@ -846,7 +846,7 @@
       if (!document.fonts || !document.fonts.load) return true;
       return Promise.all((o.fontes || []).map(function (f) { return document.fonts.load(f).catch(function () {}); }));
     });
-    var imagens = [o.logo, o.ilustracao].filter(Boolean).map(function (src) {
+    var imagens = [o.logo].filter(Boolean).map(function (src) {
       return new Promise(function (r) { var i = new Image(); i.onload = i.onerror = function () { r(true); }; i.src = src; });
     });
     var tudo = Promise.all([temaPronto, letras, espera].concat(imagens));

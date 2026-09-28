@@ -37,12 +37,14 @@
   background: var(--bh-carvao);
   color: var(--bh-creme);
 }
-body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
+/* a cor escrita aqui (e nao var(--bh-carvao)): o body fica por fora da loja e nao enxerga as cores dela; sem isso as laterais
+   do PC ficavam brancas */
+body:has(.tema-burgerhouse #tela-inicio.ativa) { background: #120A06; }
 
 .tema-burgerhouse .abertura {
   position: relative;
-  --bh-fogo: calc(24px + var(--bh-logo) * 0.777 + 64px);
-  background: radial-gradient(ellipse min(520px, 90vw) calc(var(--bh-fogo) * 0.7) at 50% calc(24px + var(--bh-logo) * 0.39), rgba(255, 106, 19, 0.30), rgba(255, 106, 19, 0) 70%);
+  --bh-fogo: calc(24px + var(--bh-logo) * 0.75 + 64px);
+  background: radial-gradient(ellipse min(520px, 90vw) calc(var(--bh-fogo) * 0.7) at 50% calc(24px + var(--bh-logo) * 0.375), rgba(255, 106, 19, 0.30), rgba(255, 106, 19, 0) 70%);
 }
 .tema-burgerhouse .abertura > *:not(.enfeites) { position: relative; z-index: 1; }
 .tema-burgerhouse .capa-loja { display: none; }
@@ -59,7 +61,7 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 .tema-burgerhouse .abertura::after {
   --barra: linear-gradient(180deg, #FFC98A 0%, #FF8A3D 16%, #5E4B41 42%, #1C1411 100%);
   content: ""; position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none;
-  top: calc(24px + var(--bh-logo) * 0.777 * 0.54); height: 54px;
+  top: calc(24px + var(--bh-logo) * 0.40); height: 54px;
   background: var(--barra) 0 0 / 100% 10px no-repeat, var(--barra) 0 22px / 100% 10px no-repeat, var(--barra) 0 44px / 100% 10px no-repeat;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
@@ -68,9 +70,10 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 
 /* a logo: selo redondo em cima do fogo (o miolo transparente ganha o carvao, a letra nao briga com a chama) */
 .tema-burgerhouse .logo-grande, .tema-burgerhouse .abertura.com-capa .logo-grande {
-  /* altura em pixel inteiro (a proporcao da imagem dava 208,9 px a 320): tudo embaixo cai em posicao inteira e a letra dos
+  /* altura em pixel inteiro (a proporcao da imagem dava altura quebrada). A imagem nao tem sobra
+     transparente em cima nem embaixo: a caixa e a propria tinta, e os 16 px do padrao ate o texto sao os que se veem: tudo embaixo cai em posicao inteira e a letra dos
      selos nao pula meio pixel de uma largura para outra */
-  width: var(--bh-logo); height: calc(var(--bh-logo) * 972 / 1251); height: round(calc(var(--bh-logo) * 972 / 1251), 1px); margin: 0;
+  width: var(--bh-logo); height: calc(var(--bh-logo) * 938 / 1251); height: round(calc(var(--bh-logo) * 938 / 1251), 1px); margin: 0;
   background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; position: relative;
 }
 .tema-burgerhouse .logo-grande img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
@@ -87,6 +90,7 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 .tema-burgerhouse #descLoja {
   color: var(--bh-ouro); font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 20px;
   text-transform: uppercase; letter-spacing: 0.14em; max-width: 30ch; text-wrap: balance;
+  margin-top: 0 !important; /* o -8 do padrao e para colar no nome, que aqui fica escondido (esta na logo): 16 como todo bloco */
 }
 
 /* brasas subindo (os enfeites da loja sao pontinhos, nao emoji) */
@@ -106,16 +110,35 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 .tema-burgerhouse .enfeites span:nth-child(9)  { left: 85%; animation-duration: 4.5s; animation-delay: -1.7s; width: 4px; height: 4px; }
 .tema-burgerhouse .enfeites span:nth-child(10) { left: 94%; animation-duration: 5.0s; animation-delay: -4.4s; width: 3px; height: 3px; }
 
-/* movimento so para quem nao pediu "Reduzir movimento" (parado, o fogo continua bonito) */
-@media (prefers-reduced-motion: no-preference) {
-  .tema-burgerhouse .abertura::before { animation: bh-tremular 2.4s ease-in-out infinite; }
-  .tema-burgerhouse .enfeites span { animation-name: bh-brasa; animation-timing-function: ease-out; animation-iteration-count: infinite; }
-  .tema-burgerhouse .logo-grande { animation: bh-chegar 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
-}
+/* no PC a loja e uma coluna de 720: o fogo, a grelha e as brasas vao de uma borda a outra da janela (antes paravam num
+   corte reto na borda da coluna); o que passa da janela e cortado pelo body */
+.tema-burgerhouse .abertura::before, .tema-burgerhouse .abertura::after, .tema-burgerhouse .enfeites { left: calc(50% - 50vw); right: calc(50% - 50vw); }
+body:has(.tema-burgerhouse #tela-inicio.ativa) { overflow-x: clip; }
+
+/* movimento sempre ligado, tambem com "Reduzir movimento" no celular (pedido do dono da marca): o fogo tremula, as brasas
+   sobem e a logo acompanha, com o brilho em volta pulsando no mesmo ritmo das chamas e flutuando leve como no ar quente */
+.tema-burgerhouse .abertura::before { animation: bh-tremular 2.4s ease-in-out infinite; }
+.tema-burgerhouse .enfeites span { animation-name: bh-brasa; animation-timing-function: ease-out; animation-iteration-count: infinite; }
+.tema-burgerhouse .logo-grande { animation: bh-chegar 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, bh-flutuar 4.8s ease-in-out 0.7s infinite; }
+.tema-burgerhouse .logo-grande::before { animation: bh-aceso 2.4s ease-in-out infinite; }
+/* o site para tudo com "Reduzir movimento" (regra geral com !important no ligeiro.css): aqui volta, com a mesma forca */
 @media (prefers-reduced-motion: reduce) {
-  .tema-burgerhouse .enfeites span { opacity: 0.7; }
-  .tema-burgerhouse .enfeites span:nth-child(odd) { bottom: 48%; }
-  .tema-burgerhouse .enfeites span:nth-child(3n) { bottom: 66%; }
+  .tema-burgerhouse .abertura::before { animation: bh-tremular 2.4s ease-in-out infinite !important; }
+  .tema-burgerhouse .enfeites span { animation-name: bh-brasa !important; animation-timing-function: ease-out !important; animation-iteration-count: infinite !important; }
+  .tema-burgerhouse .enfeites span:nth-child(1)  { animation-duration: 4.2s !important; animation-delay: -0.4s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(2)  { animation-duration: 5.4s !important; animation-delay: -2.1s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(3)  { animation-duration: 3.8s !important; animation-delay: -3.0s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(4)  { animation-duration: 6.0s !important; animation-delay: -1.2s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(5)  { animation-duration: 4.8s !important; animation-delay: -4.0s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(6)  { animation-duration: 5.2s !important; animation-delay: -0.9s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(7)  { animation-duration: 4.0s !important; animation-delay: -2.6s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(8)  { animation-duration: 5.8s !important; animation-delay: -3.5s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(9)  { animation-duration: 4.5s !important; animation-delay: -1.7s !important; }
+  .tema-burgerhouse .enfeites span:nth-child(10) { animation-duration: 5.0s !important; animation-delay: -4.4s !important; }
+  .tema-burgerhouse .logo-grande { animation: bh-chegar 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, bh-flutuar 4.8s ease-in-out 0.7s infinite !important; }
+  .tema-burgerhouse .logo-grande::before { animation: bh-aceso 2.4s ease-in-out infinite !important; }
+  .tema-burgerhouse #tela-inicio .btn-gigante:not(:disabled) { animation: bh-pulsar 2.6s ease-in-out infinite !important; }
+  .tema-burgerhouse #tela-inicio .btn-principal::after { animation: brilho 5s ease-in-out infinite !important; }
 }
 @keyframes bh-tremular {
   0%, 100% { transform: scaleY(1); opacity: 0.9; }
@@ -126,6 +149,16 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
   0%   { opacity: 0; transform: translate(0, 0) scale(1); }
   12%  { opacity: 1; }
   100% { opacity: 0; transform: translate(14px, calc(var(--bh-fogo) * -0.7)) scale(0.4); }
+}
+@keyframes bh-flutuar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+/* o mesmo tempo do fogo (2,4 s): quando a chama sobe, o brilho da logo sobe junto */
+@keyframes bh-aceso {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(255, 106, 19, 0.16), 0 0 56px 8px rgba(255, 106, 19, 0.45); }
+  35%      { box-shadow: 0 0 0 7px rgba(255, 138, 31, 0.26), 0 0 72px 14px rgba(255, 138, 31, 0.62); }
+  65%      { box-shadow: 0 0 0 6px rgba(255, 106, 19, 0.12), 0 0 48px 6px rgba(255, 90, 10, 0.38); }
 }
 @keyframes bh-chegar {
   0%   { opacity: 0; transform: scale(0.82); }
@@ -156,7 +189,11 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 .tema-burgerhouse #tela-inicio .btn-gigante {
   font-family: var(--display); font-weight: 700; letter-spacing: 0.04em;
   box-shadow: 0 10px 30px rgba(255, 106, 19, 0.35), inset 0 -3px 0 rgba(122, 32, 0, 0.35);
-  --anel: rgba(255, 138, 31, 0.5);
+  animation-name: bh-pulsar; /* o mesmo pulso do padrao (2,6 s), no brilho do fogo: o anel da cor da loja virava moldura marrom no carvao */
+}
+@keyframes bh-pulsar {
+  0%, 100% { box-shadow: 0 10px 30px rgba(255, 106, 19, 0.35), inset 0 -3px 0 rgba(122, 32, 0, 0.35); }
+  60%      { box-shadow: 0 10px 44px rgba(255, 138, 31, 0.62), inset 0 -3px 0 rgba(122, 32, 0, 0.35); }
 }
 .tema-burgerhouse #tela-inicio .btn-gigante .sub { color: var(--bh-tinta); opacity: 0.86; letter-spacing: 0; }
 .tema-burgerhouse #tela-inicio .btn:focus-visible { outline-color: var(--bh-ouro); }
@@ -175,17 +212,22 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { background: var(--bh-carvao); }
 /* desenho no lugar da foto que falta: no carvao aceso, como foto de lanche em fundo escuro (no palco e nas telas claras) */
 .tema-burgerhouse .card-produto .foto:has(.foto-desenho) { background: radial-gradient(circle at 50% 60%, #3A2214 0%, var(--bh-carvao) 78%); }
 .tema-burgerhouse .card-produto .foto img.foto-desenho { object-fit: contain; }
+/* o mesmo desenho, no mesmo carvao aceso, na janela do item e no carrinho */
+.tema-burgerhouse .foto-modal-desenho, .tema-burgerhouse .item-carrinho .miniatura.com-desenho { background: radial-gradient(circle at 50% 60%, #3A2214 0%, var(--bh-carvao) 78%); }
+.tema-burgerhouse .foto-modal-desenho img { object-fit: contain; }
 
-.tema-burgerhouse .oficial-extra { background: linear-gradient(135deg, var(--bh-carvao-2) 0%, #3A1606 100%); border: 1.5px solid rgba(255, 106, 19, 0.45); }
-.tema-burgerhouse .oficial-extra b { font-family: var(--display); font-size: 19px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--bh-creme); }
-.tema-burgerhouse .oficial-extra span { color: var(--bh-creme-suave); }
-@media (max-width: 360px) { .tema-burgerhouse .oficial-extra img { width: 96px; height: 96px; } } /* o desenho acompanha a foto dos cartoes de cima (96 no celular pequeno): texto na mesma linha */
 
 /* ---------- rodape no palco ---------- */
 .tema-burgerhouse #tela-inicio .rodape .ligeiro { color: var(--bh-cinza); }
 .tema-burgerhouse #tela-inicio .rodape-verificada { color: var(--bh-ouro); }
 
 /* ---------- telas do pedido: claras, com o cabecalho no carvao ---------- */
+/* a senha no carvao com o numero em fogo, como a abertura; os joguinhos com a borda quente (o verde e do Ligeiro) */
+.tema-burgerhouse:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #3A1A0A 0%, var(--bh-carvao) 75%); }
+.tema-burgerhouse:has(#tela-inicio) .senha-gigante { color: #FF8A1F; }
+.tema-burgerhouse:has(#tela-inicio) .painel-senha .rotulo { color: var(--bh-ouro); }
+.tema-burgerhouse:has(#tela-inicio) .jogo-convite { border-color: var(--line-forte); }
+.tema-burgerhouse:has(#tela-inicio) .chave:not(.on) { background: #E6D5C4; } /* desligado no tom quente da casa (o cinza-esverdeado e do Ligeiro) */
 /* o fundo e as linhas em creme quente (o padrao do site puxa para o verde, que briga com o laranja da casa) */
 .tema-burgerhouse:has(#tela-inicio), body:has(.tema-burgerhouse #tela-inicio) .modal.tema-burgerhouse { --bg: #FFF8F0; --line: #F0E1D1; --line-forte: #E0C9B2; --muted: #75655A; --body: #4A3B31; --ink: #1A0E07; }
 body:has(.tema-burgerhouse #tela-inicio) { background: #FFF8F0; }
