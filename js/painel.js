@@ -1745,7 +1745,7 @@
      * camera da capa ou da logo e escolhe a foto; cor e estilo mudam na hora.
      * Usa os campos de foto escondidos (f.logo, f.capa) pra ler e trocar a imagem.
      */
-    function previaDaLoja(l, f, exclusiva, logoLivre) {
+    function previaDaLoja(l, f, exclusiva) {
       function imgDe(campo) {
         var img = campo.querySelector('.foto-previa img');
         return img && !img.hidden && img.getAttribute('src') ? img.getAttribute('src') : null;
@@ -1779,7 +1779,7 @@
       /* sem "tirar" no design exclusivo: sem logo o design quebra; o dono so troca por outra */
       var tirar = el('div', { class: 'previa-tirar-linha' }, exclusiva ? [] : [tirarCapa, tirarLogo]);
       var trocarLogo = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']);
-      var acoes = el('div', { class: 'previa-acoes' + (exclusiva ? ' so-logo' : '') }, exclusiva ? (logoLivre ? [trocarLogo] : []) : [
+      var acoes = el('div', { class: 'previa-acoes' + (exclusiva ? ' so-logo' : '') }, exclusiva ? [] : [
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('imagem'), 'Trocar capa']),
         trocarLogo,
       ]);
@@ -1815,10 +1815,55 @@
       obs.observe(f.capa, { subtree: true, attributes: true, childList: true });
       var bloco = el('div', { class: 'campo largo previa-bloco' }, [
         el('label', { text: 'A cara da sua loja' }),
-        el('p', { class: 'ajuda', text: exclusiva ? (logoLivre ? 'É assim que o cliente vê no celular. A logo você troca no botão embaixo; o resto é do design exclusivo.' : 'É assim que o cliente vê no celular, com o seu design exclusivo.') : 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
+        el('p', { class: 'ajuda', text: exclusiva ? 'É assim que o cliente vê no celular, com o seu design exclusivo.' : 'É assim que o cliente vê no celular. Troque a capa e a logo nos botões embaixo; a cor e o estilo, mais abaixo.' }),
         aparelho,
         acoes,
         tirar,
+      ]);
+      bloco.atualizar = atualizar;
+      setTimeout(atualizar, 0);
+      return bloco;
+    }
+
+    /* Como o link da loja aparece no WhatsApp (o mesmo que o site manda para o WhatsApp: imagem quadrada pequena do lado,
+       nome e cidade, a frase ou "tipo em cidade" e o endereco). No design exclusivo a imagem so vale aqui e na lista da
+       cidade (o site usa a logo do design), entao o dono troca sem risco de quebrar o visual */
+    function previaWhats(l, f, exclusiva) {
+      var img = el('img', { alt: '', src: 'img/previa-link.jpg' });
+      var titulo = el('b', { class: 'pw-titulo' });
+      var desc = el('span', { class: 'pw-desc' });
+      var endereco = 'ligeiropedidos.com.br/' + (l.cidadeSlug || 'cidade') + '/' + slug;
+      var cartao = el('div', { class: 'previa-whats', 'aria-hidden': 'true' }, [
+        el('div', { class: 'pw-bolha' }, [
+          el('div', { class: 'pw-link' }, [el('span', { class: 'pw-img' }, [img]), el('span', { class: 'pw-texto' }, [titulo, desc, el('span', { class: 'pw-site', text: 'ligeiropedidos.com.br' })])]),
+          el('span', { class: 'pw-url', text: endereco }),
+        ]),
+      ]);
+      var trocar = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () {
+        var b = [].slice.call(f.logo.querySelectorAll('button')).filter(function (x) { return /Escolher|Trocar/.test(x.textContent); })[0];
+        if (b) b.click();
+      } }, [UI.iconeLinha('imagem'), 'Trocar a imagem']);
+      function atualizar() {
+        var lugar = [l.cidade, l.uf].filter(Boolean).join('/');
+        var nome = (f.nome.input.value || l.nome || '').trim();
+        var frase = f.descricao ? f.descricao.input.value.trim() : String(l.descricao || '').trim();
+        var tipo = (f.tipo.input.value || '').trim();
+        titulo.textContent = nome + (lugar ? ' · ' + lugar : '');
+        desc.textContent = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o cardápio e peça pelo celular: Pix, cartão ou na entrega.';
+        var pv = f.logo.querySelector('.foto-previa img');
+        var src = pv && !pv.hidden && pv.getAttribute('src');
+        img.src = src || 'img/previa-link.jpg';
+        cartao.classList.toggle('sem-imagem', !src);
+      }
+      new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
+      [f.nome, f.tipo, f.descricao].forEach(function (c) { if (c) c.input.addEventListener('input', atualizar); });
+      var bloco = el('div', { class: 'campo previa-whats-bloco' }, [
+        el('label', { text: 'O link no WhatsApp' }),
+        el('p', { class: 'muted pequeno previa-whats-dica', text: exclusiva
+          ? 'É assim que aparece quando alguém manda o link da loja. A imagem também vai na lista da cidade; o site continua com a logo do design. Use uma imagem quadrada, 500 × 500 px ou maior (JPG ou PNG): ela aparece pequena, então vale a logo com fundo cheio ou o lanche mais bonito, sem letra miúda.'
+          : 'É assim que aparece quando alguém manda o link da loja. A imagem é a logo (troque no botão Trocar logo, embaixo do celular). O texto é o nome, a cidade e a frase de apresentação.' }),
+        cartao,
+        exclusiva ? trocar : null,
       ]);
       bloco.atualizar = atualizar;
       setTimeout(atualizar, 0);
@@ -2480,19 +2525,19 @@
       /* loja com design exclusivo (feito pelo Ligeiro): cores, estilo e capa sao do design e ficam travados, para o dono
          nao quebrar o visual sem querer (e o tema passaria por cima do que ele mudasse). So a logo continua livre */
       var exclusiva = !!UI.lojaOficial(slug);
-      /* no design exclusivo a logo tambem trava (o site usa a do design; trocar aqui so mudava a previa do WhatsApp, a lista da
-         cidade e o adesivo dos joguinhos: a loja ficava com duas logos). So o Ligeiro troca, entrando com a conta dele */
-      var cfgAdm = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
-      var logoLivre = exclusiva && !!estado.usuarioEmail && estado.usuarioEmail === cfgAdm;
-      f.previa = previaDaLoja(l, f, exclusiva, logoLivre);
+      /* no design exclusivo a logo do site e a do design; a imagem guardada aqui so vale na previa do link no WhatsApp e na
+         lista da cidade, entao o dono troca pelo bloco "O link no WhatsApp" (antes so o Ligeiro trocava, e o dono nem via onde) */
+      f.previa = previaDaLoja(l, f, exclusiva);
       f.cor = campoCor('Cor da sua loja', l.cor, function () { f.previa.atualizar(); });
       f.estilo = campoEstilo('Estilo do site', l.estilo, function () { f.previa.atualizar(); });
       f.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.tipo.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.medidas = el('details', { class: 'avancado campo largo' }, [
         el('summary', { text: 'Medidas das imagens, para quem for fazer a arte' }),
-        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Logo: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece com 120 px no site e 60 px na vitrine: símbolo grande, sem letra pequena.']),
-        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Capa: ' }), 'deitada, 1200 × 500 px (proporção 12 por 5). No celular aparece só a faixa do meio: deixe o que importa no centro e nada escrito nas bordas. Uma foto do celular na horizontal serve.']),
+        exclusiva
+          ? el('p', { class: 'muted pequeno' }, [el('b', { text: 'Imagem do WhatsApp: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece pequena no link do WhatsApp e na lista da cidade: fundo cheio, sem letra pequena.'])
+          : el('p', { class: 'muted pequeno' }, [el('b', { text: 'Logo: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece com 120 px no site, 60 px na vitrine e pequena no link do WhatsApp: símbolo grande, sem letra pequena.']),
+        exclusiva ? null : el('p', { class: 'muted pequeno' }, [el('b', { text: 'Capa: ' }), 'deitada, 1200 × 500 px (proporção 12 por 5). No celular aparece só a faixa do meio: deixe o que importa no centro e nada escrito nas bordas. Uma foto do celular na horizontal serve.']),
         el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, prato no centro. O sistema diminui para 640 px.']),
       ]);
       f.emoji = campoEmoji('Emoji da loja', l.emoji, { ajuda: 'Aparece no lugar da logo enquanto você não manda uma.', aoMudar: function () { if (f.previa) f.previa.atualizar(); } });
@@ -2519,20 +2564,20 @@
         el('a', { href: R.linkWhatsapp(cfgEx.whatsappLigeiro, 'Oi! Quero um orçamento de design exclusivo para ' + l.nome + ' no Ligeiro.'), target: '_blank', rel: 'noopener', text: 'Peça um orçamento de design exclusivo' }),
         '.',
       ]) : null;
+      f.whats = previaWhats(l, f, exclusiva);
       var controles = exclusiva ? el('div', { class: 'aparencia-controles' }, [
         el('div', { class: 'design-exclusivo' }, [
           el('div', { class: 'design-exclusivo-topo' }, [
             el('span', { class: 'design-exclusivo-ico' }, [UI.iconeLinha('cadeado')]),
             el('div', { class: 'design-exclusivo-texto' }, [
               el('b', { text: 'Design exclusivo' }),
-              el('span', { text: logoLivre
-                ? 'Você entrou como Ligeiro: a logo fica livre aqui (ela aparece na prévia do link no WhatsApp e na lista da cidade). Para o dono, tudo fica travado.'
-                : 'Sua loja tem um visual feito sob medida pelo Ligeiro. A logo, as cores, o estilo e a capa ficam travados para nada sair do lugar.' }),
+              el('span', { text: 'Sua loja tem um visual feito sob medida pelo Ligeiro: as cores, o estilo, a capa e a logo do site ficam travados para nada sair do lugar. A imagem do link no WhatsApp você troca aqui embaixo.' }),
             ]),
           ]),
         ]),
+        f.whats,
         f.medidas,
-      ]) : el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.medidas, exclusivo]);
+      ]) : el('div', { class: 'aparencia-controles' }, [f.cor, f.estilo, emojiDetalhe, f.whats, f.medidas, exclusivo]);
       aparencia.appendChild(el('div', { class: 'aparencia' }, [f.previa, controles]));
       aparencia.appendChild(f.logo);
       aparencia.appendChild(f.capa);
