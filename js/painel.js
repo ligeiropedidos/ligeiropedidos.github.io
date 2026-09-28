@@ -2452,8 +2452,8 @@
       var identidade = el('div', { class: 'bloco-form', id: 'aj-dados' }, [el('div', { class: 'bloco-titulo', text: 'Dados da loja' })]);
       var aparencia = el('div', { class: 'bloco-form', id: 'aj-aparencia' }, [el('div', { class: 'bloco-titulo', text: 'Aparência do site' })]);
       var g1 = el('div', { class: 'grade-form' });
-      f.nome = campoTexto('Nome', l.nome, { max: 60 });
-      f.tipo = campoTexto('Tipo', l.tipo, { max: 30, placeholder: 'Lanchonete, Pizzaria, Marmitaria…' });
+      f.nome = campoTexto('Nome', l.nome, { max: 60, ajuda: 'Aparece no topo do site e no link que você manda no WhatsApp.' });
+      f.tipo = campoTexto('Tipo', l.tipo, { max: 30, placeholder: 'Lanchonete, Pizzaria, Marmitaria…', ajuda: 'É por ele que o cliente acha a loja na lista da cidade.' });
       f.logo = UI.campoFoto('Logo', D.logoSrc(l), { quadrado: true, lado: 200, qualidade: 0.82, vazio: l.emoji || '🍽️' });
       f.capa = UI.campoFoto('Capa', l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null), { lado: 1080, qualidade: 0.72, larga: true, vazio: 'imagem' });
       f.logo.hidden = true; f.capa.hidden = true; /* quem mostra e a previa; eles so guardam a foto */
@@ -2476,11 +2476,11 @@
         el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, prato no centro. O sistema diminui para 640 px.']),
       ]);
       f.emoji = campoEmoji('Emoji da loja', l.emoji, { ajuda: 'Aparece no lugar da logo enquanto você não manda uma.', aoMudar: function () { if (f.previa) f.previa.atualizar(); } });
-      f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: 'Ex: Lanche bem servido, feito na hora.' });
+      f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: 'Ex: Lanche bem servido, feito na hora.', ajuda: 'Aparece no topo do site, embaixo do nome.' });
       f.descricao.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.avisoTopo = campoTexto('Aviso no topo do site', l.avisoTopo, { max: 120, largo: true, placeholder: 'Ex: Hoje só entrega no Centro', ajuda: 'Aparece em destaque para o cliente. Deixe vazio para não mostrar.' });
       f.cidade = window.LigeiroCidades.campo(l.cidade, l.uf, { rotulo: 'Cidade', ajuda: 'Escolha na lista. É a página da cidade em que sua loja aparece.' });
-      f.endereco = campoTexto('Endereço da loja', l.endereco, { max: 120, largo: true });
+      f.endereco = campoTexto('Endereço da loja', l.endereco, { max: 120, largo: true, ajuda: 'Aparece no rodapé do site e ajuda quem vai buscar.' });
       f.whatsapp = campoTexto('WhatsApp da loja', R.formatarTelefone(l.whatsapp), { max: 16, inputmode: 'numeric', ajuda: 'Com DDD. É para onde o cliente fala com você.' });
       UI.mascaraTelefone(f.whatsapp.input);
       f.instagram = campoTexto('Instagram', UI.instagramDe(l.instagram), { max: 200, placeholder: 'nomedasualoja', ajuda: 'O nome ou o link do perfil. Aparece no rodapé do seu site, com o botão para o cliente seguir a loja.' });
@@ -2547,9 +2547,17 @@
       });
       entrega.appendChild(f.frete);
       var ge = el('div', { class: 'grade-form' });
-      f.pedidoMinimo = campoDinheiro('Pedido mínimo', l.pedidoMinimo, 'Vazio = sem mínimo');
-      f.tempoPreparo = campoTexto('Tempo de preparo (min)', l.tempoPreparo, { tipo: 'number' });
-      f.tempoEntrega = campoTexto('Tempo de entrega (min)', l.tempoEntrega, { tipo: 'number' });
+      f.pedidoMinimo = campoDinheiro('Pedido mínimo', l.pedidoMinimo, 'Vazio = sem pedido mínimo.');
+      f.tempoPreparo = campoTexto('Tempo de preparo (min)', l.tempoPreparo, { tipo: 'number', ajuda: ' ' });
+      f.tempoEntrega = campoTexto('Tempo de entrega (min)', l.tempoEntrega, { tipo: 'number', ajuda: ' ' });
+      /* a ajuda mostra o que o cliente le no site com o numero digitado (o mesmo padrao do site quando fica vazio: 20 e 40) */
+      function ajudaTempo(c, antes, padrao) {
+        var p = c.querySelector('.ajuda');
+        function pintar() { var n = Math.round(Number(c.input.value)); p.textContent = antes + (n > 0 ? n : padrao) + ' min".'; }
+        c.input.addEventListener('input', pintar); pintar();
+      }
+      ajudaTempo(f.tempoPreparo, 'Quem vai buscar vê "fica pronto em ~', 20);
+      ajudaTempo(f.tempoEntrega, 'Do pedido até a porta do cliente. O site mostra "entrega em ~', 40);
       f.tempoPreparo.input.min = '1'; f.tempoPreparo.input.max = '240'; f.tempoEntrega.input.min = '1'; f.tempoEntrega.input.max = '240';
       [f.taxaEntrega, f.entregaGratisAcima, f.pedidoMinimo, f.tempoPreparo, f.tempoEntrega].forEach(function (c) { ge.appendChild(c); });
       entrega.appendChild(ge);
