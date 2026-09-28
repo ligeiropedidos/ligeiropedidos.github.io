@@ -522,6 +522,13 @@
     });
     return filhos;
   }
+  /* o nome do Instagram do jeito que o lojista colar: "loja", "@loja" ou o link inteiro (instagram.com/loja/?igsh=...) */
+  function instagramDe(valor) {
+    var s = String(valor || '').trim();
+    var m = s.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+    if (m) s = m[1];
+    return s.replace(/^@+/, '').replace(/[\/?#\s].*$/, '').replace(/[^A-Za-z0-9._]/g, '').slice(0, 30);
+  }
   function linkDoBalcao(loja) { return linkDoSite('balcao/' + loja.slug); }
   function linkDoPainel(loja) { return linkDoSite('painel/' + loja.slug); }
   function linkDoPedido(loja, pedidoId) { return linkDoSite(loja.cidadeSlug + '/' + loja.slug + '/pedido/' + pedidoId); }
@@ -1055,7 +1062,7 @@
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
-    baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
+    baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, instagramDe: instagramDe, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,
     lerImagem: lerImagem, campoFoto: campoFoto,
     PALETA: PALETA, ESTILOS: ESTILOS, corValida: corValida, corDeTexto: corDeTexto, aplicarTema: aplicarTema, aplicarTemaEm: aplicarTemaEm, varsDoTema: varsDoTema, limparTema: limparTema,

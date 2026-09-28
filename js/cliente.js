@@ -943,7 +943,9 @@
       var contatos = $('contatosLoja');
       UI.limpar(contatos);
       if (l.whatsapp) contatos.appendChild(el('a', { class: 'btn btn-whats', href: R.linkWhatsapp(l.whatsapp, 'Olá! Vim pelo Ligeiro.'), target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp']));
-      if (l.instagram) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + String(l.instagram).replace(/^@/, ''), target: '_blank', rel: 'noopener' }, [UI.icone('insta'), el('span', { class: 'contato-texto', text: '@' + String(l.instagram).replace(/^@/, '') })]));
+      /* o nome limpo mesmo se a loja salvou o link inteiro */
+      var insta = UI.instagramDe(l.instagram);
+      if (insta) contatos.appendChild(el('a', { class: 'btn btn-fantasma', href: 'https://instagram.com/' + insta, target: '_blank', rel: 'noopener' }, [UI.icone('insta'), el('span', { class: 'contato-texto', text: '@' + insta })]));
       var enderecoJaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
       var endLoja = $('enderecoLoja');
       UI.limpar(endLoja);
@@ -3148,7 +3150,7 @@
     '</section>' +
 
     '<section class="tela" id="tela-meus-pedidos">' +
-      '<header class="topo"><button class="voltar" data-voltar="tela-inicio" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Acompanhamento</div><div class="topo-titulo">Meus pedidos</div></div></header>' +
+      '<header class="topo"><button class="voltar" data-voltar="tela-inicio" aria-label="Voltar">' + UI.iconeHtml('voltar') + '</button><div class="topo-texto"><div class="topo-passo">Acompanhamento</div><div class="topo-titulo">Meus pedidos</div></div></header>' +
       '<div class="conteudo"><div class="pilha" id="listaMeusPedidos"></div>' +
       '<p class="nota">' + UI.iconeHtml('cadeado') + 'Seus pedidos ficam guardados só neste aparelho.</p>' +
       '<button class="btn btn-fantasma btn-largo" id="btnVoltarInicio">Fazer um novo pedido</button>' +
@@ -3156,7 +3158,7 @@
     '</section>' +
 
     '<section class="tela" id="tela-tipo">' +
-      '<header class="topo"><button class="voltar" data-voltar="tela-inicio" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Passo 1 de 4</div><div class="topo-titulo">Como você quer receber?</div></div></header>' +
+      '<header class="topo"><button class="voltar" data-voltar="tela-inicio" aria-label="Voltar">' + UI.iconeHtml('voltar') + '</button><div class="topo-texto"><div class="topo-passo">Passo 1 de 4</div><div class="topo-titulo">Como você quer receber?</div></div></header>' +
       '<div class="escolhas">' +
         '<div class="aviso aviso-falta" id="avisoTipo" hidden></div>' +
         '<button class="escolha-grande" id="opcaoEntrega" data-tipo="entrega"><span class="icone">' + UI.iconeHtml('entrega') + '</span><span><span class="rotulo">Quero entrega</span><span class="detalhe" id="detalheEntrega"></span></span><span class="seta">→</span></button>' +
@@ -3165,13 +3167,13 @@
     '</section>' +
 
     '<section class="tela" id="tela-cardapio">' +
-      '<header class="topo"><button class="voltar" data-voltar="tela-tipo" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Passo 2 de 4</div><div class="topo-titulo">Escolha o que quer</div></div></header>' +
+      '<header class="topo"><button class="voltar" data-voltar="tela-tipo" aria-label="Voltar">' + UI.iconeHtml('voltar') + '</button><div class="topo-texto"><div class="topo-passo">Passo 2 de 4</div><div class="topo-titulo">Escolha o que quer</div></div></header>' +
       '<nav class="abas" id="abas"></nav>' +
       '<div class="grade" id="grade"></div>' +
     '</section>' +
 
     '<section class="tela" id="tela-carrinho">' +
-      '<header class="topo"><button class="voltar" data-voltar="tela-cardapio" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Passo 3 de 4</div><div class="topo-titulo">Confira seu pedido</div></div></header>' +
+      '<header class="topo"><button class="voltar" data-voltar="tela-cardapio" aria-label="Voltar">' + UI.iconeHtml('voltar') + '</button><div class="topo-texto"><div class="topo-passo">Passo 3 de 4</div><div class="topo-titulo">Confira seu pedido</div></div></header>' +
       '<div class="conteudo">' +
         '<div class="pilha" id="listaCarrinho"></div>' +
         '<div id="blocoCupom" hidden>' +
@@ -3187,7 +3189,7 @@
     '</section>' +
 
     '<section class="tela" id="tela-dados">' +
-      '<header class="topo"><button class="voltar" data-voltar="tela-carrinho" aria-label="Voltar">←</button><div class="topo-texto"><div class="topo-passo">Passo 4 de 4</div><div class="topo-titulo">' + (balcao ? 'Quase lá' : 'Seus dados') + '</div></div></header>' +
+      '<header class="topo"><button class="voltar" data-voltar="tela-carrinho" aria-label="Voltar">' + UI.iconeHtml('voltar') + '</button><div class="topo-texto"><div class="topo-passo">Passo 4 de 4</div><div class="topo-titulo">' + (balcao ? 'Quase lá' : 'Seus dados') + '</div></div></header>' +
       '<div class="conteudo">' +
         '<div class="aviso" id="avisoVolta" hidden>' + UI.iconeHtml('sorriso') + '<span id="textoVolta"></span></div>' +
         '<form id="formDados" novalidate>' +

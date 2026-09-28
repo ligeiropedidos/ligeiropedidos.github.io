@@ -165,7 +165,7 @@
 
     var rotuloPasso = el('div', { class: 'topo-passo' });
     raiz.appendChild(el('header', { class: 'topo' }, [
-      el('button', { class: 'voltar', 'aria-label': 'Voltar', text: '←', onclick: voltar }),
+      el('button', { class: 'voltar', 'aria-label': 'Voltar', onclick: voltar }, [UI.iconeLinha('voltar')]),
       el('div', { class: 'topo-texto' }, [rotuloPasso, el('div', { class: 'topo-titulo', text: 'Crie sua loja grátis' })]),
     ]));
     var barra = el('div', { class: 'cadastro-progresso', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(PASSOS.length) }, el('i'));
