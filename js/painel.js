@@ -2944,7 +2944,7 @@
         var acao = !e.aberto ? null : el('button', { type: 'button', class: 'dia-acao' + (e.turnos.length > 1 ? ' tirar' : ''), 'aria-label': (e.turnos.length > 1 ? 'Tirar o 2º turno de ' : 'Adicionar 2º turno em ') + nomes[dia], onclick: function () {
           if (e.turnos.length > 1) e.turnos.splice(1, 1); else e.turnos.push(segundoTurno(e));
           redesenhar(dia);
-        } }, e.turnos.length > 1 ? [UI.iconeLinha('fechar'), '2º turno'] : ['+ 2º turno']);
+        } }, e.turnos.length > 1 ? [UI.iconeLinha('fechar'), '2º turno'] : [UI.iconeLinha('mais'), '2º turno']);
         linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' }), acao]));
         if (e.aberto) {
           var turnos = el('div', { class: 'turnos' + (e.turnos.length > 1 ? ' dois' : '') });
@@ -2960,7 +2960,7 @@
           linha.appendChild(turnos);
           /* tirar o 2o turno: na mesma coluna e no mesmo formato do "+ 2º turno", na altura da linha do 2o turno */
           if (e.turnos.length > 1) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais dia-tirar', 'aria-label': 'Tirar o 2º turno de ' + nomes[dia], onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar'), '2º turno']));
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], html: '<span class="mais-sinal">+</span><span class="mais-texto"> 2º turno</span>', onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }, [UI.iconeLinha('mais'), '2º turno']));
         }
         return linha;
       }

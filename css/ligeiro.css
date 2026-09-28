@@ -886,8 +886,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .turno input[type="time"] { width: 118px; min-height: 44px; padding: 6px 8px; border: 1.5px solid var(--line-forte); border-radius: 12px; font: inherit; font-size: 16px; background: var(--card); color: var(--ink); }
 .turno .muted { font-size: 14px; min-width: 26px; }
 .turno .btn-mini { min-width: 40px; padding: 0; }
-.dia-mais { justify-self: end; white-space: nowrap; }
-.dia-linha .dia-tirar { align-self: end; margin-bottom: 2px; gap: 4px; } /* fica na linha do 2o turno (a de baixo quando os dois nao cabem lado a lado) */
+.dia-linha .dia-mais { justify-self: end; align-self: center; white-space: nowrap; gap: 4px; } /* no meio da linha (o .btn-mini puxava para cima: 2,5 px acima do centro) */
+.dia-linha:has(.turnos.dois) .dia-cabeca { align-self: start; margin-top: 5px; } /* com dois turnos, o nome do dia fica na linha do 1o turno, junto do botao */
+.dia-linha .dia-tirar { align-self: start; margin-top: 2px; gap: 4px; } /* na altura do 1o turno, onde fica o "+ 2º turno" dos outros dias (e no celular, o botao no cabecalho): o canto de cima nao fica vazio */
+.dia-linha .dia-mais .ico-traco { margin-left: -2.5px; transform: translateY(0.5px); }
+.dia-acao .ico-traco { margin-left: -2.75px; transform: translateY(-0.5px); } /* o + e o x tem folga dentro do desenho: medido na tinta, as sobras dos dois lados ficam iguais e o sinal no meio da altura dos numeros */
+.dia-linha .dia-tirar .ico-traco { margin-left: -2.875px; }
+.dia-acao.tirar .ico-traco { margin-left: -3px; } /* o x tem mais folga que o + */ /* fica na linha do 2o turno (a de baixo quando os dois nao cabem lado a lado) */
 .turno .muted:first-child { min-width: 36px; text-align: right; } /* "das" e "e das" terminam no mesmo ponto: as horas das duas linhas ficam uma embaixo da outra */
 .dia-acao { display: none; }
 /* celular: cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
