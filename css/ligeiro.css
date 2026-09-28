@@ -860,7 +860,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .pw-site { color: #667781; font-size: 12px; line-height: 16px; }
 /* sem imagem: o WhatsApp mostra o cartaz grande (1200 x 630) em cima e o texto embaixo */
 .previa-whats.sem-imagem .pw-link { flex-direction: column; gap: 8px; padding: 0 0 8px; overflow: hidden; }
-.previa-whats.sem-imagem .pw-img { width: 100%; height: auto; aspect-ratio: 1200 / 630; border-radius: 7px 7px 0 0; }
+.previa-whats.sem-imagem .pw-img { width: 100%; height: 160px; border-radius: 7px 7px 0 0; } /* o cartaz de 1200 x 630 com altura inteira (pela proporcao dava 152,09 e o resto caia em meio pixel) */
 .previa-whats.sem-imagem .pw-texto { padding: 0 8px; }
 .pw-url { display: block; padding: 6px 6px 0; color: #027EB5; font-size: 14px; line-height: 19px; overflow-wrap: anywhere; }
 .pw-hora { position: absolute; right: 8px; bottom: 5px; display: inline-flex; align-items: center; gap: 3px; color: #667781; font-size: 11px; line-height: 14px; }

@@ -35,7 +35,7 @@
   <link rel="icon" type="image/png" sizes="96x96" href="img/favicon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="css/m/ligeiro.css?v=20261001g">
+  <link rel="stylesheet" href="css/m/ligeiro.css?v=20261001h">
 </head>
 <body>
 
@@ -48,19 +48,19 @@
 <div class="torrada" id="torrada" role="status" aria-live="polite"></div>
 <div class="ficha-impressao" id="fichaImpressao"></div>
 
-<script src="js/m/config.js?v=20261001g"></script>
+<script src="js/m/config.js?v=20261001h"></script>
 <script>/* painel de demonstracao (link "Ver o painel" da faixa AMOSTRA, com ?demo=painel): banco desligado e tudo guardado
    neste aparelho com o prefixo demo:, longe dos dados de verdade. Os dados de exemplo entram antes do dados.js */
-(function () { if (!/[?&]demo=painel(&|$)/.test(location.search)) return; var c = window.LIGEIRO_CONFIG || {}; c.firebase = null; var S = Storage.prototype, o = { getItem: S.getItem, setItem: S.setItem, removeItem: S.removeItem }; window.LIGEIRO_DEMO_PAINEL = { original: function (k) { try { return o.getItem.call(sessionStorage, k); } catch (_) { return null; } } }; ['getItem', 'setItem', 'removeItem'].forEach(function (m) { S[m] = function (k) { var a = [].slice.call(arguments); a[0] = 'demo:' + k; return o[m].apply(this, a); }; }); document.write('<script src="js/m/seed.js?v=20261001g"><\/script>'); })();</script>
-<script src="js/m/regras.js?v=20261001g"></script>
-<script src="js/m/pix.js?v=20261001g"></script>
-<script src="js/m/dados.js?v=20261001g"></script>
-<script src="js/m/ui.js?v=20261001g"></script>
-<script src="js/m/avisos.js?v=20261001g"></script>
-<script>if (window.LIGEIRO_DEMO_PAINEL) document.write('<script src="js/m/demo-painel.js?v=20261001g"><\/script>');</script>
+(function () { if (!/[?&]demo=painel(&|$)/.test(location.search)) return; var c = window.LIGEIRO_CONFIG || {}; c.firebase = null; var S = Storage.prototype, o = { getItem: S.getItem, setItem: S.setItem, removeItem: S.removeItem }; window.LIGEIRO_DEMO_PAINEL = { original: function (k) { try { return o.getItem.call(sessionStorage, k); } catch (_) { return null; } } }; ['getItem', 'setItem', 'removeItem'].forEach(function (m) { S[m] = function (k) { var a = [].slice.call(arguments); a[0] = 'demo:' + k; return o[m].apply(this, a); }; }); document.write('<script src="js/m/seed.js?v=20261001h"><\/script>'); })();</script>
+<script src="js/m/regras.js?v=20261001h"></script>
+<script src="js/m/pix.js?v=20261001h"></script>
+<script src="js/m/dados.js?v=20261001h"></script>
+<script src="js/m/ui.js?v=20261001h"></script>
+<script src="js/m/avisos.js?v=20261001h"></script>
+<script>if (window.LIGEIRO_DEMO_PAINEL) document.write('<script src="js/m/demo-painel.js?v=20261001h"><\/script>');</script>
 <script>/* telas de venda (#/, #/lojas, #/entrar...): o codigo delas vem junto, na ordem. A loja do cliente (e a cidade)
    traz o dela; as telas de quem trabalha na loja nao usam nenhum dos dois (o app.js baixa o que faltar) */
-(function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/m/cidades.js?v=20261001g"><\/script><script src="js/m/parceiro.js?v=20261001g"><\/script>'); else if (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0) document.write('<script src="js/m/cliente.js?v=20261001g"><\/script>'); })();</script>
-<script src="js/m/app.js?v=20261001g"></script>
+(function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/m/cidades.js?v=20261001h"><\/script><script src="js/m/parceiro.js?v=20261001h"><\/script>'); else if (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0) document.write('<script src="js/m/cliente.js?v=20261001h"><\/script>'); })();</script>
+<script src="js/m/app.js?v=20261001h"></script>
 </body>
 </html>

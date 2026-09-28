@@ -1860,10 +1860,11 @@
         var src = pv && !pv.hidden && pv.getAttribute('src');
         img.src = src || 'img/previa-link.jpg';
         cartao.classList.toggle('sem-imagem', !src);
-        var nomeImg = exclusiva ? 'a imagem do WhatsApp' : 'a logo';
-        dica.textContent = (src ? 'É assim que o link da loja aparece quando alguém manda no WhatsApp.' : 'Sem ' + nomeImg + ', o link aparece com o cartaz do Ligeiro. Com ela, a imagem vai pequena, do lado do nome.')
-          + (exclusiva ? ' O site continua com a logo do design.' : ' A imagem é a logo da loja: troque em Trocar logo, embaixo do celular.')
-          + ' Quadrada, 500 × 500 px ou maior: use ' + (exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio') + ', sem letra miúda.';
+        var medida = 'Quadrada, de 500 × 500 px para cima (JPG ou PNG). Ela aparece pequena, do lado do nome: use ' + (exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio') + ', sem letra miúda.';
+        var onde = exclusiva ? ' O site continua com a logo do design.' : ' É a mesma logo do topo do site (botão Trocar logo, embaixo do celular).';
+        dica.textContent = src
+          ? 'É assim que o link da loja aparece no WhatsApp. ' + medida + onde
+          : 'Hoje o link vai com o cartaz do Ligeiro (1200 × 630). Suba ' + (exclusiva ? 'a imagem da loja' : 'a logo') + ' para ela aparecer no lugar. ' + medida + onde;
         trocar.lastChild.textContent = src ? (exclusiva ? 'Trocar a imagem' : 'Trocar logo') : (exclusiva ? 'Escolher a imagem' : 'Escolher a logo');
       }
       new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
