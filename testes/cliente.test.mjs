@@ -158,6 +158,12 @@ test('linha do tempo: cartao nao aparece como "Pix confirmado"', () => {
   assert.equal(C.rotuloDoPagamento({ formaPagamento: 'pix', pagamentoStatus: 'pago', total: 0 }), 'Pedido confirmado');
 });
 
+test('Pix combinado com a loja: esperando diz "falta combinar"; depois de confirmado, "Pix confirmado"', () => {
+  assert.equal(C.rotuloDaSenha({ status: R.STATUS.AGUARDANDO, formaPagamento: 'pix_combinado', pagamentoStatus: 'a_combinar' }).texto, 'Pedido enviado, falta combinar o Pix');
+  assert.equal(C.rotuloDaSenha({ status: R.STATUS.PAGO, formaPagamento: 'pix_combinado', pagamentoStatus: 'pago', total: 3000 }).texto, 'Pagamento confirmado');
+  assert.equal(C.rotuloDoPagamento({ formaPagamento: 'pix_combinado', pagamentoStatus: 'pago', total: 3000 }), 'Pix confirmado');
+});
+
 test('dinheiro devolvido nunca aparece como "confirmado"', () => {
   const pagoPix = { status: R.STATUS.PAGO, formaPagamento: 'pix', pagamentoStatus: 'pago', total: 3000 };
   assert.equal(C.rotuloDaSenha(pagoPix).texto, 'Pagamento confirmado');

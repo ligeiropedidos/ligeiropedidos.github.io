@@ -952,3 +952,39 @@ test('nome parecido: o cliente confundiria (igual sem acento ou com uma letra de
   assert.equal(R.nomeParecido('Pastel da Vila', 'Pastel do Vilela'), false);
   assert.equal(R.nomeParecido('', 'Qualquer'), false);
 });
+
+test('Pix combinado com a loja (sem Mercado Pago): so com o interruptor e o WhatsApp; nasce esperando, sem vencer sozinho', () => {
+  const base = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', endereco: { rua: 'Rua A', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }], formaPagamento: 'pix_combinado' };
+  const semMp = Object.assign(lojaDeTeste(), { mpAtivo: false, whatsapp: '13996447414' });
+  /* desligado (o padrao): recusa, como qualquer forma que a loja nao aceita */
+  assert.throws(() => R.montarPedido(semMp, base), /não está disponível/);
+  /* ligado sem o WhatsApp da loja: nao tem por onde combinar */
+  assert.throws(() => R.montarPedido(Object.assign({}, semMp, { aceitaPixCombinado: true, whatsapp: '' }), base), /não está disponível/);
+  const loja = Object.assign({}, semMp, { aceitaPixCombinado: true });
+  assert.equal(R.pixCombinadoNaLoja(loja), true);
+  const p = R.montarPedido(loja, base);
+  assert.equal(p.formaPagamento, 'pix_combinado');
+  assert.equal(p.status, R.STATUS.AGUARDANDO);
+  assert.equal(p.pagamentoStatus, 'a_combinar');
+  assert.equal(p.pagoEm, null);
+  /* retirada tambem vale (paga o Pix antes de buscar), mesmo com "pagar no balcao" desligado */
+  assert.equal(R.montarPedido(loja, Object.assign({}, base, { tipoEntrega: 'retirada', endereco: undefined })).status, R.STATUS.AGUARDANDO);
+  /* nao vence sozinho: quem confirma e a loja (nao ha cobranca no Mercado Pago para conferir) */
+  const velho = Object.assign({}, p, { senha: 7, criadoEm: '2020-01-01T00:00:00.000Z' });
+  assert.equal(R.pixVencido(velho), false);
+  /* palavras na loja, no cliente e no WhatsApp */
+  assert.equal(R.rotuloStatus(velho), 'Pix a combinar');
+  assert.equal(R.rotuloStatusCliente(velho), 'Combinando o Pix');
+  assert.match(R.textoDoEstagio(velho, loja), /Chame a loja no WhatsApp para combinar o Pix/);
+  assert.equal(R.rotuloProximoPasso(velho), 'Pix caiu? Marcar como pago');
+  assert.equal(R.rotuloAvisoWhats(velho), 'Combinar o Pix');
+  assert.match(R.mensagemDoCliente(loja, velho), /senha 7\* .*Quero pagar no Pix: pode me mandar a chave\?/);
+  assert.match(R.mensagemDoCliente(loja, Object.assign({}, velho, { status: R.STATUS.PAGO, pagamentoStatus: 'pago' })), /Já paguei no Pix\./);
+  assert.match(R.mensagemParaCliente(loja, velho), /Vamos combinar o Pix por aqui/);
+  assert.match(R.fichaDoPedido(loja, velho), /Pix a combinar, ainda não pago/);
+  assert.match(R.fichaDoPedido(loja, Object.assign({}, velho, { status: R.STATUS.PAGO, pagamentoStatus: 'pago' })), /TOTAL PAGO: .*Pix combinado/);
+  assert.match(R.pedidoParaWhatsapp(loja, velho), /Pagamento: Pix \(combinar com a loja\)/);
+  assert.equal(R.frasePagamento(Object.assign({}, loja, { aceitaCartaoEntrega: false, aceitaDinheiroEntrega: false })), 'paga no Pix');
+  /* o Pix do Mercado Pago continua separado */
+  assert.equal(R.montarPedido(Object.assign({}, loja, { mpAtivo: true }), Object.assign({}, base, { formaPagamento: 'pix' })).pagamentoStatus, 'pendente');
+});

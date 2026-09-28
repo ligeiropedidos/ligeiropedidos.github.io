@@ -693,6 +693,7 @@ const REGRAS = (function () {
       cartao_online: cartaoPeloSite(loja),
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
+      pix_combinado: pixCombinadoNaLoja(loja),
     };
     var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
     if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
@@ -739,7 +740,8 @@ const REGRAS = (function () {
       status: (naPorta || pagoNaHora) ? STATUS.PAGO : STATUS.AGUARDANDO,
       formaPagamento: formaPagamento,
       /* 'na_entrega' = o dinheiro ainda vai ser cobrado na porta. */
-      pagamentoStatus: pagoNaHora ? 'pago' : (naPorta ? 'na_entrega' : 'pendente'),
+      /* 'a_combinar' = Pix combinado com a loja no WhatsApp (sem Mercado Pago): a loja confirma no painel quando cair */
+      pagamentoStatus: pagoNaHora ? 'pago' : (naPorta ? 'na_entrega' : (formaPagamento === 'pix_combinado' ? 'a_combinar' : 'pendente')),
       trocoPara: trocoPara,
       tipoEntrega: tipoEntrega,
       cliente: { nome: nome, telefone: telefone },
@@ -817,7 +819,7 @@ const REGRAS = (function () {
   function rotuloStatus(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : 'Aguardando ' + nomeDoPagamento(pedido);
+      case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : pixCombinado(pedido) ? 'Pix a combinar' : 'Aguardando ' + nomeDoPagamento(pedido);
       case STATUS.PAGO: return 'Novo, preparar';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -831,7 +833,7 @@ const REGRAS = (function () {
   function rotuloStatusCliente(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : 'Esperando o Pix';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : pixCombinado(pedido) ? 'Combinando o Pix' : 'Esperando o Pix';
       case STATUS.PAGO: return 'Na fila da loja';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -848,7 +850,9 @@ const REGRAS = (function () {
       case STATUS.AGUARDANDO:
         return dizQuePagou(pedido)
           ? 'Avisamos a loja. Assim que ela conferir o Pix, o pedido entra na fila.'
-          : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.' : 'Falta só pagar o Pix para o pedido entrar na fila.');
+          : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.'
+            : pixCombinado(pedido) ? 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.'
+            : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
         return entrega
           ? 'Pedido na fila! Chega em cerca de ' + tempo + ' minutos.'
@@ -923,6 +927,7 @@ const REGRAS = (function () {
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
+        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
         return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
         return oi + 'Recebemos seu pedido (senha ' + pedido.senha + ') e ele já está na fila. ' +
@@ -945,7 +950,7 @@ const REGRAS = (function () {
   function rotuloAvisoWhats(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : 'Lembrar do Pix';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) ? 'Combinar o Pix' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
       case STATUS.PRODUCAO: return 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
@@ -962,7 +967,9 @@ const REGRAS = (function () {
       ? 'O dinheiro ' + (cartao ? 'do cartão' : 'do Pix') + ' foi devolvido.'
       : pedido.pagamentoStatus === 'na_entrega'
         ? (pedido.formaPagamento === 'dinheiro_entrega' ? 'Vou pagar em dinheiro na entrega.' : 'Vou pagar na maquininha na entrega.')
-        : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
+        : pixCombinado(pedido)
+          ? (pedido.status === STATUS.AGUARDANDO ? 'Quero pagar no Pix: pode me mandar a chave?' : 'Já paguei no Pix.')
+          : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
     return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *senha ' + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
   }
@@ -1008,9 +1015,9 @@ const REGRAS = (function () {
         l.push('COBRAR NA MAQUININHA. Leve a maquininha.');
       }
     } else if (pedido.status === STATUS.AGUARDANDO) {
-      l.push('*TOTAL: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão ainda não aprovado' : 'Pix ainda não conferido') + ')');
+      l.push('*TOTAL: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão ainda não aprovado' : pixCombinado(pedido) ? 'Pix a combinar, ainda não pago' : 'Pix ainda não conferido') + ')');
     } else {
-      l.push('*TOTAL PAGO: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão pelo site' : 'Pix') + ')');
+      l.push('*TOTAL PAGO: ' + dinheiro(pedido.total) + '* (' + (pedido.formaPagamento === 'cartao_online' ? 'cartão pelo site' : pixCombinado(pedido) ? 'Pix combinado' : 'Pix') + ')');
     }
     return textoSimples(l.join('\n'));
   }
@@ -1043,7 +1050,7 @@ const REGRAS = (function () {
   function textoSimples(t) { return String(t || '').replace(/\u00A0/g, ' '); }
   /* Pedido inteiro em texto para o WhatsApp da loja (site em pausa: o pedido nao se perde, vai pronto para a loja) */
   function pedidoParaWhatsapp(loja, p) {
-    var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro' };
+    var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro', pix_combinado: 'Pix (combinar com a loja)' };
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
     (p.itens || []).forEach(function (it) { l.push(descreverItem(it)); });
     l.push('');
@@ -1511,12 +1518,15 @@ const REGRAS = (function () {
   /* pedido que espera pagamento pelo site: Pix ou cartao */
   function pagaPeloSite(pedido) { return !!pedido && (pedido.formaPagamento === 'pix' || pedido.formaPagamento === 'cartao_online'); }
   function nomeDoPagamento(pedido) { return pedido && pedido.formaPagamento === 'cartao_online' ? 'cartão' : 'Pix'; }
+  /* Pix combinado com a loja no WhatsApp (loja sem Mercado Pago): precisa do WhatsApp da loja, que e por onde se combina */
+  function pixCombinadoNaLoja(loja) { var l = loja || {}; return l.aceitaPixCombinado === true && String(l.whatsapp || '').replace(/\D/g, '').length >= 10; }
+  function pixCombinado(pedido) { return !!pedido && pedido.formaPagamento === 'pix_combinado'; }
 
   /* como o cliente paga, em uma frase (divulgacao e cardapio em texto): a mesma conta do site, sem prometer Pix a quem
      nao tem Mercado Pago */
   function frasePagamento(loja) {
     var l = loja || {};
-    var pix = l.aceitaPix !== false && !!l.mpAtivo;
+    var pix = (l.aceitaPix !== false && !!l.mpAtivo) || pixCombinadoNaLoja(l);
     var cartao = cartaoPeloSite(l);
     var aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
     var agora = pix && cartao ? 'no Pix, no cartão' : pix ? 'no Pix' : cartao ? 'no cartão' : '';
@@ -1540,6 +1550,8 @@ const REGRAS = (function () {
     termosEmDia: termosEmDia,
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
+    pixCombinadoNaLoja: pixCombinadoNaLoja,
+    pixCombinado: pixCombinado,
     nomeDoPagamento: nomeDoPagamento,
     cobrancaNoMp: cobrancaNoMp,
     dinheiroDevolvido: dinheiroDevolvido,
@@ -1769,6 +1781,9 @@ export default {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return json({ borda: 1, chave: (await chavesVapid(env)).publica }, 200, { 'Cache-Control': 'public, max-age=600' });
         }
+        /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
+           recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
+        if (caminho === '/recursos') return json({ borda: 1, recursos: ['pix-combinado'] }, 200, { 'Cache-Control': 'public, max-age=60' });
       }
 
       /* ---- avisos no celular ---- */
@@ -2221,10 +2236,12 @@ export default {
           }
         }
         if (!completo) return json({ erro: 'Muita gente pedindo agora. Toque em enviar de novo.' }, 503);
-        /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo */
-        if (completo.status === 'pago' && env.CARDAPIO && ctx && ctx.waitUntil) {
+        /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo. Pix combinado com a
+           loja: so o painel (a loja precisa combinar e confirmar; a cozinha so ve depois de pago) */
+        const combinado = completo.formaPagamento === 'pix_combinado' && completo.status === 'aguardando_pagamento';
+        if ((completo.status === 'pago' || combinado) && env.CARDAPIO && ctx && ctx.waitUntil) {
           ctx.waitUntil((async () => {
-            const aparelhos = ((await aparelhosDaLoja(env, loja).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || temPapel(a, 'cozinha'));
+            const aparelhos = ((await aparelhosDaLoja(env, loja).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || (!combinado && temPapel(a, 'cozinha')));
             if (!aparelhos.length) return;
             lembrar(MEM.avisados, loja + '/' + id);
             await avisarAparelhos(env, loja, aparelhos, (a) => avisoDaLoja(completo, loja, temPapel(a, 'painel') ? 'painel' : 'cozinha', false));
@@ -3018,7 +3035,8 @@ function resumoLimpo(r, id) {
 /* pedido novo (ou Pix que caiu) para o painel e a cozinha: senha, valor e o tipo (o resto a equipe ve no painel) */
 function avisoDaLoja(p, slug, papel, pix) {
   const onde = p.tipoEntrega === 'entrega' ? 'Entrega' : (p.origem === 'balcao' ? 'Balcão' : 'Retirada');
-  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! Senha ' : 'Pix pago! Senha ') : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+  const combinar = !pix && p.formaPagamento === 'pix_combinado' && p.status === 'aguardando_pagamento';
+  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! Senha ' : 'Pix pago! Senha ') : combinar ? 'Pedido novo, Pix a combinar! Senha ' : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
 }
 /* saiu da cozinha para entrega: para o entregador */
 function avisoDeEntrega(r, slug) {

@@ -193,6 +193,8 @@
     /* ---------------------------------------------------------- painel */
     function montarPainel() {
       UI.limpar(raiz);
+      /* pergunta ja ao abrir: o tutorial (em 0,9 s) cita o Pix combinado so quando ele existe */
+      pixCombinadoPossivel().then(function (sim) { estado.pixCombinadoOk = sim; });
       /* voltou do "Conectar com Mercado Pago" */
       var mpVolta = (('#/' + window.LigeiroApp.rota()).match(/\/mp-(ok|erro)(?:\?(.*))?$/) || [])[1];
       if (mpVolta) {
@@ -392,7 +394,12 @@
         estado.filaChegou = true; /* antes disso a lista vazia e "carregando", nao "nenhum pedido" */
         conferirPixVencidos(lista);
         estado.novos = novos;
-        if (novos.length) { UI.soar('apito'); UI.vibrar([200, 100, 200]); UI.avisar(novos.length === 1 ? 'Pedido novo!' : novos.length + ' pedidos novos!'); }
+        if (novos.length) {
+          UI.soar('apito'); UI.vibrar([200, 100, 200]);
+          /* Pix combinado: a loja precisa chamar o cliente (ou esperar ele chamar) e confirmar quando cair */
+          var soUm = novos.length === 1 && lista.filter(function (p) { return p.id === novos[0]; })[0];
+          UI.avisar(novos.length > 1 ? novos.length + ' pedidos novos!' : soUm && R.pixCombinado(soUm) && soUm.status === R.STATUS.AGUARDANDO ? 'Pedido novo! Combine o Pix com o cliente no WhatsApp.' : 'Pedido novo!');
+        }
         imprimirNovosSozinho(lista);
         if (estado.mp) estado.mp.processar(lista);
         atualizarBadge();
@@ -816,7 +823,8 @@
          [feito, titulo, dica, icone, aba, bloco] */
       var cat = R.catalogo(l);
       var itens = [
-        [!!l.mpAtivo, l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos na cozinha', 'dinheiro', 'ajustes', 'aj-pagamento'],
+        /* Pix combinado no WhatsApp tambem resolve o pagamento (loja que escolheu nao usar o Mercado Pago) */
+        [!!l.mpAtivo || R.pixCombinadoNaLoja(l), l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : R.pixCombinadoNaLoja(l) ? 'Recebe o Pix pelo WhatsApp' : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos na cozinha', 'dinheiro', 'ajustes', 'aj-pagamento'],
         [comPreco > 0, comPreco > 0 ? comPreco + (comPreco === 1 ? ' item' : ' itens') + ' com preço' : 'Montar o ' + cat.nome, comPreco > 0 ? 'Confira os valores antes de divulgar' : 'Categorias, itens e preços', 'cardapio', 'cardapio', ''],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
         [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
@@ -876,7 +884,7 @@
       return [
         { abertura: true, titulo: 'Bem-vindo à sua loja no Ligeiro!', texto: 'Eu sou o Ligeiro, o ajudante da ' + (l.nome || 'sua loja') + '. Em um minutinho eu te mostro onde fica cada coisa para você começar a vender.' },
         { aba: 'cardapio', alvo: '.aba-painel[data-aba=cardapio]', texto: 'Aqui mora o seu ' + cat.nome + '. Crie as categorias, os itens e os preços. Foto é opcional, mas vende mais!' },
-        { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago. O pedido já chega pago na cozinha, sem ninguém conferir comprovante.' },
+        { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago: o pedido já chega pago na cozinha, sem ninguém conferir comprovante.' + (estado.pixCombinadoOk ? ' Não quer o Mercado Pago? Ligue o Pix pelo WhatsApp.' : '') },
         { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
         { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
         { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
@@ -1202,9 +1210,11 @@
 
       /* ordem fixa em todo cartao: pagamento e entrega numa linha, extras (troco, cancelado) na linha de baixo */
       var selos = [], extras = [];
-      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (dizQuePagou ? 'laranja' : 'cinza'), text: dizQuePagou ? 'Diz que pagou' : (p.formaPagamento === 'cartao_online' ? 'Aguardando cartão' : 'Aguardando Pix') })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
+      /* Pix a combinar em laranja: e a loja que age (chamar o cliente e confirmar), como o "Diz que pagou" */
+      if (p.status === R.STATUS.AGUARDANDO) selos.push(el('span', { class: 'selo ' + (dizQuePagou || R.pixCombinado(p) ? 'laranja' : 'cinza'), text: dizQuePagou ? 'Diz que pagou' : (p.formaPagamento === 'cartao_online' ? 'Aguardando cartão' : R.pixCombinado(p) ? 'Pix a combinar' : 'Aguardando Pix') })); /* curtos: cabem com o selo de entrega na mesma linha ate em 320 */
       else if (p.devolvidoEm || p.pagamentoStatus === 'devolvido') selos.push(el('span', { class: 'selo cinza', text: 'Devolvido' }));
       else if (p.formaPagamento === 'pix') selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix confirmado' }));
+      else if (R.pixCombinado(p)) selos.push(el('span', { class: 'selo', text: p.total === 0 ? 'Cortesia' : 'Pix combinado' }));
       else if (p.formaPagamento === 'cartao_online') selos.push(el('span', { class: 'selo', text: 'Cartão pago' }));
       else if (p.formaPagamento === 'cartao_entrega') selos.push(el('span', { class: 'selo laranja', text: 'Maquininha' })); /* onde paga ja esta no selo do lado (Entrega, Retirada, Balcao) */
       else if (p.formaPagamento === 'dinheiro_entrega') {
@@ -1477,7 +1487,7 @@
     /* ---------------------------------------------------------- cardapio */
     /* O que o cliente precisa ver na hora (a loja fechou, o item acabou, o cupom ou o cartao desligou): a copia da
        loja na borda sai sem esperar a folga de 1,5 s. Preco e texto seguem com a folga (10 edicoes seguidas, um aviso) */
-    var CAMPOS_NA_HORA = ['aberta', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
+    var CAMPOS_NA_HORA = ['aberta', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaPixCombinado', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
     function ligados(lista, campo) { return (lista || []).map(function (x) { return x ? String(x.id) + (x[campo] === false ? ':0' : ':1') : ''; }).join(','); }
     function opcoesLigadas(grupos) {
       return Object.keys(grupos || {}).sort().map(function (k) { return k + '[' + ((grupos[k] && grupos[k].opcoes) || []).map(function (o) { return o && o.ativo === false ? '0' : '1'; }).join('') + ']'; }).join(',');
@@ -2387,7 +2397,7 @@
 
         var formas = Object.keys(r.porForma);
         if (formas.length) {
-          var nomes = { pix: 'Pix', cartao_online: 'Cartão pelo site', cartao_entrega: 'Maquininha', dinheiro_entrega: 'Dinheiro' };
+          var nomes = { pix: 'Pix', cartao_online: 'Cartão pelo site', pix_combinado: 'Pix pelo WhatsApp', cartao_entrega: 'Maquininha', dinheiro_entrega: 'Dinheiro' };
           conteudo.appendChild(el('h3', { text: 'Como pagaram' }));
           conteudo.appendChild(el('div', { class: 'lista-simples' }, formas.map(function (f) { return el('div', { class: 'linha' }, [el('span', { text: nomes[f] || f }), el('b', { text: r.porForma[f] + ' pedidos' })]); })));
         }
@@ -2433,6 +2443,16 @@
     }
 
     /* ---------------------------------------------------------- ajustes */
+    /* o mensageiro no ar ja aceita pedido no "Pix combinado"? (pergunta uma vez por visita; na demonstracao, sim) */
+    var recursos = null;
+    function pixCombinadoPossivel() {
+      if (D.modoDemo) return Promise.resolve(true);
+      var base = String((window.LIGEIRO_CONFIG || {}).proxyMercadoPago || '').replace(/\/$/, '');
+      if (!base || !window.fetch) return Promise.resolve(false);
+      if (!recursos) recursos = fetch(base + '/recursos').then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { return (j && j.recursos) || []; }).catch(function () { recursos = null; return []; });
+      return recursos.then(function (lista) { return lista.indexOf('pix-combinado') >= 0; });
+    }
+
     function interruptorCampo(rotulo, ajuda, valor) {
       var chave = el('button', { class: 'chave' + (valor ? ' on' : ''), type: 'button', 'aria-label': rotulo });
       chave.ligado = !!valor;
@@ -2758,6 +2778,28 @@
       f.aceitaCartaoEntrega = interruptorCampo('Cartão na maquininha', 'Crédito ou débito, quando o cliente recebe ou busca.', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
       f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, quem retira paga pelo site.', l.aceitaPagarNoBalcao !== false);
+      /* Pix combinado no WhatsApp: para quem nao quer o Mercado Pago. O cliente manda o pedido e combina o Pix com a loja;
+         o pedido so vai para a cozinha quando a loja marca que o Pix caiu. Um ou outro: com os dois, o cliente veria dois
+         "Pix". So aparece com o mensageiro que ja aceita esse pedido (o antigo recusaria) */
+      f.aceitaPixCombinado = interruptorCampo('Pix pelo WhatsApp', 'Sem Mercado Pago: o cliente combina o Pix com você no WhatsApp. O pedido só vai para a cozinha quando você marcar que caiu.', l.aceitaPixCombinado === true);
+      var grupoCombinado = el('div', { class: 'forma-grupo mais-longe', text: 'Pix sem Mercado Pago' });
+      grupoCombinado.hidden = f.aceitaPixCombinado.hidden = true;
+      pagamento.appendChild(grupoCombinado);
+      pagamento.appendChild(f.aceitaPixCombinado);
+      pixCombinadoPossivel().then(function (sim) {
+        estado.pixCombinadoOk = sim;
+        if (!sim) return;
+        f.aceitaPixCombinado.oferecido = true;
+        grupoCombinado.hidden = f.aceitaPixCombinado.hidden = false;
+        pintarResumo();
+      });
+      /* um desliga o outro, e diz o que fez */
+      f.aceitaPixCombinado.chave.addEventListener('click', function () {
+        if (f.aceitaPixCombinado.chave.ligado && f.mpAtivo.chave.ligado) { f.mpAtivo.chave.click(); UI.avisar('Pix pelo site desligado: agora o cliente combina o Pix com você no WhatsApp.'); }
+      });
+      f.mpAtivo.chave.addEventListener('click', function () {
+        if (f.mpAtivo.chave.ligado && f.aceitaPixCombinado.chave.ligado) { f.aceitaPixCombinado.chave.click(); UI.avisar('Pix pelo WhatsApp desligado: agora o Pix cai sozinho pelo Mercado Pago.'); }
+      });
       pagamento.appendChild(el('div', { class: 'forma-grupo mais-longe', text: 'Na entrega ou no balcão' }));
       [f.aceitaCartaoEntrega, f.aceitaDinheiroEntrega, f.aceitaPagarNoBalcao].forEach(function (c) { pagamento.appendChild(c); });
       /* o que vale hoje, com as mesmas contas do site do cliente: sem Pix e sem "pagar no balcao", quem busca nao tem como pagar */
@@ -2767,14 +2809,16 @@
         var pix = pixPossivel && f.mpAtivo.chave.ligado && (f.mpToken.temSalvo || !!f.mpToken.input.value.trim());
         var cartaoSite = cartaoPodeLigar() && f.aceitaCartaoOnline.chave.ligado;
         var cartao = f.aceitaCartaoEntrega.chave.ligado, dinheiroNaPorta = f.aceitaDinheiroEntrega.chave.ligado;
+        var combinado = !!f.aceitaPixCombinado.oferecido && f.aceitaPixCombinado.chave.ligado;
         var formas = [];
         if (pix) formas.push('Pix');
+        if (combinado) formas.push('Pix pelo WhatsApp');
         if (cartaoSite) formas.push('cartão pelo site');
         if (cartao) formas.push('maquininha');
         if (dinheiroNaPorta) formas.push('dinheiro');
         /* "pagar no balcao" so faz sentido com maquininha ou dinheiro ligados */
         f.aceitaPagarNoBalcao.hidden = !cartao && !dinheiroNaPorta;
-        var retiradaSemComo = !pix && !cartaoSite && formas.length && f.aceitaRetirada.chave.ligado && !f.aceitaPagarNoBalcao.chave.ligado;
+        var retiradaSemComo = !pix && !cartaoSite && !combinado && formas.length && f.aceitaRetirada.chave.ligado && !f.aceitaPagarNoBalcao.chave.ligado;
         var texto = !formas.length ? 'Nenhuma forma de pagamento ligada: o cliente não consegue fechar o pedido.'
           : retiradaSemComo ? 'Sem pagar pelo site, quem vai buscar não tem como pagar. Ligue "Quem retira pode pagar no balcão".'
           : 'Hoje o cliente paga com ' + (formas.length > 1 ? formas.slice(0, -1).join(', ') + ' e ' + formas[formas.length - 1] : formas[0]) + '.';
@@ -3069,6 +3113,8 @@
         mostrarOutras: f.mostrarOutras.chave.ligado,
         jogoDesligado: !f.jogo.chave.ligado,
       };
+      /* so grava o Pix combinado quando o interruptor apareceu (mensageiro antigo: fica como estava) */
+      if (f.aceitaPixCombinado.oferecido) mudancas.aceitaPixCombinado = f.aceitaPixCombinado.chave.ligado;
       var logo = f.logo.valor();
       if (logo.dados) { mudancas.logoDados = logo.dados; mudancas.logoUrl = ''; }
       else if (logo.removida) { mudancas.logoDados = ''; mudancas.logoUrl = ''; }
@@ -3079,7 +3125,7 @@
       if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
       /* o mesmo que o resumo do bloco Pagamento: sem nenhuma forma ligada, o cliente monta o pedido e nao consegue fechar */
       var pixValendo = aceitaPix && (!!tokenDigitado || f.mpToken.temSalvo || aindaLendo);
-      if (!pixValendo && !cartaoLigado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
+      if (!pixValendo && !cartaoLigado && !mudancas.aceitaPixCombinado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.taxaEntrega <= 0) return UI.avisar('Taxa de entrega em branco. Coloque o valor ou marque "Entrega grátis".');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.entregaGratisAcima > 0 && mudancas.entregaGratisAcima <= mudancas.taxaEntrega) return UI.avisar('"Grátis a partir de" precisa ser maior que a taxa de entrega.');
       var novaSenha = f.senhaPainel ? f.senhaPainel.input.value.trim() : '';

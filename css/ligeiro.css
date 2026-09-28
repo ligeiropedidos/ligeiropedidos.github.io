@@ -488,6 +488,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .modal-item.foto-no-topo .modal-topo { position: absolute; top: 0; right: 0; z-index: 2; padding: 28px 28px 0 0; pointer-events: none; }
 .modal-item.foto-no-topo .modal-topo > div:first-child { display: none; }
 .modal-item.foto-no-topo .modal-topo .fechar { pointer-events: auto; border-color: transparent; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28); }
+/* rolou e a foto saiu: barra branca com o nome (a mesma altura do X, 12 em cima e embaixo) e a linha embaixo */
+.modal-item.foto-no-topo.rolou .modal-topo { left: 0; padding: 12px var(--margem); align-items: center; background: var(--card); border-bottom: 1px solid var(--line); border-radius: 26px 26px 0 0; pointer-events: auto; animation: barra-item 0.15s ease-out; }
+.modal-item.foto-no-topo.rolou .modal-topo > div:first-child { display: block; min-width: 0; }
+.modal-item.foto-no-topo.rolou .modal-topo .titulo { padding-top: 0; font-size: 18px; line-height: 44px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modal-item.foto-no-topo.rolou .modal-topo .sub { display: none; }
+.modal-item.foto-no-topo.rolou .modal-topo .fechar { border-color: var(--line-forte); box-shadow: none; }
+@keyframes barra-item { from { opacity: 0; } to { opacity: 1; } }
 .modal-item.foto-no-topo .modal-corpo { padding-top: 16px; }
 .modal-item.foto-no-topo .modal-corpo .foto-modal { margin-top: 0; }
 .item-cabeca { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
@@ -513,7 +520,9 @@ a.selo-google:hover { background: var(--lime-suave); }
   .com-lado .modal-rodape { grid-column: 2; grid-row: 3; margin: 0 var(--margem); padding: 16px 0 24px; } /* a linha de cima na regua do conteudo: 24 da foto e 24 da borda, sem encostar na foto */
   .com-lado .modal-corpo .foto-modal { display: none; }
   /* PC: a foto na esquerda; nome e descricao voltam para o topo da direita, com o X no lugar de sempre */
-  .modal-item.com-lado.foto-no-topo .modal-topo { position: static; padding: 24px var(--margem) 12px; pointer-events: auto; }
+  .modal-item.com-lado.foto-no-topo .modal-topo, .modal-item.com-lado.foto-no-topo.rolou .modal-topo { position: static; padding: 24px var(--margem) 12px; pointer-events: auto; background: none; border-bottom: 0; animation: none; align-items: flex-start; }
+  .modal-item.com-lado.foto-no-topo.rolou .modal-topo .titulo { font-size: 24px; line-height: 1.25; padding-top: calc((44px - 1.25em) / 2); white-space: normal; }
+  .modal-item.com-lado.foto-no-topo.rolou .modal-topo .sub { display: block; }
   .modal-item.com-lado.foto-no-topo .modal-topo > div:first-child { display: block; }
   .modal-item.com-lado.foto-no-topo .modal-topo .fechar { border-color: var(--line-forte); box-shadow: none; }
   .modal-item.com-lado.foto-no-topo .modal-corpo { padding-top: 0; }

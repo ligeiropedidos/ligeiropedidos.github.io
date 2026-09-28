@@ -504,7 +504,7 @@
   function oQueCobrar(p) {
     function selo(texto, classe) { return el('span', { class: 'selo ' + (classe || ''), text: texto }); }
     if (p.status === R.STATUS.AGUARDANDO) return [selo('Pix ainda não confirmado', 'fechado')];
-    if (p.formaPagamento === 'pix') return [selo('Já pago no Pix, não cobrar')];
+    if (p.formaPagamento === 'pix' || R.pixCombinado(p)) return [selo('Já pago no Pix, não cobrar')];
     if (p.formaPagamento === 'cartao_online') return [selo('Já pago no cartão, não cobrar')];
     if (p.formaPagamento === 'cartao_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
     if (p.formaPagamento === 'dinheiro_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0

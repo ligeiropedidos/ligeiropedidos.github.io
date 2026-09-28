@@ -606,6 +606,16 @@ console.log('Pedido criado pelo servidor');
   /* forma de pagamento que a loja nao aceita e recusada (antes virava outra calada: "Pix" chegava como maquininha); loja fechada nao recebe */
   r = await pedir(dados({ formaPagamento: 'cartao_entrega', telefone: '13977776666' })); j = await r.json();
   ok(r.status === 422 && /forma de pagamento não está disponível/.test(j.erro || ''), 'maquininha desligada: o pedido na maquininha e recusado, nao vira outra forma');
+  /* Pix combinado com a loja no WhatsApp: desligado e recusado; ligado (com o WhatsApp da loja) nasce esperando, 'a_combinar' */
+  r = await pedir(dados({ formaPagamento: 'pix_combinado', telefone: '13955554444' })); j = await r.json();
+  ok(r.status === 422 && /forma de pagamento não está disponível/.test(j.erro || ''), 'Pix combinado desligado: recusado');
+  Object.assign(loja, { aceitaPixCombinado: true, whatsapp: '13996447414' }); await recarregar();
+  r = await pedir(dados({ formaPagamento: 'pix_combinado', telefone: '13955554444' })); j = await r.json();
+  const comb = j.pedido && db.get('lojas/dom-conizza/pedidos/' + j.pedido.id);
+  ok(r.status === 200 && comb && comb.formaPagamento === 'pix_combinado' && comb.status === 'aguardando_pagamento' && comb.pagamentoStatus === 'a_combinar' && !comb.pagoEm, 'Pix combinado ligado: nasce esperando a loja confirmar');
+  r = await chamar(w, '/recursos'); j = await r.json();
+  ok(r.status === 200 && j.borda === 1 && (j.recursos || []).indexOf('pix-combinado') >= 0, '/recursos diz que este mensageiro aceita o Pix combinado (o painel so oferece com ele)');
+  delete loja.aceitaPixCombinado; await recarregar();
   loja.aberta = false; await recarregar();
   r = await pedir(dados({ telefone: '13966665555' })); j = await r.json();
   ok(r.status === 422 && /fechada/.test(j.erro || ''), 'loja fechada: o pedido nao nasce');
