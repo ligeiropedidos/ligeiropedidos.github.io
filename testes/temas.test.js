@@ -50,8 +50,9 @@ temas.forEach(function (arquivo) {
 
   test('tema ' + nome + ': toda regra fica dentro de ' + classe, function () {
     const fora = lista.filter(function (s) {
-      /* o proprio escopo (.tema-x ... ou .algo.tema-x, como a janela que leva o tema) ou o body que contem o tema */
-      return !(s.indexOf(classe) >= 0 && (s.indexOf(classe) === 0 || /^[.#a-z-]+\.tema-/.test(s) || s.indexOf('body:has(' + classe + ')') === 0));
+      /* o proprio escopo (.tema-x ... ou .algo.tema-x, como a janela que leva o tema) ou o body que contem o tema
+         (tambem "body:has(.tema-x #tela-inicio)": o tema so no site da loja, sem pegar o painel) */
+      return !(s.indexOf(classe) >= 0 && (s.indexOf(classe) === 0 || /^[.#a-z-]+\.tema-/.test(s) || (s.indexOf('body:has(' + classe) === 0 && /[) :]/.test(s.charAt(('body:has(' + classe).length)))));
     });
     assert.deepStrictEqual(fora, [], 'regras fora do escopo do tema ' + nome);
   });

@@ -988,6 +988,9 @@
         img.addEventListener('error', function () { img.replaceWith(document.createTextNode(p.emoji || '🍽️')); });
         return img;
       }
+      /* loja com design exclusivo: o desenho da categoria no lugar da foto que ainda nao chegou */
+      var desenhos = estado.oficial && estado.oficial.desenhos;
+      if (desenhos && Object.prototype.hasOwnProperty.call(desenhos, p.categoria)) return el('img', { class: 'foto-desenho', src: desenhos[p.categoria], alt: '', loading: 'lazy' });
       return document.createTextNode(p.emoji || '🍽️');
     }
 

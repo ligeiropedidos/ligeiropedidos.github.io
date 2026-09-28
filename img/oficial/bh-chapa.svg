@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs><linearGradient id="barra" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb35c"/><stop offset=".35" stop-color="#5a4a42"/><stop offset="1" stop-color="#1c1512"/></linearGradient><linearGradient id="chama" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a13" stop-opacity="0"/><stop offset=".6" stop-color="#ff6a13"/><stop offset="1" stop-color="#ffc23a"/></linearGradient>
+    <radialGradient id="brilho" cx="50%" cy="58%" r="55%"><stop offset="0" stop-color="#ff8a2a" stop-opacity=".55"/><stop offset="1" stop-color="#ff5a0a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="paoCima" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc766"/><stop offset=".55" stop-color="#f29a2e"/><stop offset="1" stop-color="#c96a17"/></linearGradient>
+    <linearGradient id="paoBaixo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3a441"/><stop offset="1" stop-color="#b85f14"/></linearGradient>
+    <linearGradient id="carne" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3620"/><stop offset="1" stop-color="#3a1a0e"/></linearGradient>
+    <linearGradient id="queijo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#f5a70f"/></linearGradient>
+  </defs>
+  <path d="M27 200C27 184.7 41 176.2 46 166C48 179.6 53 184.7 53 200ZM49 200C49 176.6 53 163.6 58 148C60 168.8 75 176.6 75 200ZM71 200C71 182 84 172 89 160C91 176 97 182 97 200ZM93 200C93 173.9 96 159.4 101 142C103 165.2 119 173.9 119 200ZM115 200C115 180.2 127 169.2 132 156C134 173.6 141 180.2 141 200ZM137 200C137 175.7 139 162.2 144 146C146 167.6 163 175.7 163 200ZM155 200C155 183.8 167 174.8 172 164C174 178.4 181 183.8 181 200Z" fill="url(#chama)"/>
+  <g transform="translate(0 8)">
+  <!-- pao de baixo -->
+  <path d="M40 138h120c0 13-9 22-22 22H62c-13 0-22-9-22-22z" fill="url(#paoBaixo)"/>
+  <!-- carne -->
+  <rect x="34" y="112" width="132" height="26" rx="13" fill="url(#carne)"/>
+  <g fill="#2a1209" opacity=".55"><circle cx="58" cy="124" r="2.2"/><circle cx="80" cy="130" r="1.8"/><circle cx="104" cy="122" r="2"/><circle cx="126" cy="131" r="1.8"/><circle cx="146" cy="123" r="2.2"/></g>
+  <!-- queijo derretendo -->
+  <g fill="url(#queijo)"><rect x="36" y="108" width="128" height="9" rx="4"/><rect x="48" y="110" width="11" height="15" rx="5.5"/><rect x="72" y="110" width="11" height="21" rx="5.5"/><rect x="96" y="110" width="11" height="13" rx="5.5"/><rect x="119" y="110" width="11" height="19" rx="5.5"/><rect x="142" y="110" width="11" height="14" rx="5.5"/></g>
+  <!-- alface -->
+  <path d="M34 106c6-6 10 2 16-3s10 3 16-2 10 3 16-2 10 3 16-2 10 3 16-2 10 3 16-2 10 3 16 1v7H34z" fill="#58b030"/>
+  <path d="M34 108c6-4 10 2 16-2s10 3 16-1 10 3 16-1 10 3 16-1 10 3 16-1 10 3 16-1 10 3 16 1" fill="none" stroke="#7fd14a" stroke-width="2" stroke-linecap="round"/>
+  <!-- tomate -->
+  <rect x="44" y="97" width="112" height="9" rx="4.5" fill="#e0452b"/>
+  <!-- pao de cima -->
+  <path d="M34 96c0-34 30-54 66-54s66 20 66 54c0 3-3 5-6 5H40c-3 0-6-2-6-5z" fill="url(#paoCima)"/>
+  <path d="M52 70c10-14 28-21 48-21" fill="none" stroke="#fff4d6" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+  <g fill="#fff3d6"><ellipse cx="72" cy="66" rx="4" ry="2.3" transform="rotate(-25 72 66)"/><ellipse cx="98" cy="58" rx="4" ry="2.3" transform="rotate(10 98 58)"/><ellipse cx="124" cy="64" rx="4" ry="2.3" transform="rotate(30 124 64)"/><ellipse cx="86" cy="78" rx="4" ry="2.3" transform="rotate(-10 86 78)"/><ellipse cx="112" cy="80" rx="4" ry="2.3" transform="rotate(20 112 80)"/><ellipse cx="140" cy="82" rx="4" ry="2.3" transform="rotate(40 140 82)"/><ellipse cx="60" cy="86" rx="4" ry="2.3" transform="rotate(-40 60 86)"/></g>
+  </g>
+  <g fill="url(#barra)"><rect x="14" y="170" width="172" height="7" rx="3.5"/><rect x="8" y="182" width="184" height="7" rx="3.5"/></g>
+</svg>

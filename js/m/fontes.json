@@ -1,14 +1,15 @@
 {
- "css/ligeiro.css": "133d49def7031238",
+ "css/ligeiro.css": "6fe00fc9549fb357",
+ "css/temas/burgerhouse.css": "1429336b4c39bdb9",
  "css/temas/conizza.css": "9c18ae99d016e7a1",
  "js/admin.js": "06d8f0e558a064e4",
  "js/app.js": "95789a15e0ff77c5",
  "js/avisos.js": "58c3d37648f00ec4",
  "js/cidades.js": "717e9ccdbedfaf94",
- "js/cliente.js": "89a8a8514b280912",
+ "js/cliente.js": "23f59bc06f23e79a",
  "js/cobranca.js": "284dc84492bba4c9",
  "js/comecar.js": "521495e82268fdf4",
- "js/config.js": "a40f2df37e2fe170",
+ "js/config.js": "d388cf45dc6a04ad",
  "js/conta.js": "4856b8899f0c9485",
  "js/dados.js": "56b619c66a6d61fe",
  "js/equipe.js": "d632b02344dd4de4",
@@ -21,6 +22,6 @@
  "js/regras.js": "d9554cd39f9c4987",
  "js/seed.js": "9be6aaafecf5b50b",
  "js/servicos.js": "0005d8af35059550",
- "js/ui.js": "f456d50c653052d3",
+ "js/ui.js": "4813d52337f7d5d9",
  "js/video-leve.js": "ed0a149d9a2f7e3e"
 }
