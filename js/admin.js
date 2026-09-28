@@ -1175,12 +1175,22 @@
       } else UI.abrirModal({ titulo: 'Salvando…', corpo: UI.carregandoMascote('Salvando…') });
       trava.ocupado = true;
       trava.voando = true;
+      /* internet caiu no meio: o banco guarda a mudanca e manda sozinho quando a conexao volta. Passou de 8 s, diz isso
+         (antes a espera ficava girando sem explicar) */
+      var lento = setTimeout(function () {
+        if (!trava.voando) return;
+        var texto = (navigator.onLine === false ? 'Este aparelho está sem internet.' : 'A internet está lenta.') + ' A mudança está guardada e vai sozinha quando a conexão voltar. Pode esperar aqui.';
+        var corpo = !botao && document.querySelector('#modalCaixa .modal-corpo');
+        if (corpo) { UI.limpar(corpo); corpo.appendChild(UI.carregandoMascote(texto)); } else UI.avisar(texto);
+      }, 8000);
       Promise.resolve().then(fazer).then(function (r) {
+        clearTimeout(lento);
         trava.voando = false;
         var texto = typeof textoOk === 'function' ? textoOk(r) : textoOk;
         if (texto) UI.avisar(texto);
         concluir(marca, trava);
       }, function (e) {
+        clearTimeout(lento);
         trava.voando = false;
         UI.avisar(erroTexto(e, 'Não deu agora. Tente de novo.'));
         concluir(marca, trava);
