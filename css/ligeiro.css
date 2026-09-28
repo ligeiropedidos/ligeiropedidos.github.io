@@ -607,11 +607,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 
 .painel-topo { position: sticky; top: 0; z-index: 40; background: var(--deep); color: #fff; padding: 10px var(--margem); display: flex; align-items: center; gap: 12px; }
 .painel-topo .nome { font-family: var(--display); font-size: 19px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* o nome com a altura exata da letra: centra no logo pela letra (a folga de 6 em cima e embaixo guarda o acento e a perna das letras) */
+.painel-topo:not(.topo-equipe) .nome { text-box: trim-both cap alphabetic; padding: 6px 0; margin: -6px 0; }
 .painel-topo-acoes { display: flex; align-items: center; gap: 12px; flex: none; }
 .painel-topo .rot-curto { display: none; }
 /* celular, tablet e notebook pequeno: nome numa linha, botoes iguais embaixo (numa linha so, ate uns 1200px, eles passavam da tela ou cortavam o nome) */
 @media (max-width: 1199px) {
-  .painel-topo { flex-wrap: wrap; row-gap: 8px; }
+  .painel-topo { flex-wrap: wrap; row-gap: 12px; padding-top: 12px; padding-bottom: 12px; } /* 12 em cima, entre o nome e os botoes e embaixo (painel, Central, cozinha e entregador) */
   .painel-topo .nome { flex: 1 1 0; white-space: normal; text-wrap: balance; } /* no celular o nome tem a linha inteira: quebra, nao corta */
   .painel-topo-acoes { flex: 1 1 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
   .painel-topo .btn-pequeno { width: 100%; min-width: 0; min-height: 40px; font-size: 13.5px; line-height: 1; padding: 0 4px; white-space: nowrap; }
@@ -2170,8 +2172,10 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* topo da cozinha e do entregador sem nenhum botao visivel (navegador sem aviso): a fileira some, sem sobrar vao */
 .topo-equipe .painel-topo-acoes:not(:has(> :not([hidden]))) { display: none; }
 /* topo da equipe: "COZINHA" pequeno em cima e o nome da loja embaixo (o kicker do site) */
-.topo-equipe .nome { display: flex; flex-direction: column; gap: 2px; }
-.topo-equipe .nome > span { overflow: hidden; text-overflow: ellipsis; }
+.topo-equipe .nome { display: flex; flex-direction: column; gap: 6px; overflow: visible; }
+/* cada linha com a altura exata da letra (sem o vao da linha): o bloco centra no logo pela letra e comeca na linha de 12 */
+.topo-equipe .nome > small, .topo-equipe .nome > span { text-box: trim-both cap alphabetic; }
+.topo-equipe .nome > span { overflow: hidden; text-overflow: ellipsis; padding: 6px 0; margin: -6px 0; } /* folga para o acento e a perna das letras nao serem cortados */
 .topo-papel { font-family: var(--corpo, inherit); font-size: 12px; font-weight: 700; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; }
 /* um botao so (entregador): deitado, com o nome inteiro, em vez de um quadrado grande com texto pequeno */
 @media (max-width: 1199px) {

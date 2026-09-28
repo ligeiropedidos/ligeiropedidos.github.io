@@ -249,6 +249,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 
 /* ---------- painel, cozinha, entregador e balcao da loja oficial ---------- */
 .tema-conizza .painel-topo { background: var(--cz-vermelho); border-bottom: 4px solid var(--cz-tinta); }
+@media (max-width: 1199px) { .tema-conizza .painel-topo { padding-bottom: 16px; } }
+@media (min-width: 1200px) { .tema-conizza .painel-topo { padding-bottom: 13px; } } /* no PC a sombra dos botoes e de 3 */ /* a sombra de 4 dos botoes come o pe: o espaco que se ve fica 12, como em cima */
 .tema-conizza .painel-topo .nome { font-family: var(--cz-display); font-weight: 800; color: var(--cz-creme); font-size: 21px; }
 .tema-conizza .painel-topo .btn-pequeno { background: var(--cz-creme); color: var(--cz-tinta); border: 3px solid var(--cz-tinta); box-shadow: 0 3px 0 var(--cz-tinta); }
 .tema-conizza .painel-topo .btn-pequeno.on { background: var(--cz-ouro-claro); color: var(--cz-tinta); }

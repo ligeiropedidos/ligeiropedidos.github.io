@@ -264,7 +264,8 @@
       /* No celular nao existe impressao silenciosa: o botao so aparece em tela grande (computador do caixa). */
       if (navigator.maxTouchPoints > 0 && window.innerWidth < 900) btnImp.hidden = true;
       raiz.appendChild(el('header', { class: 'painel-topo topo-app' + (topoComTema ? '' : ' topo-ligeiro') }, [
-        (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) ? el('img', { class: 'logo-mini', src: UI.lojaOficial(slug).logo, alt: '' }) : null,
+        /* o mesmo da cozinha e do entregador: a logo da loja oficial ou o mascote do Ligeiro (sem nada, o topo ficava torto) */
+        el('img', { class: 'logo-mini', src: (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) || 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba, do jeito que o cliente vê' }), 'site', 'Ver site', 'Site'),
