@@ -1830,20 +1830,21 @@
        cidade (o site usa a logo do design), entao o dono troca sem risco de quebrar o visual */
     function previaWhats(l, f, exclusiva) {
       /* o mesmo que o site manda para o WhatsApp (ferramentas/worker-site.js): com imagem, ela vai pequena e quadrada do lado
-         do texto; sem imagem, vai o cartaz grande do Ligeiro em cima */
-      var img = el('img', { alt: '' });
-      var titulo = el('b', { class: 'pw-titulo' });
-      var desc = el('span', { class: 'pw-desc' });
+         do texto; sem imagem, vai o cartaz grande do Ligeiro em cima. Sem imagem ainda, mostra os dois: "Hoje" e "Com a sua
+         imagem" (com o quadrado da medida), para ninguem achar que a imagem quadrada vira o cartaz grande */
       var agora = new Date();
       var hora = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
       var lidos = '<svg viewBox="0 0 16 11" width="16" height="11" aria-hidden="true"><path d="M1 6l3 3 6-7M6 8l1 1 6-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      var cartao = el('div', { class: 'previa-whats', 'aria-hidden': 'true' }, [
-        el('div', { class: 'pw-bolha' }, [
-          el('div', { class: 'pw-link' }, [el('span', { class: 'pw-img' }, [img]), el('span', { class: 'pw-texto' }, [titulo, desc, el('span', { class: 'pw-site', text: 'ligeiropedidos.com.br' })])]),
-          el('span', { class: 'pw-url', text: 'ligeiropedidos.com.br/' + (l.cidadeSlug || 'cidade') + '/' + slug }),
+      var endereco = 'ligeiropedidos.com.br/' + (l.cidadeSlug || 'cidade') + '/' + slug;
+      function bolha(src, titulo, frase, grande) {
+        var caixaImg = el('span', { class: 'pw-img' + (src ? '' : ' vazia') }, src ? [el('img', { alt: '', src: src })] : [el('span', { text: '500 × 500' })]);
+        return el('div', { class: 'pw-bolha' + (grande ? ' grande' : '') }, [
+          el('div', { class: 'pw-link' }, [caixaImg, el('span', { class: 'pw-texto' }, [el('b', { class: 'pw-titulo', text: titulo }), el('span', { class: 'pw-desc', text: frase }), el('span', { class: 'pw-site', text: 'ligeiropedidos.com.br' })])]),
+          el('span', { class: 'pw-url', text: endereco }),
           el('span', { class: 'pw-hora' }, [hora, el('span', { class: 'pw-lidos', html: lidos })]),
-        ]),
-      ]);
+        ]);
+      }
+      var cartao = el('div', { class: 'previa-whats', 'aria-hidden': 'true' });
       var dica = el('p', { class: 'muted pequeno previa-whats-dica' });
       var trocar = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () {
         var b = [].slice.call(f.logo.querySelectorAll('button')).filter(function (x) { return /Escolher|Trocar/.test(x.textContent); })[0];
@@ -1854,17 +1855,24 @@
         var nome = (f.nome.input.value || l.nome || '').trim();
         var frase = f.descricao ? f.descricao.input.value.trim() : String(l.descricao || '').trim();
         var tipo = (f.tipo.input.value || '').trim();
-        titulo.textContent = nome + (lugar ? ' · ' + lugar : '');
-        desc.textContent = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o cardápio e peça pelo celular: Pix, cartão ou na entrega.';
+        var titulo = nome + (lugar ? ' · ' + lugar : '');
+        var texto = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o cardápio e peça pelo celular: Pix, cartão ou na entrega.';
         var pv = f.logo.querySelector('.foto-previa img');
         var src = pv && !pv.hidden && pv.getAttribute('src');
-        img.src = src || 'img/previa-link.jpg';
-        cartao.classList.toggle('sem-imagem', !src);
-        var medida = 'Quadrada, de 500 × 500 px para cima (JPG ou PNG). Ela aparece pequena, do lado do nome: use ' + (exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio') + ', sem letra miúda.';
+        UI.limpar(cartao);
+        if (src) cartao.appendChild(bolha(src, titulo, texto, false));
+        else {
+          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Hoje' }));
+          cartao.appendChild(bolha('img/previa-link.jpg', titulo, texto, true));
+          cartao.appendChild(el('span', { class: 'pw-rotulo', text: 'Com a sua imagem' }));
+          cartao.appendChild(bolha(null, titulo, texto, false));
+        }
+        var qual = exclusiva ? 'a imagem da loja' : 'a logo';
+        var usar = exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio';
         var onde = exclusiva ? ' O site continua com a logo do design.' : ' É a mesma logo do topo do site.';
         dica.textContent = src
-          ? 'É assim que o link da loja aparece no WhatsApp. ' + medida + onde
-          : 'Hoje o link vai com o cartaz do Ligeiro (1200 × 630). Suba ' + (exclusiva ? 'a imagem da loja' : 'a logo') + ' para ela aparecer no lugar. ' + medida + onde;
+          ? 'É assim que o link da loja aparece no WhatsApp: a imagem vai pequena, do lado do nome.' + onde
+          : 'Sem imagem, o link vai com o cartaz do Ligeiro. Suba ' + qual + ' (quadrada, de 500 × 500 px para cima, JPG ou PNG) e ela aparece pequena, do lado do nome. Use ' + usar + ', sem letra miúda.' + onde;
         trocar.lastChild.textContent = src ? (exclusiva ? 'Trocar a imagem' : 'Trocar logo') : (exclusiva ? 'Escolher a imagem' : 'Escolher a logo');
       }
       new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
