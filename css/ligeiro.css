@@ -2610,9 +2610,9 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .mp-taxa { display: flex; flex-direction: column; gap: 12px; }
 .mp-taxa[hidden] { display: none; }
 .mp-taxa > .campo { margin: 0; }
-.taxa-exemplo { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border-radius: var(--raio-p); background: var(--lime-suave); color: var(--body); font-size: 14px; line-height: 1.4; }
-.taxa-exemplo .ico-traco { flex: none; color: var(--deep2); margin-top: 1px; }
-.taxa-exemplo .ico-traco svg { width: 18px; height: 18px; }
+.taxa-exemplo { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border: 1px solid #C9E7A1; border-radius: var(--raio-p); background: var(--lime-suave); color: var(--body); font-size: 14px; line-height: 20px; } /* a mesma caixa do .aviso (borda, 12/14 por dentro, 10 ate o texto, icone de 20); so o peso da letra e mais leve: e uma nota, nao o resumo */
+.taxa-exemplo .ico-traco { flex: none; color: var(--deep2); height: 1lh; display: inline-flex; align-items: center; }
+.taxa-exemplo .ico-traco svg { width: 20px; height: 20px; }
 .pix-cartao .cartao-taxa { margin-top: -8px; } /* junto do nome da loja: 4 px entre as duas linhas */
 /* ---------- tutorial com o mascote: balao de fala de personagem, o lugar certo aceso e o resto escurecido ---------- */
 .tour-escuro { position: fixed; inset: 0; z-index: 74; background: rgba(14, 31, 20, 0.5); pointer-events: none; }

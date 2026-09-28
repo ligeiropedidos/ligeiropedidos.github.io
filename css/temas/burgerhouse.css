@@ -267,4 +267,6 @@ body:has(.tema-burgerhouse .painel-topo), body:has(.tema-burgerhouse .login) { b
 .tema-burgerhouse .previa-exclusiva .previa-botao { background: var(--bh-chama); color: var(--bh-tinta); }
 .tema-burgerhouse .previa-exclusiva .previa-home { background: var(--bh-creme); }
 .tema-burgerhouse .status-loja.aberta { --ponto: #2E9D4F; } /* aberta e verde, como o "Aberto agora" do site */
-.tema-burgerhouse:has(.painel-topo) .aviso, .tema-burgerhouse:has(.painel-topo) .design-exclusivo { border-color: var(--line-forte); } /* a borda verde-clara fixa do padrao */
+.tema-burgerhouse:has(.painel-topo) .mp-status { background: #E4F4E8; color: #1F6B36; } /* Mercado Pago conectado tambem e verde (deu certo), como a loja aberta */
+.tema-burgerhouse:has(.painel-topo) .mp-status .bolinha { background: #2E9D4F; }
+.tema-burgerhouse:has(.painel-topo) .aviso, .tema-burgerhouse:has(.painel-topo) .design-exclusivo, .tema-burgerhouse:has(.painel-topo) .taxa-exemplo { border-color: var(--line-forte); } /* a borda verde-clara fixa do padrao */

@@ -28,7 +28,7 @@
   if (!(loja.produtos || []).some(function (p) { return p && p.ativo !== false; })) { loja.produtos = D.clonar(ze.produtos); loja.categorias = D.clonar(ze.categorias); }
   Object.assign(loja, {
     slug: slug, amostra: false, ativa: true, donoEmail: '', senhaPainel: '1234', aberta: true, usarHorarios: false,
-    mpAtivo: true, pixAutomaticoMigrado: true, aceitaPix: true, demoPainel: true,
+    mpAtivo: true, pixAutomaticoMigrado: true, aceitaPix: true, mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, demoPainel: true,
   });
   /* termos ja aceitos (aceitar aqui nao vale nada) e o tutorial do ratinho na primeira vez, como numa loja nova */
   loja.termos = { versao: R.TERMOS_VERSAO, em: new Date().toISOString(), por: 'demonstracao' };
@@ -88,6 +88,8 @@
   try {
     localStorage.setItem('ligeiro.demo.v3', JSON.stringify(db));
     sessionStorage.setItem('ligeiro:painel:' + slug, '1'); /* entra direto, sem a senha */
+    /* Mercado Pago de mentira ja conectado: o dono ve o Pix e o cartao pelo site ligados, como fica depois de conectar */
+    localStorage.setItem('ligeiro:segredo:' + slug + ':mercadopago', JSON.stringify({ token: 'SIMULACAO', refresh: 'demonstracao', conectadoEm: new Date().toISOString() }));
   } catch (_) { /* sem espaco: o painel abre na loja de exemplo com a senha 1234 */ }
   if (rota[0] !== 'painel') location.hash = '#/painel/' + slug;
 
