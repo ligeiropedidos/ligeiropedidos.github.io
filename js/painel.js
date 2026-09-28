@@ -1829,20 +1829,26 @@
        nome e cidade, a frase ou "tipo em cidade" e o endereco). No design exclusivo a imagem so vale aqui e na lista da
        cidade (o site usa a logo do design), entao o dono troca sem risco de quebrar o visual */
     function previaWhats(l, f, exclusiva) {
-      var img = el('img', { alt: '', src: 'img/previa-link.jpg' });
+      /* o mesmo que o site manda para o WhatsApp (ferramentas/worker-site.js): com imagem, ela vai pequena e quadrada do lado
+         do texto; sem imagem, vai o cartaz grande do Ligeiro em cima */
+      var img = el('img', { alt: '' });
       var titulo = el('b', { class: 'pw-titulo' });
       var desc = el('span', { class: 'pw-desc' });
-      var endereco = 'ligeiropedidos.com.br/' + (l.cidadeSlug || 'cidade') + '/' + slug;
+      var agora = new Date();
+      var hora = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
+      var lidos = '<svg viewBox="0 0 16 11" width="16" height="11" aria-hidden="true"><path d="M1 6l3 3 6-7M6 8l1 1 6-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       var cartao = el('div', { class: 'previa-whats', 'aria-hidden': 'true' }, [
         el('div', { class: 'pw-bolha' }, [
           el('div', { class: 'pw-link' }, [el('span', { class: 'pw-img' }, [img]), el('span', { class: 'pw-texto' }, [titulo, desc, el('span', { class: 'pw-site', text: 'ligeiropedidos.com.br' })])]),
-          el('span', { class: 'pw-url', text: endereco }),
+          el('span', { class: 'pw-url', text: 'ligeiropedidos.com.br/' + (l.cidadeSlug || 'cidade') + '/' + slug }),
+          el('span', { class: 'pw-hora' }, [hora, el('span', { class: 'pw-lidos', html: lidos })]),
         ]),
       ]);
+      var dica = el('p', { class: 'muted pequeno previa-whats-dica' });
       var trocar = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () {
         var b = [].slice.call(f.logo.querySelectorAll('button')).filter(function (x) { return /Escolher|Trocar/.test(x.textContent); })[0];
         if (b) b.click();
-      } }, [UI.iconeLinha('imagem'), 'Trocar a imagem']);
+      } }, [UI.iconeLinha('imagem'), '']);
       function atualizar() {
         var lugar = [l.cidade, l.uf].filter(Boolean).join('/');
         var nome = (f.nome.input.value || l.nome || '').trim();
@@ -1854,17 +1860,15 @@
         var src = pv && !pv.hidden && pv.getAttribute('src');
         img.src = src || 'img/previa-link.jpg';
         cartao.classList.toggle('sem-imagem', !src);
+        var nomeImg = exclusiva ? 'a imagem do WhatsApp' : 'a logo';
+        dica.textContent = (src ? 'É assim que o link da loja aparece quando alguém manda no WhatsApp.' : 'Sem ' + nomeImg + ', o link aparece com o cartaz do Ligeiro. Com ela, a imagem vai pequena, do lado do nome.')
+          + (exclusiva ? ' O site continua com a logo do design.' : ' A imagem é a logo da loja: troque em Trocar logo, embaixo do celular.')
+          + ' Quadrada, 500 × 500 px ou maior: use ' + (exclusiva ? 'a logo com fundo cheio ou o lanche mais bonito' : 'a logo com fundo cheio') + ', sem letra miúda.';
+        trocar.lastChild.textContent = src ? (exclusiva ? 'Trocar a imagem' : 'Trocar logo') : (exclusiva ? 'Escolher a imagem' : 'Escolher a logo');
       }
       new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
       [f.nome, f.tipo, f.descricao].forEach(function (c) { if (c) c.input.addEventListener('input', atualizar); });
-      var bloco = el('div', { class: 'campo previa-whats-bloco' }, [
-        el('label', { text: 'O link no WhatsApp' }),
-        el('p', { class: 'muted pequeno previa-whats-dica', text: exclusiva
-          ? 'É assim que aparece quando alguém manda o link da loja. A imagem também vai na lista da cidade; o site continua com a logo do design. Use uma imagem quadrada, 500 × 500 px ou maior (JPG ou PNG): ela aparece pequena, então vale a logo com fundo cheio ou o lanche mais bonito, sem letra miúda.'
-          : 'É assim que aparece quando alguém manda o link da loja. A imagem é a logo (troque no botão Trocar logo, embaixo do celular). O texto é o nome, a cidade e a frase de apresentação.' }),
-        cartao,
-        exclusiva ? trocar : null,
-      ]);
+      var bloco = el('div', { class: 'campo previa-whats-bloco' }, [el('label', { text: 'O link no WhatsApp' }), dica, cartao, exclusiva ? trocar : null]);
       bloco.atualizar = atualizar;
       setTimeout(atualizar, 0);
       return bloco;
