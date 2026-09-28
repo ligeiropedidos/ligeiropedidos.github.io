@@ -595,6 +595,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 #formDados { display: flex; flex-direction: column; gap: 12px; }
 #formDados .msg-erro[hidden], #formDados .nota[hidden] { display: none; }
 .bloco-titulo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 19px; font-weight: 700; }
+.bloco-form > .bloco-texto { margin: -4px 0 0; color: var(--muted); font-size: 14px; line-height: 19px; text-wrap: pretty; } /* texto logo embaixo do titulo do bloco: 8 do titulo, como subtitulo */
+.interruptor .texto { text-wrap: balance; } /* titulo em duas linhas sem "o" pendurado no fim da primeira */
 .bloco-numero { width: 30px; height: 30px; border-radius: 50%; background: var(--lime); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
 .bloco-opcional { font-family: var(--corpo); font-size: 13px; color: var(--muted); font-weight: 600; margin-left: auto; }
 .campo label { display: block; font-weight: 700; margin-bottom: 8px; }
@@ -2332,6 +2334,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 
 /* ---------- icones de traco no lugar dos emojis de interface (a comida escolhida pela loja continua emoji) ---------- */
 .btn-pequeno .ico-traco svg, .aba-painel .ico-traco svg { width: 18px; height: 18px; }
+.btn > .ico-mais:first-child, .aba-painel > .ico-mais:first-child { margin-left: -2.375px; } /* o + desenhado tem folga dos lados: medido na tinta, o "+ Criar cupom" fica no meio do botao */
 .vazio .icone, .grafico-vazio .icone { display: flex; justify-content: center; color: var(--line-forte); }
 .vazio .icone .ico-traco svg { width: 48px; height: 48px; stroke-width: 1.5; }
 .grafico-vazio .icone .ico-traco svg { width: 36px; height: 36px; stroke-width: 1.6; }

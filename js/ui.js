@@ -1023,7 +1023,7 @@
   /* o icone como texto, para as telas montadas em texto (index do cliente) */
   function iconeHtml(nome) { return '<span class="ico-traco" aria-hidden="true"><svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg></span>'; }
   /* o mesmo icone de traco dentro de botao ou selo (o tamanho vem do lugar) */
-  function iconeLinha(nome) { return el('span', { class: 'ico-traco', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
+  function iconeLinha(nome) { return el('span', { class: 'ico-traco ico-' + nome, 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
   /* selo do tipo do pedido (painel, cozinha): Entrega, Retirada ou Balcao, com icone de traco */
   function seloTipo(p) {
     var tipo = p.tipoEntrega === 'entrega' ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada');

@@ -1547,7 +1547,7 @@
           el('span', { class: 'badge cat-qtd', text: desligada ? 'off' : String(qtd) }),
         ]));
       });
-      linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', text: '+ Categoria', onclick: function () { if (cabeMais('categorias')) editarCategoria(null); } }));
+      linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', onclick: function () { if (cabeMais('categorias')) editarCategoria(null); } }, [UI.iconeLinha('mais'), 'Categoria']));
       s.appendChild(el('h2', { text: R.catalogo(estado.loja).Nome }));
 
       /* com muitos itens, achar pelo nome em vez de rolar categoria por categoria */
@@ -1578,7 +1578,7 @@
         if (cat.ativa === false) conteudo.appendChild(el('p', { class: 'aviso', text: 'Esta categoria está desligada: ela e os itens não aparecem no site. Ligue em "Editar categoria".' }));
         conteudo.appendChild(el('div', { class: 'linha-botoes dupla' }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', title: 'Editar categoria', 'aria-label': 'Editar categoria', onclick: function () { editarCategoria(cat); } }, [UI.iconeLinha('lapis'), 'Editar']),
-          el('button', { class: 'btn btn-principal btn-pequeno', text: '+ Novo item', onclick: function () { if (cabeMais('itens')) editarProduto(null, cat.id); } }),
+          el('button', { class: 'btn btn-principal btn-pequeno', onclick: function () { if (cabeMais('itens')) editarProduto(null, cat.id); } }, [UI.iconeLinha('mais'), 'Novo item']),
         ]));
         var lista = el('div', { class: 'pilha' });
         var produtos = l.produtos.filter(function (p) { return p.categoria === cat.id; });
@@ -1594,7 +1594,7 @@
           var g = (l.grupos || {})[chave];
           if (g) conteudo.appendChild(blocoGrupo(chave, g, cat.id));
         });
-        conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', text: '+ Novo grupo de opções', onclick: function () { if (cabeMais('grupos')) editarGrupo(null, cat.id); } }));
+        conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () { if (cabeMais('grupos')) editarGrupo(null, cat.id); } }, [UI.iconeLinha('mais'), 'Novo grupo de opções']));
       }
       if (busca) busca.addEventListener('input', function () { estado.buscaCardapio = busca.value; desenharConteudo(); });
       desenharConteudo();
@@ -2262,7 +2262,7 @@
         ]));
       });
       bloco.appendChild(lista);
-      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '12px' }, text: '+ Opção', onclick: function () { novaOpcao(chave); } }));
+      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '12px' }, onclick: function () { novaOpcao(chave); } }, [UI.iconeLinha('mais'), 'Opção']));
       return bloco;
     }
 
@@ -2898,7 +2898,10 @@
       s.appendChild(noSite);
 
       /* id proprio: tocar nas chaves dos cupons nao marca "Alteracoes nao salvas" (o cupom se salva sozinho, na hora) */
-      var cupons = el('div', { class: 'bloco-form', id: 'aj-cupons' }, [el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' })]);
+      var cupons = el('div', { class: 'bloco-form', id: 'aj-cupons' }, [
+        el('div', { class: 'bloco-titulo', text: 'Cupons de desconto' }),
+        el('p', { class: 'bloco-texto', text: 'Um código que o cliente digita no carrinho para ganhar desconto. Você liga, desliga ou exclui quando quiser.' }),
+      ]);
       var listaCupons = el('div', { class: 'pilha' });
       /* a lista mora na parte privada da loja (o cliente nao ve os codigos): le de novo a cada vez que os Ajustes abrem
          (outro aparelho pode ter mudado), e so a lista se redesenha (o resto dos Ajustes, talvez com algo digitado, fica) */
@@ -2918,6 +2921,7 @@
       estado.pintarCupons = function () { if (vivo && listaCupons.isConnected) pintarCupons(); };
       function pintarCupons() {
         UI.limpar(listaCupons);
+        listaCupons.hidden = !(estado.cupons || []).length; /* sem cupom: sem o vao de uma lista vazia entre o texto e o botao */
         (estado.cupons || []).forEach(function (c) {
           var chave = el('button', { class: 'chave' + (c.ativo !== false ? ' on' : ''), type: 'button', 'aria-label': 'Ligar ou desligar ' + c.codigo, onclick: function () {
             /* liga ou desliga o que a pessoa viu, na lista de agora do banco (outro aparelho pode ter mexido) */
@@ -2964,7 +2968,7 @@
         });
       }
       cupons.appendChild(listaCupons);
-      cupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: '+ Criar cupom', onclick: novoCupom }));
+      cupons.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: novoCupom }, [UI.iconeLinha('mais'), 'Criar cupom']));
       s.appendChild(cupons);
 
       /* sons do painel: o dono ouve cada um e sabe o que significa */
