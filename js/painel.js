@@ -1869,7 +1869,7 @@
         }
         var botao = src ? (exclusiva ? 'Trocar a imagem' : 'Trocar logo') : (exclusiva ? 'Escolher a imagem' : 'Escolher a logo');
         var medida = 'uma imagem quadrada, de 500 × 500 px ou maior';
-        var fim = exclusiva ? ' O site não muda: continua com a logo do design.' : ' É a mesma logo que aparece no topo do site.';
+        var fim = exclusiva ? ' O site não muda: continua com a logo do design.' : ' É a mesma logo que aparece no topo do site.'; /* "O" e "É" nunca sozinhos no fim da linha */
         dica.textContent = src
           ? 'Quando alguém manda o link da loja no WhatsApp, aparece este cartão, com a sua imagem pequena do lado do nome. Para trocar, toque em ' + botao + ' e mande ' + medida + '.' + fim
           : 'Quando alguém manda o link da loja no WhatsApp, aparece um cartão. Agora ele usa o cartaz do Ligeiro, porque a loja ainda não tem imagem. Toque em ' + botao + ' e mande ' + medida + ': o cartaz sai e entra a sua imagem, pequena, do lado do nome.' + fim;

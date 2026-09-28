@@ -26,8 +26,12 @@
   var ze = seed.lojas['lanchonete-do-ze'];
   /* a loja da demonstracao: a de exemplo por baixo, a da amostra por cima, e as marcas de demonstracao */
   function montarLoja(daAmostra) {
-    var l = Object.assign(D.modeloDeLoja(), D.clonar(ze), daAmostra ? D.clonar(daAmostra) : {});
-    if (!(l.produtos || []).some(function (p) { return p && p.ativo !== false; })) { l.produtos = D.clonar(ze.produtos); l.categorias = D.clonar(ze.categorias); }
+    /* a loja de exemplo so empresta o cardapio (quando a amostra ainda nao tem um); nome, frase, logo, tipo e contatos sao
+       sempre os da amostra (antes a Burger House herdava a frase e a falta de logo da Lanchonete do Ze) */
+    var l = Object.assign(D.modeloDeLoja(), daAmostra ? D.clonar(daAmostra) : D.clonar(ze));
+    if (!(l.produtos || []).some(function (p) { return p && p.ativo !== false; })) {
+      ['categorias', 'produtos', 'grupos', 'gruposPorCategoria'].forEach(function (k) { if (ze[k] !== undefined) l[k] = D.clonar(ze[k]); });
+    }
     Object.assign(l, {
       slug: slug, amostra: false, ativa: true, donoEmail: '', senhaPainel: '1234', aberta: true, usarHorarios: false,
       mpAtivo: true, pixAutomaticoMigrado: true, aceitaPix: true, mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, demoPainel: true,
