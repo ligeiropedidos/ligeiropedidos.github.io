@@ -24,16 +24,26 @@
 
   var seed = window.LigeiroSeed();
   var ze = seed.lojas['lanchonete-do-ze'];
-  var loja = Object.assign(D.modeloDeLoja(), D.clonar(ze), veio ? D.clonar(veio.loja) : {});
-  if (!(loja.produtos || []).some(function (p) { return p && p.ativo !== false; })) { loja.produtos = D.clonar(ze.produtos); loja.categorias = D.clonar(ze.categorias); }
-  Object.assign(loja, {
-    slug: slug, amostra: false, ativa: true, donoEmail: '', senhaPainel: '1234', aberta: true, usarHorarios: false,
-    mpAtivo: true, pixAutomaticoMigrado: true, aceitaPix: true, mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, demoPainel: true,
-  });
-  /* termos ja aceitos (aceitar aqui nao vale nada) e o tutorial do ratinho na primeira vez, como numa loja nova */
-  loja.termos = { versao: R.TERMOS_VERSAO, em: new Date().toISOString(), por: 'demonstracao' };
-  loja.configurada = false;
-  if (!veio && slug !== 'lanchonete-do-ze') loja.nome = ze.nome;
+  /* a loja da demonstracao: a de exemplo por baixo, a da amostra por cima, e as marcas de demonstracao */
+  function montarLoja(daAmostra) {
+    var l = Object.assign(D.modeloDeLoja(), D.clonar(ze), daAmostra ? D.clonar(daAmostra) : {});
+    if (!(l.produtos || []).some(function (p) { return p && p.ativo !== false; })) { l.produtos = D.clonar(ze.produtos); l.categorias = D.clonar(ze.categorias); }
+    Object.assign(l, {
+      slug: slug, amostra: false, ativa: true, donoEmail: '', senhaPainel: '1234', aberta: true, usarHorarios: false,
+      mpAtivo: true, pixAutomaticoMigrado: true, aceitaPix: true, mpChavePublica: 'TEST-demo', aceitaCartaoOnline: true, demoPainel: true,
+    });
+    /* termos ja aceitos (aceitar aqui nao vale nada) e o tutorial do ratinho na primeira vez, como numa loja nova */
+    l.termos = { versao: R.TERMOS_VERSAO, em: new Date().toISOString(), por: 'demonstracao' };
+    l.configurada = false;
+    return l;
+  }
+  var loja = montarLoja(veio ? veio.loja : null);
+  /* abriu sem passar pela amostra (endereco direto, aba nova): o nome sai do endereco na hora ("burger-house" vira
+     "Burger House", nunca o da loja de exemplo) e a loja de verdade (a publica, a mesma que o site mostra) chega logo depois */
+  if (!veio && slug !== 'lanchonete-do-ze') {
+    loja.nome = slug.split('-').map(function (p) { return p ? p.charAt(0).toUpperCase() + p.slice(1) : p; }).join(' ');
+    loja.descricao = '';
+  }
 
   /* pedidos de exemplo: a historia da semana (aba Vendas) e tres na fila, um em cada etapa */
   var NOMES = ['Maria', 'João', 'Dona Cida', 'Ana Paula', 'Carlos', 'Beatriz', 'Pedro', 'Fernanda', 'Lucas', 'Rita', 'Seu Antônio', 'Júlia'];
@@ -107,4 +117,21 @@
   setTimeout(chegar, 25000);
 
   window.LigeiroDemoPainel = { slug: slug, loja: loja, voltar: veio && veio.voltar ? String(veio.voltar) : '' };
+
+  var base = String((window.LIGEIRO_CONFIG || {}).proxyMercadoPago || '').replace(/\/$/, '');
+  if (!veio && slug !== 'lanchonete-do-ze' && base && window.fetch) {
+    fetch(base + '/loja/' + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (j) {
+      var publica = j && j.borda === 1 && j.loja;
+      if (!publica) return;
+      publica.slug = slug;
+      var nova = montarLoja(publica);
+      window.LigeiroDemoPainel.loja = nova;
+      D.store.salvarLoja(nova).catch(function () { /* fica a de exemplo */ });
+      /* o "Voltar para a loja" da faixa, agora que se sabe a cidade */
+      var faixa = document.querySelector('.faixa-demo-painel');
+      if (faixa && !faixa.querySelector('a') && publica.cidadeSlug) {
+        var volta = document.createElement('a'); volta.href = '/' + publica.cidadeSlug + '/' + slug; volta.textContent = 'Voltar para a loja'; faixa.appendChild(volta);
+      }
+    }).catch(function () { /* sem internet: fica o nome tirado do endereco */ });
+  }
 })();
