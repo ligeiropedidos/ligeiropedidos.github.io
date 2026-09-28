@@ -1934,7 +1934,8 @@
       var etapas = [R.STATUS.PRODUCAO, R.STATUS.PRONTO, R.STATUS.FINALIZADO];
       var i = 0, relogio = null;
       function proxima() {
-        if (i >= etapas.length) return;
+        /* entregue: o mascote chega e convida a conhecer o Ligeiro (a amostra e para vender) */
+        if (i >= etapas.length) { relogio = setTimeout(function () { if (vivo && estado.pedido && estado.pedido.id === pedido.id && $('tela-senha').classList.contains('ativa')) fimDaAmostra(); }, 2500); return; }
         relogio = setTimeout(function passo() {
           if (!vivo || !estado.pedido || estado.pedido.id !== pedido.id) return;
           /* jogando: a demonstracao espera o jogo fechar (de 6 em 6 s o jogo pausaria a toda hora para avisar) */
@@ -1947,6 +1948,18 @@
       }
       proxima();
       estado.pararPedido = function () { clearTimeout(relogio); };
+    }
+
+    /* fim da demonstracao da amostra: o mascote chega e a pergunta; leva para o site do Ligeiro ou volta para a loja */
+    function fimDaAmostra() {
+      UI.abrirModal({ titulo: 'O que achou da amostra?', corpo: el('div', { class: 'pilha fim-amostra' }, [
+        el('img', { class: 'fim-amostra-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 }),
+        el('p', { text: 'Essa é a loja da ' + estado.loja.nome + ' no Ligeiro: o cliente pede direto no site da loja, sem comissão por pedido.' }),
+        el('p', { class: 'muted', text: 'Quer a sua loja assim? Conheça o Ligeiro.' }),
+      ]), rodape: [
+        el('a', { class: 'btn btn-principal btn-largo', href: '#/', onclick: function () { UI.fecharModal(); } }, ['Conhecer o Ligeiro']),
+        el('button', { class: 'btn btn-fantasma btn-largo', type: 'button', text: 'Voltar à loja', onclick: function () { UI.fecharModal(); irPara('tela-inicio'); } }),
+      ] });
     }
 
     /* A forma escolhida saiu (o servidor recusou): a loja de agora chega, a forma que saiu some da lista (com o aviso
