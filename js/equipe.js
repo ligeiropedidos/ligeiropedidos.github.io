@@ -73,7 +73,7 @@
     UI.limpar(raiz);
     raiz.appendChild(el('div', { class: 'login' }, [
       el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
-      el('h2', { class: 'centro', text: titulo + ' · ' + nomeLoja }),
+      el('h2', { class: 'centro', text: titulo + '\u00a0·\u00a0' + nomeLoja }),
       el('p', { class: 'muted centro', text: 'Esta conta não tem acesso a esta loja. Se entrou com a senha da equipe, peça para o dono salvar essa senha de novo em Minha loja.' }),
       el('button', { class: 'btn btn-principal btn-largo', text: 'Sair', onclick: function () {
         esquecerRecarga(slug);
@@ -146,7 +146,7 @@
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       raiz.appendChild(el('div', { class: 'login' }, [
         el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
-        el('h2', { class: 'centro', text: titulo + ' · ' + loja.nome }),
+        el('h2', { class: 'centro', text: titulo + '\u00a0·\u00a0' + loja.nome }),
         el('p', { class: 'muted centro', text: 'Digite a senha da equipe. O dono define em Minha loja.' }),
         el('div', { class: 'campo' }, campo), erro,
         btnEntrar,
@@ -293,7 +293,9 @@
     var oficial = UI.lojaOficial(slug);
     return el('header', { class: 'painel-topo topo-app' + (oficial && oficial.tema ? '' : ' topo-ligeiro') + ' topo-equipe' }, [
       el('img', { class: 'logo-mini', src: (oficial && oficial.logo) || 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
-      el('div', { class: 'nome', text: titulo }),
+      /* a funcao (Cozinha, Entregador) em etiqueta pequena em cima e o nome da loja embaixo: em nenhuma largura sobra
+         um ponto no fim da linha nem o titulo vaza ("Entregador · Lanchonete" nao cabia inteiro em 320) */
+      el('div', { class: 'nome' }, [el('small', { class: 'topo-papel', text: String(titulo).split(' · ')[0] }), el('span', { text: String(titulo).split(' · ').slice(1).join(' · ') })]),
     ].concat(extras, [el('div', { class: 'painel-topo-acoes' }, botoes.filter(Boolean))]));
   }
 
@@ -516,7 +518,7 @@
       var estado = { loja: lojaInicial, pedidos: [], parar: [], relogio: null, somLigado: UI.somLigado(), conferidos: {}, naRua: null };
 
       /* espaco fixo depois do ponto: o nome da loja nunca quebra a linha logo depois do "·" */
-      raiz.appendChild(topoEquipe(slug, 'Entregador\u00a0· ' + estado.loja.nome, [], [botaoApito(estado), botaoAvisos(slug, 'entregas')]));
+      raiz.appendChild(topoEquipe(slug, 'Entregador · ' + estado.loja.nome, [], [botaoApito(estado), botaoAvisos(slug, 'entregas')]));
       var lista = el('div', { class: 'conteudo' });
       raiz.appendChild(lista);
       desenhar(); /* o mascote ate a fila chegar */

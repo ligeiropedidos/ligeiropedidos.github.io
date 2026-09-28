@@ -2169,6 +2169,10 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 
 /* topo da cozinha e do entregador sem nenhum botao visivel (navegador sem aviso): a fileira some, sem sobrar vao */
 .topo-equipe .painel-topo-acoes:not(:has(> :not([hidden]))) { display: none; }
+/* topo da equipe: "COZINHA" pequeno em cima e o nome da loja embaixo (o kicker do site) */
+.topo-equipe .nome { display: flex; flex-direction: column; gap: 2px; }
+.topo-equipe .nome > span { overflow: hidden; text-overflow: ellipsis; }
+.topo-papel { font-family: var(--corpo, inherit); font-size: 12px; font-weight: 700; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; }
 /* um botao so (entregador): deitado, com o nome inteiro, em vez de um quadrado grande com texto pequeno */
 @media (max-width: 1199px) {
   .topo-equipe .painel-topo-acoes > .btn-pequeno:only-child { flex-direction: row; gap: 8px; min-height: 48px; padding: 0 16px; font-size: 15px; }
