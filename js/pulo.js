@@ -148,62 +148,74 @@
     });
   }
 
-  /* o ratinho do Ligeiro de frente, pulando de bracos para cima: chapeu de cozinheiro, jaqueta verde e a caixa de
-     entrega nas costas (aparece dos lados). tonto: os olhos viram X (quando o gato pega) */
+  /* o ratinho do Ligeiro de frente, pulando de bracos para cima, com a cara do mascote: contorno preto de desenho
+     animado, pelo creme, miolo da orelha vermelho, nariz preto, olhos brancos grandes, lingua de fora, dolma branca de
+     cozinheiro com o lenco verde-limao, luvas brancas e o chapeu. A caixa de entrega nas costas aparece dos lados.
+     tonto: os olhos viram X (quando o gato pega) */
+  var CONTORNO = '#1B1B1F', PELO = '#F6F0E4', PELO_SOMBRA = '#E6DCCB', ORELHA = '#E5312A', LENCO = '#A6D83B';
   function ratinho(tonto) {
     return sprite(64, 84, function (x) {
-      /* rabo, atras de tudo */
-      x.strokeStyle = '#F4A7B9'; x.lineWidth = 3.2;
-      x.beginPath(); x.moveTo(42, 72); x.bezierCurveTo(58, 70, 62, 56, 55, 50); x.stroke();
+      x.lineJoin = 'round'; x.lineCap = 'round';
+      function tinta(cor, largura) { x.fillStyle = cor; x.fill(); x.strokeStyle = CONTORNO; x.lineWidth = largura || 1.7; x.stroke(); }
+      /* rabo, atras de tudo: o contorno por baixo e o pelo por cima */
+      x.beginPath(); x.moveTo(42, 72); x.bezierCurveTo(58, 70, 62, 56, 55, 50);
+      x.strokeStyle = CONTORNO; x.lineWidth = 4.4; x.stroke(); x.strokeStyle = PELO_SOMBRA; x.lineWidth = 2.2; x.stroke();
       /* caixa de entrega nas costas */
-      x.fillStyle = '#0F3D2E'; retangulo(x, 13, 46, 38, 22, 5); x.fill();
-      x.fillStyle = '#84CC16'; x.fillRect(13, 61, 38, 3);
+      retangulo(x, 13, 46, 38, 22, 5); tinta('#0F3D2E');
+      x.fillStyle = '#84CC16'; x.fillRect(14, 61, 36, 3);
       /* pernas e pes */
-      x.fillStyle = '#D3CCD7'; retangulo(x, 24, 66, 6, 10, 3); x.fill(); retangulo(x, 34, 66, 6, 10, 3); x.fill();
-      x.fillStyle = '#F4A7B9'; oval(x, 26, 79, 6.5, 4); x.fill(); oval(x, 38, 79, 6.5, 4); x.fill();
-      /* bracos para cima */
-      x.fillStyle = '#E6E1E8';
-      oval(x, 17, 46, 4, 9, 0.55); x.fill(); oval(x, 47, 46, 4, 9, -0.55); x.fill();
-      bola(x, 12.5, 38.5, 4); x.fill(); bola(x, 51.5, 38.5, 4); x.fill();
-      /* jaqueta do Ligeiro */
-      x.fillStyle = '#84CC16'; retangulo(x, 19, 45, 26, 25, 10); x.fill();
-      x.fillStyle = '#5E9A0C'; retangulo(x, 19, 62, 26, 8, 4); x.fill();
-      x.fillStyle = '#FFFFFF'; bola(x, 32, 54, 6.5); x.fill();
+      retangulo(x, 24, 65, 6, 11, 3); tinta(PELO_SOMBRA, 1.4); retangulo(x, 34, 65, 6, 11, 3); tinta(PELO_SOMBRA, 1.4);
+      oval(x, 26, 79, 6.5, 4); tinta('#FFFFFF', 1.5); oval(x, 38, 79, 6.5, 4); tinta('#FFFFFF', 1.5);
+      /* bracos para cima, com as luvas brancas */
+      oval(x, 17, 46, 4, 9, 0.55); tinta(PELO, 1.5); oval(x, 47, 46, 4, 9, -0.55); tinta(PELO, 1.5);
+      bola(x, 12.5, 38.5, 4.3); tinta('#FFFFFF', 1.5); bola(x, 51.5, 38.5, 4.3); tinta('#FFFFFF', 1.5);
+      /* dolma branca de cozinheiro, com os botoes pretos */
+      retangulo(x, 19, 45, 26, 25, 10); tinta('#FFFFFF');
+      /* o adesivo no peito: a logo da loja; sem logo, o "L" do Ligeiro */
+      bola(x, 32, 60.5, 5.4); tinta('#FFFFFF', 1.3);
       if (marca && marca.img && marca.img.complete && marca.img.naturalWidth) {
-        x.save(); bola(x, 32, 54, 6); x.clip();
+        x.save(); bola(x, 32, 60.5, 4.8); x.clip();
         var iw = marca.img.naturalWidth, ih = marca.img.naturalHeight || iw;
-        var esc = (marca.logo ? 11 : 13) / Math.max(iw, ih);
-        try { x.drawImage(marca.img, 32 - (iw * esc) / 2, 54 - (ih * esc) / 2, iw * esc, ih * esc); } catch (_) { /* sem logo */ }
+        var esc = (marca.logo ? 9 : 10.5) / Math.max(iw, ih);
+        try { x.drawImage(marca.img, 32 - (iw * esc) / 2, 60.5 - (ih * esc) / 2, iw * esc, ih * esc); } catch (_) { /* sem logo */ }
         x.restore();
-      } else { x.fillStyle = '#0F3D2E'; x.font = '900 8px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('L', 32, 54.5); }
-      /* orelhas */
-      x.fillStyle = '#E6E1E8'; bola(x, 15, 22, 9.5); x.fill(); bola(x, 49, 22, 9.5); x.fill();
-      x.fillStyle = '#F4A7B9'; bola(x, 15, 22, 5.5); x.fill(); bola(x, 49, 22, 5.5); x.fill();
+      } else { x.fillStyle = '#0F3D2E'; x.font = '900 7px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('L', 32, 61); }
+      /* lenco verde-limao no pescoco, como o do mascote */
+      x.beginPath(); x.moveTo(20.5, 45); x.lineTo(43.5, 45); x.lineTo(32, 55); x.closePath(); tinta(LENCO, 1.5);
+      x.strokeStyle = '#6E9A1E'; x.lineWidth = 0.9; x.beginPath(); x.moveTo(26, 47.5); x.lineTo(32, 52.6); x.lineTo(38, 47.5); x.stroke();
+      /* orelhas: pelo creme com o miolo vermelho */
+      bola(x, 15, 22, 9.5); tinta(PELO); bola(x, 49, 22, 9.5); tinta(PELO);
+      x.fillStyle = ORELHA; bola(x, 15.6, 22.6, 5.6); x.fill(); bola(x, 48.4, 22.6, 5.6); x.fill();
       /* cabeca */
-      x.fillStyle = '#ECE8EE'; bola(x, 32, 32, 15); x.fill();
-      x.strokeStyle = '#C9C1CE'; x.lineWidth = 1.5; bola(x, 32, 32, 15); x.stroke();
-      /* bochechas e bigode */
-      x.fillStyle = 'rgba(244,120,150,0.35)'; oval(x, 22.5, 37.5, 3.2, 2); x.fill(); oval(x, 41.5, 37.5, 3.2, 2); x.fill();
-      x.strokeStyle = '#B9AFC0'; x.lineWidth = 1;
-      x.beginPath(); x.moveTo(25, 36.5); x.lineTo(14, 34.5); x.moveTo(25, 38); x.lineTo(14, 39.5); x.moveTo(39, 36.5); x.lineTo(50, 34.5); x.moveTo(39, 38); x.lineTo(50, 39.5); x.stroke();
-      /* olhos */
+      bola(x, 32, 32, 15); tinta(PELO, 1.9);
+      /* bigode */
+      x.strokeStyle = CONTORNO; x.lineWidth = 0.9;
+      x.beginPath(); x.moveTo(25.5, 36.5); x.lineTo(15, 34.8); x.moveTo(25.5, 38.2); x.lineTo(15, 39.8); x.moveTo(38.5, 36.5); x.lineTo(49, 34.8); x.moveTo(38.5, 38.2); x.lineTo(49, 39.8); x.stroke();
+      /* olhos brancos grandes */
+      oval(x, 27, 30, 3.5, 4.3); tinta('#FFFFFF', 1.3); oval(x, 37, 30, 3.5, 4.3); tinta('#FFFFFF', 1.3);
       if (tonto) {
-        x.strokeStyle = '#1D1F22'; x.lineWidth = 1.8;
-        [26.5, 37.5].forEach(function (ox) { x.beginPath(); x.moveTo(ox - 2.4, 28.6); x.lineTo(ox + 2.4, 33.4); x.moveTo(ox + 2.4, 28.6); x.lineTo(ox - 2.4, 33.4); x.stroke(); });
+        x.strokeStyle = CONTORNO; x.lineWidth = 1.6;
+        [27, 37].forEach(function (ox) { x.beginPath(); x.moveTo(ox - 1.9, 28.1); x.lineTo(ox + 1.9, 31.9); x.moveTo(ox + 1.9, 28.1); x.lineTo(ox - 1.9, 31.9); x.stroke(); });
       } else {
-        x.fillStyle = '#1D1F22'; bola(x, 26.5, 31, 2.7); x.fill(); bola(x, 37.5, 31, 2.7); x.fill();
-        x.fillStyle = '#FFFFFF'; bola(x, 27.4, 30.1, 0.95); x.fill(); bola(x, 38.4, 30.1, 0.95); x.fill();
+        x.fillStyle = CONTORNO; bola(x, 27.7, 30.9, 1.9); x.fill(); bola(x, 37.7, 30.9, 1.9); x.fill();
+        x.fillStyle = '#FFFFFF'; bola(x, 28.3, 30.2, 0.6); x.fill(); bola(x, 38.3, 30.2, 0.6); x.fill();
       }
-      /* focinho e boca */
-      x.fillStyle = '#F07A9A'; bola(x, 32, 36.5, 2.4); x.fill();
-      x.strokeStyle = '#7A5A66'; x.lineWidth = 1.2;
-      x.beginPath(); if (tonto) { x.arc(32, 42, 2.6, Math.PI * 1.1, Math.PI * 1.9); } else { x.arc(32, 38.4, 3, Math.PI * 0.15, Math.PI * 0.85); } x.stroke();
-      /* chapeu de cozinheiro */
+      /* boca: sorriso aberto com a lingua (tonto: boca torta) */
+      if (tonto) {
+        x.strokeStyle = CONTORNO; x.lineWidth = 1.3; x.beginPath(); x.arc(32, 42.5, 2.6, Math.PI * 1.1, Math.PI * 1.9); x.stroke();
+      } else {
+        x.beginPath(); x.moveTo(28.2, 38.6); x.quadraticCurveTo(32, 44.2, 35.8, 38.6); x.closePath(); tinta('#7A1616', 1.2);
+        x.fillStyle = '#EF5350'; oval(x, 32.3, 41.3, 2, 1.3); x.fill();
+      }
+      /* nariz preto com o brilho */
+      oval(x, 32, 36.2, 2.7, 2); x.fillStyle = CONTORNO; x.fill();
+      x.fillStyle = 'rgba(255,255,255,0.8)'; oval(x, 31.2, 35.6, 0.9, 0.55); x.fill();
+      /* chapeu de cozinheiro: o contorno de todas as partes por baixo, o branco por cima (so a borda de fora aparece) */
+      x.strokeStyle = CONTORNO; x.lineWidth = 3.4;
+      bola(x, 25, 12, 6.5); x.stroke(); bola(x, 32, 8.5, 7.5); x.stroke(); bola(x, 39, 12, 6.5); x.stroke(); retangulo(x, 23, 12, 18, 8, 2.5); x.stroke();
       x.fillStyle = '#FFFFFF';
-      bola(x, 25, 12, 6.5); x.fill(); bola(x, 32, 8.5, 7.5); x.fill(); bola(x, 39, 12, 6.5); x.fill();
-      retangulo(x, 23, 12, 18, 8, 2.5); x.fill();
-      x.strokeStyle = '#DADFDD'; x.lineWidth = 1.2; retangulo(x, 23, 12, 18, 8, 2.5); x.stroke();
-      x.fillStyle = '#2E9D4F'; x.fillRect(23, 17, 18, 3);
+      bola(x, 25, 12, 6.5); x.fill(); bola(x, 32, 8.5, 7.5); x.fill(); bola(x, 39, 12, 6.5); x.fill(); retangulo(x, 23, 12, 18, 8, 2.5); x.fill();
+      x.strokeStyle = CONTORNO; x.lineWidth = 1.1; x.beginPath(); x.moveTo(23.8, 15.2); x.lineTo(40.2, 15.2); x.stroke();
     });
   }
 
@@ -1419,13 +1431,14 @@
       '.pulo-tela{position:absolute;inset:0;width:100%;height:100%;display:block}' +
       '.pulo-topo{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 0;pointer-events:none}' +
       '.pulo-topo[hidden],.pulo-painel[hidden],.pulo-aviso[hidden]{display:none}' +
-      '.pulo-moedas{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 8px;border-radius:999px;background:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(14,31,20,.15);font-family:var(--display);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}' +
+      '.pulo-moedas{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(14,31,20,.15);font-family:var(--display);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}' +
+      '@supports (text-box:trim-both cap alphabetic){.pulo-moedas>b{text-box:trim-both cap alphabetic}}' +
       '.pulo-moeda-ico{width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#FFD84A 0 55%,#F7C325 56% 78%,#D9A109 79%)}' +
       '.pulo-pontos{font-family:var(--display);font-size:32px;line-height:1;font-weight:700;color:#fff;text-shadow:0 2px 0 rgba(14,31,20,.55),0 0 12px rgba(14,31,20,.25);font-variant-numeric:tabular-nums}' +
       '.pulo-botoes{justify-self:end;display:flex;gap:8px;pointer-events:auto}' +
       '.pulo-botao{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--deep);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(14,31,20,.15);cursor:pointer;padding:0}' +
       '.pulo-botao .ico-traco svg{width:22px;height:22px}' +
-      '.pulo-pedido{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);max-width:calc(100% - 32px);padding:6px 14px;border-radius:999px;background:rgba(15,61,46,.82);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}' +
+      '.pulo-pedido{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);max-width:calc(100% - 32px);padding:6px 14px;line-height:20px;height:32px;border-radius:999px;background:rgba(15,61,46,.82);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}' +
       '.pulo-aviso{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);transform:translateX(-50%);max-width:calc(100% - 32px);padding:12px 18px;border-radius:16px;background:var(--lime);color:var(--ink);font-family:var(--display);font-size:17px;font-weight:700;text-align:center;white-space:nowrap;box-shadow:0 6px 20px rgba(14,31,20,.25);animation:pulo-desce .3s ease-out both!important;pointer-events:none}' +
       '.pulo-aviso.sai{animation:pulo-sobe .35s ease-in both!important}' +
       '.pulo-painel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,61,46,.28)}' +
@@ -1443,7 +1456,7 @@
       '.pulo-poder b{font-size:13.5px;color:var(--ink);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '.pulo-poder span{font-size:12px;color:var(--muted);white-space:nowrap}' +
       '.pulo-poder-ico{width:44px;height:44px;margin-bottom:4px}' +
-      '.pulo-opcao{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 4px 4px 12px;font-size:15px;font-weight:600;color:var(--ink)}' +
+      '.pulo-opcao{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 4px 12px;font-size:15px;font-weight:600;color:var(--ink)}' +
       '.pulo-recorde{display:inline-flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;color:var(--deep2)}' +
       '.pulo-recorde .ico-traco svg{width:20px;height:20px}' +
       '.pulo-final{display:flex;flex-direction:column;align-items:center;line-height:1}' +
@@ -1461,7 +1474,7 @@
       '.pulo-fome-texto b{font-size:15px;color:var(--ink)}' +
       '.pulo-fome-texto span{font-size:13.5px;color:var(--body,#3B4A3F);overflow-wrap:anywhere}' +
       '.pulo-fome .btn{grid-column:1/-1}' +
-      '.pulo-cartao .btn .ico-traco{margin-right:8px}' +
+      '.pulo-cartao .btn .ico-traco{margin:0 -5px 0 -5.25px}' +
       '.pulo-dica-rapida{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(15,61,46,.85);color:#fff;font-size:15px;font-weight:600;white-space:nowrap;pointer-events:none;animation:pulo-aparece .3s ease-out both!important}' +
       '.pulo-dica-rapida.sai{animation:pulo-some .5s ease-in both!important}' +
       '@keyframes pulo-pop{0%{opacity:0;transform:scale(.86) translateY(12px)}100%{opacity:1;transform:none}}' +

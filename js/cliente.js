@@ -760,7 +760,8 @@
       var primeira = !estado.loja;
       estado.loja = juntarCupons(dados);
       estado.oficial = lojaOficial(dados.slug);
-      UI.aplicarTema(dados.cor, dados.estilo);
+      /* loja com design exclusivo: o estilo gravado (cantos, letra classica, logo redonda) nao passa por cima do design */
+      UI.aplicarTema(dados.cor, estado.oficial && estado.oficial.tema ? null : dados.estilo);
       if (primeira && estado.oficial) aplicarTemaOficial(estado.oficial);
       if (primeira && estado.oficial && !o.pedidoId) UI.oficialPronto(estado.oficial, 600).then(tirarSplash);
       if (primeira && !estado.oficial && !o.pedidoId) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
@@ -1934,8 +1935,12 @@
       var i = 0, relogio = null;
       function proxima() {
         if (i >= etapas.length) return;
-        relogio = setTimeout(function () {
+        relogio = setTimeout(function passo() {
           if (!vivo || !estado.pedido || estado.pedido.id !== pedido.id) return;
+          /* jogando: a demonstracao espera o jogo fechar (de 6 em 6 s o jogo pausaria a toda hora para avisar) */
+          var jogando = false;
+          cadaJogoAberto(function () { jogando = true; });
+          if (jogando) { relogio = setTimeout(passo, 1000); return; }
           pedidoMudou(Object.assign({}, estado.pedido, { status: etapas[i++] }));
           proxima();
         }, 6000);
@@ -2735,7 +2740,7 @@
       voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora);
       voltarPix.textContent = pedido.formaPagamento === 'cartao_online' ? 'Voltar para o pagamento' : 'Ver o código Pix de novo';
       var demo = estado.pedidoAmostra === pedido.id;
-      desenharAvisoCelPedido(pedido, balcao || deFora || demo);
+      desenharAvisoCelPedido(pedido, balcao || deFora);
       desenharAvaliarGoogle(pedido, balcao || deFora);
       desenharConviteJogo(pedido, balcao);
 
@@ -2851,7 +2856,7 @@
           : el('span', { text: g.chamada }),
       ]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: function () {
-        var soltar = UI.ocupar(btn, 'Abrindo…');
+        var soltar = UI.ocupar(btn, 'Abrindo…', { soGirar: true });
         if (!soltar) return;
         carregarJogo(g).then(function (J) {
           soltar(); /* o convite fica na tela por baixo do jogo */
@@ -2911,7 +2916,9 @@
         estado.avisosConferidos = true;
         A.preparar().then(function (sit) { if (sit !== 'sem' && vivo && estado.pedido && estado.pedido.id === pedido.id) desenharAvisoCelPedido(pedido, esconder); });
       }
-      if (!A || esconder || acabou || (!ligado && !A.podeCliente())) { caixa.hidden = true; return; }
+      /* demonstracao da amostra: o cartao aparece e o Avisar mostra a notificacao de mentira (nada vai para o banco) */
+      var demo = estado.pedidoAmostra === pedido.id;
+      if (!A || esconder || acabou || (!ligado && !demo && !A.podeCliente())) { caixa.hidden = true; return; }
       caixa.hidden = false;
       caixa.classList.toggle('ligado', ligado);
       caixa.appendChild(el('span', { class: 'aviso-cel-ico', 'aria-hidden': 'true', html: A.icone() }));
@@ -2921,7 +2928,15 @@
       }
       caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer saber quando sair?' }), el('span', { text: 'Avisamos no celular, mesmo com a tela apagada.' })]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Avisar', onclick: function () {
-        var soltar = UI.ocupar(btn, 'Ligando…');
+        if (demo) {
+          pedido.aviso = { demo: true };
+          if (estado.pedido && estado.pedido.id === pedido.id) estado.pedido.aviso = pedido.aviso;
+          desenharAvisoCelPedido(pedido, false);
+          var of = UI.lojaOficial && UI.lojaOficial(estado.loja.slug);
+          setTimeout(function () { UI.avisoDeMentira({ icone: (of && of.logo) || D.logoSrc(estado.loja) || 'img/mascote-192.webp', titulo: estado.loja.nome, texto: 'Senha ' + pedido.senha + ': seu pedido saiu para entrega!' }); }, 1200);
+          return;
+        }
+        var soltar = UI.ocupar(btn, 'Ligando…', { soGirar: true });
         if (!soltar) return;
         A.ligarNoPedido(estado.loja.cidadeSlug, estado.loja.slug, pedido.id).then(function (aviso) {
           UI.soar('toque');
@@ -2987,7 +3002,7 @@
         $('senhaInstrucao').textContent = R.textoDoEstagio(novo, estado.loja);
         montarLinhaDoTempo(novo);
         var deFora = estado.pedidoDeFora === novo.id;
-        desenharAvisoCelPedido(novo, balcao || deFora || estado.pedidoAmostra === novo.id);
+        desenharAvisoCelPedido(novo, balcao || deFora);
         desenharAvaliarGoogle(novo, balcao || deFora);
         desenharConviteJogo(novo, balcao);
         desenharACobrar(novo);

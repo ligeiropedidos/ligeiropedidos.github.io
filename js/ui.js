@@ -910,18 +910,25 @@
     return !!(s && /(^|\/)js\/m\/ui\.js/.test(s.getAttribute('src') || ''));
   })();
   function caminho(arquivo) { return ENXUTO ? String(arquivo).replace(/^(js|css)\//, '$1/m/') : String(arquivo); }
-  function ocupar(botao, texto) {
+  /* opcoes.soGirar: botao pequeno ao lado de um texto (Jogar, Avisar): fica do mesmo tamanho e mostra so o circulo girando
+     (o texto de espera vai para o leitor de tela). Com o texto, o botao crescia e apertava o que estava do lado */
+  function ocupar(botao, texto, opcoes) {
     if (!botao || botao.getAttribute('aria-busy') === 'true') return null;
     var antes = Array.prototype.slice.call(botao.childNodes);
+    var soGirar = !!(opcoes && opcoes.soGirar);
+    var largura = soGirar ? botao.getBoundingClientRect().width : 0;
+    var rotuloAntes = botao.getAttribute('aria-label');
     var estavaDesligado = !!botao.disabled;
     if ('disabled' in botao) botao.disabled = true;
     botao.setAttribute('aria-busy', 'true');
     botao.classList.add('ocupado');
     botao.textContent = '';
     botao.appendChild(el('span', { class: 'girando', 'aria-hidden': 'true' }));
-    botao.appendChild(document.createTextNode(texto || 'Aguarde…'));
+    if (soGirar) { botao.style.width = largura + 'px'; botao.setAttribute('aria-label', texto || 'Aguarde…'); }
+    else botao.appendChild(document.createTextNode(texto || 'Aguarde…'));
     return function soltar() {
       botao.textContent = '';
+      if (soGirar) { botao.style.width = ''; if (rotuloAntes === null) botao.removeAttribute('aria-label'); else botao.setAttribute('aria-label', rotuloAntes); }
       antes.forEach(function (n) { botao.appendChild(n); });
       if ('disabled' in botao) botao.disabled = estavaDesligado;
       botao.removeAttribute('aria-busy');
@@ -1057,10 +1064,36 @@
   /* logo do WhatsApp ou do Instagram para ir dentro de botao (a cor vem do texto do botao) */
   function icone(nome) { return el('span', { class: 'icone-' + nome, 'aria-hidden': 'true' }); }
 
+  /* Aviso de celular de mentira, para a amostra: desce do topo como a notificacao do celular (logo, titulo, texto e 'agora'),
+     com o som de sucesso, e sobe sozinho em 6 s (ou no toque). Mostra ao dono como o aviso chega, sem ligar aviso de verdade */
+  var avisoDemoAberto = null;
+  function avisoDeMentira(o) {
+    if (avisoDemoAberto) avisoDemoAberto();
+    var caixa = el('div', { class: 'aviso-demo', role: 'status', 'aria-live': 'polite' }, [
+      el('img', { class: 'aviso-demo-ico', src: o.icone || 'img/mascote-192.webp', alt: '' }),
+      el('div', { class: 'aviso-demo-texto' }, [el('b', { text: o.titulo || '' }), el('span', { text: o.texto || '' })]),
+      el('small', { class: 'aviso-demo-hora', text: 'agora' }),
+    ]);
+    document.body.appendChild(caixa);
+    var fechou = false;
+    function fechar() {
+      if (fechou) return; fechou = true; avisoDemoAberto = null;
+      caixa.classList.remove('dentro');
+      setTimeout(function () { if (caixa.parentNode) caixa.parentNode.removeChild(caixa); }, 400);
+    }
+    caixa.addEventListener('click', fechar);
+    avisoDemoAberto = fechar;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { caixa.classList.add('dentro'); }); });
+    soar('sucesso'); vibrar([160, 80, 160]);
+    setTimeout(fechar, 6000);
+    return fechar;
+  }
+
   window.LigeiroUI = {
     $: $, el: el, limpar: limpar, ocupar: ocupar, caminho: caminho, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
+    avisoDeMentira: avisoDeMentira,
     abrirModal: abrirModal, fecharModal: fecharModal, perguntar: perguntar, travarRolagem: travarRolagem, tocarVideo: tocarVideo, fecharVideo: fecharVideo,
     copiar: copiar,
     horaCurta: horaCurta, dataCurta: dataCurta, tempoRelativo: tempoRelativo, seloHorario: seloHorario,

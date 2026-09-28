@@ -337,7 +337,9 @@
     var meu = ((document.querySelector('script[src*="/app.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/);
     if (!meu) return;
     fetch('index.html?agora=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (html) {
-      var novo = html.match(/js\/app\.js\?v=([0-9a-z]+)/);
+      /* o index chama a copia enxuta (js/m/app.js): sem o m/ no molde, a conferencia nunca achava a versao nova e ninguem
+         saia da versao guardada no aparelho (de 27/09 a 28/09/2026) */
+      var novo = html.match(/js\/(?:m\/)?app\.js\?v=([0-9a-z]+)/);
       if (!novo || novo[1] === meu[1]) return;
       var ja = null; try { ja = sessionStorage.getItem('ligeiro:recarregou'); } catch (_) { /* ignora */ }
       if (ja === novo[1]) return; /* ja tentou pra esta versao: nao entra em laco */

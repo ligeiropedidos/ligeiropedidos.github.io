@@ -154,7 +154,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza #destaques b, .tema-conizza .video-loja-titulo b { font-family: var(--cz-display); font-size: 15px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cz-tinta-suave); }
 .tema-conizza .video-loja-titulo span { color: var(--cz-tinta-suave); font-weight: 600; }
 /* o cartao do video com a moldura de todo cartao da casa: traco de 3 e a sombra chapada de 4 */
-.tema-conizza .video-loja-capa { border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); margin-bottom: 4px; }
+.tema-conizza .video-loja-capa { border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); margin-bottom: 4px; --raio-fundo-video: 15px; } /* 18 de canto menos os 3 da borda */
 .tema-conizza .video-loja-capa:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
 .tema-conizza .cupom-abrir { color: var(--cz-vermelho); font-family: var(--cz-display); font-weight: 800; }
 

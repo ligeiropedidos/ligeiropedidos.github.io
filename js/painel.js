@@ -63,6 +63,7 @@
       qual.then(function (u) {
         if (!vivo) return;
         estado.equipe = !!(u && D.lojaDaEquipe(u.email));
+        estado.usuarioEmail = u && u.email ? String(u.email).toLowerCase() : '';
         if (estado.equipe) estado.aba = 'pedidos';
         montarPainel();
       });
@@ -619,8 +620,28 @@
       var antigo = $('cabecaPedidos');
       var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' } }, [UI.iconeLinha('raio'), el('span', { text: estado.mpStatus })]) : null;
       /* equipe: sem assinatura, primeiros passos e interruptor da loja (so o dono mexe na loja) */
-      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : (estado.loja.amostra === true ? [avisoAmostra(), interruptorLoja()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]));
+      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : (estado.loja.amostra === true ? [avisoAmostra(), interruptorLoja(), cartaoAvisosAmostra()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]));
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
+    }
+
+    /* amostra: o cartao dos avisos em demonstracao. Ligar de verdade poria os apitos no celular de quem montou; aqui o dono
+       toca em Ver como chega e ve a notificacao descendo do topo, com a logo da loja e o som (nada e gravado) */
+    function cartaoAvisosAmostra() {
+      var A = window.LigeiroAvisos;
+      var l = estado.loja;
+      var of = UI.lojaOficial(slug);
+      var icone = (of && of.logo) || D.logoSrc(l) || 'img/mascote-192.webp';
+      return el('div', { class: 'cartao cartao-avisos' }, [
+        el('div', { class: 'avisos-linha' }, [
+          el('span', { class: 'avisos-ico', 'aria-hidden': 'true', html: A ? A.icone() : '' }),
+          el('div', { class: 'avisos-texto' }, [el('b', { text: 'Receba os pedidos com a tela apagada' }), el('span', { text: 'Com a loja ativada, o celular do dono apita quando entra pedido, mesmo com a tela apagada e o painel fechado.' })]),
+        ]),
+        el('div', { class: 'linha-botoes avisos-botoes' }, [
+          el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ver como chega', onclick: function () {
+            UI.avisoDeMentira({ icone: icone, titulo: 'Pedido novo! Senha 42', texto: l.nome + ': 1 item, R$ 23,00. Toque para ver.' });
+          } }),
+        ]),
+      ]);
     }
 
     /* ---------------------------------------------------------- avisos com a tela apagada */
@@ -800,7 +821,7 @@
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
         [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Horários de funcionamento', 'A loja abre e fecha sozinha', 'relogio', 'ajustes', 'aj-funcionamento'],
-        [!!D.logoSrc(l), 'Logo da loja', 'Aparece no topo do seu site', 'imagem', 'ajustes', 'aj-aparencia'],
+        [!!D.logoSrc(l) || !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).logo), 'Logo da loja', 'Aparece no topo do seu site', 'imagem', 'ajustes', 'aj-aparencia'],
         [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens', 'Item com foto vende mais', 'camera', 'cardapio', ''],
         /* o teste que tira o medo: um pedido de verdade pelo proprio link (de R$ 1 no Pix, se quiser), visto chegando aqui */
         [teveVenda(), 'Pedido de teste pelo seu link', 'Peça e veja o pedido chegar aqui', 'link', 'links', ''],
@@ -1602,6 +1623,64 @@
       return bloco;
     }
 
+    /* Lista de itens curtos (ingredientes que o cliente pode tirar) em etiquetas, sem depender de virgula: escreve um e toca em
+       Adicionar (ou Enter); colar ou escrever 'Queijo, Alface e Tomate' separa sozinho; o que ficou escrito sem Adicionar entra
+       ao salvar. Antes era um campo de texto so, e quem esquecia a virgula criava uma opcao 'Queijo Alface Tomate' */
+    function campoEtiquetas(rotulo, lista, opcoes) {
+      var o = opcoes || {};
+      var itens = [];
+      var caixa = el('div', { class: 'etiquetas', 'aria-live': 'polite' });
+      var input = el('input', { type: 'text', maxlength: 200, placeholder: o.placeholder || '', enterkeyhint: 'done', 'aria-label': rotulo });
+      var botao = el('button', { class: 'btn btn-escuro', type: 'button', text: 'Adicionar' });
+      var SEPARA = /[,;\n\/]/;
+      function limpo(t) { t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 40); return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''; }
+      /* com virgula (ou ponto e virgula, barra, linha): separa, e o ultimo pedaco ainda separa no ' e ' (Alface e Tomate).
+         Sem nenhuma virgula fica inteiro: 'Molho de alho e ervas' e um ingrediente so */
+      function partes(texto) {
+        var s = String(texto || '');
+        if (!SEPARA.test(s)) return [s];
+        var p = s.split(/[,;\n\/]+/);
+        var ultimo = p.pop();
+        return p.concat(ultimo.split(/\s+e\s+/i));
+      }
+      function desenhar() {
+        UI.limpar(caixa);
+        itens.forEach(function (t, i) {
+          caixa.appendChild(el('span', { class: 'etiqueta' }, [el('span', { class: 'etiqueta-texto', text: t }), el('button', { class: 'etiqueta-tirar', type: 'button', 'aria-label': 'Tirar ' + t, onclick: function () { itens.splice(i, 1); desenhar(); input.focus(); } }, [UI.iconeLinha('fechar')])]));
+        });
+      }
+      function somar(texto) {
+        partes(texto).map(limpo).filter(Boolean).forEach(function (t) {
+          if (itens.some(function (x) { return x.toLowerCase() === t.toLowerCase(); })) { UI.avisar(t + ' já está na lista.'); return; }
+          if (itens.length >= 30) { UI.avisar('Até 30 ingredientes por item.'); return; }
+          itens.push(t);
+        });
+        desenhar();
+      }
+      function confirmar() { somar(input.value); input.value = ''; }
+      botao.addEventListener('click', function () { confirmar(); input.focus(); });
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); confirmar(); } });
+      /* colou uma lista: separa inteira de uma vez (com o ' e ' do fim) */
+      input.addEventListener('paste', function (e) {
+        var texto = e.clipboardData && e.clipboardData.getData('text');
+        if (!texto || !SEPARA.test(texto)) return;
+        e.preventDefault();
+        somar(input.value + texto); input.value = '';
+      });
+      /* digitou a virgula: o que veio antes vira etiqueta na hora */
+      input.addEventListener('input', function () {
+        var v = input.value, corte = Math.max(v.lastIndexOf(','), v.lastIndexOf(';'));
+        if (corte < 0) return;
+        somar(v.slice(0, corte));
+        input.value = v.slice(corte + 1).replace(/^\s+/, '');
+      });
+      (lista || []).forEach(function (t) { var x = limpo(t); if (x && itens.indexOf(x) < 0) itens.push(x); });
+      desenhar();
+      var bloco = el('div', { class: 'campo' }, [el('label', { text: rotulo }), o.ajuda ? el('p', { class: 'ajuda', text: o.ajuda }) : null, caixa, el('div', { class: 'etiqueta-linha' }, [input, botao])]);
+      bloco.lista = function () { confirmar(); return itens.slice(); };
+      return bloco;
+    }
+
     function campoDinheiro(rotulo, centavos, ajuda) {
       var b = campoTexto(rotulo, centavos ? dinheiro(centavos) : '', { inputmode: 'numeric', placeholder: 'R$ 0,00', ajuda: ajuda });
       UI.mascaraDinheiro(b.input);
@@ -1656,7 +1735,7 @@
      * camera da capa ou da logo e escolhe a foto; cor e estilo mudam na hora.
      * Usa os campos de foto escondidos (f.logo, f.capa) pra ler e trocar a imagem.
      */
-    function previaDaLoja(l, f, exclusiva) {
+    function previaDaLoja(l, f, exclusiva, logoLivre) {
       function imgDe(campo) {
         var img = campo.querySelector('.foto-previa img');
         return img && !img.hidden && img.getAttribute('src') ? img.getAttribute('src') : null;
@@ -1690,7 +1769,7 @@
       /* sem "tirar" no design exclusivo: sem logo o design quebra; o dono so troca por outra */
       var tirar = el('div', { class: 'previa-tirar-linha' }, exclusiva ? [] : [tirarCapa, tirarLogo]);
       var trocarLogo = el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.logo, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('sorriso'), 'Trocar logo']);
-      var acoes = el('div', { class: 'previa-acoes' + (exclusiva ? ' so-logo' : '') }, exclusiva ? [trocarLogo] : [
+      var acoes = el('div', { class: 'previa-acoes' + (exclusiva ? ' so-logo' : '') }, exclusiva ? (logoLivre ? [trocarLogo] : []) : [
         el('button', { type: 'button', class: 'btn btn-fantasma btn-pequeno', onclick: function () { var b = botaoDe(f.capa, /Escolher|Trocar/); if (b) b.click(); } }, [UI.iconeLinha('imagem'), 'Trocar capa']),
         trocarLogo,
       ]);
@@ -1819,7 +1898,7 @@
         foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, destaque: true, ajuda: 'Item com foto vende mais. Qualquer foto do celular serve: prato no centro, ocupando a foto toda.' }),
         emoji: campoEmoji('Emoji (aparece quando não tem foto)', p ? p.emoji : '🍔'),
         categoria: campoSelect('Categoria', categoriaId, estado.loja.categorias.map(function (c) { return [c.id, c.nome]; })),
-        ingredientes: campoTexto('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes.join(', ') : '', { max: 300, placeholder: 'Separe por vírgula: Cebola, Tomate, Maionese', ajuda: 'Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' }),
+        ingredientes: campoEtiquetas('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes : [], { placeholder: 'Ex.: Cebola', ajuda: 'Escreva um de cada vez e toque em Adicionar. Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' }),
       };
       /* a foto no topo, grande: e o que mais vende, e antes ficava espremida entre o preco e a descricao */
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.foto, f.nome, f.preco, f.descricao, f.categoria, f.ingredientes, f.emoji]);
@@ -1842,7 +1921,7 @@
         var dados = {
           nome: nome, descricao: f.descricao.input.value.trim(), preco: preco, emoji: f.emoji.valor() || '🍔',
           categoria: f.categoria.input.value,
-          ingredientes: f.ingredientes.input.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean),
+          ingredientes: f.ingredientes.lista(),
         };
         /* Foto: primeiro guarda a imagem (documento separado), depois o item aponta pra ela, e so entao a antiga sai.
            Enquanto isso, a limpeza de foto solta (carregarFotos) espera: ela via o item na foto velha ja apagada. */
@@ -2377,7 +2456,11 @@
       /* loja com design exclusivo (feito pelo Ligeiro): cores, estilo e capa sao do design e ficam travados, para o dono
          nao quebrar o visual sem querer (e o tema passaria por cima do que ele mudasse). So a logo continua livre */
       var exclusiva = !!UI.lojaOficial(slug);
-      f.previa = previaDaLoja(l, f, exclusiva);
+      /* no design exclusivo a logo tambem trava (o site usa a do design; trocar aqui so mudava a previa do WhatsApp, a lista da
+         cidade e o adesivo dos joguinhos: a loja ficava com duas logos). So o Ligeiro troca, entrando com a conta dele */
+      var cfgAdm = String((window.LIGEIRO_CONFIG || {}).adminEmail || '').toLowerCase();
+      var logoLivre = exclusiva && !!estado.usuarioEmail && estado.usuarioEmail === cfgAdm;
+      f.previa = previaDaLoja(l, f, exclusiva, logoLivre);
       f.cor = campoCor('Cor da sua loja', l.cor, function () { f.previa.atualizar(); });
       f.estilo = campoEstilo('Estilo do site', l.estilo, function () { f.previa.atualizar(); });
       f.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
@@ -2418,7 +2501,9 @@
             el('span', { class: 'design-exclusivo-ico' }, [UI.iconeLinha('cadeado')]),
             el('div', { class: 'design-exclusivo-texto' }, [
               el('b', { text: 'Design exclusivo' }),
-              el('span', { text: 'Sua loja tem um visual feito sob medida pelo Ligeiro. Cores, estilo e capa ficam travados para nada sair do lugar. A logo você troca quando quiser.' }),
+              el('span', { text: logoLivre
+                ? 'Você entrou como Ligeiro: a logo fica livre aqui (ela aparece na prévia do link no WhatsApp e na lista da cidade). Para o dono, tudo fica travado.'
+                : 'Sua loja tem um visual feito sob medida pelo Ligeiro. A logo, as cores, o estilo e a capa ficam travados para nada sair do lugar.' }),
             ]),
           ]),
         ]),

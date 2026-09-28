@@ -284,28 +284,36 @@
     }
     SP.luz = brilhoDe('rgba(255,214,120,A)');
     SP.luzVermelha = brilhoDe('rgba(255,60,50,A)');
-    /* o ratinho do Ligeiro na moto, de costas */
+    /* o ratinho do Ligeiro na moto, de costas, com a cara do mascote: contorno preto de desenho animado, pelo creme,
+       dolma branca com o lenco verde-limao, luvas brancas e o chapeu de cozinheiro */
+    var CONTORNO = '#1B1B1F', PELO = '#F6F0E4', PELO_SOMBRA = '#E6DCCB';
     SP.jogador = sprite(110, 172, function (x) {
-      x.strokeStyle = '#F4A7B9'; x.lineWidth = 4;
-      x.beginPath(); x.moveTo(74, 118); x.bezierCurveTo(96, 116, 100, 96, 90, 92); x.stroke();
+      x.lineJoin = 'round'; x.lineCap = 'round';
+      function tinta(cor, largura) { x.fillStyle = cor; x.fill(); x.strokeStyle = CONTORNO; x.lineWidth = largura || 2.4; x.stroke(); }
+      x.beginPath(); x.moveTo(74, 118); x.bezierCurveTo(96, 116, 100, 96, 90, 92);
+      x.strokeStyle = CONTORNO; x.lineWidth = 6.4; x.stroke(); x.strokeStyle = PELO_SOMBRA; x.lineWidth = 3.4; x.stroke();
       x.fillStyle = '#1D1F22'; retangulo(x, 43, 132, 24, 40, 10); x.fill();
       x.fillStyle = '#3A3D42'; x.fillRect(47, 140, 16, 3); x.fillRect(47, 150, 16, 3); x.fillRect(47, 160, 16, 3);
       x.fillStyle = '#2C3E50'; retangulo(x, 22, 102, 14, 38, 6); x.fill(); retangulo(x, 74, 102, 14, 38, 6); x.fill();
-      x.fillStyle = '#F5F5F5'; retangulo(x, 18, 134, 20, 10, 4); x.fill(); retangulo(x, 72, 134, 20, 10, 4); x.fill();
+      retangulo(x, 18, 134, 20, 10, 4); tinta('#FFFFFF', 2); retangulo(x, 72, 134, 20, 10, 4); tinta('#FFFFFF', 2);
       x.fillStyle = '#84CC16'; retangulo(x, 32, 112, 46, 28, 12); x.fill();
       x.fillStyle = '#5E9A0C'; retangulo(x, 32, 128, 46, 12, 6); x.fill();
       x.fillStyle = '#FF3B30'; retangulo(x, 44, 115, 22, 8, 3); x.fill();
       x.fillStyle = '#FFFFFF'; retangulo(x, 47, 126, 16, 7, 2); x.fill();
-      x.fillStyle = '#FFFFFF'; retangulo(x, 28, 44, 54, 30, 14); x.fill();
-      x.strokeStyle = '#D5DAD8'; x.lineWidth = 2; retangulo(x, 28, 44, 54, 30, 14); x.stroke();
-      x.fillStyle = '#2E9D4F'; retangulo(x, 40, 40, 30, 8, 4); x.fill();
-      x.fillStyle = '#E6E1E8'; bola(x, 34, 22, 12); x.fill(); bola(x, 76, 22, 12); x.fill();
-      x.fillStyle = '#D3CCD7'; bola(x, 34, 22, 7); x.fill(); bola(x, 76, 22, 7); x.fill();
-      x.fillStyle = '#ECE8EE'; bola(x, 55, 32, 14); x.fill();
-      x.strokeStyle = '#C9C1CE'; x.lineWidth = 2; bola(x, 55, 32, 14); x.stroke();
-      x.fillStyle = '#FFFFFF'; retangulo(x, 42, 12, 26, 9, 3); x.fill();
-      bola(x, 46, 8, 8); x.fill(); bola(x, 55, 4, 9); x.fill(); bola(x, 64, 8, 8); x.fill();
-      x.strokeStyle = '#DADFDD'; x.lineWidth = 1.5; retangulo(x, 42, 12, 26, 9, 3); x.stroke();
+      retangulo(x, 28, 44, 54, 30, 14); tinta('#FFFFFF');
+      /* o lenco verde-limao na nuca, com o no */
+      retangulo(x, 39, 39, 32, 9, 4.5); tinta('#A6D83B', 2);
+      x.beginPath(); x.moveTo(51, 47); x.lineTo(59, 47); x.lineTo(55, 55); x.closePath(); tinta('#A6D83B', 2);
+      /* orelhas e cabeca (de costas: o pelo por fora) */
+      bola(x, 34, 22, 12); tinta(PELO); bola(x, 76, 22, 12); tinta(PELO);
+      x.fillStyle = PELO_SOMBRA; bola(x, 34.6, 22.6, 7); x.fill(); bola(x, 75.4, 22.6, 7); x.fill();
+      bola(x, 55, 32, 14); tinta(PELO, 2.6);
+      /* chapeu: o contorno de todas as partes por baixo, o branco por cima (so a borda de fora aparece) */
+      x.strokeStyle = CONTORNO; x.lineWidth = 4.4;
+      retangulo(x, 42, 12, 26, 9, 3); x.stroke(); bola(x, 46, 8, 8); x.stroke(); bola(x, 55, 4, 9); x.stroke(); bola(x, 64, 8, 8); x.stroke();
+      x.fillStyle = '#FFFFFF';
+      retangulo(x, 42, 12, 26, 9, 3); x.fill(); bola(x, 46, 8, 8); x.fill(); bola(x, 55, 4, 9); x.fill(); bola(x, 64, 8, 8); x.fill();
+      x.strokeStyle = CONTORNO; x.lineWidth = 1.4; x.beginPath(); x.moveTo(43, 15.5); x.lineTo(67, 15.5); x.stroke();
       x.fillStyle = '#1B6B4A'; x.beginPath(); x.moveTo(20, 66); x.lineTo(90, 66); x.lineTo(86, 58); x.lineTo(24, 58); x.closePath(); x.fill();
       x.fillStyle = '#0F3D2E'; retangulo(x, 18, 64, 74, 52, 8); x.fill();
       x.fillStyle = '#84CC16'; x.fillRect(18, 104, 74, 5);
@@ -1149,7 +1157,7 @@
       el('div', { class: 'jogo-dica' }, [icone('cima'), el('span', { text: toque ? 'Arraste para cima: pula' : 'Seta para cima ou espaço: pula' })]),
     ]);
     var BASE_PODER = { ima: ['Ímã', 'puxa moedas'], turbo: ['Turbo', 'passa por tudo'], escudo: ['Capacete', 'salva 1 vez'] };
-    var poderes = el('div', { class: 'jogo-poderes' }, ['ima', 'turbo', 'escudo'].map(function (tipo) {
+    var poderes = el('div', { class: 'jogo-poderes' }, ['turbo', 'ima', 'escudo'].map(function (tipo) {
       var p = PODER_DE[tipo];
       return el('div', { class: 'jogo-poder' }, [miniatura(SP[tipo]), el('b', { text: p ? nomeCurto(p.nome) : BASE_PODER[tipo][0] }), el('span', { text: p ? FAZ_PODER[tipo] : BASE_PODER[tipo][1] })]);
     }));
@@ -1456,8 +1464,8 @@
       '.jogo-tela{position:absolute;inset:0;width:100%;height:100%;display:block}' +
       '.jogo-topo{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 0;pointer-events:none}' +
       '.jogo-topo[hidden],.jogo-painel[hidden],.jogo-aviso[hidden],.jogo-mult[hidden]{display:none}' +
-      '.jogo-moedas{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(14,31,20,.15);font-family:var(--display);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}' +
-      '.jogo-moedas>b{padding-right:6px}' +
+      '.jogo-moedas{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(14,31,20,.15);font-family:var(--display);font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}' +
+      '.jogo-moedas>b{padding-right:0}' + '@supports (text-box:trim-both cap alphabetic){.jogo-moedas>b{text-box:trim-both cap alphabetic}}' +
       '.jogo-moeda-ico{width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#FFD84A 0 55%,#F7C325 56% 78%,#D9A109 79%)}' +
       '.jogo-mult{margin-left:-4px;padding:2px 8px;border-radius:999px;background:var(--deep);color:#C6FF7A;font-size:14px;font-weight:800;line-height:1.3}' +
       '.jogo-mult.pula{animation:jogo-pop-mult .35s cubic-bezier(.2,1.6,.4,1) both!important}' +
@@ -1465,7 +1473,7 @@
       '.jogo-botoes{justify-self:end;display:flex;gap:8px;pointer-events:auto}' +
       '.jogo-botao{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--deep);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(14,31,20,.15);cursor:pointer;padding:0}' +
       '.jogo-botao .ico-traco svg{width:22px;height:22px}' +
-      '.jogo-pedido{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);max-width:calc(100% - 32px);padding:6px 14px;border-radius:999px;background:rgba(15,61,46,.82);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}' +
+      '.jogo-pedido{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);max-width:calc(100% - 32px);padding:6px 14px;line-height:20px;height:32px;border-radius:999px;background:rgba(15,61,46,.82);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}' +
       '.jogo-aviso{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);transform:translateX(-50%);max-width:calc(100% - 32px);padding:12px 18px;border-radius:16px;background:var(--lime);color:var(--ink);font-family:var(--display);font-size:17px;font-weight:700;text-align:center;box-shadow:0 6px 20px rgba(14,31,20,.25);animation:jogo-desce .3s ease-out both!important;pointer-events:none}' +
       '.jogo-aviso.sai{animation:jogo-sobe .35s ease-in both!important}' +
       '.jogo-painel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,61,46,.28)}' +
@@ -1482,7 +1490,7 @@
       '.jogo-poder b{font-size:13.5px;color:var(--ink)}' +
       '.jogo-poder span{font-size:12px;color:var(--muted);white-space:nowrap}' +
       '.jogo-poder-ico{width:44px;height:44px;margin-bottom:4px}' +
-      '.jogo-opcao{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 4px 4px 12px;font-size:15px;font-weight:600;color:var(--ink)}' +
+      '.jogo-opcao{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 4px 12px;font-size:15px;font-weight:600;color:var(--ink)}' +
       '.jogo-recorde{display:inline-flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;color:var(--deep2)}' +
       '.jogo-recorde .ico-traco svg{width:20px;height:20px}' +
       '.jogo-final{display:flex;flex-direction:column;align-items:center;line-height:1}' +
@@ -1500,7 +1508,7 @@
       '.jogo-fome-texto b{font-size:15px;color:var(--ink)}' +
       '.jogo-fome-texto span{font-size:13.5px;color:var(--body,#3B4A3F);overflow-wrap:anywhere}' +
       '.jogo-fome .btn{grid-column:1/-1}' +
-      '.jogo-cartao .btn .ico-traco{margin-right:8px}' +
+      '.jogo-cartao .btn .ico-traco{margin:0 -5px 0 -5.25px}' +
       '.jogo-dica-rapida{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(15,61,46,.85);color:#fff;font-size:15px;font-weight:600;white-space:nowrap;pointer-events:none;animation:jogo-aparece .3s ease-out both!important}' +
       '.jogo-dica-rapida.sai{animation:jogo-some .5s ease-in both!important}' +
       '@keyframes jogo-pop{0%{opacity:0;transform:scale(.86) translateY(12px)}100%{opacity:1;transform:none}}' +

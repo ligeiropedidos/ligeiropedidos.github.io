@@ -179,6 +179,13 @@ console.log('copia enxuta (js/m e css/m, o que o site publicado baixa)');
     });
   });
   ok(quebrados.length === 0, 'todo arquivo que o CSS enxuto chama existe' + (quebrados.length ? ' (quebrados: ' + quebrados.join(', ') + ')' : ''));
+  /* a conferencia de versao nova (app.js) acha o numero no index de verdade: com a copia enxuta o molde procurava js/app.js
+     e nunca achava, e quem abria com a versao guardada no celular nao saia dela */
+  const app = fs.readFileSync(path.resolve('js/app.js'), 'utf8');
+  const molde = /var novo = html\.match\((\/.+\/)\);/.exec(app);
+  const achou = molde && INDEX.match(new Function('return ' + molde[1])());
+  const doIndex = (INDEX.match(/\?v=([0-9a-z]+)/) || [])[1];
+  ok(!!achou && achou[1] === doIndex, 'a conferencia de versao nova acha o numero no index (' + (achou ? achou[1] : 'nada') + ')');
 }
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');

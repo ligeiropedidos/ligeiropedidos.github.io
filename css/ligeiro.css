@@ -283,6 +283,18 @@ a.selo-google:hover { background: var(--lime-suave); }
 .cidade-nome { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.15; color: var(--ink); }
 
 .hub-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* ingredientes em etiquetas (painel, item do cardapio): a etiqueta com o x, e embaixo o campo com o Adicionar na mesma altura */
+.etiquetas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; } /* 8 ate o campo, como entre as etiquetas */
+.etiquetas:empty { display: none; }
+.etiqueta { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; max-width: 100%; padding: 0 1px 0 12px; border-radius: 999px; background: var(--lime-suave); border: 1.5px solid var(--line-forte); color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.2; }
+.etiqueta-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-bottom: 2px; } /* meio pelo peso da letra: sem isso as minusculas ficavam 1,4 px abaixo do meio (medido pela tinta); 1 px acima equilibra maiusculas e minusculas */
+.etiqueta-tirar { flex: none; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.etiqueta-tirar .ico-traco svg { width: 16px; height: 16px; stroke-width: 2.4; transform: translateY(0.5px); } /* a tinta do x (9 px) a 13,75 da borda direita, como o texto a 13,75 da esquerda, e no meio da altura */
+.etiqueta-tirar:focus-visible { outline: 3px solid var(--deep); outline-offset: 0; }
+@media (hover: hover) { .etiqueta-tirar:hover { background: rgba(14, 31, 20, 0.08); color: var(--ink); } }
+.etiqueta-linha { display: flex; gap: 8px; }
+.etiqueta-linha input { flex: 1; min-width: 0; }
+.etiqueta-linha .btn { flex: none; min-height: 56px; padding: 0 18px; }
 .hub-chips .aba-painel { min-height: 40px; font-size: 14.5px; padding: 0 14px; gap: 8px; line-height: 1; }
 .chip-ponto { width: 8px; height: 8px; border-radius: 50%; background: #22A35A; flex: none; box-shadow: 0 0 0 3px rgba(34, 163, 90, 0.18); }
 .aba-painel.ativa .chip-ponto { background: var(--lime2); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18); }
@@ -516,16 +528,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .item-carrinho { display: flex; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
 .item-carrinho .miniatura { width: 56px; height: 56px; flex: none; border-radius: 12px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; }
 .item-carrinho .miniatura img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 56px; } /* no minimo a altura da foto: preco na linha de baixo dela */
+.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; min-height: 56px; } /* nome e preco juntos, no meio da altura da foto (com adicionais, o texto cresce e a foto fica no topo) */
 .item-carrinho .nome { font-weight: 700; line-height: 1.3; } /* com 1,5 o cartao passava 2,5 px da foto (13 em cima, 15,5 embaixo) */
 .item-carrinho .detalhes { font-size: 14px; color: var(--muted); }
 .item-carrinho .detalhes .sem { color: #B4501A; font-weight: 600; }
-.item-carrinho .linha-preco { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 6px; }
+.item-carrinho .linha-preco { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
 .item-carrinho .preco { font-family: var(--display); font-weight: 700; color: var(--deep); font-size: 18px; }
 .item-carrinho .remover-item { border: 0; background: none; color: var(--erro); font-weight: 700; font-size: 15px; padding: 8px 0; margin: -8px 0; } /* a area de toque (8 em cima e embaixo) nao estica o cartao: antes sobravam 24,5 px embaixo da foto e 13 em cima */
-/* o cartao do item numa grade exata: o topo das letras do nome na linha do topo da foto, e o pe das letras do preco e do
-   Remover na linha do pe da foto (13 da borda, como a foto; o Remover a 13 da direita, como a foto a 13 da esquerda). A caixa
-   de cada texto fica aparada na letra (sem a sobra de cima e de baixo), entao a medida vale em qualquer letra */
+/* o texto do item medido pela letra: a caixa de cada texto fica aparada na tinta (sem a sobra de cima e de baixo), entao o
+   vao entre o nome e o preco e o que se ve, o bloco fica no meio exato da foto e o preco e o Remover pisam na mesma linha */
 @supports (text-box: trim-both cap alphabetic) {
   .item-carrinho .nome, .item-carrinho .preco, .item-carrinho .remover-item { text-box: trim-both cap alphabetic; }
   .item-carrinho .linha-preco { align-items: flex-end; }
@@ -3125,7 +3136,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
    Assistir branco embaixo, tudo na mesma linha de 16 da borda. Nada escrito por cima da imagem */
 .video-loja-capa { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; padding: 16px; border: 0; border-radius: 18px; overflow: hidden; cursor: pointer; text-align: left; background: linear-gradient(135deg, var(--deep) 0%, var(--deep2) 100%); box-shadow: 0 6px 20px rgba(14, 31, 20, 0.1); }
 .video-loja-capa:active { transform: translateY(2px); }
-.video-loja-fundo { position: absolute; inset: -32px; z-index: -1; } /* sobra de 32 em volta: o desfoque nao clareia as bordas */
+.video-loja-fundo { position: absolute; inset: -32px; z-index: -1; clip-path: inset(32px round var(--raio-fundo-video, 18px)); } /* sobra de 32 em volta: o desfoque nao clareia as bordas. Recortado no formato do cartao: o desfoque escapava pelos cantos redondos (pontas escuras fora da borda) */
 .video-loja-fundo img { width: 100%; height: 100%; object-fit: cover; display: block; filter: blur(22px) brightness(0.4) saturate(1.2); }
 .video-loja-nome { max-width: 100%; color: #fff; font-family: var(--display); font-size: 20px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .video-loja-quadro { position: relative; align-self: stretch; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; }
@@ -3136,3 +3147,13 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .video-loja-quadro .video-loja-bolinha { width: 56px; height: 56px; background: rgba(255, 255, 255, 0.18); } /* sem capa: o play grande no meio */
 .video-loja-quadro .video-loja-bolinha .ico-traco svg { width: 24px; height: 24px; }
 @media (max-width: 359px) { .srv-prod-pe .btn .ico-traco, .srv-pedido .btn .ico-traco { display: none; } .srv-prod-pe .btn { padding: 0 12px; } } /* celular de 320: o texto dos botoes cabe numa linha (o icone e o que sobra) */
+
+/* aviso de celular de mentira (amostra): a notificacao descendo do topo, como no celular */
+.aviso-demo { position: fixed; z-index: 10000; top: calc(12px + env(safe-area-inset-top)); left: 50%; width: min(420px, calc(100% - 24px)); display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; background: rgba(246, 246, 248, 0.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28); color: #111; text-align: left; transform: translate(-50%, calc(-100% - 24px)); transition: transform 0.38s cubic-bezier(0.2, 1.2, 0.4, 1); cursor: pointer; }
+.aviso-demo.dentro { transform: translate(-50%, 0); }
+.aviso-demo-ico { flex: none; width: 40px; height: 40px; border-radius: 10px; object-fit: contain; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.aviso-demo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+.aviso-demo-texto b { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aviso-demo-texto span { font-size: 14px; color: #3C3C43; }
+.aviso-demo-hora { flex: none; align-self: flex-start; font-size: 12px; color: #8A8A8E; }
+@media (prefers-reduced-motion: reduce) { .aviso-demo { transition: none; } }
