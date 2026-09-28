@@ -620,7 +620,7 @@
       var antigo = $('cabecaPedidos');
       var avisoMP = estado.loja.mpAtivo && estado.mpStatus ? el('p', { class: 'aviso', style: { fontSize: '14px' } }, [UI.iconeLinha('raio'), el('span', { text: estado.mpStatus })]) : null;
       /* equipe: sem assinatura, primeiros passos e interruptor da loja (so o dono mexe na loja) */
-      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : (estado.loja.amostra === true ? [avisoAmostra(), interruptorLoja(), cartaoAvisosAmostra()] : [cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), cartaoAvisos(), avisoMP]));
+      var cabeca = el('div', { id: 'cabecaPedidos', class: 'pilha' }, estado.equipe ? [cartaoAvisos()] : (estado.loja.amostra === true ? [avisoAmostra(), interruptorLoja(), cartaoAvisosAmostra()] : [estado.loja.demoPainel ? null : cartaoAssinatura(false), primeirosPassos(), interruptorLoja(), estado.loja.demoPainel ? cartaoAvisosAmostra() : cartaoAvisos(), estado.loja.demoPainel ? null : avisoMP]));
       if (antigo) antigo.replaceWith(cabeca); else s.insertBefore(cabeca, s.firstChild);
     }
 
@@ -3219,7 +3219,7 @@
       var sit = A.situacao();
       var ligado = A.aparelhoLigado(slug, 'painel');
       if (sit === 'sem' && !ligado) return null;
-      if (estado.loja.amostra === true && !ligado) return null; /* amostra: os apitos seriam de quem montou */
+      if ((estado.loja.amostra === true || estado.loja.demoPainel) && !ligado) return null; /* amostra e painel de demonstracao: os apitos seriam de quem montou */
       var texto = ligado ? 'Ligados neste aparelho: pedido novo e Pix pago apitam aqui mesmo com a tela apagada.'
         : sit === 'instalar' ? 'No iPhone, coloque o painel na tela de início e ligue os avisos por lá.'
         : sit === 'pronto' ? 'Desligados neste aparelho. Ligue para receber pedido novo com a tela apagada.'

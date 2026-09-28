@@ -364,7 +364,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .faixa-acompanhar .seta { margin-left: auto; display: inline-flex; flex: none; }
 .faixa-acompanhar .faixa-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .faixa-acompanhar .faixa-qtd { flex: none; padding: 3px 9px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 13.5px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
-.faixa-teste { background: repeating-linear-gradient(135deg, var(--lemon) 0 14px, #FCE36B 14px 28px); color: #4A3A00; font-size: 13px; font-weight: 700; text-align: center; padding: 6px 10px; letter-spacing: 0.04em; }
+.faixa-teste { background: repeating-linear-gradient(135deg, var(--lemon) 0 14px, #FCE36B 14px 28px); color: #4A3A00; font-size: 13px; font-weight: 700; text-align: center; padding: 6px 10px; letter-spacing: 0.04em; text-wrap: balance; }
+.faixa-teste a { color: inherit; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; } /* "Ver o painel" da amostra e "Voltar para a loja" do painel de demonstracao */
 .rodape { margin-top: auto; padding: 16px var(--margem) 30px; text-align: center; color: var(--muted); font-size: 14.5px; display: flex; flex-direction: column; gap: 16px; }
 /* as linhas de informacao (Pix seguro, endereco, verificada/CNPJ) andam juntas, 8 entre elas; dali 16 ate o WhatsApp e 16 ate o fim.
    So encosta quando o fim da pagina termina numa linha dessas: depois de um cartao (o da loja oficial) fica o 16 de sempre */

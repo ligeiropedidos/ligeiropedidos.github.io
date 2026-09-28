@@ -188,5 +188,46 @@ console.log('copia enxuta (js/m e css/m, o que o site publicado baixa)');
   ok(!!achou && achou[1] === doIndex, 'a conferencia de versao nova acha o numero no index (' + (achou ? achou[1] : 'nada') + ')');
 }
 
+console.log('\n== painel de demonstracao da amostra (?demo=painel) ==');
+{
+  /* o trecho do index que liga a demonstracao, rodado num navegador de mentira: sem ?demo=painel nada muda; com ele o
+     banco desliga e toda gravacao vai para chaves "demo:", sem tocar nos dados de verdade do aparelho */
+  const trecho = (/<script>\/\* painel de demonstracao[\s\S]*?<\/script>/.exec(INDEX) || [''])[0].replace(/^<script>/, '').replace(/<\/script>$/, '');
+  ok(!!trecho, 'o index tem o trecho da demonstracao do painel');
+  function rodar(busca) {
+    const guardado = {}, escrito = [];
+    function Guarda() {}
+    Guarda.prototype.getItem = function (k) { return k in guardado ? guardado[k] : null; };
+    Guarda.prototype.setItem = function (k, v) { guardado[k] = String(v); };
+    Guarda.prototype.removeItem = function (k) { delete guardado[k]; };
+    const local = new Guarda(), sessao = new Guarda();
+    const janela = { LIGEIRO_CONFIG: { firebase: { projectId: 'x' } } };
+    new Function('window', 'location', 'Storage', 'sessionStorage', 'document', trecho)(janela, { search: busca }, Guarda, sessao, { write: (h) => escrito.push(h) });
+    return { janela, local, sessao, guardado, escrito };
+  }
+  const normal = rodar('');
+  ok(!!normal.janela.LIGEIRO_CONFIG.firebase && !normal.janela.LIGEIRO_DEMO_PAINEL && !normal.escrito.length, 'sem ?demo=painel: banco ligado e nada carregado a mais');
+  normal.local.setItem('ligeiro:meus-pedidos', '1');
+  ok(normal.guardado['ligeiro:meus-pedidos'] === '1', 'sem ?demo=painel: as chaves ficam como sempre');
+  const outro = rodar('?demonstracao=painel');
+  ok(!!outro.janela.LIGEIRO_CONFIG.firebase, 'outro parametro parecido nao liga a demonstracao');
+  const demo = rodar('?demo=painel');
+  ok(demo.janela.LIGEIRO_CONFIG.firebase === null && !!demo.janela.LIGEIRO_DEMO_PAINEL, 'com ?demo=painel: banco desligado');
+  demo.guardado['ligeiro:meus-pedidos'] = 'de verdade';
+  demo.local.setItem('ligeiro:meus-pedidos', 'demo');
+  ok(demo.guardado['ligeiro:meus-pedidos'] === 'de verdade' && demo.guardado['demo:ligeiro:meus-pedidos'] === 'demo', 'com ?demo=painel: gravar nao mexe na chave de verdade');
+  demo.local.removeItem('ligeiro:meus-pedidos');
+  ok(demo.guardado['ligeiro:meus-pedidos'] === 'de verdade', 'com ?demo=painel: apagar nao mexe na chave de verdade');
+  demo.guardado['ligeiro:demo-painel'] = '{"slug":"x"}';
+  ok(demo.janela.LIGEIRO_DEMO_PAINEL.original('ligeiro:demo-painel') === '{"slug":"x"}', 'a demonstracao le o que a amostra deixou (chave de verdade, so leitura)');
+  ok(demo.escrito.length === 1 && /js\/m\/seed\.js\?v=/.test(demo.escrito[0]), 'com ?demo=painel: os dados de exemplo entram antes do dados.js');
+  const posSeedTrecho = INDEX.indexOf('painel de demonstracao'), posDados = INDEX.indexOf('js/m/dados.js'), posDemo = INDEX.indexOf('js/m/demo-painel.js'), posApp = INDEX.indexOf('js/m/app.js');
+  ok(posSeedTrecho > 0 && posSeedTrecho < posDados && posDados < posDemo && posDemo < posApp, 'ordem: trecho da demonstracao, dados.js, demo-painel.js, app.js');
+  ok(fs.existsSync(path.resolve('js/m/seed.js')) && fs.existsSync(path.resolve('js/m/demo-painel.js')), 'a copia enxuta tem o seed.js e o demo-painel.js');
+  const r = await pedir('/painel/burger-house?demo=painel');
+  const h = await r.text();
+  ok(r.status === 200 && h.indexOf('painel de demonstracao') >= 0, 'o endereco limpo do painel com ?demo=painel abre o site');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

@@ -838,6 +838,14 @@
       document.title = (l.amostra === true ? 'Amostra · ' : '') + l.nome + ' · Ligeiro';
       /* amostra: a faixa em cima de todas as telas e fora da busca do Google */
       if ($('faixaAmostra')) $('faixaAmostra').hidden = l.amostra !== true;
+      /* "Ver o painel": o painel de demonstracao com esta loja (nome, logo, design e cardapio) e pedidos de exemplo */
+      var verPainel = $('verPainelAmostra');
+      if (verPainel && l.amostra === true) {
+        verPainel.href = '/?demo=painel#/painel/' + l.slug;
+        verPainel.onclick = function () {
+          try { sessionStorage.setItem('ligeiro:demo-painel', JSON.stringify({ slug: l.slug, loja: l, voltar: location.pathname + location.hash })); } catch (_) { /* sem espaco: abre com a loja de exemplo */ }
+        };
+      }
       marcarForaDaBusca(l.amostra === true);
       if (!balcao && window.LigeiroApp && window.LigeiroApp.manifestDaLoja) window.LigeiroApp.manifestDaLoja((l.cidadeSlug || 'loja') + '/' + l.slug, l.nome);
       var logo = $('logoLoja');
@@ -3202,7 +3210,7 @@
 
   function esqueletoDaLoja(balcao) {
     return '' +
-    '<div class="faixa-teste faixa-amostra" id="faixaAmostra" role="note" hidden>AMOSTRA: esta loja ainda não recebe pedidos</div>' +
+    '<div class="faixa-teste faixa-amostra" id="faixaAmostra" role="note" hidden>AMOSTRA: não recebe pedidos. <a id="verPainelAmostra" href="/?demo=painel">Ver o painel</a></div>' +
     '<button class="faixa-acompanhar" id="faixaAcompanhar" hidden>' + UI.iconeHtml('recibo') + '<span class="faixa-texto" id="faixaTexto"></span><span class="faixa-qtd" id="faixaQtd"></span><span class="seta">' + UI.iconeHtml('avancar') + '</span></button>' +
 
     '<section class="tela ativa" id="tela-inicio">' +

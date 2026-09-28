@@ -315,7 +315,13 @@
   if (window.LigeiroDados.modoDemo) {
     var faixa = document.createElement('div');
     faixa.className = 'faixa-teste';
-    faixa.textContent = 'MODO DEMONSTRAÇÃO: os dados ficam só neste aparelho';
+    var DPn = window.LigeiroDemoPainel;
+    if (DPn) {
+      /* painel de demonstracao da amostra: diz que os pedidos sao de exemplo e leva de volta para a loja */
+      faixa.classList.add('faixa-demo-painel');
+      faixa.appendChild(document.createTextNode('DEMONSTRAÇÃO: pedidos de exemplo, nada vai para a loja. '));
+      if (DPn.voltar) { var volta = document.createElement('a'); volta.href = DPn.voltar; volta.textContent = 'Voltar para a loja'; faixa.appendChild(volta); }
+    } else faixa.textContent = 'MODO DEMONSTRAÇÃO: os dados ficam só neste aparelho';
     document.body.insertBefore(faixa, document.body.firstChild);
   }
 
