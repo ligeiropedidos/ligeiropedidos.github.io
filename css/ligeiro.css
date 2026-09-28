@@ -873,7 +873,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .avancado > * { margin-bottom: 12px; } /* aberto: 12 entre os itens e ate a borda, o ritmo dos blocos */
 .avancado > summary { margin-bottom: 0; }
 /* horarios por dia */
-.horarios { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); overflow: hidden; }
+.horarios { container: horarios / inline-size; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); overflow: hidden; }
 .dia-linha { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; min-height: 64px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .dia-linha:last-of-type { border-bottom: 0; }
 .dia-cabeca { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -892,12 +892,14 @@ a.selo-google:hover { background: var(--lime-suave); }
 .dia-linha .dia-mais .ico-traco { margin-left: -2.5px; transform: translateY(0.5px); }
 .dia-acao .ico-traco { margin-left: -2.75px; transform: translateY(-0.5px); } /* o + e o x tem folga dentro do desenho: medido na tinta, as sobras dos dois lados ficam iguais e o sinal no meio da altura dos numeros */
 .dia-linha .dia-tirar .ico-traco { margin-left: -2.875px; }
-.dia-acao.tirar .ico-traco { margin-left: -3px; } /* o x tem mais folga que o + */ /* fica na linha do 2o turno (a de baixo quando os dois nao cabem lado a lado) */
+.dia-acao.tirar .ico-traco { margin-left: -3px; } /* o x tem mais folga que o + */
 .turno .muted:first-child { min-width: 36px; text-align: right; } /* "das" e "e das" terminam no mesmo ponto: as horas das duas linhas ficam uma embaixo da outra */
 .dia-acao { display: none; }
-/* celular: cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
-   [hora] ate [hora], ocupando a largura inteira, uma embaixo da outra. */
-@media (max-width: 640px) {
+/* celular (e qualquer tela em que a linha do PC nao cabe: dia, chave, das [hora] ate [hora] e o botao pedem uns 690 px):
+   cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
+   [hora] ate [hora], ocupando a largura inteira, uma embaixo da outra. Medido pela caixa dos horarios, nao pela tela:
+   no PC com a janela estreita o botao tampava o "ate 23:00" */
+@container horarios (max-width: 720px) {
   .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 0; }
   .dia-cabeca { justify-content: flex-start; min-height: 36px; gap: 10px; }
   .dia-cabeca .dia-nome { width: auto; flex: 1 1 auto; min-width: 0; }
@@ -907,7 +909,8 @@ a.selo-google:hover { background: var(--lime-suave); }
   .dia-linha:not(.fechado) .dia-cabeca .chave { margin-left: 0; }
   .dia-acao { order: 3; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--deep2); font: inherit; font-size: 13.5px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer; }
   .dia-acao.tirar { color: #A3341F; border-color: #F3C9C2; background: #FFF6F4; }
-  .dia-linha .dia-mais, .dia-linha .turnos .turno .btn-mini { display: none; } /* o X do 2o turno mora no cabecalho; ganha do ".btn-mini:has(icone)" la de baixo, que mostrava um X a mais */
+  .horarios .dia-linha > .btn.dia-mais { display: none; } /* o + e o x do 2o turno moram no cabecalho. Mais forte que o ".btn-mini:has(> .ico-traco:only-child)" la de baixo: com o sinal desenhado, ele mostrava o botao de novo embaixo */
+  .dia-linha:has(.turnos.dois) .dia-cabeca { margin-top: 0; } /* o acerto de 5 px e so da linha do PC */
   .turnos { flex-direction: column; gap: 8px; }
   .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
   .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
