@@ -589,7 +589,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .bloco-numero { width: 30px; height: 30px; border-radius: 50%; background: var(--lime); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
 .bloco-opcional { font-family: var(--corpo); font-size: 13px; color: var(--muted); font-weight: 600; margin-left: auto; }
 .campo label { display: block; font-weight: 700; margin-bottom: 8px; }
-.campo .ajuda { font-size: 14px; line-height: 1.35; color: var(--muted); margin: -4px 0 8px; } /* rotulo ate a ajuda: 4, como titulo e texto em todo lugar */
+.campo .ajuda { font-size: 14px; line-height: 19px; color: var(--muted); margin: -4px 0 8px; } /* rotulo ate a ajuda: 4, como titulo e texto em todo lugar */
 .campo .opcional { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 6px; }
 .campo input, .campo select, .campo textarea {
   width: 100%; min-height: 56px; padding: 12px 14px;
@@ -906,38 +906,41 @@ a.selo-google:hover { background: var(--lime-suave); }
 .turno input[type="time"] { width: 118px; min-height: 44px; padding: 6px 8px; border: 1.5px solid var(--line-forte); border-radius: 12px; font: inherit; font-size: 16px; background: var(--card); color: var(--ink); }
 .turno .muted { font-size: 14px; min-width: 26px; }
 .turno .btn-mini { min-width: 40px; padding: 0; }
-.dia-linha .dia-mais { justify-self: end; align-self: center; white-space: nowrap; gap: 4px; } /* no meio da linha (o .btn-mini puxava para cima: 2,5 px acima do centro) */
+.dia-linha .dia-mais { justify-self: end; align-self: start; margin-top: 2px; white-space: nowrap; gap: 4px; } /* na altura dos campos de hora (44 de campo, 40 de botao: 2 em cima). Centrado pela linha caia em meio pixel e a letra pulava */
 .dia-linha:has(.turnos.dois) .dia-cabeca { align-self: start; margin-top: 5px; } /* com dois turnos, o nome do dia fica na linha do 1o turno, junto do botao */
 .dia-linha .dia-tirar { align-self: start; margin-top: 2px; gap: 4px; } /* na altura do 1o turno, onde fica o "+ 2º turno" dos outros dias (e no celular, o botao no cabecalho): o canto de cima nao fica vazio */
-.dia-linha .dia-mais .ico-traco { margin-left: -2.5px; transform: translateY(0.5px); }
-.dia-acao .ico-traco { margin-left: -2.75px; transform: translateY(-0.5px); } /* o + e o x tem folga dentro do desenho: medido na tinta, as sobras dos dois lados ficam iguais e o sinal no meio da altura dos numeros */
+.dia-linha .dia-mais .ico-traco { margin-left: -2.5px; transform: translateY(-0.25px); } /* sinal e texto na mesma altura, pela tinta (a letra encaixa no pixel inteiro; o sinal acompanha) */
+ /* o + e o x tem folga dentro do desenho: medido na tinta, as sobras dos dois lados ficam iguais e o sinal no meio da altura dos numeros */
 .dia-linha .dia-tirar .ico-traco { margin-left: -2.875px; }
-.dia-acao.tirar .ico-traco { margin-left: -3px; } /* o x tem mais folga que o + */
+
 .turno .muted:first-child { min-width: 36px; text-align: right; } /* "das" e "e das" terminam no mesmo ponto: as horas das duas linhas ficam uma embaixo da outra */
-.dia-acao { display: none; }
 /* celular (e qualquer tela em que a linha do PC nao cabe: dia, chave, das [hora] ate [hora] e o botao pedem uns 690 px):
    cabecalho = dia, [+ 2o turno] e liga/desliga na ponta; embaixo so as linhas de hora, todas iguais:
    [hora] ate [hora], ocupando a largura inteira, uma embaixo da outra. Medido pela caixa dos horarios, nao pela tela:
    no PC com a janela estreita o botao tampava o "ate 23:00" */
 @container horarios (max-width: 720px) {
-  .dia-linha { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 0; }
-  .dia-cabeca { justify-content: flex-start; min-height: 36px; gap: 10px; }
+  /* cabecalho: dia e liga/desliga; embaixo [hora] ate [hora] [+ 2º], o botao na mesma altura dos campos (como no PC,
+     a acao do turno fica na ponta da linha das horas; com dois turnos, o x fica na linha do 1o) */
+  .dia-linha { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; min-height: 0; }
+  .dia-cabeca { grid-column: 1 / -1; justify-content: flex-start; min-height: 34px; gap: 10px; }
   .dia-cabeca .dia-nome { width: auto; flex: 1 1 auto; min-width: 0; }
   .dia-linha.fechado .dia-nome { flex: 0 0 88px; }
   .dia-linha:not(.fechado) .dia-estado { display: none; } /* a chave verde ja diz que esta aberto */
   .dia-cabeca .chave { order: 4; margin-left: auto; }
   .dia-linha:not(.fechado) .dia-cabeca .chave { margin-left: 0; }
-  .dia-acao { order: 3; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--deep2); font: inherit; font-size: 13.5px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer; }
-  .dia-acao.tirar { color: #A3341F; border-color: #F3C9C2; background: #FFF6F4; }
-  .horarios .dia-linha > .btn.dia-mais { display: none; } /* o + e o x do 2o turno moram no cabecalho. Mais forte que o ".btn-mini:has(> .ico-traco:only-child)" la de baixo: com o sinal desenhado, ele mostrava o botao de novo embaixo */
   .dia-linha:has(.turnos.dois) .dia-cabeca { margin-top: 0; } /* o acerto de 5 px e so da linha do PC */
+  .horarios .dia-linha > .btn.dia-mais { align-self: start; justify-self: end; min-height: 44px; height: 44px; margin: 0; padding: 0 12px; }
+  .dia-mais-resto { display: none; }
+  .dia-linha .dia-mais .ico-traco { margin-left: -2.75px; transform: none; }
+
+  .dia-linha .dia-tirar .ico-traco { margin-left: -3.125px; }
   .turnos { flex-direction: column; gap: 8px; }
   .turno { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; }
   .turno .muted { min-width: 0; text-align: center; white-space: nowrap; font-size: 13px; }
   .turno .muted:first-child { display: none; } /* "das" some: o "ate" no meio ja explica */
   /* appearance none: no iPhone o campo de hora tem largura minima propria e passava da coluna.
      flex + align-items: e o que o proprio iPhone usa pra centrar a hora na altura (com display block ela subia) */
-  .turno input[type="time"] { -webkit-appearance: none; appearance: none; display: flex; align-items: center; justify-content: center; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; text-align: center; padding: 0 4px; }
+  .turno input[type="time"] { -webkit-appearance: none; appearance: none; display: flex; align-items: center; justify-content: center; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; text-align: center; padding: 0 4px; }
   .turno input[type="time"]::-webkit-date-and-time-value { text-align: center; margin: 0; }
   /* no celular o toque no campo ja abre o relogio: o icone so roubava espaco e cortava a hora */
   .turno input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
@@ -2568,8 +2571,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .modal-topo .fechar .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.2; }
 .video-fechar { display: inline-flex; align-items: center; justify-content: center; }
 .video-fechar .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.4; }
-.dia-acao { gap: 4px; }
-.dia-acao .ico-traco svg, .btn-mini .ico-traco svg { width: 15px; height: 15px; stroke-width: 2.6; }
+.btn-mini .ico-traco svg { width: 15px; height: 15px; stroke-width: 2.6; }
 .btn-mini:has(> .ico-traco:only-child) { display: inline-flex; align-items: center; justify-content: center; }
 /* aviso de abrir no navegador (dentro do Instagram): titulo, explicacao e o botao do Chrome embaixo */
 .aviso-app { align-items: flex-start; font-weight: 400; }

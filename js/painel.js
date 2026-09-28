@@ -2943,17 +2943,14 @@
       }
       /* o 2o turno nasce sem bater no primeiro: quem abre a noite ganha o almoco; quem abre de dia ganha a janta */
       function segundoTurno(e) { var t = e.turnos[0] || ['', '']; return t[0] >= '15:00' ? ['11:00', '14:00'] : ['18:00', '23:00']; }
+      /* "2º turno" no PC; no celular o botao fica do lado das horas e mostra so "2º" (o nome inteiro vai no aria-label) */
+      function textoTurno() { return el('span', { class: 'dia-mais-texto' }, ['2º', el('span', { class: 'dia-mais-resto', text: ' turno' })]); }
       function desenharDia(dia) {
         var e = estadoH[dia];
         var linha = el('div', { class: 'dia-linha' + (e.aberto ? '' : ' fechado') });
         var chave = el('button', { type: 'button', class: 'chave' + (e.aberto ? ' on' : ''), 'aria-label': (e.aberto ? 'Fechar ' : 'Abrir ') + nomes[dia] });
         chave.addEventListener('click', function () { e.aberto = !e.aberto; redesenhar(dia); });
-        /* no celular a acao do 2o turno mora no cabecalho, do lado da chave: as linhas de hora ficam so com hora */
-        var acao = !e.aberto ? null : el('button', { type: 'button', class: 'dia-acao' + (e.turnos.length > 1 ? ' tirar' : ''), 'aria-label': (e.turnos.length > 1 ? 'Tirar o 2º turno de ' : 'Adicionar 2º turno em ') + nomes[dia], onclick: function () {
-          if (e.turnos.length > 1) e.turnos.splice(1, 1); else e.turnos.push(segundoTurno(e));
-          redesenhar(dia);
-        } }, e.turnos.length > 1 ? [UI.iconeLinha('fechar'), '2º turno'] : [UI.iconeLinha('mais'), '2º turno']);
-        linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' }), acao]));
+        linha.appendChild(el('div', { class: 'dia-cabeca' }, [el('b', { class: 'dia-nome', text: nomes[dia] }), chave, el('span', { class: 'dia-estado', text: e.aberto ? 'Aberto' : 'Fechado' })]));
         if (e.aberto) {
           var turnos = el('div', { class: 'turnos' + (e.turnos.length > 1 ? ' dois' : '') });
           e.turnos.forEach(function (t, i) {
@@ -2967,8 +2964,8 @@
           });
           linha.appendChild(turnos);
           /* tirar o 2o turno: na mesma coluna e no mesmo formato do "+ 2º turno", na altura da linha do 2o turno */
-          if (e.turnos.length > 1) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais dia-tirar', 'aria-label': 'Tirar o 2º turno de ' + nomes[dia], onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar'), '2º turno']));
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }, [UI.iconeLinha('mais'), '2º turno']));
+          if (e.turnos.length > 1) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais dia-tirar', 'aria-label': 'Tirar o 2º turno de ' + nomes[dia], onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar'), textoTurno()]));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }, [UI.iconeLinha('mais'), textoTurno()]));
         }
         return linha;
       }
