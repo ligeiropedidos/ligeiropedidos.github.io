@@ -615,6 +615,7 @@
         acaoCentral('etapa', { id: p.id }, 'Material recebido. O prazo começou.').catch(function () { soltar(); });
       } }, [ico('check'), 'Material chegou']);
       else if (p.status === 'producao') acao = el('button', { class: 'btn srv-btn-p', type: 'button', onclick: function () { entregar(p); } }, [ico(p.servico === 'video' ? 'subir' : 'check'), p.servico === 'video' ? 'Entregar vídeo' : 'Marcar entregue']);
+      else if (p.status === 'entregue' && p.servico === 'video' && p.video) acao = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { trocarCapa(p); } }, [ico('imagem'), 'Trocar capa']);
       var rot = ROTULOS[p.status] || [p.status, 'srv-st-neutro'];
       var linhaStatus = p.status === 'producao' ? 'Entregar até ' + diaMes(p.prazoAte) : p.status === 'aguardando_pagamento' ? 'Link vale até ' + diaMes(p.venceEm) : p.status === 'entregue' ? 'Entregue em ' + diaMes(p.entregueEm) : rot[0];
       var podeReembolsar = ['material', 'producao', 'entregue'].indexOf(p.status) >= 0 && Number(p.valor) > 0;
@@ -654,7 +655,8 @@
     }
     function entregar(p) {
       var video = p.servico === 'video';
-      var campo = campoVideo('srvArquivo'), arquivo = campo.input;
+      var campo = campoVideo('srvArquivo'), arquivo = campo.input, capa = campoCapa('srvCapa');
+      arquivo.addEventListener('change', function () { capa.video(arquivo.files && arquivo.files[0]); });
       var titulo = el('input', { id: 'srvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta', value: p.titulo || '' });
       var noSite = el('input', { id: 'srvNoSite', type: 'checkbox', checked: true });
       var avisar = el('input', { id: 'srvAvisar', type: 'checkbox', checked: true });
@@ -664,6 +666,7 @@
       var toggle = function (input, t, s) { return el('label', { class: 'srv-toggle', for: input.id }, [el('span', { class: 'srv-linha-texto' }, [el('strong', { text: t }), el('span', { class: 'srv-meta', text: s })]), input]); };
       UI.abrirModal({ titulo: video ? 'Entregar vídeo' : 'Entregar ' + p.nome, sub: p.lojaNome, centro: true, corpo: el('div', { class: 'srv srv-form' }, [
         video ? el('div', { class: 'srv-campo' }, [el('span', { class: 'srv-campo-rotulo', text: 'O vídeo' }), campo.caixa]) : null,
+        video ? capa.caixa : null,
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvTitulo', text: video ? 'Nome do vídeo (a loja vê)' : 'Observação (opcional)' }), titulo]),
         video ? toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.') : null,
         toggle(avisar, 'Avisar a loja por e-mail', 'Vai para o e-mail da conta da loja.'),
@@ -682,9 +685,35 @@
         if (!f) return fim(new Error('Escolha o vídeo.'));
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
         botao.disabled = true;
-        prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }).then(function (m) { botao.lastChild.textContent = 'Enviando...'; return subirVideo(p.id, m.arquivo, m); }).then(function (id) {
+        var escolhida = null;
+        capa.pronta().then(function (b) { escolhida = b; return prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }); }).then(function (m) { if (escolhida) m.capa = escolhida; botao.lastChild.textContent = 'Enviando...'; return subirVideo(p.id, m.arquivo, m); }).then(function (id) {
           return acaoCentral('entregar', { id: p.id, titulo: titulo.value, video: id, noSite: noSite.checked, avisar: avisar.checked }, 'Vídeo entregue.');
         }).catch(function (e) { botao.lastChild.textContent = 'Entregar vídeo'; fim(e); });
+      });
+    }
+    /* video ja entregue: sobe outra capa por cima da antiga (o video e o mesmo) */
+    function trocarCapa(p) {
+      var capa = campoCapa('srvTrocaCapa');
+      var erro = el('p', { class: 'srv-erro', role: 'alert', hidden: true });
+      var botao = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' } }, [ico('check'), 'Salvar capa']);
+      UI.abrirModal({ titulo: 'Trocar capa', sub: (p.titulo ? p.titulo + ', ' : '') + (p.lojaNome || p.loja), centro: true, corpo: el('div', { class: 'srv srv-form' }, [
+        capa.caixa,
+        el('p', { class: 'srv-peq', text: 'Quem já abriu o site da loja antes pode continuar vendo a capa antiga por um tempo, no próprio celular.' }),
+        erro,
+      ]), rodape: [botao] });
+      capa.video(midia('v', p.video));
+      botao.addEventListener('click', function () {
+        erro.hidden = true;
+        var soltar = UI.ocupar(botao, 'Salvando…');
+        if (!soltar) return;
+        capa.pronta().then(function (b) {
+          if (!b) throw erroPublico('A capa ainda não carregou. Espere a prévia aparecer.');
+          return subirArquivo(p.id, 'capa', b, { id: p.video });
+        }).then(function () {
+          /* o navegador guarda a capa por muito tempo: busca a nova para esta tela ja mostrar */
+          if (!D.modoDemo) fetch(midia('c', p.video), { cache: 'reload', mode: 'cors' }).catch(function () { return null; });
+          UI.fecharModal(); UI.avisar('Capa trocada.');
+        }).catch(function (e) { soltar(); erro.textContent = e.message; erro.hidden = false; });
       });
     }
     /* video combinado por fora: registra o pedido ja pago (sem Asaas) e entrega na hora, pelo mesmo caminho */
@@ -692,7 +721,8 @@
       /* mensageiro antigo nao conhece o "combinado por fora" e criaria uma cobranca de verdade: so libera depois de colar o novo */
       if (recursos.indexOf('fora') < 0) { UI.avisar('Cole o mensageiro do Asaas novo (worker-asaas.js) antes de usar o Enviar vídeo.'); return; }
       var selLoja = el('select', { id: 'srvEnvLoja' }, [el('option', { value: '', text: 'Escolha a loja' })].concat((lojas || []).map(function (l) { return el('option', { value: l.slug, text: l.nome + (l.cidade ? ', ' + l.cidade : '') }); })));
-      var campo = campoVideo('srvEnvArquivo'), arquivo = campo.input;
+      var campo = campoVideo('srvEnvArquivo'), arquivo = campo.input, capa = campoCapa('srvEnvCapa');
+      arquivo.addEventListener('change', function () { capa.video(arquivo.files && arquivo.files[0]); });
       var titulo = el('input', { id: 'srvEnvTitulo', type: 'text', maxlength: '60', placeholder: 'Ex.: Promoção de sexta' });
       var valor = el('input', { id: 'srvEnvValor', type: 'text', inputmode: 'decimal', placeholder: 'Ex.: 149,00 (vazio se foi cortesia)' });
       var noSite = el('input', { id: 'srvEnvNoSite', type: 'checkbox', checked: true });
@@ -703,6 +733,7 @@
       UI.abrirModal({ titulo: 'Enviar vídeo', sub: 'Para vídeo combinado por fora: não gera cobrança.', centro: true, corpo: el('div', { class: 'srv srv-form' }, [
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvLoja', text: 'Loja' }), selLoja]),
         el('div', { class: 'srv-campo' }, [el('span', { class: 'srv-campo-rotulo', text: 'O vídeo' }), campo.caixa]),
+        capa.caixa,
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvTitulo', text: 'Nome do vídeo (a loja vê)' }), titulo]),
         el('div', { class: 'srv-campo' }, [el('label', { for: 'srvEnvValor', text: 'Valor combinado (opcional)' }), valor]),
         toggle(noSite, 'Colocar no site da loja agora', 'O vídeo que estiver no site sai, mas continua em Vídeos da loja.'),
@@ -720,9 +751,10 @@
         if (!titulo.value.trim()) return fim(new Error('Dê um nome ao vídeo.'));
         if (!(centavos >= 0 && centavos <= 1000000)) return fim(new Error('Confira o valor (até R$ 10.000,00).'));
         botao.disabled = true;
-        var pedido = null;
+        var pedido = null, escolhida = null;
         /* comprime e confere o arquivo ANTES de registrar o pedido: arquivo errado nao deixa pedido pela metade no quadro */
-        prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }).then(function (m) {
+        capa.pronta().then(function (b) { escolhida = b; return prepararVideo(f, function (txt) { botao.lastChild.textContent = txt; }); }).then(function (m) {
+          if (escolhida) m.capa = escolhida;
           botao.lastChild.textContent = 'Enviando...';
           return api('criar', { loja: selLoja.value, servico: 'video', fora: true, valor: centavos }).then(function (r) { pedido = r.pedido; return subirVideo(pedido.id, m.arquivo, m); });
         }).then(function (id) {
@@ -791,6 +823,93 @@
       if (fs && fs[0]) { try { input.files = fs; } catch (_) { return; } input.dispatchEvent(new Event('change')); }
     });
     return { caixa: caixa, input: input };
+  }
+  /* a capa do video: o site mostra so a faixa do meio (16:9) no cartao antes de tocar, entao a previa ja vem nesse
+     recorte. Escolhe o momento na barra ou usa uma imagem pronta (JPG, PNG). Devolve { caixa, video(arquivo ou url),
+     pronta() -> Promise<Blob JPG ate 400 KB ou null> } */
+  var CAPA_MAX = 400 * 1024;
+  function campoCapa(id) {
+    var tela = el('canvas', { class: 'srv-capa-tela', width: '720', height: '1280' });
+    var vazio = el('span', { class: 'srv-capa-vazio', text: 'Carregando o vídeo…' });
+    var janela = el('div', { class: 'srv-capa-janela' }, [tela, vazio]);
+    var barra = el('input', { id: id, class: 'srv-capa-barra', type: 'range', min: '0', max: '1', step: '0.1', value: '1', disabled: true });
+    var tempo = el('span', { class: 'srv-capa-tempo', text: '1,0 s' });
+    var linhaBarra = el('div', { class: 'srv-capa-linha' }, [el('label', { for: id, text: 'Momento' }), barra, tempo]);
+    var inputImg = el('input', { id: id + 'Img', class: 'srv-arquivo-input', type: 'file', accept: 'image/jpeg,image/png,image/webp' });
+    var botaoImg = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { inputImg.click(); } }, [ico('imagem'), 'Usar uma imagem']);
+    var botaoVoltar = el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', hidden: true }, [ico('video'), 'Voltar para o vídeo']);
+    var caixa = el('div', { class: 'srv-campo srv-capa', hidden: true }, [
+      el('span', { class: 'srv-campo-rotulo', text: 'Capa do vídeo' }),
+      janela,
+      el('p', { class: 'srv-meta', text: 'É o pedaço que aparece no site da loja, antes de tocar.' }),
+      linhaBarra,
+      el('div', { class: 'srv-capa-botoes' }, [botaoImg, botaoVoltar]),
+      inputImg,
+    ]);
+    var g = tela.getContext('2d'), v = null, urlVideo = null, modo = '', desenhou = false;
+    function mostrar(texto) { vazio.textContent = texto || ''; vazio.hidden = !texto; }
+    function medida(w, h) { var e = Math.min(1, 720 / w, 1280 / h); tela.width = Math.max(1, Math.round(w * e)); tela.height = Math.max(1, Math.round(h * e)); }
+    function quadro() {
+      if (modo !== 'video' || !v || !v.videoWidth) return;
+      medida(v.videoWidth, v.videoHeight);
+      try { g.drawImage(v, 0, 0, tela.width, tela.height); desenhou = true; mostrar(''); } catch (_) { desenhou = false; mostrar('Não deu para ler este vídeo aqui.'); }
+    }
+    function modoVideo() {
+      modo = 'video'; barra.disabled = !v; linhaBarra.hidden = false; botaoVoltar.hidden = true; botaoImg.hidden = false;
+      if (v && v.readyState >= 2) { if (Math.abs(v.currentTime - Number(barra.value)) > 0.05) v.currentTime = Number(barra.value); else quadro(); }
+    }
+    barra.addEventListener('input', function () {
+      tempo.textContent = Number(barra.value).toFixed(1).replace('.', ',') + ' s';
+      if (v && modo === 'video') v.currentTime = Number(barra.value);
+    });
+    inputImg.addEventListener('change', function () {
+      var f = inputImg.files && inputImg.files[0];
+      if (!f) return;
+      var u = URL.createObjectURL(f), im = new Image();
+      im.onload = function () {
+        modo = 'imagem'; medida(im.naturalWidth, im.naturalHeight); g.drawImage(im, 0, 0, tela.width, tela.height); URL.revokeObjectURL(u);
+        desenhou = true; mostrar(''); linhaBarra.hidden = true; botaoVoltar.hidden = !v; botaoImg.lastChild.textContent = 'Trocar a imagem';
+      };
+      im.onerror = function () { URL.revokeObjectURL(u); UI.avisar('Essa imagem não abre. Use JPG ou PNG.'); };
+      im.src = u;
+      inputImg.value = '';
+    });
+    botaoVoltar.addEventListener('click', function () { botaoImg.lastChild.textContent = 'Usar uma imagem'; modoVideo(); });
+    /* arquivo (File) do computador ou endereco do video ja entregue (o mensageiro libera para o canvas ler) */
+    function video(fonte) {
+      if (urlVideo) URL.revokeObjectURL(urlVideo);
+      urlVideo = null; desenhou = false; caixa.hidden = !fonte;
+      if (!fonte) { v = null; return; }
+      mostrar('Carregando o vídeo…');
+      v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      if (typeof fonte === 'string') { v.crossOrigin = 'anonymous'; v.src = fonte; } else { urlVideo = URL.createObjectURL(fonte); v.src = urlVideo; }
+      var este = v;
+      v.addEventListener('loadedmetadata', function () {
+        if (v !== este) return;
+        var dur = Math.min(20, v.duration || 0);
+        barra.max = String(Math.max(0.1, Math.floor(dur * 10) / 10));
+        if (Number(barra.value) > Number(barra.max)) barra.value = String(Math.min(1, Number(barra.max) / 2));
+        tempo.textContent = Number(barra.value).toFixed(1).replace('.', ',') + ' s';
+        if (modo !== 'imagem') modoVideo(); else barra.disabled = false;
+        v.currentTime = Number(barra.value);
+      });
+      v.addEventListener('seeked', function () { if (v === este) quadro(); });
+      v.addEventListener('error', function () { if (v === este) mostrar('Não deu para abrir o vídeo aqui. Use uma imagem.'); });
+    }
+    /* o JPG final: comeca em 0,85 e baixa ate caber nos 400 KB do mensageiro */
+    function pronta() {
+      if (!desenhou) return Promise.resolve(null);
+      var q = [0.85, 0.75, 0.65, 0.55];
+      function tentar(i) {
+        return new Promise(function (ok) { tela.toBlob(ok, 'image/jpeg', q[i]); }).then(function (b) {
+          if (b && b.size > CAPA_MAX && i < q.length - 1) return tentar(i + 1);
+          return b && b.size <= CAPA_MAX ? b : null;
+        });
+      }
+      return tentar(0);
+    }
+    return { caixa: caixa, video: video, pronta: pronta };
   }
   /* ---------- compressao no proprio navegador (nada pesa no servidor) ----------
      O video toca num quadro de 720 x 1280 (cabe inteiro, faixa preta onde sobrar, igual ao comprimir-video.bat) e o

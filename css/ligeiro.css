@@ -2448,7 +2448,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .aviso-cel-pedido .btn { flex: none; min-height: 44px; min-width: 96px; padding: 0 18px; } /* Avisar e Jogar com a mesma largura: um cartao embaixo do outro, os botoes alinham */
 .aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: #C9E7A1; }
 .aviso-cel-pedido.ligado .aviso-cel-ico { background: #fff; }
-.aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--deep); font-weight: 600; }
+.aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--deep); font-weight: 600; text-wrap: balance; } /* sem "andar." sozinho na segunda linha */
 /* convite da Corrida do Ligeiro: o mesmo cartao do "Quer saber quando sair?", com o mascote no lugar do icone */
 /* em destaque: o mesmo cartao, com o fundo verde-limao e a borda do botao principal */
 .jogo-convite { background: linear-gradient(135deg, var(--lime-suave) 0%, #FFFFFF 85%); border-color: #C9E7A1; }
@@ -3012,6 +3012,20 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .srv-arquivo > .ico-traco svg { width: 24px; height: 24px; }
 .srv-arquivo strong { font-size: 15px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srv-campo .srv-arquivo-input { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+/* capa do video: a previa no recorte do cartao do site (16:9, a faixa do meio), a barra do momento e a imagem pronta */
+.srv-capa-janela { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--deep); }
+.srv-capa-tela { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.srv-capa-vazio { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; color: rgba(255, 255, 255, 0.8); font-size: 14px; text-align: center; background: var(--deep); }
+.srv-capa-vazio[hidden] { display: none; }
+.srv-capa .srv-meta { margin: 0; }
+.srv-capa-linha { display: flex; align-items: center; gap: 12px; }
+.srv-capa-linha[hidden] { display: none; }
+.srv-capa-linha label { flex: none; font-weight: 400; color: var(--body); }
+.srv-campo .srv-capa-barra { flex: 1; min-height: 32px; height: 32px; padding: 0; border: 0; background: none; accent-color: var(--lime-escuro); cursor: pointer; }
+.srv-capa-tempo { flex: none; min-width: 44px; text-align: right; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.srv-capa-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.srv-capa-botoes .btn { flex: 1 1 0; min-width: 0; }
+.srv-capa-botoes .btn[hidden] { display: none; }
 .srv-aceite { display: flex; align-items: flex-start; gap: 12px; font-size: 15px; line-height: 22px; cursor: pointer; }
 .srv-aceite input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--lime-escuro); }
 .srv-aceite a { font-weight: 700; }

@@ -226,7 +226,7 @@ body:has(.tema-burgerhouse #tela-inicio.ativa) { overflow-x: clip; }
 .tema-burgerhouse:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #3A1A0A 0%, var(--bh-carvao) 75%); }
 .tema-burgerhouse:has(#tela-inicio) .senha-gigante { color: #FF8A1F; }
 .tema-burgerhouse:has(#tela-inicio) .painel-senha .rotulo { color: var(--bh-ouro); }
-.tema-burgerhouse:has(#tela-inicio) .jogo-convite { border-color: var(--line-forte); }
+.tema-burgerhouse:has(#tela-inicio) .jogo-convite, .tema-burgerhouse:has(#tela-inicio) .aviso-cel-pedido.ligado { border-color: var(--line-forte); }
 .tema-burgerhouse:has(#tela-inicio) .chave:not(.on) { background: #E6D5C4; } /* desligado no tom quente da casa (o cinza-esverdeado e do Ligeiro) */
 /* o fundo e as linhas em creme quente (o padrao do site puxa para o verde, que briga com o laranja da casa) */
 .tema-burgerhouse:has(#tela-inicio), body:has(.tema-burgerhouse #tela-inicio) .modal.tema-burgerhouse { --bg: #FFF8F0; --line: #F0E1D1; --line-forte: #E0C9B2; --muted: #75655A; --body: #4A3B31; --ink: #1A0E07; }
