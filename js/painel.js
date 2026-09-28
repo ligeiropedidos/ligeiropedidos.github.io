@@ -1776,6 +1776,10 @@
       function atualizar() {
         var srcCapa = imgDe(f.capa);
         var srcLogo = imgDe(f.logo);
+        /* design exclusivo: a previa mostra a logo do design (a que o site usa); a do campo vai para o WhatsApp e a lista */
+        var ofPrev = exclusiva && UI.lojaOficial(slug);
+        if (ofPrev && ofPrev.logo) srcLogo = ofPrev.logo;
+        tela.classList.toggle('previa-exclusiva', !!ofPrev);
         UI.limpar(capa);
         if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
         capa.classList.toggle('sem-capa', !srcCapa);

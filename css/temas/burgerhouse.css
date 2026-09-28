@@ -236,3 +236,35 @@ body:has(.tema-burgerhouse #tela-inicio) { background: #FFF8F0; }
 .tema-burgerhouse:has(#tela-inicio) .topo-titulo { color: var(--bh-creme); }
 .tema-burgerhouse:has(#tela-inicio) .topo-passo { color: var(--bh-ouro); }
 .tema-burgerhouse:has(#tela-inicio) .topo .voltar { background: rgba(255, 244, 230, 0.08); border-color: rgba(255, 244, 230, 0.22); color: var(--bh-creme); }
+
+/* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem) ----------
+   As mesmas cores das telas do pedido: fundo creme, linhas quentes, cabecalho e aba ativa no carvao com a linha de brasa,
+   botao de acao no degrade de fogo. So as cores mudam: medidas e espacos sao os do padrao do Ligeiro */
+.tema-burgerhouse:has(.painel-topo), .tema-burgerhouse:has(.login), body:has(.tema-burgerhouse .painel-topo) .modal.tema-burgerhouse {
+  --bg: #FFF8F0; --card: #FFFFFF; --line: #F0E1D1; --line-forte: #E0C9B2; --muted: #75655A; --body: #4A3B31; --ink: #1A0E07;
+  --deep: #120A06; --deep2: #9A4A12; --lime: #FF7A1F; --lime-escuro: #C2560F; --lime-suave: #FFEBDC; --lime2: #FFC23A;
+  --texto-no-destaque: #1A0E07; --anel: rgba(255, 138, 31, 0.45);
+}
+body:has(.tema-burgerhouse .painel-topo), body:has(.tema-burgerhouse .login) { background: #FFF8F0; }
+.tema-burgerhouse .painel-topo { border-bottom: 3px solid var(--bh-brasa); }
+.tema-burgerhouse .painel-topo .nome { color: var(--bh-creme); }
+.tema-burgerhouse .painel-topo .btn-pequeno { background: rgba(255, 244, 230, 0.08); color: var(--bh-creme); }
+.tema-burgerhouse .painel-topo .btn-pequeno.on { background: var(--bh-chama); color: var(--bh-tinta); }
+.tema-burgerhouse:has(.painel-topo) .btn-principal, .tema-burgerhouse:has(.login) .btn-principal, body:has(.tema-burgerhouse .painel-topo) .modal.tema-burgerhouse .btn-principal { background: var(--bh-chama); color: var(--bh-tinta); }
+
+/* a previa "A cara da sua loja" no ajuste: a abertura do site em miniatura (palco escuro, fogo, a logo do design) */
+.tema-burgerhouse .previa-site.previa-exclusiva { background: var(--bh-carvao); }
+.tema-burgerhouse .previa-exclusiva .previa-status { color: var(--bh-creme); }
+.tema-burgerhouse .previa-exclusiva .previa-capa { background: radial-gradient(ellipse 70% 90% at 50% 100%, rgba(255, 106, 19, 0.45), rgba(255, 106, 19, 0) 70%), url('../../img/oficial/bh-fogo.svg') repeat-x center bottom / 110px 119px, var(--bh-carvao); }
+.tema-burgerhouse .previa-exclusiva .previa-capa.sem-capa::before { content: none; }
+.tema-burgerhouse .previa-exclusiva .previa-logo { width: 176px; height: 132px; margin-top: -44px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.tema-burgerhouse .previa-exclusiva .previa-logo::before { content: ""; position: absolute; left: 50%; top: 50%; width: 71%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle at 50% 38%, #2E1C12 0%, var(--bh-carvao) 72%); box-shadow: 0 0 0 3px rgba(255, 106, 19, 0.16), 0 0 26px 4px rgba(255, 106, 19, 0.45); }
+.tema-burgerhouse .previa-exclusiva .previa-logo img { position: relative; object-fit: contain; border-radius: 0; }
+.tema-burgerhouse .previa-exclusiva .previa-nome { display: none; }
+.tema-burgerhouse .previa-exclusiva .previa-tipo { color: var(--bh-ouro); font-family: var(--display); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; }
+.tema-burgerhouse .previa-exclusiva .previa-selo { background: rgba(255, 244, 230, 0.08); border: 1px solid rgba(255, 244, 230, 0.18); color: var(--bh-creme); }
+.tema-burgerhouse .previa-exclusiva .previa-selo .bolinha { background: #3DDC84; }
+.tema-burgerhouse .previa-exclusiva .previa-botao { background: var(--bh-chama); color: var(--bh-tinta); }
+.tema-burgerhouse .previa-exclusiva .previa-home { background: var(--bh-creme); }
+.tema-burgerhouse .status-loja.aberta { --ponto: #2E9D4F; } /* aberta e verde, como o "Aberto agora" do site */
+.tema-burgerhouse:has(.painel-topo) .aviso, .tema-burgerhouse:has(.painel-topo) .design-exclusivo { border-color: var(--line-forte); } /* a borda verde-clara fixa do padrao */

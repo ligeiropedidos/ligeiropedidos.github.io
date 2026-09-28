@@ -2442,6 +2442,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .aviso-cel-pedido[hidden] { display: none; }
 .aviso-cel-pedido .aviso-cel-ico { width: 40px; height: 40px; }
 .aviso-cel-pedido-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14.5px; line-height: 1.35; color: var(--body); }
+.aviso-cel-pedido-texto b, .aviso-cel-pedido-texto > span { text-wrap: balance; } /* linhas parecidas: sem "sair?" nem "apagada." sozinhos na ultima linha */
 .aviso-cel-pedido-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
 @media (max-width: 340px) { .aviso-cel-pedido { gap: 10px; padding-left: 12px; } .aviso-cel-pedido .btn { min-width: 80px; padding: 0 14px; } } /* 320: mais lugar para o nome do jogo */
 .aviso-cel-pedido .btn { flex: none; min-height: 44px; min-width: 96px; padding: 0 18px; } /* Avisar e Jogar com a mesma largura: um cartao embaixo do outro, os botoes alinham */
