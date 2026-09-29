@@ -799,6 +799,17 @@ adminAntes = doAdmin().length;
 r = await worker.fetch(new Request('https://w/', { method: 'POST', headers: { 'asaas-access-token': envE.ASAAS_WEBHOOK, 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'PAYMENT_RECEIVED', payment: { id: 'pay_srv', customer: 'cus_srv', externalReference: 'srv:abcdefghij0123456789' } }) }), envE);
 ok(r.status === 200 && doAdmin().length === adminAntes + 1 && /KV/.test(doAdmin()[doAdmin().length - 1].assunto), 'servico pago com o KV desligado: 200 (a fila de mensalidades nao trava) e e-mail ao admin');
 
+/* e-mail de pagamento confirmado para o dono: sai uma vez, no modelo da marca, e nunca no aviso repetido */
+novaConta('recibo@x.com', 'cusrc', { status: 'teste', desde: new Date(Date.now() - 20 * DIA).toISOString() });
+cobrancas.set('pay_rc', { id: 'pay_rc', customer: 'cusrc', value: 89, status: 'CONFIRMED', subscription: 'sub_rc', billingType: 'PIX' });
+assinaturas.set('sub_rc', { id: 'sub_rc', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
+r = await avisarCom(envE, { id: 'pay_rc', customer: 'cusrc' });
+const recibos = emails.filter((m) => m.para === 'recibo@x.com');
+const d = new Date(contaDe('recibo@x.com').plano.pagoAte), ate = String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+ok(r.status === 200 && recibos.length === 1 && recibos[0].assunto.indexOf('Pagamento confirmado') === 0 && recibos[0].assunto.indexOf(ate) > 0 && /selo-pago\.png/.test(recibos[0].html) && /R\$ 89,00/.test(recibos[0].html) && /\/painel\/loja-cusrc/.test(recibos[0].html), 'pagou: o dono recebe "Pagamento confirmado" com a data, o valor e o botao do painel, no modelo da marca');
+await avisarCom(envE, { id: 'pay_rc', customer: 'cusrc' });
+ok(emails.filter((m) => m.para === 'recibo@x.com').length === 1, 'aviso repetido do Asaas: nenhum e-mail a mais');
+
 /* conferencia da configuracao antes de lancar: so sim ou nao, nenhum segredo */
 r = await worker.fetch(new Request('https://w/saude'), envE);
 const txtSaude = await r.text(); j = JSON.parse(txtSaude);
