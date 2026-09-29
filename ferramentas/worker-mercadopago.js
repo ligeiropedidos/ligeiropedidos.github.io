@@ -2127,7 +2127,9 @@ export default {
         if (whatsapp.length > 11 && whatsapp.indexOf('55') === 0) whatsapp = whatsapp.slice(2);
         if (nome.length < 2 || whatsapp.length < 10 || whatsapp.length > 11) return json({ ok: false, erro: 'Confira o nome e o WhatsApp com DDD.' }, 400);
         const ip = ipDaCasa(request.headers.get('CF-Connecting-IP'));
-        if (demais('lead-ip:' + ip, 3, 10 * 60 * 1000)) return json({ ok: false, erro: 'Recebemos seus dados. Espere alguns minutos antes de mandar de novo.' }, 429);
+        /* 8 por endereco: a rede do celular (CGNAT) poe varias pessoas no mesmo IP. E a resposta nunca diz "recebemos"
+           sem ter gravado (o site mostra o botao do WhatsApp com a mensagem pronta) */
+        if (demais('lead-ip:' + ip, 8, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitos contatos seguidos desta rede. Mande pelo WhatsApp, que a gente responde.' }, 429);
         if (demais('lead-dia', 300, 24 * 3600 * 1000)) return json({ ok: false, erro: 'Muitos contatos agora. Chame a gente no WhatsApp.' }, 429);
         const fb = await firebase(env);
         const id = idAleatorio(20);
@@ -2157,7 +2159,9 @@ export default {
           const quem = await quemChamou(env, request);
           if (!quem || !(await ehDaLoja(env, loja, quem))) { demais('balcao-erro:' + casa, 1000, 10 * 60 * 1000); return json({ erro: 'Entre de novo com a senha da equipe.' }, 401); }
           if (demais('pedido-balcao:' + loja, 200, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
-        } else if (demais('pedido-ip:' + casa, 15, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
+        /* por endereco e loja (15) e por endereco no total (60): a rede do celular (CGNAT) poe muita gente da cidade no
+           mesmo IP, e o limite de 15 para todas as lojas juntas barrava cliente de verdade no dia de movimento */
+        } else if (demais('pedido-ip:' + casa + ':' + loja, 15, 10 * 60 * 1000) || demais('pedido-ip:' + casa, 60, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
         const fb = await firebase(env);
         const lojaDoc = 'lojas/' + loja;
         /* chave do pedido (o site sorteia uma por compra, 20 letras e numeros, e manda a mesma nas novas tentativas): a
@@ -2573,6 +2577,9 @@ export default {
     } catch (e) {
       /* o detalhe (resposta do banco ou do Mercado Pago) fica so no log do Cloudflare, nunca na resposta */
       console.error(caminho, e && e.message);
+      /* o banco acabou de bater no limite do dia neste pedido (marcarPausa): a resposta ja e a pausa, e o site manda o
+         pedido pronto pelo WhatsApp da loja na hora (antes o primeiro cliente via um erro e precisava tentar de novo) */
+      if (caminho === '/pedido' && MEM.pausa && MEM.pausa.valor && Date.now() - MEM.pausa.lida < 10 * 1000) return json({ pausa: true, erro: 'O site está com movimento demais agora.' }, 503);
       return json({ erro: 'não deu certo agora, tente de novo' }, 500);
     }
   },
@@ -2628,7 +2635,9 @@ async function lerLoja(env, ctx, slug) {
   return atualizarLoja(env, slug);
 }
 
-/* Le a loja no banco (1 leitura), tira o que nao e publico e guarda a resposta pronta no KV. */
+/* Le a loja no banco (1 leitura), tira o que nao e publico e guarda a resposta pronta no KV. Grava sempre, mesmo sem
+   mudanca: a hora da copia e a versao que invalida o token do Mercado Pago guardado na borda (o dono que reconectou
+   outra conta publica, e o Pix seguinte le o token novo). Pular a gravacao igual deixaria o Pix sair na conta velha */
 async function atualizarLoja(env, slug) {
   const fb = await firebase(env);
   const doc = await fb.get('lojas/' + slug);

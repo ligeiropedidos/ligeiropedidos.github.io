@@ -53,6 +53,9 @@ export default {
     if (caminhoPedido.indexOf('/plano/') === 0) return rotaDoDono(request, env, caminhoPedido);
     /* Loja do Ligeiro (servicos para as lojas): rotas do dono, da Central e os videos entregues */
     if (caminhoPedido.indexOf('/servicos/') === 0) return rotaServicos(request, env, caminhoPedido);
+    /* Central: pagamentos que entraram sem conta no Ligeiro (vincular a conta certa) e a conferencia da configuracao */
+    if (caminhoPedido.indexOf('/admin/') === 0) return rotaAdmin(request, env, caminhoPedido);
+    if (caminhoPedido === '/saude') return saude(env);
     if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok', { status: 200 });
     const token = request.headers.get('asaas-access-token') || '';
     if (!env.ASAAS_WEBHOOK || !igual(token, env.ASAAS_WEBHOOK)) return json({ ok: false, erro: 'token' }, 401);
@@ -119,7 +122,22 @@ async function processarPagamento(env, pag) {
       if (!pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
       const cliente = await asaas(env, '/customers/' + encodeURIComponent(pag.customer));
       const email = String(cliente.email || '').trim().toLowerCase();
-      if (!email) return json({ ok: false, erro: 'cliente sem e-mail' }, 200);
+      /* pagou sem e-mail, ou com um e-mail que nao tem conta no Ligeiro (digitou outro no Asaas): o dinheiro entrou, entao
+         nada se perde. Fica em pagamentosSemConta e a Central mostra, com o botao de vincular a conta certa (que troca o
+         e-mail do cliente no Asaas, para as proximas mensalidades ja cairem certo, e libera os dias) */
+      const semConta = async (motivo) => {
+        await fb0().then((fb) => fb.merge('pagamentosSemConta/' + encodeURIComponent(pag.id), {
+          id: String(pag.id), email: email, nome: String(cliente.name || ''), clienteAsaas: String(pag.customer), valor: Math.round(Number(pag.value || 0) * 100),
+          assinatura: String(pag.subscription || ''), forma: String(pag.billingType || ''), motivo: motivo, em: new Date().toISOString(),
+        })).catch((e) => console.error('pagamento sem conta', e && e.message || e));
+      };
+      let fbCache = null;
+      const fb0 = async () => { if (!fbCache) fbCache = await firebase(env); return fbCache; };
+      if (!email) {
+        await semConta('sem e-mail');
+        await avisarAdmin(env, 'Pagamento sem e-mail', 'Entrou ' + reais(Math.round(Number(pag.value || 0) * 100)) + ' (cobrança ' + pag.id + ', cliente ' + String(cliente.name || pag.customer) + ') de um cliente sem e-mail no Asaas. Vincule à conta certa na Central (Visão geral, Pagamentos sem conta).');
+        return json({ ok: true, ignorado: 'cliente sem e-mail' });
+      }
 
       /* multa e juros de atraso nao mudam o plano: vale o valor original da cobranca (o que entrou vai para o e-mail) */
       const centavos = Math.round(Number(pag.originalValue || pag.value || 0) * 100);
@@ -127,7 +145,7 @@ async function processarPagamento(env, pag) {
       const sub = pag.subscription && /^[A-Za-z0-9_-]{1,80}$/.test(String(pag.subscription)) ? String(pag.subscription) : '';
       /* a folga da multa (ate 10% acima de um preco) so vale para cobranca de assinatura: avulsa, so o preco exato */
       const plano = descobrirPlano(env, centavos, !!sub);
-      const fb = await firebase(env);
+      const fb = await fb0();
       const caminhoConta = 'contas/' + encodeURIComponent(email);
       const conta = await fb.get(caminhoConta, true);
       const p = (conta && conta.plano) || {};
@@ -142,7 +160,8 @@ async function processarPagamento(env, pag) {
       /* e-mail que nao tem conta no Ligeiro (digitou outro no Asaas): antes nascia uma conta fantasma paga e a de verdade
          ficava travada. Agora nao cria nada e o admin recebe um e-mail para acertar na Central */
       if (!conta) {
-        await avisarAdmin(env, 'Pagamento sem conta no Ligeiro', 'Entrou ' + reais(entrou) + ' do e-mail ' + email + ', que nao tem conta no Ligeiro. Ache o dono (Asaas > Clientes), corrija o e-mail do cliente no Asaas e confirme o pagamento na conta certa, na Central. Cobranca ' + pag.id + '.');
+        await semConta('e-mail sem conta');
+        await avisarAdmin(env, 'Pagamento sem conta no Ligeiro', 'Entrou ' + reais(entrou) + ' do e-mail ' + email + ', que não tem conta no Ligeiro (a pessoa digitou outro e-mail no Asaas). Ache o dono e toque em Vincular na Central (Visão geral, Pagamentos sem conta): o e-mail do cliente no Asaas é trocado e os dias entram na hora.');
         return json({ ok: true, ignorado: 'sem conta no Ligeiro' });
       }
       /* cobranca avulsa (sem assinatura): so vale se for exatamente o preco do plano. Outra (a loja personalizada, por
@@ -194,7 +213,10 @@ async function processarPagamento(env, pag) {
          que nao bate com nenhum plano: dias proporcionais ao que entrou, e o painel mostra a diferenca */
       const planosPreco = lerPlanos(env)[plano.id] || {};
       const cheio = Number(planosPreco[plano.tipo]) || 0;
-      let dias = plano.tipo === 'anual' ? 365 : 30;
+      /* o periodo cheio e o mes (ou ano) de calendario, como o Asaas cobra: com 30 dias fixos, nos meses de 31 o cartao em
+         dia aparecia "Vencida" (com o botao Pagar) um dia antes da cobranca automatica, e a diferenca crescia todo ano */
+      const fimCheio = somarPeriodo(base, plano.tipo);
+      let dias = Math.round((fimCheio - base) / 864e5);
       let fundador = p.fundador === true;
       let parcial = null;
       const escritas = [];
@@ -217,7 +239,7 @@ async function processarPagamento(env, pag) {
         if (mes > 0) parcial = { cobrado: centavos, cheio: mes, motivo: 'valor-diferente' };
       }
       if (parcial) dias = Math.min(365, Math.max(0, Math.floor((dias * parcial.cobrado) / parcial.cheio)));
-      const pagoAte = new Date(base + dias * 864e5).toISOString();
+      const pagoAte = new Date(parcial ? base + dias * 864e5 : fimCheio).toISOString();
       /* Uma assinatura so por conta. Uma NOVA (o primeiro pagamento dela, pelo link) vira a da conta e a velha e cancelada.
          So nao toma o lugar de uma viva com dias pagos pela frente: alguem pode ter assinado com o e-mail do dono, e a do
          dono seria apagada. Ai os dias entram (o dinheiro entrou), a da conta fica e o admin confere qual cancelar */
@@ -544,6 +566,70 @@ async function anotarFatura(env, pag, evento) {
   if (fatura.assinatura !== String(conta.assinaturaAsaas || '')) anota.assinaturaPendente = fatura.assinatura;
   await fb.merge(caminho, anota);
   return json({ ok: true, fatura: fatura.status, vencimento: vencimento });
+}
+
+/* ---------------- Central: pagamentos sem conta ----------------
+   POST /admin/sem-conta              a lista (quem pagou com outro e-mail, ou sem e-mail)
+   POST /admin/vincular {id, email}   troca o e-mail do cliente no Asaas para o da conta e processa o pagamento de novo */
+async function rotaAdmin(request, env, caminho) {
+  const origem = request.headers.get('Origin') || '';
+  const cors = { 'Access-Control-Allow-Origin': ORIGENS.indexOf(origem) >= 0 ? origem : 'null', Vary: 'Origin', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' };
+  const resp = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' }, cors) });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method !== 'POST') return resp({ ok: false, erro: 'Use POST.' }, 405);
+  if (['/admin/sem-conta', '/admin/vincular'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
+  let corpo = {};
+  try { corpo = await request.json(); } catch (_) { corpo = {}; }
+  if (!corpo || typeof corpo !== 'object') corpo = {};
+  try {
+    const fb = await firebase(env);
+    const email = await quemChamou(fb, request);
+    if (email !== ADMIN) return resp({ ok: false, erro: 'Só a Central do Ligeiro faz isso.' }, 403);
+    if (caminho === '/admin/sem-conta') {
+      const lista = (await fb.listar('pagamentosSemConta')).sort((a, b) => String(b.em || '').localeCompare(String(a.em || '')));
+      return resp({ ok: true, lista: lista });
+    }
+    const id = String(corpo.id || ''), para = String(corpo.email || '').trim().toLowerCase();
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return resp({ ok: false, erro: 'Pagamento inválido.' }, 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para) || para.length > 120) return resp({ ok: false, erro: 'Digite o e-mail da conta (o do Google que a pessoa usa para entrar).' }, 400);
+    const orf = await fb.get('pagamentosSemConta/' + encodeURIComponent(id));
+    if (!orf) return resp({ ok: false, erro: 'Esse pagamento já foi vinculado ou não existe mais.' }, 404);
+    const conta = await fb.get('contas/' + encodeURIComponent(para));
+    if (!conta) return resp({ ok: false, erro: 'Não existe conta com o e-mail ' + para + ' no Ligeiro. Confira: é o e-mail do Google que a pessoa usa para entrar.' }, 404);
+    /* o cliente do Asaas passa a ter o e-mail da conta: esta e as proximas mensalidades caem certo sozinhas */
+    await asaas(env, '/customers/' + encodeURIComponent(orf.clienteAsaas), 'POST', { email: para });
+    let res = null;
+    for (let vez = 0; ; vez++) {
+      try { res = await processarPagamento(env, { id: id, customer: orf.clienteAsaas }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+    }
+    const r = await res.json().catch(() => ({}));
+    if (r && r.ok && !r.ignorado) {
+      await fb.apagar('pagamentosSemConta/' + encodeURIComponent(id));
+      return resp({ ok: true, email: para, pagoAte: r.pagoAte || '', repetido: !!r.repetido, devolvido: !!r.devolvido });
+    }
+    if (r && r.repetido) { await fb.apagar('pagamentosSemConta/' + encodeURIComponent(id)); return resp({ ok: true, email: para, repetido: true }); }
+    return resp({ ok: false, erro: 'O e-mail foi trocado no Asaas, mas o pagamento não liberou dias (' + String((r && (r.ignorado || r.erro)) || 'motivo desconhecido') + '). Confira no Asaas.' }, 409);
+  } catch (e) {
+    console.error('admin', e && e.message || e);
+    return resp({ ok: false, erro: 'Não deu agora. Tente de novo em instantes.' }, 500);
+  }
+}
+
+/* GET /saude: a configuracao do mensageiro, so em sim ou nao (nenhum segredo sai daqui). Para conferir antes de lancar */
+function saude(env) {
+  let fundadorVagas = null;
+  try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 5); } catch (_) { fundadorVagas = null; }
+  const corpo = {
+    ok: true,
+    planosCertos: planosCertos(env),
+    fundadorVagas: fundadorVagas,
+    tokenDoAviso: !!env.ASAAS_WEBHOOK,
+    chaveDoAsaas: !!env.ASAAS_KEY,
+    contaDoBanco: !!env.FIREBASE_SA,
+    email: !!(env.EMAIL_URL && env.EMAIL_TOKEN),
+    kv: !!env.CARDAPIO,
+  };
+  return new Response(JSON.stringify(corpo), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
 }
 
 /* ---------------- troca mensal/anual e encerramento (o dono logado pede, pelo site) ----------------
@@ -880,6 +966,13 @@ async function asaas(env, caminho, metodo, corpo) {
 function json(obj, status) {
   return new Response(JSON.stringify(obj), { status: status || 200, headers: { 'Content-Type': 'application/json' } });
 }
+/* um mes (ou um ano) de calendario a partir de ms, no mesmo dia; 31 de janeiro + 1 mes = 28 (ou 29) de fevereiro */
+function somarPeriodo(ms, tipo) {
+  const d = new Date(ms), dia = d.getUTCDate();
+  if (tipo === 'anual') d.setUTCFullYear(d.getUTCFullYear() + 1); else d.setUTCMonth(d.getUTCMonth() + 1);
+  if (d.getUTCDate() !== dia) d.setUTCDate(0);
+  return d.getTime();
+}
 
 /* ---------------- Firestore pela REST, autenticado com a conta de servico (JWT RS256) ---------------- */
 async function firebase(env) {
@@ -918,6 +1011,17 @@ async function firebase(env) {
       }
     },
     cab: cab,
+    /* os documentos de uma colecao pequena (ate 100), com _id */
+    async listar(colecao) {
+      const r = await fetch(base + colecao + '?pageSize=100', { headers: cab });
+      if (!r.ok) throw new Error('Firestore list ' + r.status);
+      const j = await r.json();
+      return (j.documents || []).map((d) => Object.assign(deFirestore(d.fields || {}), { _id: decodeURIComponent(d.name.split('/').pop()) }));
+    },
+    async apagar(caminho) {
+      const r = await fetch(base + caminho, { method: 'DELETE', headers: cab });
+      if (!r.ok && r.status !== 404) throw new Error('Firestore delete ' + r.status);
+    },
     async merge(caminho, dados) {
       const campos = Object.keys(dados);
       const mask = campos.map((c) => 'updateMask.fieldPaths=' + encodeURIComponent(c)).join('&');
@@ -1427,7 +1531,12 @@ async function srvReembolsar(env, corpo) {
 async function avisoDeServico(env, pag, evento) {
   const id = String(pag.externalReference || '').slice(4);
   if (!ID_SRV.test(id)) return json({ ok: true, ignorado: 'referencia de servico torta' });
-  if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 500);
+  /* sem o KV nao ha como achar o pedido. Erro aqui seria para sempre, e a fila do Asaas (sequencial) pararia com as
+     mensalidades de todo mundo atras: responde 200 e o admin recebe e-mail para marcar na mao */
+  if (!env.CARDAPIO) {
+    await avisarAdmin(env, 'Pagamento de serviço sem o KV', 'Chegou o aviso da cobrança ' + String(pag.id) + ' (Loja do Ligeiro, srv:' + id + '), mas o ligeiro-asaas está sem o KV CARDAPIO ligado. Ligue em Settings > Bindings (Variable name CARDAPIO) e confira o pedido na Central.');
+    return json({ ok: true, ignorado: 'sem KV' });
+  }
   /* quem manda e o Asaas: a cobranca e lida de novo pela chave da API */
   const real = await asaas(env, '/payments/' + encodeURIComponent(pag.id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
   if (!real || String(real.externalReference || '') !== 'srv:' + id) return json({ ok: true, ignorado: 'cobranca desconhecida' });

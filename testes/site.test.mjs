@@ -33,6 +33,7 @@ lojas['dom-conizza'] = { nome: 'Dom Conizza', tipo: 'Pizzaria', cidade: 'Juquiá
 lojas['sem-logo'] = { nome: 'Lanche do Zé', tipo: 'Lanchonete', cidade: 'Juquiá', uf: 'SP', descricao: 'O melhor X-Bacon da praça', logoDados: '', ativa: true };
 lojas['desligada'] = { nome: 'Fechou', ativa: false };
 lojas['maldosa'] = { nome: '"><script>alert(1)</script>', tipo: 'Bar', cidade: 'X', uf: 'SP', logoDados: '', ativa: true };
+lojas['cifrao'] = { nome: "Bar do Zé $' $& $`", tipo: 'Bar', cidade: 'Juquiá', uf: 'SP', cidadeSlug: 'juquia', slug: 'cifrao', logoDados: '', ativa: true };
 
 console.log('== pessoa abrindo o link limpo ==');
 {
@@ -82,6 +83,10 @@ console.log('== robo de previa (WhatsApp) ==');
 {
   const h = await (await pedir('/juquia/maldosa', WHATS)).text();
   ok(!h.includes('<script>alert(1)</script>') && h.includes('&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;'), 'nome da loja nunca vira codigo na pagina');
+}
+{
+  const h = await (await pedir('/juquia/cifrao', WHATS)).text();
+  ok(h.indexOf("<title>Bar do Zé $' $&amp; $` · Ligeiro</title>") >= 0 && meta(h, 'property', 'og:title') === "Bar do Zé $' $&amp; $` · Juquiá/SP" && (h.match(/<html/g) || []).length === 1, 'nome com cifrao e aspas vai igual para a previa (nao copia pedaco do HTML)');
 }
 {
   await pedir('/painel/dom-conizza', WHATS);

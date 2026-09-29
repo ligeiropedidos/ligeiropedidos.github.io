@@ -193,6 +193,7 @@
       busca: { lojas: '', contas: '' },
       filtro: { lojas: 'todas', contas: 'todas', contatos: 'pendentes' },
       hoje: null, /* pedidos de hoje de todas as lojas: carrega uma vez por abertura (ou no Atualizar) */
+      semConta: null, /* pagamentos que entraram com outro e-mail no Asaas (o mensageiro guarda): uma vez por abertura */
       pedidosLoja: {}, /* pedidos de 7 dias de cada ficha aberta, guardados por 5 min */
       atencaoToda: false,
       ficha: null, /* ficha aberta agora: { tipo: 'loja', slug } ou { tipo: 'conta', email } */
@@ -364,6 +365,7 @@
         sincronizarCapacidade();
         pintar();
         if (estado.hoje === null) carregarHoje();
+        if (estado.semConta === null) carregarSemConta();
         return true;
       }).catch(function (e) {
         if (!vivo) return false;
@@ -484,6 +486,7 @@
       var soltar = b ? UI.ocupar(b, 'Atualizando…') : function () {};
       if (!soltar) return;
       estado.hoje = null;
+      estado.semConta = null;
       estado.hojeFresco = true; /* o Atualizar sempre soma de novo no banco */
       estado.pedidosLoja = {};
       conferirBorda();
@@ -530,6 +533,68 @@
         estado.hoje = { qtd: 0, total: 0, erro: true };
         if (estado.aba === 'geral') pintar();
       });
+    }
+
+    /* Pagamento que entrou com um e-mail sem conta no Ligeiro (a pessoa digitou outro no Asaas) ou sem e-mail: o
+       mensageiro do Asaas guarda, e aqui a Central vincula a conta certa (o e-mail do cliente no Asaas e trocado, as
+       proximas mensalidades ja caem certo, e os dias entram na hora). Nenhum pagamento fica perdido */
+    function pedirCentral(rota, corpo) {
+      var base = String(((cfgA.cobranca || {}).mensageiro) || '').replace(/\/+$/, '');
+      var falha = function (texto, status) { var e = new Error(texto); e.publico = true; e.status = status || 0; return e; };
+      if (!base || !store.obterIdToken || !window.fetch) return Promise.reject(falha('O mensageiro do Asaas não está configurado.'));
+      return store.obterIdToken().then(function (t) {
+        return fetch(base + '/admin/' + rota, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(corpo || {}) })
+          .catch(function () { throw falha('Sem internet agora. Confira a conexão e toque de novo.'); });
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j.ok) throw falha(j.erro || 'Não deu agora. Tente de novo em instantes.', r.status);
+          return j;
+        });
+      });
+    }
+    function carregarSemConta() {
+      if (D.modoDemo) { estado.semConta = []; return; }
+      estado.semConta = 'carregando';
+      pedirCentral('sem-conta', {}).then(function (j) {
+        estado.semConta = Array.isArray(j.lista) ? j.lista : [];
+      }, function () {
+        /* mensageiro antigo ou fora do ar: a lista fica vazia (o e-mail de aviso ao admin continua chegando) */
+        estado.semConta = [];
+      }).then(function () { if (vivo && estado.aba === 'geral') pintar(); });
+    }
+    function vincularPagamento(o) {
+      var campo = el('input', { type: 'email', inputmode: 'email', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', list: 'admEmailsDasContas', placeholder: 'nome@gmail.com' });
+      var sugestoes = el('datalist', { id: 'admEmailsDasContas' }, estado.contas.map(function (c) { return el('option', { value: String(c.email || '') }); }));
+      var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
+      var mostrarErro = function (texto) { erro.textContent = texto; erro.hidden = false; };
+      var ok = el('button', { class: 'btn btn-principal', type: 'button', text: 'Vincular', onclick: function () {
+        var email = String(campo.value || '').trim().toLowerCase();
+        erro.hidden = true;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { mostrarErro('Digite o e-mail da conta.'); campo.focus(); return; }
+        var soltar = UI.ocupar(ok, 'Vinculando…');
+        if (!soltar) return;
+        pedirCentral('vincular', { id: o.id, email: email }).then(function (j) {
+          estado.semConta = (Array.isArray(estado.semConta) ? estado.semConta : []).filter(function (x) { return x.id !== o.id; });
+          if (ok.isConnected) UI.fecharModal();
+          UI.avisar(j.devolvido ? 'Vinculado. A conta ' + email + ' está encerrada, então o pagamento foi devolvido.' : 'Vinculado: os dias entraram na conta ' + email + '.');
+          desenhar();
+        }, function (e) {
+          soltar();
+          /* ja vinculado (outro aparelho, dois toques): sai da lista */
+          if (e.status === 404 && /já foi vinculado/.test(e.message)) { estado.semConta = (Array.isArray(estado.semConta) ? estado.semConta : []).filter(function (x) { return x.id !== o.id; }); if (estado.aba === 'geral') pintar(); }
+          mostrarErro(e.message || 'Não deu agora. Tente de novo em instantes.');
+        });
+      } });
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } });
+      /* o que entrou, como na ficha da conta (rotulo e valor); depois o que o vincular faz e o campo */
+      UI.abrirModal({ titulo: 'Vincular pagamento', corpo: el('div', { class: 'adm-ficha' }, [
+        dados([['Quem pagou', o.nome || 'Sem nome'], ['Valor', din(o.valor || 0)], ['Quando', dataBR(o.em)], ['E‑mail no Asaas', o.email ? o.email.replace('@', '@​') : 'Nenhum']]), /* o e-mail longo quebra depois do @ */
+        el('p', { class: 'muted pequeno', text: 'Ao vincular, o cliente no Asaas passa a ter o e‑mail da conta: os dias entram na hora e as próximas mensalidades já caem certo.' }),
+        el('div', { class: 'campo' }, [el('label', { for: 'admVincularEmail', text: 'E‑mail da conta no Ligeiro' }), el('p', { class: 'ajuda', text: 'O e‑mail do Google que o dono usa para entrar no painel. Na dúvida, pergunte a ele no WhatsApp.' }), campo, sugestoes]),
+        erro,
+      ]), rodape: [el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Cancelar', onclick: UI.fecharModal }), ok] });
+      campo.id = 'admVincularEmail';
+      setTimeout(function () { campo.focus(); }, 80);
     }
 
     function contarPendencias() {
@@ -659,6 +724,11 @@
     /* Lista do que precisa de uma acao, do mais urgente pro menos. */
     function itensAtencao() {
       var itens = [];
+      /* dinheiro que entrou sem conta: o primeiro da lista (a pessoa pagou e a loja dela nao liberou) */
+      (Array.isArray(estado.semConta) ? estado.semConta : []).forEach(function (o) {
+        itens.push({ ordem: 0, peso: -(new Date(o.em).getTime() || 0), ico: 'dinheiro', tom: 'erro', titulo: 'Pagou ' + din(o.valor || 0) + (o.email ? ' com outro e‑mail' : ' sem e‑mail'), detalhe: [o.nome || 'Sem nome', dataBR(o.em)].join(' · '), /* o ponto vai junto da data (nunca sozinho no fim da linha) */
+          email: o.email || '', /* o e-mail que a pessoa digitou, numa linha so (longo termina em reticencias; a janela mostra inteiro) */ botao: 'Vincular', principal: true, acao: function () { vincularPagamento(o); } });
+      });
       var alvos = estado.contas.map(function (c) {
         var noAr = lojasDaConta(c.email).filter(function (l) { return l.ativa !== false; });
         return { nome: c.email, loja: noAr[0] || null, plano: c.plano || {}, a: R.assinatura(c), temLoja: noAr.length > 0, abrir: function () { abrirConta(c.email); } };
@@ -712,7 +782,7 @@
       }
       return el('div', { class: 'adm-atencao-linha' }, [
         el('span', { class: 'adm-ico' + (it.tom ? ' ' + it.tom : ''), 'aria-hidden': 'true' }, UI.iconeTraco(it.ico)),
-        el('div', { class: 'adm-atencao-texto' }, [el('b', { text: it.titulo }), el('span', { text: it.detalhe })]),
+        el('div', { class: 'adm-atencao-texto' }, [el('b', { text: it.titulo }), el('span', { text: it.detalhe }), it.email ? el('span', { class: 'adm-atencao-email', title: it.email, text: it.email }) : null]),
         botao,
       ]);
     }

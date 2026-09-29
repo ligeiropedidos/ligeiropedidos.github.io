@@ -549,7 +549,12 @@
     var usados = fundadores ? (Number(fundadores.usados) || 0) : 0;
     var vira = !!fundadores && p.fundador !== true && !p.ultimoPagamentoEm && usados < capacidadeFundador();
     var quando = agora.toISOString();
-    var pagoAte = new Date(baseDoPagamento(o, agora.getTime()) + dias * DIA).toISOString();
+    /* 30 e 365 viram o mes e o ano de calendario, como o Asaas cobra (a mesma conta do mensageiro); outro numero, os dias */
+    var baseMs = baseDoPagamento(o, agora.getTime());
+    var fim = new Date(baseMs), diaDoMes = fim.getUTCDate();
+    if (dias === 30) fim.setUTCMonth(fim.getUTCMonth() + 1); else if (dias === 365) fim.setUTCFullYear(fim.getUTCFullYear() + 1); else fim = new Date(baseMs + dias * DIA);
+    if ((dias === 30 || dias === 365) && fim.getUTCDate() !== diaDoMes) fim.setUTCDate(0);
+    var pagoAte = fim.toISOString();
     return {
       pagoAte: pagoAte, viraFundador: vira, usados: vira ? usados + 1 : usados,
       plano: {

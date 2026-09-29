@@ -54,7 +54,9 @@ async function lerLoja(slug) {
 
 function trocarMeta(html, atributo, nome, valor) {
   const re = new RegExp('<meta ' + atributo + '="' + nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '" content="[^"]*">');
-  return re.test(html) ? html.replace(re, '<meta ' + atributo + '="' + nome + '" content="' + esc(valor) + '">') : html;
+  /* troca por funcao: nome de loja com "$'" ou "$&" (o dono digita o que quiser) nao vira pedaco do HTML */
+  const novo = '<meta ' + atributo + '="' + nome + '" content="' + esc(valor) + '">';
+  return re.test(html) ? html.replace(re, () => novo) : html;
 }
 
 /* o index com a cara da loja: titulo, descricao, imagem e endereco da previa */
@@ -66,9 +68,11 @@ function comPreviaDaLoja(html, loja, onde) {
   const url = SITE + '/' + onde.cidade + '/' + onde.slug;
   const temLogo = /^data:image\/jpeg;base64,/.test(String(loja.logoDados || ''));
   const imagem = temLogo ? SITE + '/_logo/' + onde.slug + '?v=' + encodeURIComponent(loja.atualizadoEm || '') : SITE + '/img/previa-link.jpg';
-  html = html.replace(/<title>[^<]*<\/title>/, '<title>' + esc(loja.nome) + ' · Ligeiro</title>');
+  const tagTitulo = '<title>' + esc(loja.nome) + ' · Ligeiro</title>';
+  html = html.replace(/<title>[^<]*<\/title>/, () => tagTitulo);
   html = trocarMeta(html, 'name', 'description', descricao);
-  html = html.replace(/<link rel="canonical" href="[^"]*">/, '<link rel="canonical" href="' + esc(url) + '">');
+  const canonico = '<link rel="canonical" href="' + esc(url) + '">';
+  html = html.replace(/<link rel="canonical" href="[^"]*">/, () => canonico);
   html = trocarMeta(html, 'property', 'og:url', url);
   html = trocarMeta(html, 'property', 'og:title', titulo);
   html = trocarMeta(html, 'property', 'og:description', descricao);

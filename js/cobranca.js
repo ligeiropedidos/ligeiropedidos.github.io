@@ -30,7 +30,10 @@
     var venc = p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null;
     var dias = venc ? Math.round((venc.getTime() - new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime()) / 864e5) : null;
     var vencida = f.status === 'OVERDUE' || (dias != null && dias < 0);
-    if (!(opcoes && opcoes.todas)) {
+    /* assinatura que ainda nao pagou nenhuma vez (fechou o Pix ou o boleto do link): a fatura dela aparece sempre. Antes,
+       no periodo gratis o botao de pagar sumia (o link criaria outra assinatura) e nao sobrava onde pagar */
+    var primeira = !conta.assinaturaAsaas && !!conta.assinaturaPendente && String(f.assinatura || '') === String(conta.assinaturaPendente);
+    if (!(opcoes && opcoes.todas) && !primeira) {
       if (!vencida && f.forma === 'CREDIT_CARD') return null;
       if (!vencida && (dias == null || dias > 7)) return null;
     }

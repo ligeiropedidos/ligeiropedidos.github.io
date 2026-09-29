@@ -26,6 +26,8 @@ function erroCom(p, trecho) { return p.then(() => null, (e) => e).then((e) => !!
 const DIA = 864e5;
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 const iso = (t) => new Date(t).toISOString();
+/* o Pagou de 30 dias vale o mes de calendario (como o Asaas cobra): 31/01 vira 28 ou 29/02 */
+const umMesDepois = (quando) => { const d = new Date(quando), dia = d.getUTCDate(); d.setUTCMonth(d.getUTCMonth() + 1); if (d.getUTCDate() !== dia) d.setUTCDate(0); return d.toISOString(); };
 
 /* ---- Firestore de mentira: documentos por caminho, versao por documento e transacao otimista (igual ao de verdade:
    se um documento lido mudou antes do commit, refaz a funcao inteira com os dados novos) ---- */
@@ -350,7 +352,7 @@ console.log('\n--- nuvem (FirebaseStore sobre um Firestore de mentira) ---');
   ok(await erroCom(store.mudarPlanoDaLoja('sem-dono', fazLoja({ pagoAte: iso(Date.now() - 25 * DIA), ultimoPagamentoEm: '' })), 'loja mudou'), 'loja sem conta: Pagou com a ficha velha e recusado');
   const sl = banco.ler('lojas/sem-dono');
   const rl = await store.mudarPlanoDaLoja('sem-dono', fazLoja({ pagoAte: sl.plano.pagoAte, ultimoPagamentoEm: sl.plano.ultimoPagamentoEm }));
-  ok(banco.ler('lojas/sem-dono').plano.pagoAte === rl.pagoAte && rl.pagoAte === iso(Date.parse(sl.plano.pagoAte) + 30 * DIA) && banco.ler('lojas/sem-dono').ativa === true && banco.ler('vitrine/sem-dono').plano.pagoAte === rl.pagoAte, 'loja sem conta: Pagou soma do vencimento e a vitrine acompanha');
+  ok(banco.ler('lojas/sem-dono').plano.pagoAte === rl.pagoAte && rl.pagoAte === umMesDepois(sl.plano.pagoAte) && banco.ler('lojas/sem-dono').ativa === true && banco.ler('vitrine/sem-dono').plano.pagoAte === rl.pagoAte, 'loja sem conta: Pagou soma do vencimento e a vitrine acompanha');
   await store.mudarPlanoDaLoja('sem-dono', (l) => ({ plano: Object.assign({}, l.plano, { status: 'pausado' }) }));
   ok(banco.ler('lojas/sem-dono').plano.status === 'pausado' && banco.ler('lojas/sem-dono').ativa === true, 'loja sem conta: sem "ativa" na resposta, o mudarPlanoDaLoja nao mexe em ativa');
 }

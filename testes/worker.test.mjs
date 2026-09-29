@@ -325,6 +325,18 @@ r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
 ok(j.loja.aberta === true, 'a mudanca aparece na hora para o cliente');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
 ok(r.status === 200, 'admin tambem publica');
+zerar();
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+ok(r.status === 200 && kv.gravacoes === 1, 'publicar sem mudar nada grava a copia de novo (a versao nova e o que faz o token do Mercado Pago ser relido)');
+db.get('lojas/dom-conizza').aberta = false;
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+await new Promise((ok2) => setTimeout(ok2, 20));
+r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
+ok(kv.gravacoes >= 1 && j.loja.aberta === false, 'mudou algo: grava e aparece na hora');
+db.get('lojas/dom-conizza').aberta = true;
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+await new Promise((ok2) => setTimeout(ok2, 20));
+kv.mapa.delete('vitrine');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' } });
 ok(r.status === 400, 'sem login nao publica');
 
@@ -938,9 +950,10 @@ console.log('Contato da pagina de vendas');
   ok(r.status === 400, 'contato sem nome ou WhatsApp de verdade: 400');
   r = await lead({ nome: 'Ana\u202eX\nY', whatsapp: '13999991235' }); j = await r.json();
   ok(j.ok && db.get('leads/' + j.id).nome === 'Ana X Y', 'texto com quebra de linha e inversor de direcao vira espaco');
-  r = await lead({ nome: 'Ana Souza', whatsapp: '13999991236' });
-  r = await lead({ nome: 'Ana Souza', whatsapp: '13999991237' });
-  ok(r.status === 429, 'o 4o contato do mesmo aparelho em 10 min: espera (um robo nao gasta a cota do banco)');
+  for (let i = 3; i <= 8; i++) { r = await lead({ nome: 'Ana Souza', whatsapp: '139999912' + (40 + i) }); if (r.status !== 200) break; }
+  ok(r.status === 200, 'ate 8 contatos do mesmo endereco em 10 min passam (rede de celular divide o IP)');
+  r = await lead({ nome: 'Ana Souza', whatsapp: '13999991299' }); j = await r.json();
+  ok(r.status === 429 && !/Recebemos/.test(j.erro) && /WhatsApp/.test(j.erro), 'o 9o espera, e a resposta nunca diz "recebemos" sem ter gravado (manda para o WhatsApp)');
   r = await lead({ nome: 'Bia Lima', whatsapp: '13999991238' }, { 'CF-Connecting-IP': '2804:14c:65a1:4001:aaaa::1' });
   ok(r.status === 200, 'outro aparelho passa normal');
 }
@@ -1537,6 +1550,16 @@ kv.mapa.delete('sistema:pausa');
 const w3 = await workerNovo();
 r = await chamar(w3, '/loja/dom-conizza'); j = await r.json();
 ok(!j.pausa, 'depois que zera (o aviso vence), a loja volta ao normal');
+/* o primeiro pedido que bate no limite (ninguem tinha visto a pausa ainda): ja volta a pausa, nao um erro */
+globalThis.__limite = true;
+const w4 = await workerNovo();
+r = await chamar(w4, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: 'Ana Souza', telefone: '13999990077', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'pix' } }, headers: { 'CF-Connecting-IP': '10.77.0.1' } }); j = await r.json();
+globalThis.__limite = false;
+kv.mapa.delete('sistema:pausa');
+ok(r.status === 503 && j.pausa === true, 'o primeiro pedido que bate no limite do banco ja volta com a pausa (o site manda pelo WhatsApp da loja na hora)');
+const w5 = await workerNovo();
+r = await chamar(w5, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: 'Ana Souza', telefone: '13999990078', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'pix' } }, headers: { 'CF-Connecting-IP': '10.77.0.2' } });
+ok(r.status === 200, 'e com o banco normal o pedido passa (a pausa nao gruda)');
 
 console.log('Sem KV ligado');
 w = await workerNovo();

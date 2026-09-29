@@ -5,6 +5,8 @@
 import { generateKeyPairSync } from 'node:crypto';
 import path from 'node:path';
 import url from 'node:url';
+/* a mesma conta do worker-asaas (somarPeriodo): um mes ou um ano de calendario, no mesmo dia */
+function somarPeriodoTeste(ms, tipo) { const d = new Date(ms), dia = d.getUTCDate(); if (tipo === 'anual') d.setUTCFullYear(d.getUTCFullYear() + 1); else d.setUTCMonth(d.getUTCMonth() + 1); if (d.getUTCDate() !== dia) d.setUTCDate(0); return d.getTime(); }
 
 const aqui = path.dirname(url.fileURLToPath(import.meta.url));
 const { default: worker } = await import(url.pathToFileURL(path.join(aqui, '..', 'ferramentas', 'worker-asaas.js')).href);
@@ -32,6 +34,7 @@ const logins = new Map([
   ['tok-naoconferido', { email: 'troca@x.com', emailVerified: false }],
   ['tok-equipe', { email: 'equipe-loja-troca@equipe.ligeiropedidos.com.br', emailVerified: true }],
   ['tok-outro', { email: 'outro@x.com', emailVerified: true }],
+  ['tok-admin', { email: 'ligeiro.pedidos@gmail.com', emailVerified: true }],
 ]);
 /* gancho para o teste: roda a cada leitura de uma conta (simula outra aba mexendo no meio) */
 let aoLerConta = null;
@@ -118,7 +121,8 @@ globalThis.fetch = async (u, o) => {
     if (partes[1] === 'customers') {
       const c = clientes.get(partes[2]);
       if (!c) return resposta({ errors: [] }, 404);
-      if (metodo === 'PUT') Object.assign(c, corpo);
+      /* o Asaas atualiza cliente com POST /customers/{id} */
+      if (metodo === 'PUT' || metodo === 'POST') Object.assign(c, corpo);
       return resposta(c);
     }
     return resposta({ errors: [] }, 404);
@@ -173,6 +177,13 @@ globalThis.fetch = async (u, o) => {
   }
   if (endereco.indexOf(BASE) === 0) {
     const cam = decodeURIComponent(endereco.slice(BASE.length).split('?')[0]);
+    /* a colecao inteira (caminho sem a barra do documento): a lista, como o Firestore */
+    if ((o.method || 'GET') === 'GET' && cam.indexOf('/') < 0) {
+      const docs = [...db.entries()].filter(([k]) => k.indexOf(cam + '/') === 0 && k.split('/').length === 2)
+        .map(([k, d]) => ({ name: BASE + cam + '/' + encodeURIComponent(k.slice(cam.length + 1)), fields: fs(d).mapValue.fields }));
+      return resposta(docs.length ? { documents: docs } : {});
+    }
+    if (o.method === 'DELETE') { db.delete(cam); mudou(cam); return resposta({}); }
     if ((o.method || 'GET') === 'GET') {
       if (aoLerConta && cam.indexOf('contas/') === 0) aoLerConta(cam);
       const d = db.get(cam);
@@ -244,7 +255,9 @@ db.set('contas/teste@loja.com', { email: 'teste@loja.com', plano: { status: 'tes
 cobrancas.set('pay_t', { id: 'pay_t', customer: 'cus_t', value: 89, status: 'CONFIRMED' });
 r = await avisar({ id: 'pay_t', customer: 'cus_t', value: 89 });
 const diasTeste = Math.round((new Date(db.get('contas/teste@loja.com').plano.pagoAte).getTime() - Date.now()) / 864e5);
-ok(r.status === 200 && diasTeste === 35, 'assinou no gratis: nao perde os 5 dias que faltavam (' + diasTeste + ' dias, 5 + 30)');
+/* o mes pago e o de calendario (como o Asaas cobra), contado do fim dos dias gratis */
+const esperadoTeste = Math.round((somarPeriodoTeste(Date.now() + 5 * 864e5, 'mensal') - Date.now()) / 864e5);
+ok(r.status === 200 && diasTeste === esperadoTeste, 'assinou no gratis: nao perde os 5 dias que faltavam (' + diasTeste + ' dias, 5 + o mes)');
 
 /* estorno e contestacao: a conta pausa (loja trava) ate o admin olhar */
 cobrancas.set('pay_9', { id: 'pay_9', customer: 'cus_1', value: 89, status: 'RECEIVED' });
@@ -495,6 +508,9 @@ console.log('Pentest do plano unico');
 const novaConta = (email, cus, plano, extra) => { clientes.set(cus, { email: email }); db.set('contas/' + email, Object.assign({ email: email, plano: Object.assign({ status: 'ativo', tipo: 'mensal', planoId: 'uma', planoPago: 'uma', desde: '2026-01-01T00:00:00.000Z' }, plano) }, extra)); db.set('lojas/loja-' + cus, { slug: 'loja-' + cus, donoEmail: email }); };
 const contaDe = (email) => db.get('contas/' + email);
 const diasDe = (iso) => Math.round((Date.parse(iso) - Date.now()) / DIA);
+/* um mes e um ano de calendario a partir de hoje (o pagamento soma o periodo do Asaas, nao 30 e 365 fixos) */
+const MES = Math.round((somarPeriodoTeste(Date.now(), 'mensal') - Date.now()) / DIA);
+const ANO = Math.round((somarPeriodoTeste(Date.now(), 'anual') - Date.now()) / DIA);
 let c;
 
 /* 1. estorno do anual: a pausa fica mesmo pagando outra coisa, e os dias do anual saem */
@@ -502,7 +518,7 @@ novaConta('estorno@x.com', 'cus_est', { status: 'teste', desde: new Date(Date.no
 cobrancas.set('pay_ano', { id: 'pay_ano', customer: 'cus_est', value: 890, status: 'CONFIRMED', subscription: 'sub_ano', billingType: 'CREDIT_CARD' });
 await avisarCom(envE, { id: 'pay_ano', customer: 'cus_est' });
 c = contaDe('estorno@x.com');
-ok(diasDe(c.plano.pagoAte) === 365 && c.creditos.length === 1 && c.creditos[0].dias === 365, 'anual pago: 365 dias, anotados no credito daquele pagamento');
+ok(diasDe(c.plano.pagoAte) === ANO && c.creditos.length === 1 && c.creditos[0].dias === ANO, 'anual pago: 365 dias, anotados no credito daquele pagamento');
 cobrancas.get('pay_ano').status = 'CHARGEBACK_REQUESTED';
 await avisarCom(envE, { id: 'pay_ano', customer: 'cus_est' }, 'PAYMENT_CHARGEBACK_REQUESTED');
 c = contaDe('estorno@x.com');
@@ -511,7 +527,7 @@ adminAntes = doAdmin().length;
 cobrancas.set('pay_mes_pix', { id: 'pay_mes_pix', customer: 'cus_est', value: 89, status: 'RECEIVED', subscription: 'sub_mes', billingType: 'PIX' });
 await avisarCom(envE, { id: 'pay_mes_pix', customer: 'cus_est' });
 c = contaDe('estorno@x.com');
-ok(c.plano.status === 'pausado' && db.get('lojas/loja-cus_est').plano.status === 'pausado' && diasDe(c.plano.pagoAte) === 30, 'depois pagou o mensal: continua pausada (so a Central tira) e fica so com os 30 dias pagos (' + diasDe(c.plano.pagoAte) + ')');
+ok(c.plano.status === 'pausado' && db.get('lojas/loja-cus_est').plano.status === 'pausado' && diasDe(c.plano.pagoAte) === MES, 'depois pagou o mensal: continua pausada (so a Central tira) e fica so com os 30 dias pagos (' + diasDe(c.plano.pagoAte) + ')');
 ok(doAdmin().length === adminAntes + 1 && /pausada/.test(doAdmin()[doAdmin().length - 1].assunto), 'e o admin recebe e-mail do pagamento da conta pausada');
 
 /* 2. pagar atrasado dentro da tolerancia conta do vencimento (antes, os dias do atraso vinham de graca todo mes) */
@@ -522,7 +538,7 @@ ok(diasDe(contaDe('atraso@x.com').plano.pagoAte) === 21, 'pagou 9 dias atrasado,
 novaConta('parado@x.com', 'cus_par', { pagoAte: new Date(Date.now() - 15 * DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_par' });
 cobrancas.set('pay_par', { id: 'pay_par', customer: 'cus_par', value: 89, status: 'RECEIVED', subscription: 'sub_par', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_par', customer: 'cus_par' });
-ok(diasDe(contaDe('parado@x.com').plano.pagoAte) === 30, 'pagou depois da tolerancia (a loja ja tinha parado): 30 dias a partir de hoje');
+ok(diasDe(contaDe('parado@x.com').plano.pagoAte) === MES, 'pagou depois da tolerancia (a loja ja tinha parado): 30 dias a partir de hoje');
 
 /* 3. link de fundador sem vaga: dias proporcionais e a assinatura passa para o preco normal */
 db.set('publico/fundadores', { usados: 5 });
@@ -559,11 +575,12 @@ clientes.set('cus_golpe', { email: 'dono2@x.com' });
 cobrancas.set('pay_golpe', { id: 'pay_golpe', customer: 'cus_golpe', value: 89, status: 'CONFIRMED', subscription: 'sub_golpe', billingType: 'CREDIT_CARD' });
 await avisarCom(envE, { id: 'pay_golpe', customer: 'cus_golpe' });
 const comGolpe = contaDe('dono2@x.com').plano.pagoAte;
+const diasGolpe = ((contaDe('dono2@x.com').creditos || []).filter((x) => x.id === 'pay_golpe')[0] || {}).dias;
 ok((contaDe('dono2@x.com').assinaturasExtras || []).indexOf('sub_golpe') >= 0, 'assinatura com o e-mail do dono, com a dele viva: vira extra');
 cobrancas.get('pay_golpe').status = 'CHARGEBACK_REQUESTED';
 await avisarCom(envE, { id: 'pay_golpe', customer: 'cus_golpe' }, 'PAYMENT_CHARGEBACK_REQUESTED');
 c = contaDe('dono2@x.com');
-ok(c.plano.status === 'ativo' && db.get('lojas/loja-cus_d2').plano.status === 'ativo' && Math.round((Date.parse(comGolpe) - Date.parse(c.plano.pagoAte)) / DIA) === 30, 'e contestou: os 30 dias dela saem, mas a conta e a loja do dono nao pausam');
+ok(c.plano.status === 'ativo' && db.get('lojas/loja-cus_d2').plano.status === 'ativo' && Math.round((Date.parse(comGolpe) - Date.parse(c.plano.pagoAte)) / DIA) === diasGolpe, 'e contestou: os dias dela saem, mas a conta e a loja do dono nao pausam');
 
 /* 7. a copia na loja falhou no meio: o Asaas repete e a loja recebe o plano (sem somar dias de novo) */
 novaConta('meio@x.com', 'cus_meio', { pagoAte: new Date(Date.now() - 20 * DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_meio2' });
@@ -593,18 +610,18 @@ novaConta('multa@x.com', 'cus_mu', { status: 'teste', desde: new Date(Date.now()
 cobrancas.set('pay_mu', { id: 'pay_mu', customer: 'cus_mu', value: 80.9, originalValue: 79, status: 'RECEIVED', subscription: 'sub_mu', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_mu', customer: 'cus_mu' });
 c = contaDe('multa@x.com');
-ok(c.plano.fundador === true && !c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === 30 && db.get('publico/fundadores').usados === 1, 'fundador pagando com multa (R$ 80,90 de R$ 79): 30 dias e a vaga, pelo valor original');
+ok(c.plano.fundador === true && !c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === MES && db.get('publico/fundadores').usados === 1, 'fundador pagando com multa (R$ 80,90 de R$ 79): 30 dias e a vaga, pelo valor original');
 
 novaConta('multa2@x.com', 'cus_mu2', { status: 'teste', desde: new Date(Date.now() - 20 * DIA).toISOString() });
 cobrancas.set('pay_mu2', { id: 'pay_mu2', customer: 'cus_mu2', value: 80.9, status: 'RECEIVED', subscription: 'sub_mu2', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_mu2', customer: 'cus_mu2' });
 c = contaDe('multa2@x.com');
-ok(c.plano.fundador === true && !c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === 30, 'e mesmo sem o originalValue (so o valor com multa, ate 10% acima do preco): e o preco de fundador, 30 dias');
+ok(c.plano.fundador === true && !c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === MES, 'e mesmo sem o originalValue (so o valor com multa, ate 10% acima do preco): e o preco de fundador, 30 dias');
 novaConta('multa3@x.com', 'cus_mu3', { pagoAte: new Date(Date.now() - 12 * DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_mu3' });
 cobrancas.set('pay_mu3', { id: 'pay_mu3', customer: 'cus_mu3', value: 91.67, status: 'RECEIVED', subscription: 'sub_mu3', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_mu3', customer: 'cus_mu3' });
 c = contaDe('multa3@x.com');
-ok(!c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === 30 && c.plano.tipo === 'mensal', 'mensal normal pago com multa (R$ 91,67): 30 dias, mensal');
+ok(!c.plano.pagamentoParcial && diasDe(c.plano.pagoAte) === MES && c.plano.tipo === 'mensal', 'mensal normal pago com multa (R$ 91,67): 30 dias, mensal');
 
 /* 10. o dono encerra bem na hora em que o pagamento grava: o pagamento e refeito com a conta encerrada (e devolvido) */
 contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [] }); assinaturaT();
@@ -716,6 +733,79 @@ ok((versoes.get('contas/nada@x.com') || 0) === gravacoesAntes, 'Cron: conta ence
 /* id com caminho escondido */
 r = await avisar({ id: '../contas/x', customer: 'cus_1', value: 89 });
 ok(r.status === 400, 'id de cobranca com caminho: 400');
+
+
+/* ================= lancamento (28/09/2026): pagamento com outro e-mail no Asaas, e a Central vinculando ================= */
+console.log('Pagamento sem conta e a Central vinculando');
+const central = (rota, corpo, token) => worker.fetch(new Request('https://w/admin/' + rota, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', Origin: 'https://ligeiropedidos.com.br' }, token ? { Authorization: 'Bearer ' + token } : {}), body: JSON.stringify(corpo || {}) }), envE);
+db.set('contas/certo@x.com', { email: 'certo@x.com', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: new Date(Date.now() - 20 * DIA).toISOString() } });
+db.set('lojas/loja-certo', { slug: 'loja-certo', donoEmail: 'certo@x.com' });
+clientes.set('cus_orf', { email: 'errado@x.com', name: 'Dona Maria' });
+cobrancas.set('pay_orf', { id: 'pay_orf', customer: 'cus_orf', value: 89, status: 'CONFIRMED', subscription: 'sub_orf', billingType: 'CREDIT_CARD' });
+assinaturas.set('sub_orf', { id: 'sub_orf', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
+adminAntes = doAdmin().length;
+r = await avisarCom(envE, { id: 'pay_orf', customer: 'cus_orf' });
+const orfa = db.get('pagamentosSemConta/pay_orf');
+ok(r.status === 200 && orfa && orfa.email === 'errado@x.com' && orfa.valor === 8900 && orfa.clienteAsaas === 'cus_orf' && orfa.nome === 'Dona Maria' && !db.has('contas/errado@x.com') && doAdmin().length === adminAntes + 1 && /Vincular/.test(doAdmin()[doAdmin().length - 1].texto), 'pagou com outro e-mail: nenhuma conta fantasma, o pagamento fica guardado e o admin recebe e-mail dizendo onde vincular');
+const orfasAntes = [...db.keys()].filter((k) => k.indexOf('pagamentosSemConta/') === 0).length;
+r = await avisarCom(envE, { id: 'pay_orf', customer: 'cus_orf' });
+ok(r.status === 200 && [...db.keys()].filter((k) => k.indexOf('pagamentosSemConta/') === 0).length === orfasAntes, 'o Asaas mandou o aviso de novo: continua um registro so (e 200, a fila nao trava)');
+
+r = await central('sem-conta', {}, 'tok-outro');
+ok(r.status === 403, 'a lista de pagamentos sem conta: outro e-mail logado recebe 403');
+r = await central('sem-conta', {});
+ok(r.status === 403, 'a lista sem login: 403');
+r = await central('sem-conta', {}, 'tok-admin'); j = await r.json();
+const naLista = j.lista.filter((x) => x.id === 'pay_orf');
+ok(r.status === 200 && j.lista.length === orfasAntes && naLista.length === 1 && naLista[0].valor === 8900 && naLista[0].email === 'errado@x.com' && naLista[0].nome === 'Dona Maria' && naLista[0]._id === 'pay_orf', 'a Central ve o pagamento: nome, e-mail digitado e valor');
+r = await worker.fetch(new Request('https://w/admin/sem-conta', { method: 'OPTIONS', headers: { Origin: 'https://ligeiropedidos.com.br' } }), envE);
+ok(r.status === 204 && r.headers.get('Access-Control-Allow-Origin') === 'https://ligeiropedidos.com.br', 'a Central (no site) pode chamar: CORS do site');
+r = await worker.fetch(new Request('https://w/admin/sem-conta', { method: 'OPTIONS', headers: { Origin: 'https://golpe.com' } }), envE);
+ok(r.headers.get('Access-Control-Allow-Origin') !== 'https://golpe.com', 'outro site nao chama a rota da Central');
+
+r = await central('vincular', { id: 'pay_orf', email: 'naoexiste@x.com' }, 'tok-admin');
+ok(r.status === 404 && clientes.get('cus_orf').email === 'errado@x.com' && db.has('pagamentosSemConta/pay_orf'), 'vincular a um e-mail sem conta: recusado, e nada muda no Asaas');
+r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'tok-outro');
+ok(r.status === 403 && clientes.get('cus_orf').email === 'errado@x.com', 'vincular: so a Central');
+r = await central('vincular', { id: '../contas/x', email: 'certo@x.com' }, 'tok-admin');
+ok(r.status === 400, 'vincular com id torto: 400');
+r = await central('vincular', { id: 'pay_orf', email: 'nao e email' }, 'tok-admin');
+ok(r.status === 400, 'vincular com e-mail torto: 400');
+r = await central('vincular', { id: 'pay_orf', email: ' Certo@X.com ' }, 'tok-admin'); j = await r.json();
+c = contaDe('certo@x.com');
+ok(r.status === 200 && j.ok && j.email === 'certo@x.com' && feitas('POST', '/customers/cus_orf').length === 1 && clientes.get('cus_orf').email === 'certo@x.com', 'vincular: o e-mail do cliente no Asaas vira o da conta (as proximas mensalidades caem certo)');
+ok(c.plano.status === 'ativo' && c.pagamentos.indexOf('pay_orf') >= 0 && diasDe(c.plano.pagoAte) >= 28 && diasDe(c.plano.pagoAte) <= 31 && c.assinaturaAsaas === 'sub_orf', 'vincular: os dias do mes entram na conta certa e a assinatura fica amarrada nela');
+ok(!db.has('pagamentosSemConta/pay_orf') && db.get('lojas/loja-certo').plano !== undefined, 'vincular: o pagamento sai da lista e a loja recebe o plano');
+r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'tok-admin');
+ok(r.status === 404, 'vincular de novo (dois toques): 404, nenhum dia em dobro');
+const pagoOrf = contaDe('certo@x.com').plano.pagoAte;
+cobrancas.set('pay_orf2', { id: 'pay_orf2', customer: 'cus_orf', value: 89, status: 'CONFIRMED', subscription: 'sub_orf', billingType: 'CREDIT_CARD' });
+r = await avisarCom(envE, { id: 'pay_orf2', customer: 'cus_orf' });
+c = contaDe('certo@x.com');
+ok(r.status === 200 && c.pagamentos.indexOf('pay_orf2') >= 0 && Date.parse(c.plano.pagoAte) > Date.parse(pagoOrf) && !db.has('pagamentosSemConta/pay_orf2'), 'a mensalidade seguinte ja cai na conta certa sozinha');
+
+/* cliente sem e-mail nenhum no Asaas */
+clientes.set('cus_sm', { name: 'Seu Jose' });
+cobrancas.set('pay_sm', { id: 'pay_sm', customer: 'cus_sm', value: 89, status: 'RECEIVED', subscription: 'sub_sm', billingType: 'PIX' });
+adminAntes = doAdmin().length;
+r = await avisarCom(envE, { id: 'pay_sm', customer: 'cus_sm' });
+ok(r.status === 200 && db.get('pagamentosSemConta/pay_sm').motivo === 'sem e-mail' && doAdmin().length === adminAntes + 1, 'pagou sem e-mail no Asaas: guardado para vincular e o admin recebe e-mail');
+db.set('contas/semmail@x.com', { email: 'semmail@x.com', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: new Date(Date.now() - 20 * DIA).toISOString() } });
+r = await central('vincular', { id: 'pay_sm', email: 'semmail@x.com' }, 'tok-admin');
+ok(r.status === 200 && contaDe('semmail@x.com').plano.status === 'ativo' && !db.has('pagamentosSemConta/pay_sm'), 'e a Central vincula esse tambem');
+
+/* aviso de servico (Loja do Ligeiro) com o KV desligado: 200 (a fila sequencial do Asaas nao para) e o admin sabe */
+adminAntes = doAdmin().length;
+r = await worker.fetch(new Request('https://w/', { method: 'POST', headers: { 'asaas-access-token': envE.ASAAS_WEBHOOK, 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'PAYMENT_RECEIVED', payment: { id: 'pay_srv', customer: 'cus_srv', externalReference: 'srv:abcdefghij0123456789' } }) }), envE);
+ok(r.status === 200 && doAdmin().length === adminAntes + 1 && /KV/.test(doAdmin()[doAdmin().length - 1].assunto), 'servico pago com o KV desligado: 200 (a fila de mensalidades nao trava) e e-mail ao admin');
+
+/* conferencia da configuracao antes de lancar: so sim ou nao, nenhum segredo */
+r = await worker.fetch(new Request('https://w/saude'), envE);
+const txtSaude = await r.text(); j = JSON.parse(txtSaude);
+ok(r.status === 200 && j.planosCertos === true && j.tokenDoAviso === true && j.chaveDoAsaas === true && j.contaDoBanco === true && j.email === true && j.fundadorVagas === 5, '/saude: tudo configurado aparece como sim');
+ok(Object.keys(j).every((k) => typeof j[k] !== 'string') && txtSaude.indexOf(envE.ASAAS_WEBHOOK) < 0 && txtSaude.indexOf(envE.EMAIL_TOKEN) < 0 && txtSaude.indexOf('BEGIN') < 0, '/saude: nenhum segredo sai (so sim, nao e numero)');
+r = await worker.fetch(new Request('https://w/saude'), Object.assign({}, envE, { PLANOS: '{"uma":{"mensal":89}}' })); j = await r.json();
+ok(j.planosCertos === false, '/saude: PLANOS errado aparece como nao');
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
