@@ -552,26 +552,42 @@
     botaoFlutuante(raiz);
 
     /* barra fixa no celular: aparece quando o heroi sai da tela */
-    var barra = el('div', { class: 'cta-fixa', hidden: true }, [
+    var barra = el('div', { class: 'cta-fixa', 'aria-hidden': 'true' }, [
       el('span', {}, [el('b', { text: pr.diasGratis + ' dias grátis' }), el('span', { class: 'cta-sep', text: ' · ' }), 'sem cartão']),
       el('a', { class: 'btn btn-principal btn-pequeno', href: '#/comecar', text: 'Começar grátis' }),
     ]);
     raiz.appendChild(barra);
     /* some tambem quando um "Começar grátis" grande ja esta na tela (dois botoes iguais, um em cima do outro, confundem) */
     var grandes = [].slice.call(corpo.querySelectorAll('a.btn-principal[href="#/comecar"]'));
-    function naTela(e) { var r = e.getBoundingClientRect(); return r.height > 0 && r.bottom > 0 && r.top < window.innerHeight; }
+    /* com folga, e folga diferente para sumir e para voltar: no iPhone a barra de endereco encolhe e cresce ao rolar e muda
+       a altura da tela; com o botao grande bem na beirada, a barra sumia e voltava sem parar (piscava) */
+    var mostrando = false, trocouEm = 0;
+    function naTela(e) {
+      /* a altura estavel da tela (no iPhone ela nao muda com a barra de endereco, a innerHeight muda) */
+      var h = document.documentElement.clientHeight || window.innerHeight;
+      var r = e.getBoundingClientRect(), folga = mostrando ? 200 : 80;
+      return r.height > 0 && r.bottom > folga && r.top < h - folga;
+    }
     /* no celular o botao do WhatsApp so aparece depois do heroi: na primeira tela ele ficava em cima do "Começar grátis" */
     var zapBotao = raiz.querySelector('.zap-flutuante');
     function conferirBarra() {
       var heroi = capa.getBoundingClientRect().bottom > 0;
-      barra.hidden = heroi || grandes.some(naTela);
       if (zapBotao) zapBotao.classList.toggle('no-heroi', heroi);
+      var mostrar = !heroi && !grandes.some(naTela);
+      /* no maximo uma troca a cada 0,35 s (a rolagem com embalo cruzava a beirada varias vezes); a ultima confere de novo */
+      if (mostrar !== mostrando && Date.now() - trocouEm < 350) { clearTimeout(conferirBarra.depois); conferirBarra.depois = setTimeout(conferirBarra, 360); return; }
+      if (mostrar !== mostrando) {
+        trocouEm = Date.now();
+        mostrando = mostrar;
+        barra.classList.toggle('visivel', mostrar);
+        barra.setAttribute('aria-hidden', mostrar ? 'false' : 'true');
+      }
     }
     window.addEventListener('scroll', conferirBarra, { passive: true });
     window.addEventListener('resize', conferirBarra);
     conferirBarra();
 
-    return function () { window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
+    return function () { clearTimeout(conferirBarra.depois); window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   /* Mensal e anual lado a lado (1 loja por conta), com o que vem incluso uma vez so, embaixo: da para comparar sem tocar
