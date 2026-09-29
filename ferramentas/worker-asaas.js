@@ -15,7 +15,7 @@
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        PLANOS           JSON com os precos em centavos, igual ao config.js (um plano so, 1 loja por conta):
  *                         {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}
- *        FUNDADOR_VAGAS   (opcional, padrao 5) quantas vagas de fundador existem; FUNDADOR_JA (opcional, padrao 0)
+ *        FUNDADOR_VAGAS   (opcional, padrao 10) quantas vagas de fundador existem; FUNDADOR_JA (opcional, padrao 0)
  *                         quantas ja estavam ocupadas fora da contagem publica (igual ao config.js: fundador.vagas e jaOcupadas)
  *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
  *      (o mesmo do ligeiro-mp). Com ele, a loja destrava para o cliente na hora em que o pagamento cai.
@@ -223,7 +223,7 @@ async function processarPagamento(env, pag) {
       if (plano.preco === 'fundador' && !fundador) {
         const pubDoc = await fb.get('publico/fundadores', true);
         const usados = Number((pubDoc || {}).usados) || 0;
-        const total = Number(env.FUNDADOR_VAGAS || 5), ja = Number(env.FUNDADOR_JA || 0);
+        const total = Number(env.FUNDADOR_VAGAS || 10), ja = Number(env.FUNDADOR_JA || 0);
         /* so perde a chance quem ja pagou alguma vez sem ser fundador (a mesma regra do site) */
         if (!p.ultimoPagamentoEm && usados + ja < total) {
           fundador = true;
@@ -655,7 +655,7 @@ async function rotaAdmin(request, env, caminho) {
 /* GET /saude: a configuracao do mensageiro, so em sim ou nao (nenhum segredo sai daqui). Para conferir antes de lancar */
 function saude(env) {
   let fundadorVagas = null;
-  try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 5); } catch (_) { fundadorVagas = null; }
+  try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 10); } catch (_) { fundadorVagas = null; }
   const corpo = {
     ok: true,
     planosCertos: planosCertos(env),

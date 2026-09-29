@@ -541,7 +541,7 @@ await avisarCom(envE, { id: 'pay_par', customer: 'cus_par' });
 ok(diasDe(contaDe('parado@x.com').plano.pagoAte) === MES, 'pagou depois da tolerancia (a loja ja tinha parado): 30 dias a partir de hoje');
 
 /* 3. link de fundador sem vaga: dias proporcionais e a assinatura passa para o preco normal */
-db.set('publico/fundadores', { usados: 5 });
+db.set('publico/fundadores', { usados: 10 });
 novaConta('semvaga@x.com', 'cus_sv', { status: 'teste', desde: new Date(Date.now() - 8 * DIA).toISOString() });
 assinaturas.set('sub_sv', { id: 'sub_sv', customer: 'cus_sv', value: 79, cycle: 'MONTHLY', status: 'ACTIVE' });
 cobrancas.set('pay_sv', { id: 'pay_sv', customer: 'cus_sv', value: 79, status: 'RECEIVED', subscription: 'sub_sv', billingType: 'PIX' });
@@ -631,12 +631,12 @@ r = await avisarCom(envE, { id: 'pay_corrida', customer: 'cus_troca' });
 ok(r.status === 200 && conta2().plano.status === 'cancelado' && cobrancas.get('pay_corrida').status === 'REFUNDED', 'encerrou bem na hora do pagamento: a gravacao para, e refeita com a conta encerrada, e devolve');
 
 /* 11. dois pagamentos disputando a ultima vaga de fundador: so um fica com ela */
-db.set('publico/fundadores', { usados: 4 });
+db.set('publico/fundadores', { usados: 9 });
 novaConta('ultimaa@x.com', 'cus_ua', { status: 'teste', desde: new Date(Date.now() - 20 * DIA).toISOString() });
 cobrancas.set('pay_ua', { id: 'pay_ua', customer: 'cus_ua', value: 79, status: 'RECEIVED', subscription: 'sub_ua', billingType: 'PIX' });
-globalThis.__antesDoLote = () => { db.set('publico/fundadores', { usados: 5 }); mudou('publico/fundadores'); };
+globalThis.__antesDoLote = () => { db.set('publico/fundadores', { usados: 10 }); mudou('publico/fundadores'); };
 await avisarCom(envE, { id: 'pay_ua', customer: 'cus_ua' });
-ok(contaDe('ultimaa@x.com').plano.fundador === false && db.get('publico/fundadores').usados === 5, 'a ultima vaga foi pega no meio: este paga o normal e o contador nao passa de 5');
+ok(contaDe('ultimaa@x.com').plano.fundador === false && db.get('publico/fundadores').usados === 10, 'a ultima vaga foi pega no meio: este paga o normal e o contador nao passa de 10');
 
 
 /* ================= revisao antes de publicar (25/09/2026): o que as correcoes podiam quebrar ================= */
@@ -813,7 +813,7 @@ ok(emails.filter((m) => m.para === 'recibo@x.com').length === 1, 'aviso repetido
 /* conferencia da configuracao antes de lancar: so sim ou nao, nenhum segredo */
 r = await worker.fetch(new Request('https://w/saude'), envE);
 const txtSaude = await r.text(); j = JSON.parse(txtSaude);
-ok(r.status === 200 && j.planosCertos === true && j.tokenDoAviso === true && j.chaveDoAsaas === true && j.contaDoBanco === true && j.email === true && j.fundadorVagas === 5, '/saude: tudo configurado aparece como sim');
+ok(r.status === 200 && j.planosCertos === true && j.tokenDoAviso === true && j.chaveDoAsaas === true && j.contaDoBanco === true && j.email === true && j.fundadorVagas === 10, '/saude: tudo configurado aparece como sim');
 ok(Object.keys(j).every((k) => typeof j[k] !== 'string') && txtSaude.indexOf(envE.ASAAS_WEBHOOK) < 0 && txtSaude.indexOf(envE.EMAIL_TOKEN) < 0 && txtSaude.indexOf('BEGIN') < 0, '/saude: nenhum segredo sai (so sim, nao e numero)');
 r = await worker.fetch(new Request('https://w/saude'), Object.assign({}, envE, { PLANOS: '{"uma":{"mensal":89}}' })); j = await r.json();
 ok(j.planosCertos === false, '/saude: PLANOS errado aparece como nao');
