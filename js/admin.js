@@ -1032,8 +1032,8 @@
         } })));
       }
       var an = (window.LIGEIRO_CONFIG || {}).analytics || {};
-      cards.push(ferramenta('vendas', 'Visitas do site', an.cloudflareToken
-        ? 'Ficam no painel do Cloudflare Web Analytics (grátis, sem cookie), na sua conta Cloudflare › Analytics.'
+      cards.push(ferramenta('vendas', 'Visitas do site', an.cloudflareToken || an.automatico
+        ? 'Já estão sendo contadas, de graça e sem cookie: quantas pessoas entraram, de onde vieram e quais páginas abriram. Veja no Cloudflare, em Web Analytics.'
         : 'Cole o token do Cloudflare Web Analytics em config.js (analytics.cloudflareToken) e as visitas de cada página aparecem no painel do Cloudflare, de graça e sem cookie.',
       el('a', { class: 'btn btn-fantasma', href: 'https://dash.cloudflare.com/?to=/:account/web-analytics', target: '_blank', rel: 'noopener', text: 'Abrir o Cloudflare' })));
       cards.push(ferramenta('dinheiro', 'Preços em vigor', null, null, tabelaPrecos()));

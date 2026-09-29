@@ -93,9 +93,10 @@ window.LIGEIRO_CONFIG = {
   /* Dados da empresa pro rodape, termos de uso e privacidade. Preencha quando tiver CNPJ. */
   empresa: { nome: '', cnpj: '', cidade: 'Juquiá, SP', email: 'ligeiro.pedidos@gmail.com' },
 
-  /* Visitas: Cloudflare Web Analytics (gratis, sem cookie). No painel do Cloudflare:
-     Analytics & Logs > Web Analytics > Add a site > copie o token. Vazio = sem medicao. */
-  analytics: { cloudflareToken: '' },
+  /* Visitas: Cloudflare Web Analytics (gratis, sem cookie). Ligado desde 25/09/2026 pela configuracao automatica do
+     Cloudflare (ele poe o contador sozinho em toda pagina, ja no modo de site de uma pagina so). Por isso o token fica
+     vazio aqui: com os dois, cada visita contaria em dobro. automatico: so para a Central mostrar que esta ligado */
+  analytics: { cloudflareToken: '', automatico: true },
 
   /* App Check: chave do site do reCAPTCHA v3 (Firebase > App Check > Apps > Web > reCAPTCHA v3).
      Com ela, so o site do Ligeiro consegue falar com o banco (robo que tenta gastar as leituras gratis fica de fora).
