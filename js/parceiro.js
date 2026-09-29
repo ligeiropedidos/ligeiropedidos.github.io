@@ -558,7 +558,8 @@
     ]);
     raiz.appendChild(barra);
     /* some tambem quando um "Começar grátis" grande ja esta na tela (dois botoes iguais, um em cima do outro, confundem) */
-    var grandes = [].slice.call(corpo.querySelectorAll('a.btn-principal[href="#/comecar"]'));
+    /* todos os "Começar grátis" grandes da pagina, inclusive o dos precos (#/comecar/uma/mensal ou anual); o pequeno do topo nao conta */
+    var grandes = [].slice.call(corpo.querySelectorAll('a.btn-principal[href^="#/comecar"]')).filter(function (a) { return !a.classList.contains('btn-pequeno'); });
     /* com folga, e folga diferente para sumir e para voltar: no iPhone a barra de endereco encolhe e cresce ao rolar e muda
        a altura da tela; com o botao grande bem na beirada, a barra sumia e voltava sem parar (piscava) */
     var mostrando = false, trocouEm = 0;
