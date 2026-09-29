@@ -14,7 +14,9 @@ window.LIGEIRO_CONFIG = {
   /* Projeto "Ligeiro" no Firebase (ligeiro.pedidos@gmail.com), criado em 18/09/2026. Estas chaves sao publicas. */
   firebase: {
     apiKey: "AIzaSyBO5tk0CUgUK6llez_y88G9sei5oP9B4SY",
-    authDomain: "ligeiro-18df1.firebaseapp.com",
+    /* o login do Google pelo nosso dominio: a tela do Google mostra ligeiropedidos.com.br (o worker do site repassa /__/auth/
+       ao Firebase; o endereco esta autorizado no Google Cloud, cliente OAuth "Web client", desde 29/09/2026) */
+    authDomain: "ligeiropedidos.com.br",
     projectId: "ligeiro-18df1",
     storageBucket: "ligeiro-18df1.firebasestorage.app",
     messagingSenderId: "402578950250",

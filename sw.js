@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20261001s';
+var VERSAO = 'ligeiro-20261001t';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede.
    O icone de 512 e o mascote em PNG ficam de fora: so servem para instalar na tela de inicio, e o navegador busca
    sozinho quando precisa (antes todo cliente baixava os dois a toa) */
@@ -52,6 +52,9 @@ self.addEventListener('fetch', function (e) {
   /* de fora (Firebase, Mercado Pago, fontes): o proprio navegador guarda. Aqui dentro a resposta viria opaca e nao
      daria para guardar */
   if (url.origin !== location.origin) return;
+  /* o login do Google pelo nosso dominio (/__/auth/, repassado ao Firebase pelo worker do site): sempre direto da rede.
+     Com a internet lenta, a regra de baixo entregaria a pagina guardada do site no lugar da tela de login */
+  if (url.pathname.indexOf('/__/') === 0) return;
   /* video vai direto da rede: o navegador pede em pedacos (range) e guardar ocuparia o celular a toa */
   if (/\.(mp4|webm)$/.test(url.pathname)) return;
   /* codigo com a versao no endereco (?v=) e imagens: nao mudam dentro da mesma versao do site (versao nova = cache novo,
