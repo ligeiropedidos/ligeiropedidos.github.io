@@ -1720,9 +1720,10 @@
         });
       });
     }
-    /* a lista de agora (o cadastro conta as lojas no ar) vem do banco; o resto, da borda (0 leitura por visita) */
-    if (opcoes && opcoes.semCache) return doBanco();
-    return pegarBorda('/vitrine').then(function (x) {
+    /* tudo pela borda (0 leitura do banco por visita). A contagem do cadastro (semCache) pede a copia de agora da borda;
+       antes lia a colecao inteira do banco a cada visita da pagina de cadastro, e uma leva de gente vinda de um
+       influenciador gastava as leituras gratis do dia so abrindo a tela. Quem decide a vaga e o mensageiro, no /loja-nova */
+    return pegarBorda('/vitrine', !!(opcoes && opcoes.semCache)).then(function (x) {
       if (x.status !== 200 || !Array.isArray(x.dados.lista)) throw erroBorda();
       /* sem passar a posicao da lista: daNuvem(dados, id) trocava o slug de toda loja depois da primeira por "1", "2"... */
       return guardar(x.dados.lista.map(function (l) { return daNuvem(l); }));
@@ -1808,7 +1809,7 @@
           /* mensageiro de antes desta rota (404): cai no caminho antigo, direto no banco */
           if (resp.status === 404) return null;
           return resp.json().catch(function () { return {}; }).then(function (j) {
-            if (!resp.ok || !j.ok || !j.loja) { var e = new Error(j.erro || 'Não deu para criar a loja agora. Tente de novo.'); e.publico = true; throw e; }
+            if (!resp.ok || !j.ok || !j.loja) { var e = new Error(j.erro || 'Não deu para criar a loja agora. Tente de novo.'); e.publico = true; if (j.vagas === false) e.semVaga = true; throw e; }
             limparCacheVitrine();
             return daNuvem(j.loja, j.slug);
           });

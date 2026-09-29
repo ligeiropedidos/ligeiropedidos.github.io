@@ -170,7 +170,15 @@
       if (!soltar) return;
       D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: '#/' + window.LigeiroApp.rota() })
         .then(function () { UI.soar('sucesso'); contatoRecebido(nome, f.whatsapp.input.value, espera); })
-        .catch(function (e) { soltar(); UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.')); });
+        .catch(function (e) {
+          soltar();
+          /* nao salvou (limite do banco no pico, internet): o contato nao se perde, vai pronto pelo WhatsApp do Ligeiro */
+          if (c.whatsappLigeiro && !corpo.querySelector('.contato-falhou')) {
+            var texto = [espera ? 'Oi! Quero entrar na lista de espera do Ligeiro.' : 'Oi! Quero saber mais sobre o Ligeiro para minha loja.', 'Nome: ' + nome, 'WhatsApp: ' + f.whatsapp.input.value, f.loja.input.value.trim() ? 'Loja: ' + f.loja.input.value.trim() : '', cid.nome ? 'Cidade: ' + cid.nome + (cid.uf ? '/' + cid.uf : '') : ''].filter(Boolean).join(String.fromCharCode(10));
+            corpo.appendChild(el('a', { class: 'btn btn-whats btn-largo contato-falhou', href: linkWhats(texto), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar pelo WhatsApp']));
+            UI.avisar('Não deu para salvar agora. Toque em Mandar pelo WhatsApp que a gente anota.');
+          } else UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.'));
+        });
     } }, [UI.iconeLinha('check'), espera ? ESPERA.botao : 'Pode me chamar']);
     [f.nome, f.whatsapp, f.loja].forEach(function (c) { c.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } }); });
     UI.abrirModal({ titulo: espera ? ESPERA.titulo : 'Fale com a gente', corpo: corpo, rodape: [btn] });

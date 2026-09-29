@@ -75,7 +75,10 @@
       if (!store.publicarLoja || !store.usuarioAtual || !estado.loja) return;
       store.usuarioAtual().then(function (u) {
         if (!(u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase())) return;
-        store.publicarLoja(slug);
+        /* no maximo a cada 6 h por aparelho: cada publicar grava na borda (1.000 gravacoes por dia no gratis). Salvar nos
+           Ajustes publica na hora, como sempre */
+        var k = 'ligeiro:publicou-ao-abrir:' + slug, ultima = Number(UI.lerLocal(k)) || 0;
+        if (Date.now() - ultima >= 6 * 3600e3) { UI.guardarLocal(k, Date.now()); store.publicarLoja(slug); }
         /* marca de dono no login (uma vez por loja): a fila passa a custar 1 leitura por pedido que anda, nao 2 */
         if (store.marcarDono) store.marcarDono(slug);
       }).catch(function () { /* segue */ });
@@ -778,7 +781,14 @@
       return el('div', { class: 'cartao' + (tranquila ? '' : ' destaque'), id: 'cartaoAssinatura' }, filhos);
     }
 
+    /* confere as vagas de fundador de agora antes de montar o valor e o link (a mesma conta do Minha conta) */
     function abrirPagamentoAssinatura() {
+      var ler = store.obterFundadores && !D.modoDemo ? store.obterFundadores({ semCache: true }).then(function (f) {
+        if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
+      }).catch(function () { /* fica o que o aparelho sabia */ }) : Promise.resolve();
+      ler.then(abrirPagamentoAgora);
+    }
+    function abrirPagamentoAgora() {
       var a = R.assinatura(fonteAssinatura());
       var valor = precoAssinatura(a.tipo);
       var periodo = a.tipo === 'anual' ? '12 meses' : '30 dias';

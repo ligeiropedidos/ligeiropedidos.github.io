@@ -1914,6 +1914,7 @@
         if (!balcao) guardarMeuPedido(estado.loja.slug, gravado);
         /* se desistir do Pix ou do cartao, os itens DESTE pedido voltam (pedido ja na fila nao guarda nada) */
         var esperaSite = gravado.status === R.STATUS.AGUARDANDO && !R.pixCombinado(gravado);
+        estado.falhasDoServidor = 0;
         estado.ultimoCarrinho = esperaSite ? { id: gravado.id, itens: estado.carrinho } : null;
         /* e voltam mesmo se a pagina recarregar no meio (iPhone depois do app do banco): guardado ate o Pix cair ou vencer */
         if (!balcao && esperaSite) { try { sessionStorage.setItem('ligeiro:carrinho-do-pix:' + gravado.id, JSON.stringify(estado.carrinho)); } catch (_) { /* segue */ } }
@@ -1924,6 +1925,12 @@
         if (gravado.status === R.STATUS.AGUARDANDO) mostrarPagar(gravado);
         else mostrarSenha(gravado);
       }).catch(function (erro) {
+        /* o mensageiro fora do ar duas vezes seguidas com o celular na internet: o pedido vai pronto pelo WhatsApp da loja
+           (a mesma tela do site em pausa), em vez de ficar pedindo "tente de novo" no pico */
+        if (erro && erro.foraDoAr) {
+          estado.falhasDoServidor = (estado.falhasDoServidor || 0) + 1;
+          if (estado.falhasDoServidor >= 2 && navigator.onLine !== false && estado.loja && estado.loja.whatsapp) { abrirPausa(pedido); return; }
+        }
         if ((erro && erro.pausa) || (D.ehLimite && D.ehLimite(erro))) {
           estado.pausaLocal = true;
           if (store.avisarPausa) store.avisarPausa();
@@ -2017,7 +2024,15 @@
         var comChave = chave ? Object.assign({}, dados, { chave: chave }) : dados;
         return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/pedido', { method: 'POST', headers: cab, body: JSON.stringify({ loja: estado.loja.slug, dados: comChave, aviso: aviso || null }) });
       }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (j) { return lerRespostaDoPedido(r.status, j); });
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          /* 5xx: o mensageiro caiu ou bateu o limite do dia (a Cloudflare responde sem liberar o site): nao e erro do pedido */
+          try { return lerRespostaDoPedido(r.status, j); } catch (e) { if (r.status >= 500 && e && !e.pausa) e.foraDoAr = true; throw e; }
+        });
+      }, function (e) {
+        /* nem chegou resposta (internet, ou o mensageiro fora do ar sem liberar o site) */
+        var erro = e instanceof Error ? e : new Error('Sem internet agora. Confira a conexão e toque de novo.');
+        erro.foraDoAr = true;
+        throw erro;
       });
     }
 

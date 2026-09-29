@@ -427,7 +427,8 @@
       }).catch(function (e) {
         fim.cancelar();
         criando = false;
-        if (e === semVaga) { telaListaDeEspera(raiz); return; }
+        /* o mensageiro recusou por falta de vaga (acabou enquanto a pessoa respondia): a lista de espera, nao um erro solto */
+        if (e === semVaga || (e && e.semVaga)) { telaListaDeEspera(raiz); return; }
         desenhar();
         falhar(D.erroAmigavel(e, 'Não deu para criar agora. Tente de novo em instantes.'));
       });

@@ -291,7 +291,20 @@
       ]);
     }
 
+    /* antes de abrir o link, confere as vagas de fundador de agora (a tela pode estar aberta ha muito tempo): o preco da
+       janela e o link do Asaas saem da mesma conta, e ninguem paga R$ 79 achando que pegou a vaga depois dela acabar */
     function abrirPagamento(conta, valor, periodo, aoAvisar, extra) {
+      var ler = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
+        if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
+      }).catch(function () { /* fica o que o aparelho sabia */ }) : Promise.resolve();
+      ler.then(function () {
+        var tipo = (conta.plano || {}).tipo;
+        var agora = R.precoDoPlano('uma', tipo, conta);
+        if (agora !== valor) UI.avisar(agora > valor ? 'As vagas de fundador acabaram agora. O valor é ' + R.dinheiro(agora) + '.' : 'Abriu uma vaga de fundador: o valor é ' + R.dinheiro(agora) + '.');
+        abrirPagamentoAgora(conta, agora, periodo, aoAvisar, extra);
+      });
+    }
+    function abrirPagamentoAgora(conta, valor, periodo, aoAvisar, extra) {
       var p = conta.plano || {};
       /* falhou: devolve false e a janela do Pix fica aberta para tocar de novo */
       function avisar() {
