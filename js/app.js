@@ -293,7 +293,8 @@
     var raizVendas = !p.length;
     if (vagasBuscadas || (!raizVendas && ROTAS_COM_VAGAS.indexOf(p[0]) < 0)) return;
     vagasBuscadas = true;
-    (raizVendas ? depoisDeAbrir(2500) : Promise.resolve()).then(function () { return window.LigeiroDados.store.obterFundadores(); }).then(function (f) {
+    /* o numero vem pelo endereco leve (~0,2 s): nao espera mais a pagina terminar de abrir */
+    Promise.resolve().then(function () { return window.LigeiroDados.store.obterFundadores(); }).then(function (f) {
       if (!f) return; /* nao deu para ler: fica o que tinha */
       var antes = window.LigeiroFundadores.usados;
       var fechadoAntes = window.LigeiroRegras.capacidadeLojas().fechado;

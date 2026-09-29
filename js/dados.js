@@ -2049,16 +2049,34 @@
     if (!(opcoes && opcoes.semCache)) {
       try { var c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c && Date.now() - c.em < 10 * 60 * 1000) return Promise.resolve({ usados: c.usados || 0, capacidade: c.capacidade || null }); } catch (_) { /* segue */ }
     }
-    return this._pronto.then(function () {
-      return this.db.collection('publico').doc('fundadores').get().then(function (d) {
-        var dados = d.exists ? d.data() : {};
-        var usados = Number(dados.usados) || 0;
-        var capacidade = dados.capacidade || null;
-        try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados, capacidade: capacidade })); } catch (_) { /* ignora */ }
-        return { usados: usados, capacidade: capacidade };
-      });
-    }.bind(this)).catch(function () { return null; });
+    /* primeiro pelo endereco leve do banco (uma leitura, ~0,2 s, sem esperar o Firebase de 180 KB baixar e abrir): o selo
+       de fundador da pagina inicial aparecia so uns segundos depois. Falhou, vai pelo Firebase como antes */
+    var eu = this, proj = (((window.LIGEIRO_CONFIG || {}).firebase) || {}).projectId;
+    var leve = proj && window.fetch ? fetch('https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(proj) + '/databases/(default)/documents/publico/fundadores', { cache: 'no-store' })
+      .then(function (r) { if (r.status === 404) return {}; if (!r.ok) throw new Error('leve ' + r.status); return r.json().then(function (j) { return deCampos(j.fields || {}); }); }) : Promise.reject(new Error('sem fetch'));
+    return leve.catch(function () {
+      return eu._pronto.then(function () { return eu.db.collection('publico').doc('fundadores').get().then(function (d) { return d.exists ? d.data() : {}; }); });
+    }).then(function (dados) {
+      var usados = Number(dados.usados) || 0;
+      var capacidade = dados.capacidade || null;
+      try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados, capacidade: capacidade })); } catch (_) { /* ignora */ }
+      return { usados: usados, capacidade: capacidade };
+    }).catch(function () { return null; });
   };
+  /* campos do Firestore pela REST ({ usados: { integerValue: '2' } }) em objeto comum */
+  function deCampos(f) {
+    var o = {};
+    Object.keys(f).forEach(function (k) {
+      var v = f[k];
+      if ('integerValue' in v) o[k] = Number(v.integerValue);
+      else if ('doubleValue' in v) o[k] = Number(v.doubleValue);
+      else if ('booleanValue' in v) o[k] = v.booleanValue;
+      else if ('stringValue' in v) o[k] = v.stringValue;
+      else if ('mapValue' in v) o[k] = deCampos((v.mapValue && v.mapValue.fields) || {});
+      else if ('nullValue' in v) o[k] = null;
+    });
+    return o;
+  }
   /* Admin: limite de lojas e vagas abertas/fechadas. merge: nao mexe no contador de fundadores. */
   FirebaseStore.prototype.salvarCapacidade = function (mudancas) {
     var eu = this;
