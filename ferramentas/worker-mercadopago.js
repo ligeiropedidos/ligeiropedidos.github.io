@@ -1783,7 +1783,23 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, recursos: ['pix-combinado'] }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, recursos: ['pix-combinado', 'fundadores'] }, 200, { 'Cache-Control': 'public, max-age=60' });
+        /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
+           Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
+           pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
+        if (caminho === '/fundadores') {
+          const chaveCache = new Request('https://borda.ligeiropedidos.com.br/fundadores');
+          const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+          const guardada = cache ? await cache.match(chaveCache).catch(() => null) : null;
+          if (guardada) return pronto(await guardada.text(), 'public, max-age=60');
+          if (MEM.fundadores && Date.now() - MEM.fundadores.em < 60 * 1000) return pronto(MEM.fundadores.corpo, 'public, max-age=60');
+          const fb = await firebase(env);
+          const d = (await fb.get('publico/fundadores')) || {};
+          const corpo = JSON.stringify({ borda: 1, usados: Number(d.usados) || 0, capacidade: d.capacidade || null });
+          MEM.fundadores = { em: Date.now(), corpo: corpo };
+          if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chaveCache, new Response(corpo, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } })).catch(() => {}));
+          return pronto(corpo, 'public, max-age=60');
+        }
       }
 
       /* ---- avisos no celular ---- */

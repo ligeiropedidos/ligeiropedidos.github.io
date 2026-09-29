@@ -1561,6 +1561,17 @@ const w5 = await workerNovo();
 r = await chamar(w5, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: 'Ana Souza', telefone: '13999990078', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'pix' } }, headers: { 'CF-Connecting-IP': '10.77.0.2' } });
 ok(r.status === 200, 'e com o banco normal o pedido passa (a pausa nao gruda)');
 
+console.log('Vagas de fundador pela borda');
+{
+  db.set('publico/fundadores', { usados: 2, capacidade: { max: 12, lojas: 3, fechado: false } });
+  const wf = await workerNovo();
+  zerar();
+  r = await chamar(wf, '/fundadores'); j = await r.json();
+  const r2 = await chamar(wf, '/fundadores'); const j2 = await r2.json();
+  ok(r.status === 200 && j.borda === 1 && j.usados === 2 && j.capacidade.max === 12 && j2.usados === 2 && conta.leituras === 1, 'o numero de vagas sai da borda: duas visitas, uma leitura no banco (um pico de visitas nao gasta a cota)');
+  ok(/max-age=60/.test(r.headers.get('Cache-Control') || ''), 'e fica guardado 1 minuto');
+}
+
 console.log('Sem KV ligado');
 w = await workerNovo();
 r = await chamar(w, '/loja/dom-conizza', { env: { FIREBASE_SA: env.FIREBASE_SA } });

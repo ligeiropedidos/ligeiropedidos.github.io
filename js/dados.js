@@ -2052,16 +2052,26 @@
     /* primeiro pelo endereco leve do banco (uma leitura, ~0,2 s, sem esperar o Firebase de 180 KB baixar e abrir): o selo
        de fundador da pagina inicial aparecia so uns segundos depois. Falhou, vai pelo Firebase como antes */
     var eu = this, proj = (((window.LIGEIRO_CONFIG || {}).firebase) || {}).projectId;
-    var leve = proj && window.fetch ? fetch('https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(proj) + '/databases/(default)/documents/publico/fundadores', { cache: 'no-store' })
-      .then(function (r) { if (r.status === 404) return {}; if (!r.ok) throw new Error('leve ' + r.status); return r.json().then(function (j) { return deCampos(j.fields || {}); }); }) : Promise.reject(new Error('sem fetch'));
-    return leve.catch(function () {
-      return eu._pronto.then(function () { return eu.db.collection('publico').doc('fundadores').get().then(function (d) { return d.exists ? d.data() : {}; }); });
-    }).then(function (dados) {
+    /* 1o a borda (o mensageiro guarda o numero 1 minuto: um pico de visitas nao gasta o banco gratis); quem vai pagar
+       ou a Central (semCache) le o banco na hora */
+    var borda = !(opcoes && opcoes.semCache) && enderecoBorda() && window.fetch
+      ? fetch(enderecoBorda() + '/fundadores').then(function (r) { if (!r.ok) throw new Error('borda ' + r.status); return r.json(); })
+        .then(function (j) { if (!j || j.borda !== 1) throw new Error('borda'); return { usados: j.usados, capacidade: j.capacidade }; })
+      : Promise.reject(new Error('sem borda'));
+    return borda.catch(function () { return eu._fundadoresDoBanco(proj); }).then(function (dados) {
       var usados = Number(dados.usados) || 0;
       var capacidade = dados.capacidade || null;
       try { localStorage.setItem(chave, JSON.stringify({ em: Date.now(), usados: usados, capacidade: capacidade })); } catch (_) { /* ignora */ }
       return { usados: usados, capacidade: capacidade };
     }).catch(function () { return null; });
+  };
+  FirebaseStore.prototype._fundadoresDoBanco = function (proj) {
+    var eu = this;
+    var leve = proj && window.fetch ? fetch('https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(proj) + '/databases/(default)/documents/publico/fundadores', { cache: 'no-store' })
+      .then(function (r) { if (r.status === 404) return {}; if (!r.ok) throw new Error('leve ' + r.status); return r.json().then(function (j) { return deCampos(j.fields || {}); }); }) : Promise.reject(new Error('sem fetch'));
+    return leve.catch(function () {
+      return eu._pronto.then(function () { return eu.db.collection('publico').doc('fundadores').get().then(function (d) { return d.exists ? d.data() : {}; }); });
+    });
   };
   /* campos do Firestore pela REST ({ usados: { integerValue: '2' } }) em objeto comum */
   function deCampos(f) {
