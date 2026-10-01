@@ -130,6 +130,9 @@
       return;
     }
     var provedor = (cfg.cobranca && cfg.cobranca.provedor) || 'Asaas';
+    /* confianca na hora de pagar (o mesmo padrao da garantia do botao da pagina inicial): o cadeado logo abaixo dos botoes.
+       Fica so aqui, na hora de pagar: embaixo do "Comecar gratis" dava a impressao de que ia pagar ja */
+    var seguro = function () { return el('p', { class: 'garantia-botao' }, [UI.iconeLinha('cadeado'), 'Pagamento seguro pelo ' + provedor + '.']); };
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } });
     /* com fatura, o valor e o vencimento ficam no cartao dela (antes o valor aparecia duas vezes) */
     if (!fatura) corpo.appendChild(el('p', { class: 'centro forte', text: R.dinheiro(o.valor) + ' · ' + o.periodo + ' de Ligeiro' + (o.sufixo || '') }));
@@ -151,7 +154,8 @@
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, [
         el('a', { class: 'btn btn-principal btn-largo', href: fatura.url, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('recibo'), 'Pagar a fatura']),
       ]));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a fatura segura do ' + provedor + '. Assim que o pagamento cai, sua loja é liberada sozinha.' }));
+      corpo.appendChild(seguro());
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Assim que o pagamento cai, sua loja é liberada sozinha.' }));
     } else if (link) {
       var botoes = [
         /* rotulos curtos, numa linha: com "cai sozinho todo mes" o do cartao quebrava em 2 linhas e ficava torto ao lado do outro */
@@ -195,7 +199,8 @@
         ]));
       }
       corpo.appendChild(el('div', { class: 'cobranca-opcoes' }, botoes));
-      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'Abre a página segura do ' + provedor + '. No cartão, a cobrança cai sozinha todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') + ', sem precisar lembrar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, sua loja é liberada sozinha.' }));
+      corpo.appendChild(seguro());
+      corpo.appendChild(el('p', { class: 'muted pequeno centro', text: 'No cartão, a cobrança cai sozinha todo ' + (o.tipo === 'anual' ? 'ano' : 'mês') + ', sem precisar lembrar. Cancela quando quiser, em "Minha conta". Assim que o pagamento cai, sua loja é liberada sozinha.' }));
     }
 
     /* 3: Pix manual */
