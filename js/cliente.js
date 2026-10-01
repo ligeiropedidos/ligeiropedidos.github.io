@@ -159,6 +159,7 @@
 
     /* titulo: "Peca no delivery de <cidade>". Com mais de uma cidade no Ligeiro, a cidade vira botao que abre a lista. */
     function pintarTitulo() {
+      if (estadoHub.naoExiste) return; /* endereco que nao e cidade: fica o "Pagina nao encontrada" */
       UI.limpar(tituloCidade);
       var nome = estadoHub.nomeCidade || '';
       var varias = (estadoHub.cidades || []).length > 1;
@@ -336,7 +337,8 @@
     function desenhar(lojas) {
       /* sem pagar (bloqueada, pausada ou cancelada) a loja sai do ar: nem no hub aparece */
       estadoHub.lojas = lojas.filter(function (l) { return !R.lojaBloqueada(l); });
-      estadoHub.nomeCidade = lojas.length ? lojas[0].cidade : cidadeSlug.replace(/-/g, ' ');
+      estadoHub.nomeCidade = lojas.length ? lojas[0].cidade : (estadoHub.cidadeConhecida || cidadeSlug.replace(/-/g, ' '));
+      if (estadoHub.naoExiste) { naoAchou(); return; }
       pintarTitulo();
       busca.hidden = lojas.length === 0;
       chips.hidden = lojas.length < 2;
@@ -349,7 +351,41 @@
     /* espera com o mascote no lugar da lista (antes ficava vazio ate as lojas chegarem) */
     var esperaLojas = UI.carregandoMascote('Buscando as lojas…');
     lista.appendChild(esperaLojas);
+    /* sem loja nesta "cidade": o endereco pode ser so o nome da loja (ligeiropedidos.com.br/dom-conizza, o jeito que a
+       gente digita) ou nem ser cidade (link errado). Loja: vai para ela. Cidade de verdade: o convite de sempre, com o nome
+       certo (Juquiá, com acento). Nenhum dos dois: "nao achamos", em vez de "Delivery de planos" */
+    function semLoja() {
+      var vitrine = store.listarVitrine ? store.listarVitrine().catch(function () { return []; }) : Promise.resolve([]);
+      var cidades = fetch('dados/cidades.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+      return Promise.all([vitrine, cidades]).then(function (r) {
+        var loja = (r[0] || []).filter(function (l) { return l.slug === cidadeSlug && l.cidadeSlug; })[0];
+        if (loja) { window.LigeiroApp.trocar(loja.cidadeSlug + '/' + loja.slug); return null; }
+        var porUf = r[1];
+        if (!porUf) return []; /* lista de cidades nao veio: fica o convite, como antes */
+        var nome = null;
+        Object.keys(porUf).some(function (uf) {
+          return (porUf[uf] || []).some(function (n) { if (R.slug(n) === cidadeSlug || R.slugDaCidade(n, uf) === cidadeSlug) { nome = n; return true; } return false; });
+        });
+        if (nome) estadoHub.cidadeConhecida = nome; else estadoHub.naoExiste = true;
+        return [];
+      });
+    }
+    function naoAchou() {
+      UI.limpar(tituloCidade);
+      tituloCidade.textContent = 'Página não encontrada';
+      busca.hidden = true; chips.hidden = true;
+      UI.limpar(lista);
+      lista.appendChild(el('div', { class: 'vazio hub-vazio' }, [
+        el('img', { class: 'mascote-vazio', src: 'img/mascote.webp', alt: '' }),
+        el('p', { class: 'forte', text: 'Não achamos este endereço.' }),
+        el('p', { class: 'muted', text: 'Confira o link da loja. Ele fica assim: ligeiropedidos.com.br/cidade/loja.' }),
+        el('a', { class: 'btn btn-principal', href: '#/cidades', text: 'Ver as lojas' }),
+      ]));
+    }
     store.listarLojas(cidadeSlug).then(function (lojas) {
+      return lojas && lojas.length ? lojas : semLoja();
+    }).then(function (lojas) {
+      if (lojas === null) return; /* foi para a loja */
       if (esperaLojas.parentNode) esperaLojas.parentNode.removeChild(esperaLojas);
       /* so lembra a cidade quando ela existe de verdade (senao "#/painel" digitado errado virava a cidade da pessoa) */
       if (lojas && lojas.length) UI.guardarLocal(CHAVE_CIDADE, cidadeSlug);

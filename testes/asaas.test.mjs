@@ -235,7 +235,9 @@ r = await avisar({ id: 'pay_3', customer: 'cus_1', value: 890 });
 let conta = db.get('contas/dono@loja.com');
 ok(r.status === 200 && conta && conta.plano.pagamentoParcial && conta.plano.pagamentoParcial.cobrado === 4450, 'valor inflado no aviso: vale o que o Asaas diz (meio mes, proporcional)');
 const dias = Math.round((new Date(conta.plano.pagoAte).getTime() - Date.now()) / 864e5);
-ok(dias === 15, 'metade do preco: 15 dias (' + dias + ')');
+/* meio mes de calendario a partir de hoje: 15 dias num mes de 30 (14 em fevereiro) */
+const meioMes = Math.floor(Math.round((somarPeriodoTeste(Date.now(), 'mensal') - Date.now()) / 864e5) * 4450 / 8900);
+ok(dias === meioMes, 'metade do preco: meio mes de dias (' + dias + ', esperado ' + meioMes + ')');
 
 /* mesmo pagamento duas vezes: nao soma */
 const antes = conta.plano.pagoAte;
@@ -534,7 +536,7 @@ ok(doAdmin().length === adminAntes + 1 && /pausada/.test(doAdmin()[doAdmin().len
 novaConta('atraso@x.com', 'cus_atr', { pagoAte: new Date(Date.now() - 9 * DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_atr' });
 cobrancas.set('pay_atr', { id: 'pay_atr', customer: 'cus_atr', value: 89, status: 'RECEIVED', subscription: 'sub_atr', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_atr', customer: 'cus_atr' });
-ok(diasDe(contaDe('atraso@x.com').plano.pagoAte) === 21, 'pagou 9 dias atrasado, com a loja ainda no ar: conta do vencimento (21 dias pela frente, e nao 30)');
+ok(diasDe(contaDe('atraso@x.com').plano.pagoAte) === Math.round((somarPeriodoTeste(Date.now() - 9 * DIA, 'mensal') - Date.now()) / DIA), 'pagou 9 dias atrasado, com a loja ainda no ar: conta do vencimento (um mes depois dele, e nao um mes a partir de hoje)');
 novaConta('parado@x.com', 'cus_par', { pagoAte: new Date(Date.now() - 15 * DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_par' });
 cobrancas.set('pay_par', { id: 'pay_par', customer: 'cus_par', value: 89, status: 'RECEIVED', subscription: 'sub_par', billingType: 'BOLETO' });
 await avisarCom(envE, { id: 'pay_par', customer: 'cus_par' });
