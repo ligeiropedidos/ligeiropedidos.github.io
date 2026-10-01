@@ -39,6 +39,12 @@ function lojaDoCaminho(caminho) {
   return { cidade: p[0], slug: p[1] };
 }
 
+/* so o nome da loja (/dom-conizza, o jeito que a gente digita): pode ser loja ou cidade; quem decide e a loja existir */
+function curtoDoCaminho(caminho) {
+  const p = caminho.split('/').filter(Boolean);
+  return p.length === 1 && TELAS.indexOf(p[0]) < 0 && PEDACO.test(p[0]) ? p[0] : null;
+}
+
 /* a loja publica, pelo mensageiro (que responde da copia da borda, sem ler o banco) */
 async function lerLoja(slug) {
   try {
@@ -93,9 +99,12 @@ async function pagina(request, url) {
   /* a marca do endereco limpo, logo depois do <base> (antes de qualquer script do site ler) */
   html = html.replace('<base href="/">', '<base href="/">\n  <meta name="ligeiro-links" content="limpos">');
   const onde = lojaDoCaminho(url.pathname);
-  if (onde && ROBO.test(request.headers.get('User-Agent') || '')) {
-    const loja = await lerLoja(onde.slug);
-    if (loja) html = comPreviaDaLoja(html, loja, onde);
+  const curto = onde ? null : curtoDoCaminho(url.pathname);
+  if ((onde || curto) && ROBO.test(request.headers.get('User-Agent') || '')) {
+    const loja = await lerLoja(onde ? onde.slug : curto);
+    /* link curto: a previa da loja com o endereco completo (o site leva a pessoa para /cidade/loja) */
+    if (loja && onde) html = comPreviaDaLoja(html, loja, onde);
+    else if (loja && PEDACO.test(String(loja.cidadeSlug || ''))) html = comPreviaDaLoja(html, loja, { cidade: loja.cidadeSlug, slug: curto });
   }
   return new Response(request.method === 'HEAD' ? null : html, {
     status: 200,

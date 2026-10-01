@@ -123,6 +123,16 @@ console.log('== logo da loja ==');
   ok(x.status === 302 && !chamadas.some((c) => c.includes('ligeiro-mp')), 'nome torto: nem consulta');
 }
 
+console.log('== link curto (so o nome da loja) ==');
+{
+  const r = await pedir('/dom-conizza', WHATS); const h = await r.text();
+  ok(meta(h, 'property', 'og:title') === 'Dom Conizza · Juquiá/SP' && meta(h, 'property', 'og:url') === 'https://ligeiropedidos.com.br/juquia/dom-conizza', '/dom-conizza: previa da loja, com o endereco completo');
+  const c = await pedir('/juquia', WHATS); const hc = await c.text();
+  ok(!/Dom Conizza/.test(hc), '/juquia (cidade): a previa de sempre');
+  const t = await pedir('/painel', WHATS);
+  ok(!/Dom Conizza/.test(await t.text()), 'tela do site: nem procura loja');
+}
+
 console.log('== o que e loja no endereco ==');
 const L = _teste.lojaDoCaminho;
 ok(L('/juquia/dom-conizza') && L('/juquia/dom-conizza').slug === 'dom-conizza', '/cidade/loja');
