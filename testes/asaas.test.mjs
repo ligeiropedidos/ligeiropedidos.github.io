@@ -548,7 +548,7 @@ cobrancas.set('pay_sv', { id: 'pay_sv', customer: 'cus_sv', value: 79, status: '
 adminAntes = doAdmin().length;
 await avisarCom(envE, { id: 'pay_sv', customer: 'cus_sv' });
 c = contaDe('semvaga@x.com');
-ok(c.plano.fundador === false && c.plano.pagamentoParcial && c.plano.pagamentoParcial.motivo === 'fundador-sem-vaga' && diasDe(c.plano.pagoAte) === 26, 'link de fundador sem vaga: 26 dias pelos R$ 79');
+ok(c.plano.fundador === false && c.plano.pagamentoParcial && c.plano.pagamentoParcial.motivo === 'fundador-sem-vaga' && diasDe(c.plano.pagoAte) === Math.floor(MES * 7900 / 8900), 'link de fundador sem vaga: o mes proporcional aos R$ 79 (26 dias num mes de 30)');
 ok(assinaturas.get('sub_sv').value === 89 && assinaturas.get('sub_sv').cycle === 'MONTHLY' && doAdmin().length === adminAntes + 1, 'e a assinatura passa para R$ 89 (a proxima fatura ja vem certa), com e-mail ao admin');
 
 /* 4. encerrar: perde o fundador, a assinatura extra tambem para, e a loja recebe o fundador na copia (igual ao site) */
@@ -665,7 +665,7 @@ novaConta('duaslojas@x.com', 'cus_dl', { status: 'teste', desde: new Date(Date.n
 cobrancas.set('pay_dl', { id: 'pay_dl', customer: 'cus_dl', value: 217, status: 'RECEIVED', subscription: 'sub_dl', billingType: 'PIX' });
 await avisarCom(envE, { id: 'pay_dl', customer: 'cus_dl' });
 c = contaDe('duaslojas@x.com');
-ok(diasDe(c.plano.pagoAte) === 73 && c.plano.tipo === 'mensal' && c.plano.pagamentoParcial && c.plano.pagamentoParcial.cheio === 8900, 'R$ 217 de um link velho: 73 dias pelo preco do mensal (antes, 89 dias pelo anual)');
+ok(diasDe(c.plano.pagoAte) === Math.floor(MES * 21700 / 8900) && c.plano.tipo === 'mensal' && c.plano.pagamentoParcial && c.plano.pagamentoParcial.cheio === 8900, 'R$ 217 de um link velho: 73 dias pelo preco do mensal (antes, 89 dias pelo anual)');
 
 /* assinatura extra: a renovacao nao repete o aviso; e quando a do dono morre, a extra que paga vira a da conta e sai das extras */
 novaConta('extra@x.com', 'cus_ex', { tipo: 'anual', pagoAte: new Date(Date.now() + 200 * DIA).toISOString(), ultimoPagamentoEm: '2026-09-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_exdono', assinaturasExtras: ['sub_exoutra'] });
@@ -710,7 +710,7 @@ cobrancas.set('pay_e2a', { id: 'pay_e2a', customer: 'cus_e2', value: 89, status:
 await avisarCom(envE, { id: 'pay_e2a', customer: 'cus_e2' });
 const pagoE2 = Date.parse(contaDe('estorno2@x.com').plano.pagoAte);
 cobrancas.get('pay_e2a').status = 'CHARGEBACK_REQUESTED';
-globalThis.__antesDoLote = () => { const x = db.get('contas/estorno2@x.com'); x.plano.pagoAte = new Date(pagoE2 + 30 * DIA).toISOString(); mudou('contas/estorno2@x.com'); };
+globalThis.__antesDoLote = () => { const x = db.get('contas/estorno2@x.com'); x.plano.pagoAte = new Date(pagoE2 + MES * DIA).toISOString(); mudou('contas/estorno2@x.com'); };
 await avisarCom(envE, { id: 'pay_e2a', customer: 'cus_e2' }, 'PAYMENT_CHARGEBACK_REQUESTED');
 c = contaDe('estorno2@x.com');
 ok(c.plano.status === 'pausado' && Math.round((Date.parse(c.plano.pagoAte) - pagoE2) / DIA) === 0, 'estorno no meio de um pagamento: refeito com a conta nova (sai so o que o estornado deu)');
