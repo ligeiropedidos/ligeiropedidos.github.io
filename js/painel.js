@@ -344,7 +344,11 @@
         var lista = [], velhos = [], pixVelhos = [];
         listaToda.forEach(function (x) {
           if (String(x.criadoEm || '') >= desde) lista.push(x);
-          else if (x.status === R.STATUS.AGUARDANDO) pixVelhos.push(x);
+          /* Pix do site (Mercado Pago) de outro dia: so o vencimento cuida dele */
+          else if (x.status === R.STATUS.AGUARDANDO && R.pagaPeloSite(x)) pixVelhos.push(x);
+          /* Pix combinado no WhatsApp de outro dia (feito de madrugada, pago depois das 5 h): fica na fila, com o
+             Recebi o Pix e o Cancelar. Antes ia para o vencimento, que nao vale para ele, e sumia do painel */
+          else if (x.status === R.STATUS.AGUARDANDO) lista.push(x);
           else velhos.push(x);
         });
         estado.deOutrosDias = velhos;
@@ -468,7 +472,9 @@
            espera o proximo minuto */
         var hoje = new Date(); if (hoje.getHours() < 5) hoje.setDate(hoje.getDate() - 1);
         hoje.setHours(5, 0, 0, 0);
-        var andando = (estado.pedidos || []).some(function (x) { return R.EM_ANDAMENTO.indexOf(x.status) >= 0; });
+        /* so pedido recente segura a virada: o esquecido de ontem nao (ele vai para "De outros dias") */
+        var recente = new Date(Date.now() - 3 * 3600e3).toISOString();
+        var andando = (estado.pedidos || []).some(function (x) { return R.EM_ANDAMENTO.indexOf(x.status) >= 0 && String(x.criadoEm || '') >= recente; });
         if (hoje.toISOString() !== desde && !andando) { desde = hoje.toISOString(); estado.encerrados = null; assinarFila(); }
         /* banco no limite: tenta de novo a cada 10 min; quando a cota zerar, a fila volta sozinha e a faixa sai */
         else if (filaNoLimite && Date.now() - (estado.filaTentouEm || 0) > 10 * 60 * 1000) { estado.filaTentouEm = Date.now(); assinarFila(); }
@@ -1346,13 +1352,15 @@
       }
       avancarAgora(p, proximo, botao);
     }
+    /* pedido de dia ja fechado mudou o valor do dia: o resumo guardado sai (o relatorio refaz) */
+    function esquecerResumo(p) { if (store.esquecerResumoDoPedido) store.esquecerResumoDoPedido(slug, p); }
     function avancarAgora(p, proximo, botao) {
       var soltar = botao ? UI.ocupar(botao, 'Salvando…') : null;
       if (botao && !soltar) return;
       estado.travaAte = Date.now() + 700; /* depois da pergunta tambem: o cartao muda agora */
       var mudancas = { status: proximo };
       if (proximo === R.STATUS.PAGO) { mudancas.pagamentoStatus = 'pago'; mudancas.pagoEm = new Date().toISOString(); }
-      store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); }).catch(function (e) { if (soltar) soltar(); UI.avisar(D.erroAmigavel(e)); });
+      store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); if (proximo === R.STATUS.PAGO) esquecerResumo(p); }).catch(function (e) { if (soltar) soltar(); UI.avisar(D.erroAmigavel(e)); });
     }
 
     /* "Conferir pagamento" (Pix ou cartao pelo Mercado Pago): pergunta ao mensageiro (/status), que pergunta ao Mercado
@@ -1402,6 +1410,7 @@
         if (devolveAqui) { estado.devolvendo = estado.devolvendo || {}; estado.devolvendo[p.id] = true; }
         store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () {
           avisarQueAndou(p, R.STATUS.CANCELADO);
+          esquecerResumo(p);
           if (devolver && estado.equipe) { UI.avisar('Pedido cancelado. Avise o dono para devolver o dinheiro.'); return; }
           if (!devolver) { UI.avisar('Pedido cancelado.'); return; }
           UI.avisar('Pedido cancelado. Devolvendo o dinheiro…');
@@ -1484,9 +1493,13 @@
 
     /* Imprime uma vez cada pedido que entrou pra fila depois que o painel abriu (Pix confirmado ou pra cobrar na entrega). */
     function imprimirNovosSozinho(lista) {
+      var paraCozinha = function (p) { return p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO; };
+      /* o que ja estava pago na primeira leitura da fila nao imprime de novo ao abrir (antes era pela hora do PC, e um PC
+         com o relogio adiantado deixava de imprimir os pedidos dos primeiros minutos) */
+      if (!estado.jaNaFila) { estado.jaNaFila = {}; lista.forEach(function (p) { if (paraCozinha(p)) estado.jaNaFila[p.id] = true; }); return; }
       if (!estado.impressaoAuto) return;
       var fila = lista.filter(function (p) {
-        return !estado.impressos[p.id] && (p.pagoEm || p.criadoEm) >= estado.abertoEm && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO);
+        return !estado.impressos[p.id] && !estado.jaNaFila[p.id] && paraCozinha(p);
       }).sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
       fila.forEach(function (p, i) {
         estado.impressos[p.id] = true;

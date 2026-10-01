@@ -46,7 +46,7 @@ const ordens = new Map();
 const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com', 'tok-corrida': 'corrida@x.com' };
+const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com', 'tok-corrida': 'corrida@x.com', 'tok-velho': 'velho@x.com', 'tok-pagou': 'pagou@x.com' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
@@ -154,7 +154,7 @@ globalThis.fetch = async (url, op) => {
       const obj = {};
       Object.keys(wr.update.fields || {}).forEach((k) => { obj[k] = deFs(wr.update.fields[k]); });
       /* com mascara, so esses campos mudam (o resto do documento fica) */
-      if (wr.updateMask) { const atual = db.get(cam) || {}; (wr.updateMask.fieldPaths || []).forEach((f) => { atual[f] = obj[f]; }); db.set(cam, atual); } else db.set(cam, obj);
+      if (wr.updateMask) { const atual = db.get(cam) || {}; (wr.updateMask.fieldPaths || []).forEach((f) => { const ps = f.split('.'); let a = atual, o = obj; for (let i = 0; i < ps.length - 1; i++) { a = a[ps[i]] = (a[ps[i]] && typeof a[ps[i]] === 'object') ? a[ps[i]] : {}; o = (o || {})[ps[i]]; } a[ps[ps.length - 1]] = (o || {})[ps[ps.length - 1]]; }); db.set(cam, atual); } else db.set(cam, obj);
       versoes.set(cam, (versoes.get(cam) || 0) + 1);
       conta.gravacoes += 1;
     }
@@ -615,6 +615,15 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 200 && j.pedido.desconto > 0 && db.get('lojas/dom-conizza/contadores/cupom-PROMO').usos === 1, 'cupom de verdade: aplica e conta o uso');
   r = await pedir(dados({ cupom: 'PROMO', telefone: '13988887777' })); j = await r.json();
   ok(r.status === 422 && /todo usado/.test(j.erro || ''), 'cupom com limite 1 no segundo uso: recusado no servidor');
+  /* o pedido que gastou o cupom foi cancelado: o uso volta e o proximo cliente consegue usar */
+  {
+    const gastou = db.get('lojas/dom-conizza/contadores/cupom-PROMO').pedidos[0];
+    const pd = db.get('lojas/dom-conizza/pedidos/' + gastou); db.set('lojas/dom-conizza/pedidos/' + gastou, Object.assign(pd, { status: 'cancelado' }));
+    r = await pedir(dados({ cupom: 'PROMO', telefone: '13988886666' })); j = await r.json();
+    ok(r.status === 200 && j.pedido.desconto > 0 && db.get('lojas/dom-conizza/contadores/cupom-PROMO').usos === 1, 'pedido com cupom cancelado: o uso volta e o proximo cliente usa (limite 1 continua 1)');
+    r = await pedir(dados({ cupom: 'PROMO', telefone: '13988885555' })); j = await r.json();
+    ok(r.status === 422 && /todo usado/.test(j.erro || ''), 'e o limite segue valendo para o pedido seguinte');
+  }
   /* forma de pagamento que a loja nao aceita e recusada (antes virava outra calada: "Pix" chegava como maquininha); loja fechada nao recebe */
   r = await pedir(dados({ formaPagamento: 'cartao_entrega', telefone: '13977776666' })); j = await r.json();
   ok(r.status === 422 && /forma de pagamento não está disponível/.test(j.erro || ''), 'maquininha desligada: o pedido na maquininha e recusado, nao vira outra forma');
@@ -632,6 +641,26 @@ console.log('Pedido criado pelo servidor');
   r = await pedir(dados({ telefone: '13966665555' })); j = await r.json();
   ok(r.status === 422 && /fechada/.test(j.erro || ''), 'loja fechada: o pedido nao nasce');
   loja.aberta = true; await recarregar();
+  /* fuso da loja pelo estado: faixa de 1 h em volta da hora de Cuiaba (4 h atras de Londres), que em Brasilia ja passou */
+  {
+    const hm = (m) => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+    const mt = new Date(Date.now() - 4 * 3600e3), m = mt.getHours() * 60 + mt.getMinutes();
+    const faixa = hm(m - 30) + '-' + hm(m + 30), horarios = {};
+    ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'].forEach((d) => { horarios[d] = [faixa]; });
+    const ufAntes = loja.uf;
+    Object.assign(loja, { usarHorarios: true, horarios, uf: 'MT' }); await recarregar();
+    r = await pedir(dados({ telefone: '13944443333' })); j = await r.json();
+    ok(r.status === 200, 'loja de Cuiaba (MT) aberta na hora de la: o pedido nasce (antes contava a hora de Brasilia e recusava)');
+    loja.uf = 'SP'; await recarregar();
+    r = await pedir(dados({ telefone: '13944442222' })); j = await r.json();
+    ok(r.status === 422 && /fechada/.test(j.erro || ''), 'a mesma faixa numa loja de SP: em Brasilia ja fechou');
+    Object.assign(loja, { usarHorarios: false, uf: ufAntes }); delete loja.horarios; await recarregar();
+  }
+  /* loja AMOSTRA: nem chamando direto */
+  loja.amostra = true; await recarregar();
+  r = await pedir(dados({ telefone: '13944441111' })); j = await r.json();
+  ok(r.status === 409 && /amostra/.test(j.erro || ''), 'loja amostra: o pedido nao nasce nem chamando o mensageiro direto');
+  delete loja.amostra; await recarregar();
   /* dois pedidos disputando a mesma senha: o segundo tenta de novo e pega a proxima */
   const senhaAntes = db.get('lojas/dom-conizza/contadores/senha').ultima;
   globalThis.__falharLote = 1;
@@ -1199,6 +1228,22 @@ console.log('Loja nova (so pelo mensageiro)');
   ok(r.status === 200 && j.slug === 'pastel-da-vila' && nasceu && vitNova, 'conta nova cria a primeira loja pelo mensageiro (loja e vitrine juntas)');
   ok(nasceu.donoEmail === 'novo@x.com' && nasceu.verificada !== true && !('email' in nasceu) && nasceu.plano.status === 'teste' && nasceu.plano.planoPago === '' && nasceu.plano.pagoAte === '', 'o que o dono nao decide (dono, selo, plano pago, e-mail do Ligeiro) sai do documento');
   ok(JSON.stringify(vitNova.plano) === JSON.stringify(nasceu.plano) && !('email' in vitNova) && !('donoEmail' in vitNova) && vitNova.verificada !== true, 'a vitrine nasce com o mesmo plano da loja e sem e-mail');
+  /* conta criada ha 20 dias que nunca teve loja (caiu na lista de espera ou desistiu no meio): o teste recomeca agora */
+  {
+    /* num worker novo: nao gasta o limite de lojas por hora do endereco dos testes de baixo */
+    const wv = await workerNovo();
+    const criarV = (tok, nome) => chamar(wv, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: nome }), vitrine: { nome: nome, horarios: {} } }, headers: bearer(tok) });
+    const vinte = new Date(Date.now() - 20 * 864e5).toISOString();
+    db.set('contas/velho@x.com', { email: 'velho@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: vinte } });
+    r = await criarV('tok-velho', 'Pastel do Velho'); j = await r.json();
+    const cv = db.get('contas/velho@x.com'), lv = db.get('lojas/pastel-do-velho');
+    ok(r.status === 200 && Date.now() - Date.parse(cv.plano.desde) < 60e3 && cv.plano.status === 'teste' && cv.plano.planoId === 'uma' && cv.lojaCriadaEm, 'conta sem loja ha 20 dias: a loja nasce e os 7 dias gratis comecam agora (antes vinha vencida)');
+    ok(lv && lv.plano.desde === cv.plano.desde, 'a loja leva o teste novo no plano');
+    /* quem ja pagou alguma vez nao ganha teste de novo */
+    db.set('contas/pagou@x.com', { email: 'pagou@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: vinte, ultimoPagamentoEm: vinte } });
+    r = await criarV('tok-pagou', 'Pastel Pago');
+    ok(db.get('contas/pagou@x.com').plano.desde === vinte, 'conta que ja pagou: o teste nao recomeca');
+  }
   r = await criarLoja('tok-novo');
   ok(r.status === 409 && /já tem a sua loja/.test((await r.json()).erro), '1 loja por conta: a segunda e recusada, com o caminho (outra conta)');
   db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'duas', planoPago: 'duas', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });

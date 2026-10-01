@@ -807,7 +807,7 @@ cobrancas.set('pay_rc', { id: 'pay_rc', customer: 'cusrc', value: 89, status: 'C
 assinaturas.set('sub_rc', { id: 'sub_rc', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
 r = await avisarCom(envE, { id: 'pay_rc', customer: 'cusrc' });
 const recibos = emails.filter((m) => m.para === 'recibo@x.com');
-const d = new Date(contaDe('recibo@x.com').plano.pagoAte), ate = String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+const ate = new Date(Date.parse(contaDe('recibo@x.com').plano.pagoAte) - 3 * 3600e3).toISOString().slice(0, 10).split('-').reverse().join('/'); /* a data de Brasilia, igual a do painel */
 ok(r.status === 200 && recibos.length === 1 && recibos[0].assunto.indexOf('Pagamento confirmado') === 0 && recibos[0].assunto.indexOf(ate) > 0 && /selo-pago\.png/.test(recibos[0].html) && /R\$ 89,00/.test(recibos[0].html) && /\/painel\/loja-cusrc/.test(recibos[0].html), 'pagou: o dono recebe "Pagamento confirmado" com a data, o valor e o botao do painel, no modelo da marca');
 await avisarCom(envE, { id: 'pay_rc', customer: 'cusrc' });
 ok(emails.filter((m) => m.para === 'recibo@x.com').length === 1, 'aviso repetido do Asaas: nenhum e-mail a mais');

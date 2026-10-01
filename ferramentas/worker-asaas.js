@@ -354,7 +354,7 @@ async function lembrarFaturas(env, agora) {
     if (!qual) continue;
     const ja = Array.isArray(f.lembretes) ? f.lembretes : [];
     if (ja.indexOf(qual) >= 0 || (qual === 'vencida' && ja.indexOf('vencida7') >= 0)) continue;
-    const ok = await mandarEmail(env, email, mensagemDoLembrete(qual, f, cartao, c.nome));
+    const ok = await mandarEmail(env, email, mensagemDoLembrete(qual, f, cartao, c.nome, !!(c.plano && c.plano.tipo === 'anual')));
     if (!ok) { falhas++; continue; }
     await fb.merge('contas/' + encodeURIComponent(email), { faturaAsaas: Object.assign({}, f, { lembretes: ja.concat([qual]) }) });
     enviados++;
@@ -379,29 +379,31 @@ const ADMIN = 'ligeiro.pedidos@gmail.com';
 const PLANO = 'uma';
 const MEM = { quem: {}, vez: {} };
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function mensagemDoLembrete(qual, f, cartao, nome) {
+function mensagemDoLembrete(qual, f, cartao, nome, anual) {
+  /* plano anual: a fatura e do ano (antes o e-mail chamava de mensalidade) */
+  const SUA = anual ? 'Sua fatura anual do Ligeiro' : 'Sua mensalidade do Ligeiro';
   const valor = 'R$ ' + (Math.round(Number(f.valor) || 0) / 100).toFixed(2).replace('.', ',');
   const p = f.vencimento.split('-');
   const dia = p[2] + '/' + p[1];
   const naoPassou = cartao ? 'A cobrança no seu cartão não passou. ' : '';
   const m = {
-    d3: { assunto: 'Sua mensalidade do Ligeiro vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
+    d3: { assunto: SUA + ' vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
       titulo: 'Fatura em aberto', sub: ['É só um lembrete:', 'está tudo em dia.'],
-      texto: 'Sua mensalidade do Ligeiro vence em 3 dias. Pague pela fatura e sua loja segue recebendo pedidos sem parar.' },
-    d0: { assunto: 'Sua mensalidade do Ligeiro vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
+      texto: SUA + ' vence em 3 dias. Pague pela fatura e sua loja segue recebendo pedidos sem parar.' },
+    d0: { assunto: SUA + ' vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
       titulo: 'Último dia', sub: ['Ainda dá tempo', 'de pagar sem atraso.'],
-      texto: 'Sua mensalidade do Ligeiro vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
-    vencida: { assunto: 'Sua mensalidade do Ligeiro venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
+      texto: SUA + ' vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
+    vencida: { assunto: SUA + ' venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
       titulo: 'Fatura vencida', sub: ['Calma, ainda dá', 'tempo de resolver.'],
-      texto: naoPassou + 'Sua mensalidade do Ligeiro venceu. Sua loja segue no ar por mais alguns dias: pague pela fatura para não parar.' },
+      texto: naoPassou + SUA + ' venceu. Sua loja segue no ar por mais alguns dias: pague pela fatura para não parar.' },
     vencida7: { assunto: 'Sua loja pode parar de receber pedidos', quando: 'Venceu em ' + dia, tom: 'parar',
       titulo: 'Fatura atrasada', sub: ['Este é o último', 'lembrete que mandamos.'],
-      texto: naoPassou + 'Sua mensalidade do Ligeiro venceu há uma semana e ainda não foi paga. Pague pela fatura para sua loja não parar de receber pedidos.' },
+      texto: naoPassou + SUA + ' venceu há uma semana e ainda não foi paga. Pague pela fatura para sua loja não parar de receber pedidos.' },
   }[qual];
   const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
   return emailMarca({
     assunto: m.assunto, tom: m.tom, titulo: m.titulo, sub: m.sub, ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!', texto: m.texto,
-    quadro: { rotulo: 'Mensalidade do Ligeiro', valor: valor, quando: m.quando },
+    quadro: { rotulo: anual ? 'Fatura anual do Ligeiro' : 'Mensalidade do Ligeiro', valor: valor, quando: m.quando },
     botao: { texto: 'Pagar a fatura', url: f.url, icone: 'icone-cartao.png' }, abaixo: 'Pix, boleto ou cartão',
     fecho: 'Pagou? Tudo segue sozinho. Dúvida? É só responder este e-mail.',
   });
@@ -480,7 +482,8 @@ function emailMarca(m) {
 }
 /* "Pagamento confirmado" para o dono: o valor, ate quando a loja esta garantida e (fundador) o preco travado */
 function emailPagamentoConfirmado(o) {
-  const d = new Date(o.pagoAte), ate = String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+  /* a data de Brasilia, a mesma do painel (antes era a de Londres: pagamento a noite saia com um dia a mais no e-mail) */
+  const ate = diaDeBrasilia(new Date(o.pagoAte)).split('-').reverse().join('/');
   const primeiro = String(o.nome || '').trim().split(/\s+/)[0].slice(0, 30);
   return emailMarca({
     assunto: 'Pagamento confirmado: sua loja está garantida até ' + ate, tom: 'pago', titulo: 'Pagamento confirmado',

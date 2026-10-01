@@ -1241,8 +1241,17 @@
   /* A loja ocupa uma vaga do limite de lojas (capacidade do banco gratis)?
      Ativa e no ar ocupa. Parada por falta de pagamento tambem ocupa se ja pagou alguma vez (ela volta quando pagar);
      so o teste gratis que acabou sem nunca pagar libera a vaga. Desativada pelo Ligeiro nao ocupa. */
+  /* Conta que nunca teve loja e nunca pagou: os dias gratis ainda nao comecaram (comecam quando a loja nasce; o
+     mensageiro /loja-nova recomeca o "desde"). Quem caiu na lista de espera nao perde o teste */
+  function testeAindaNaoComecou(conta) {
+    var p = (conta && conta.plano) || {};
+    return !!conta && !conta.lojaCriadaEm && (p.status || 'teste') === 'teste' && !p.ultimoPagamentoEm && !p.planoPago && !p.pagoAte;
+  }
+
   function ocupaVaga(loja, agora) {
     if (!loja || loja.ativa === false) return false;
+    /* amostra (a loja de mostrar ao dono, na conta do Ligeiro) nao recebe pedido: nao tira vaga de quem vai pagar */
+    if (loja.amostra === true) return false;
     if (!lojaBloqueada(loja, agora)) return true;
     var p = loja.plano || {};
     return !!(p.planoPago || p.pagoAte || p.ultimoPagamentoEm);
@@ -1427,6 +1436,7 @@
     termosEmDia: termosEmDia,
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
+    testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
     pixCombinado: pixCombinado,
     nomeDoPagamento: nomeDoPagamento,

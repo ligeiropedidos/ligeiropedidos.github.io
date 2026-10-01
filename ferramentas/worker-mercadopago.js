@@ -89,6 +89,14 @@ const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + 
    leitura do banco e gravacao do KV (1 mil por dia no gratis) sem nada ter mudado */
 const LOJA_VALE = 6 * 3600 * 1000;
 const VITRINE_VALE = 3 * 3600 * 1000;
+/* fuso da loja pelo estado (o Brasil nao tem mais horario de verao): Acre 5 h atras de Londres; MT, MS, RO, RR e AM 4 h;
+   o resto, 3 h (Brasilia). Antes era 3 h para todo mundo: loja de Cuiaba perdia a ultima hora de pedidos todo dia */
+function horasAtrasDeLondres(uf) {
+  const u = String(uf || '').toUpperCase();
+  if (u === 'AC') return 5;
+  if (['MT', 'MS', 'RO', 'RR', 'AM'].indexOf(u) >= 0) return 4;
+  return 3;
+}
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
 const MEM = {
@@ -1364,8 +1372,17 @@ const REGRAS = (function () {
   /* A loja ocupa uma vaga do limite de lojas (capacidade do banco gratis)?
      Ativa e no ar ocupa. Parada por falta de pagamento tambem ocupa se ja pagou alguma vez (ela volta quando pagar);
      so o teste gratis que acabou sem nunca pagar libera a vaga. Desativada pelo Ligeiro nao ocupa. */
+  /* Conta que nunca teve loja e nunca pagou: os dias gratis ainda nao comecaram (comecam quando a loja nasce; o
+     mensageiro /loja-nova recomeca o "desde"). Quem caiu na lista de espera nao perde o teste */
+  function testeAindaNaoComecou(conta) {
+    var p = (conta && conta.plano) || {};
+    return !!conta && !conta.lojaCriadaEm && (p.status || 'teste') === 'teste' && !p.ultimoPagamentoEm && !p.planoPago && !p.pagoAte;
+  }
+
   function ocupaVaga(loja, agora) {
     if (!loja || loja.ativa === false) return false;
+    /* amostra (a loja de mostrar ao dono, na conta do Ligeiro) nao recebe pedido: nao tira vaga de quem vai pagar */
+    if (loja.amostra === true) return false;
     if (!lojaBloqueada(loja, agora)) return true;
     var p = loja.plano || {};
     return !!(p.planoPago || p.pagoAte || p.ultimoPagamentoEm);
@@ -1550,6 +1567,7 @@ const REGRAS = (function () {
     termosEmDia: termosEmDia,
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
+    testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
     pixCombinado: pixCombinado,
     nomeDoPagamento: nomeDoPagamento,
@@ -2004,6 +2022,16 @@ export default {
         let docConta = await fb.get('contas/' + email, true);
         if (!docConta || !ehMapa(docConta.plano)) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
         const agora = new Date();
+        /* os 7 dias gratis comecam quando a primeira loja nasce. A conta e gravada antes da loja (e quem cai na lista de
+           espera, ou desiste no meio, ficava com o relogio do teste correndo sem loja nenhuma: chamado depois, ja vinha
+           vencido). Conta que nunca teve loja e nunca pagou: o teste recomeca agora */
+        const testeDeNovo = (d) => {
+          const p = d.plano || {};
+          if (email === ADMIN || d.lojaCriadaEm || (p.status || 'teste') !== 'teste' || p.ultimoPagamentoEm || p.planoPago || p.pagoAte) return false;
+          d.plano = Object.assign({}, p, { desde: agora.toISOString() });
+          return true;
+        };
+        let recomecou = testeDeNovo(docConta);
         if (email !== ADMIN) {
           const sit = REGRAS.assinatura(docConta, agora).estado;
           if (['vencida', 'bloqueada', 'cancelada', 'pausada'].indexOf(sit) >= 0) return json({ ok: false, erro: 'Sua assinatura precisa de atenção. Veja em Minha conta.' }, 409);
@@ -2065,7 +2093,11 @@ export default {
           const escritas = [{ caminho: 'lojas/' + slug, dados: doc, trava: { exists: false } }, { caminho: 'vitrine/' + slug, dados: vit }];
           /* 1 loja por conta: a conta e marcada no mesmo lote, travada na leitura. Dois pedidos juntos (duas abas, ou
              varios de uma vez) contavam zero lojas os dois e criavam duas: agora so o primeiro grava */
-          if (email !== ADMIN) escritas.push({ caminho: 'contas/' + email, dados: { lojaCriadaEm: agora.toISOString() }, mascara: ['lojaCriadaEm'], trava: { updateTime: docConta._atualizadoNoBanco } });
+          if (email !== ADMIN) {
+            const dadosConta = { lojaCriadaEm: agora.toISOString() };
+            if (recomecou) dadosConta.plano = { desde: docConta.plano.desde };
+            escritas.push({ caminho: 'contas/' + email, dados: dadosConta, mascara: recomecou ? ['lojaCriadaEm', 'plano.desde'] : ['lojaCriadaEm'], trava: { updateTime: docConta._atualizadoNoBanco } });
+          }
           const gravou = await fb.gravarJuntos(escritas);
           if (!gravou) {
             /* a trava falhou: outra loja nasceu nesta conta agora, ou alguem pegou o mesmo endereco. Confere de novo */
@@ -2073,6 +2105,7 @@ export default {
               if ((await fb.lojasDoDonoAtivas(email)) >= 1) return json({ ok: false, erro: 'Esta conta já tem a sua loja. Para abrir outra, entre com outro e-mail do Google e crie a loja por lá.' }, 409);
               docConta = await fb.get('contas/' + email, true);
               if (!docConta || !ehMapa(docConta.plano)) return json({ ok: false, erro: 'Crie a sua conta antes (Minha conta).' }, 409);
+              recomecou = testeDeNovo(docConta);
               /* a conta mudou no meio (um pagamento, por exemplo): a loja nasce com o plano de agora, e no mesmo endereco se
                  ele continua livre (antes pulava para o nome-2 e levava a copia velha do plano) */
               doc.plano = planoDaConta(docConta.plano);
@@ -2203,13 +2236,15 @@ export default {
         else l = await fb.get('lojas/' + loja);
         if (!l) return json({ erro: 'Essa loja não existe mais.' }, 404);
         if (l.ativa === false) return json({ erro: 'Esta loja não está recebendo pedidos pelo site.' }, 409);
+        /* loja AMOSTRA (a que o Ligeiro mostra para o dono): o site ja nao deixa pedir; aqui fecha para quem chama direto */
+        if (l.amostra === true) return json({ erro: 'Esta loja é só uma amostra: ainda não recebe pedidos.' }, 409);
         /* cupons: a lista privada, so quando o pedido veio com codigo (pedido sem codigo nao gasta nada com isso) */
         const comCodigo = !!String(dados.cupom || '').trim();
         if (comCodigo && (demais('cupom-ped:' + casa, 30, 10 * 60 * 1000) || demais('cupom-loja:' + loja, 300, 10 * 60 * 1000))) return json({ erro: 'Muitas tentativas de código. Espere alguns minutos.' }, 429);
         l = Object.assign({}, l, { cupons: comCodigo && (l.temCupom === true || (Array.isArray(l.cupons) && l.cupons.length > 0)) ? await cuponsDaLoja(env, fb, loja) : [] });
         /* as regras contam o horario da loja pelo relogio local: o Cloudflare roda no horario de Londres, entao elas
-           recebem a hora de Brasilia (o Brasil nao tem mais horario de verao). No pedido fica a hora de verdade */
-        const agoraBr = new Date(Date.now() - 3 * 3600 * 1000);
+           recebem a hora da cidade da loja (o Brasil nao tem mais horario de verao). No pedido fica a hora de verdade */
+        const agoraBr = new Date(Date.now() - horasAtrasDeLondres(l.uf) * 3600 * 1000);
         let pedido;
         try {
           /* 4o argumento: a hora de verdade (a assinatura conta o dia em Brasilia sozinha; o horario da loja usa o 3o) */
@@ -2240,9 +2275,25 @@ export default {
           ];
           if (codigo) {
             const uso = await fb.get(lojaDoc + '/contadores/cupom-' + codigo, true);
-            const usos = uso ? (Number(uso.usos) || 0) : 0;
+            let usos = uso ? (Number(uso.usos) || 0) : 0;
+            let quem = uso && Array.isArray(uso.pedidos) ? uso.pedidos.filter((x) => typeof x === 'string') : null;
+            /* chegou no limite: confere quem gastou. Pedido cancelado ou Pix que venceu sem pagar devolve o uso (antes o uso
+               ficava gasto para sempre, e quem conhecia o codigo esgotava o cupom com pedidos abandonados). Contador antigo,
+               sem a lista, segue como antes */
+            if (regraCupom && regraCupom.limite > 0 && usos >= regraCupom.limite && quem && quem.length) {
+              const agoraMs = Date.now();
+              const docs = await Promise.all(quem.slice(-200).map((pid) => fb.get(lojaDoc + '/pedidos/' + pid).catch(() => ({ status: 'erro' }))));
+              quem = quem.slice(-200).filter((pid, i) => {
+                const pd = docs[i];
+                if (!pd) return false; /* pedido que nao existe mais */
+                if (pd.status === 'cancelado') return false;
+                if (pd.status === 'aguardando_pagamento' && pixVencidoNoServidor(pd, agoraMs)) return false;
+                return true;
+              });
+              usos = quem.length;
+            }
             if (regraCupom && regraCupom.limite > 0 && usos >= regraCupom.limite) return json({ erro: 'Esse código já foi todo usado.' }, 422);
-            escritas.push({ caminho: lojaDoc + '/contadores/cupom-' + codigo, dados: { usos: usos + 1, atualizadoEm: quando }, trava: uso ? { updateTime: uso._atualizadoNoBanco } : { exists: false } });
+            escritas.push({ caminho: lojaDoc + '/contadores/cupom-' + codigo, dados: { usos: usos + 1, pedidos: (quem || []).concat(id).slice(-200), atualizadoEm: quando }, trava: uso ? { updateTime: uso._atualizadoNoBanco } : { exists: false } });
           }
           const doc = Object.assign({}, pedido, { id: id, senha: senha.ultima });
           escritas.push({ caminho: lojaDoc + '/pedidos/' + id, dados: doc, trava: { exists: false } });

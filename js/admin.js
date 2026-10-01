@@ -1328,6 +1328,9 @@
       categorias.forEach(function (c) {
         var lista = x.gruposPorCategoria && Array.isArray(x.gruposPorCategoria[c.id]) ? x.gruposPorCategoria[c.id] : [];
         lista.forEach(function (g) { if (!grupos[g]) throw new Error('A categoria ' + c.nome + ' usa um grupo que não existe: ' + g); });
+        /* a mesma regra do painel: o site guarda uma escolha "Escolhe so um" por item (com duas, a segunda apagava a
+           primeira e o item nao fechava no pedido) */
+        if (lista.filter(function (g) { return grupos[g].tipo === 'unico'; }).length > 1) throw new Error('A categoria ' + c.nome + ' tem mais de um grupo "Escolhe só um". Deixe um só e troque os outros para "Pode escolher vários" com máximo 1.');
         porCategoria[c.id] = lista.slice();
       });
       return { categorias: categorias, produtos: produtos, grupos: grupos, gruposPorCategoria: porCategoria };

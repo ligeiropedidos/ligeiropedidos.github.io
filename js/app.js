@@ -134,6 +134,8 @@
   function carregarRota(p) { return Promise.all(arquivosDa(p).map(baixar)); }
 
   function render() {
+    /* versao nova esperando a hora certa: a troca de tela e a hora (sem misturar arquivo novo com os velhos) */
+    if (versaoNova) { var ja = null; try { ja = sessionStorage.getItem('ligeiro:recarregou'); } catch (_) { /* ignora */ } if (ja !== versaoNova) { recarregarNaVersao(versaoNova); return; } }
     rotaDesenhada = rotaAtual();
     if (typeof limparTelaAtual === 'function') { try { limparTelaAtual(); } catch (_) { /* ignora */ } }
     limparTelaAtual = null;
@@ -337,9 +339,27 @@
     });
   }
 
-  /* Versao nova no ar? Ao abrir o site, confere o index.html direto na rede; se o numero mudou, recarrega uma vez.
-     Assim ninguem fica preso na versao antiga (celular segura cache por varios minutos). */
-  (function () {
+  /* Versao nova no ar? Confere o index.html direto na rede; se o numero mudou, recarrega uma vez.
+     Assim ninguem fica preso na versao antiga (celular segura cache por varios minutos). Confere ao abrir, quando a tela
+     volta a aparecer e a cada 30 min: o painel, a cozinha e o entregador ficam abertos o dia todo e antes so pegavam a
+     versao nova se alguem recarregasse (e uma troca de tela baixava arquivo novo por cima dos velhos). */
+  var versaoNova = null;
+  function podeRecarregarAgora() {
+    if (document.querySelector('#modal.aberto')) return false; /* janela aberta (pagamento, edicao) */
+    var a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false; /* alguem digitando */
+    var p = partes();
+    /* loja do cliente (carrinho e pedido no meio): espera trocar de tela */
+    return !(p.length >= 2 && !ARQUIVOS.hasOwnProperty(p[0]));
+  }
+  function recarregarNaVersao(v) {
+    var ja = null; try { ja = sessionStorage.getItem('ligeiro:recarregou'); } catch (_) { /* ignora */ }
+    if (ja === v) return; /* ja tentou pra esta versao: nao entra em laco */
+    try { sessionStorage.setItem('ligeiro:recarregou', v); } catch (_) { return; }
+    var limpar = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+    limpar.catch(function () {}).then(function () { location.reload(); });
+  }
+  function conferirVersao(abrindo) {
     if (location.protocol === 'file:' || !window.fetch) return;
     var meu = ((document.querySelector('script[src*="/app.js"]') || {}).src || '').match(/\?v=([0-9a-z]+)/);
     if (!meu) return;
@@ -348,13 +368,13 @@
          saia da versao guardada no aparelho (de 27/09 a 28/09/2026) */
       var novo = html.match(/js\/(?:m\/)?app\.js\?v=([0-9a-z]+)/);
       if (!novo || novo[1] === meu[1]) return;
-      var ja = null; try { ja = sessionStorage.getItem('ligeiro:recarregou'); } catch (_) { /* ignora */ }
-      if (ja === novo[1]) return; /* ja tentou pra esta versao: nao entra em laco */
-      try { sessionStorage.setItem('ligeiro:recarregou', novo[1]); } catch (_) { return; }
-      var limpar = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
-      limpar.catch(function () {}).then(function () { location.reload(); });
+      versaoNova = novo[1];
+      if (abrindo || podeRecarregarAgora()) recarregarNaVersao(versaoNova);
     }).catch(function () { /* sem internet: segue com o que tem */ });
-  })();
+  }
+  conferirVersao(true);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) conferirVersao(false); });
+  setInterval(function () { if (!document.hidden) conferirVersao(false); }, 30 * 60 * 1000);
 
   limparEndereco();
   render();

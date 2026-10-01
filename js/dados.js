@@ -1265,18 +1265,36 @@
     return this._pronto.then(function () {
       var col = eu.db.collection('lojas').doc(slug).collection('resumos');
       var id = window.firebase.firestore.FieldPath.documentId();
+      /* sem o servidor (celular sem internet), os pedidos viriam so do que esta guardado no aparelho (quase so a fila): o
+         resumo sairia faltando e, guardado, apagaria o certo quando a internet voltasse. Entao: le os dias do servidor e so
+         grava quando ele respondeu */
+      var doServidor = true;
       return vendasDoPeriodo({
         lerDias: function (lista) {
-          return col.where(id, '>=', lista[0]).where(id, '<=', lista[lista.length - 1]).get().then(function (snap) {
+          return col.where(id, '>=', lista[0]).where(id, '<=', lista[lista.length - 1]).get({ source: 'server' }).catch(function (e) { doServidor = false; throw e; }).then(function (snap) {
             var saida = {};
             snap.forEach(function (d) { saida[d.id] = d.data(); });
             return saida;
           });
         },
         listarPedidos: function (desde) { return eu.listarPedidos(slug, { desde: desde }); },
-        gravarDia: function (dia, resumo) { return col.doc(dia).set(Object.assign({}, resumo, { atualizadoEm: agoraISO() })); },
+        gravarDia: function (dia, resumo) {
+          if (!doServidor || (typeof navigator !== 'undefined' && navigator.onLine === false)) return Promise.resolve();
+          return col.doc(dia).set(Object.assign({}, resumo, { atualizadoEm: agoraISO() }));
+        },
       }, dias, agora);
     });
+  };
+
+  /* Pedido de um dia que ja fechou mudou o que conta nas vendas (cancelado, ou Pix combinado pago depois): o resumo guardado
+     daquele dia sai e o relatorio refaz a conta na proxima vez. So o dono pode (a equipe nao mexe nos resumos: sem erro) */
+  FirebaseStore.prototype.esquecerResumoDoPedido = function (slug, pedido) {
+    var t = pedido && Date.parse(pedido.criadoEm || '');
+    if (!t) return Promise.resolve();
+    var dia = diaDeTrabalho(t);
+    if (!diaFechado(dia, Date.now())) return Promise.resolve();
+    var eu = this;
+    return this._pronto.then(function () { return eu.db.collection('lojas').doc(slug).collection('resumos').doc(dia).delete(); }).catch(function () { /* sem permissao ou sem internet */ });
   };
 
   FirebaseStore.prototype.assistirLoja = function (slug, cb) {

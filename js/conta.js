@@ -131,7 +131,7 @@
         arranjo.className = 'conta-arranjo' + (par ? ' par' : '') + (par && urgente ? ' plano-primeiro' : '');
         tituloPlano.hidden = !par;
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
-        desenharPlano(caixaPlano, conta);
+        desenharPlano(caixaPlano, conta, lojas.length === 0);
         UI.limpar(rodapeLojas);
         /* 1 loja por conta: com a loja criada, o caminho para outra e outra conta (a conta do Ligeiro nao tem limite) */
         if (reais >= R.limiteDeLojas(conta || { email: u.email })) rodapeLojas.appendChild(cartaoOutraLoja());
@@ -154,9 +154,10 @@
     });
 
     /* Caixa do plano: nome, situacao, quando vence, valor, pagar, mensal/anual e encerrar. */
-    function desenharPlano(caixa, conta) {
+    function desenharPlano(caixa, conta, semLoja) {
       UI.limpar(caixa);
-      if (!conta || !conta.plano) {
+      /* sem loja e sem pagamento: os dias gratis ainda nao comecaram (antes dizia "acabaram" para quem esperou vaga) */
+      if (!conta || !conta.plano || (semLoja && R.testeAindaNaoComecou(conta))) {
         caixa.appendChild(el('div', { class: 'cartao destaque conta-plano' }, [
           el('b', { text: 'Sem plano ainda' }),
           el('p', { class: 'muted pequeno', text: 'Ao criar a primeira loja você escolhe o plano. Os ' + diasGratis() + ' dias grátis começam nesse dia.' }),
@@ -170,7 +171,7 @@
       var fundador = R.ehPrecoFundador(conta);
       var textos = {
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Paga até ' + dataBR(a.limite) + '.',
-        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague pelo Pix para não parar.',
+        vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + '. Pague a fatura para não parar.',
         vencida: 'Vencida desde ' + dataBR(a.limite) + '. Sua loja segue no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + ' dias.',
         bloqueada: a.gratis ? 'Os dias grátis acabaram em ' + dataBR(a.limite) + ': o site parou de aceitar pedidos. Assine e volta na hora.' : 'Vencida há mais de ' + a.tolerancia + ' dias: o site parou de aceitar pedidos. Pague e volta na hora.',
         pausada: 'Pausada pelo Ligeiro. Fale com a gente.', cancelada: 'Encerrada. Reative quando quiser.',
@@ -183,8 +184,11 @@
       /* assinatura viva no Asaas: mensal/anual e encerrar passam pelo mensageiro (que muda ou cancela ela junto) */
       var comAssinatura = !D.modoDemo && !!(C && C.assinaturaAtiva && C.assinaturaAtiva(conta));
       var atrasada = a.estado === 'vencida' || a.estado === 'bloqueada';
+      /* assinatura no cartao em dia: a renovacao cai sozinha. Antes mandava "pagar pelo Pix" todo mes, em destaque */
+      var renovaSozinha = a.estado === 'vencendo' && comAssinatura && !fatura;
+      if (renovaSozinha) { textos.vencendo = 'Renova sozinha em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ', no cartão.'; alerta = false; }
       var rotuloStatus = { gratis: 'Período grátis', ativa: a.cortesia ? 'Liberada' : (a.encerrando ? 'Encerrando' : 'Em dia'), vencendo: 'Vence em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias'), vencida: 'Vencida', bloqueada: 'Bloqueada', pausada: 'Pausada', cancelada: 'Encerrada' }[a.estado] || a.estado;
-      var corStatus = a.estado === 'ativa' || a.estado === 'gratis' ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
+      var corStatus = a.estado === 'ativa' || a.estado === 'gratis' || renovaSozinha ? '' : a.estado === 'vencendo' ? 'laranja' : 'cinza';
       /* quadro 1: quando e o proximo pagamento (ou o que vale no lugar dele) */
       var q1 = a.cortesia || !a.limite
         ? ['Assinatura', a.estado === 'pausada' ? 'Pausada' : (a.estado === 'cancelada' ? 'Encerrada' : 'Liberada'), a.cortesia ? 'pelo Ligeiro' : '']
@@ -219,6 +223,8 @@
             /* assinatura em dia e sem fatura aberta: nada a pagar (o link abriria outra assinatura) */
             : (comAssinatura && !atrasada) ? null
             : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && a.estado !== 'ativa') ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
+          /* pausada (estorno ou revisao): o recado diz "fale com a gente", entao o botao leva ao WhatsApp do Ligeiro */
+          a.estado === 'pausada' && (window.LIGEIRO_CONFIG || {}).whatsappLigeiro ? el('a', { class: 'btn btn-principal btn-pequeno plano-pagar', href: R.linkWhatsapp(window.LIGEIRO_CONFIG.whatsappLigeiro, 'Oi! Minha assinatura do Ligeiro está pausada. Pode me ajudar?'), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('telefone'), 'Falar com o Ligeiro']) : null,
           a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para o ' + outroTipo }),
           p.status === 'cancelado'
             ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { var soltar = UI.ocupar(this, 'Reativando…'); if (!soltar) return; store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague ' + (p.tipo === 'anual' ? 'a fatura' : 'a mensalidade') + ' para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })

@@ -665,6 +665,10 @@ test('vagas: quem ocupa vaga no limite de lojas', () => {
   const futuro = new Date(agora + 20 * 864e5).toISOString();
   const passado = new Date(agora - 20 * 864e5).toISOString();
   assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'teste', desde: new Date(agora).toISOString() } }), true); /* teste gratis correndo */
+  assert.equal(R.ocupaVaga({ ativa: true, amostra: true, plano: { status: 'ativo', pagoAte: '' } }), false); /* amostra nao tira vaga de quem paga */
+  assert.equal(R.testeAindaNaoComecou({ plano: { status: 'teste', desde: '2026-01-01T00:00:00.000Z' } }), true); /* esperou vaga: o teste nao comecou */
+  assert.equal(R.testeAindaNaoComecou({ lojaCriadaEm: '2026-01-02T00:00:00.000Z', plano: { status: 'teste', desde: '2026-01-01T00:00:00.000Z' } }), false); /* ja teve loja */
+  assert.equal(R.testeAindaNaoComecou({ plano: { status: 'teste', ultimoPagamentoEm: '2026-01-01T00:00:00.000Z' } }), false); /* ja pagou */
   assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'ativo', planoPago: 'uma', pagoAte: futuro } }), true); /* pagando */
   assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'ativo', planoPago: 'uma', pagoAte: passado, desde: antigo } }), true); /* pagou e atrasou: volta quando pagar */
   assert.equal(R.ocupaVaga({ ativa: true, plano: { status: 'teste', desde: antigo } }), false); /* teste acabou sem nunca pagar: libera */

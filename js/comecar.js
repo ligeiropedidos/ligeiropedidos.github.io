@@ -76,7 +76,8 @@
         /* so as lojas no ar contam (a mesma conta do servidor) */
         var reais = minhas.filter(function (l) { return String(l.donoEmail || '').toLowerCase() === u.email && l.ativa !== false; }).length;
         if (conta && conta.plano) {
-          var sit = R.assinatura(conta).estado;
+          /* sem loja nenhuma ate hoje: o teste comeca quando a loja nascer (nao "vencida" de quem esperou vaga) */
+          var sit = reais === 0 && R.testeAindaNaoComecou(conta) ? 'gratis' : R.assinatura(conta).estado;
           /* quem ja tem a sua loja ouve o caminho para outra (outra conta); a assinatura dela se ve em Minha conta */
           if ((sit === 'vencida' || sit === 'bloqueada' || sit === 'cancelada' || sit === 'pausada') && reais < R.limiteDeLojas(conta)) {
             UI.limpar(raiz);
