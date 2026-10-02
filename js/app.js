@@ -39,6 +39,26 @@
       .filter(function (p) { return /^[A-Za-z0-9-]{1,60}$/.test(p); });
   }
 
+  /* Pixel do Meta: so liga com o numero em config.analytics.metaPixel. Sem ele, nao baixa nada e LigeiroMeta.evento nao faz nada.
+     Serve para o Meta achar mais gente parecida com quem se cadastra e para a gente ver quanto custa cada contato do anuncio. */
+  (function () {
+    var id = String(((window.LIGEIRO_CONFIG || {}).analytics || {}).metaPixel || '').replace(/\D/g, '');
+    window.LigeiroMeta = { evento: function () {} };
+    if (!/^\d{8,20}$/.test(id) || location.protocol === 'file:' || /^(localhost|127\.)/.test(location.hostname)) return;
+    /* so nas paginas de venda (o dono que veio do anuncio): nunca na loja, no pedido nem no painel. Quem chega por um link de loja
+       (o cliente) nao carrega nada do Meta */
+    var p0 = partes()[0] || '';
+    if (['', 'lojas', 'comecar', 'assinar', 'entrar', 'servicos', 'termos', 'privacidade'].indexOf(p0) < 0) return;
+    /* o trecho oficial do pixel, sem mudar nada */
+    !function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('set', 'autoConfig', false, id); /* sem os eventos automaticos do Meta (cliques, dados da pagina): so os 3 de baixo */
+    window.fbq('init', id);
+    window.fbq('track', 'PageView');
+    var ultima = location.pathname + location.hash;
+    window.addEventListener('hashchange', function () { var agora = location.pathname + location.hash; if (agora !== ultima) { ultima = agora; window.fbq('track', 'PageView'); } });
+    window.LigeiroMeta = { evento: function (nome) { try { window.fbq('track', nome); } catch (_) { /* sem pixel */ } } };
+  })();
+
   /* Medicao de visitas, so se o Ligeiro colocou o token (config.analytics.cloudflareToken). */
   (function () {
     var an = (window.LIGEIRO_CONFIG || {}).analytics || {};

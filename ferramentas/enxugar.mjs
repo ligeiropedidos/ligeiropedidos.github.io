@@ -3,7 +3,7 @@
 // publicacao. Ficam dentro de js/ e css/ porque essas pastas passam direto pela Cloudflare (nao gastam o limite do worker).
 // Uso: node ferramentas/enxugar.mjs            (gera js/m, css/m e js/m/fontes.json)
 //      node ferramentas/enxugar.mjs --conferir (so confere se a copia esta em dia com js/ e css/; sai com erro se nao)
-// O esbuild vem do Hypit ja instalado no PC (nada novo para baixar); outro caminho: variavel ESBUILD.
+// O esbuild vem do Hypit ja instalado no PC ou de ligeiro/escopo/pi (npm install esbuild); outro caminho: variavel ESBUILD.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -11,7 +11,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ESBUILD = process.env.ESBUILD || 'C:/Users/Mateus/AppData/Roaming/npm/node_modules/@hypit/hypit/node_modules/esbuild/bin/esbuild';
+/* o esbuild: o do Hypit, ou (se o Hypit foi reinstalado e perdeu ele, como em 02/10/2026) o instalado em ligeiro/escopo/pi */
+const CANDIDATOS = [
+  'C:/Users/Mateus/AppData/Roaming/npm/node_modules/@hypit/hypit/node_modules/esbuild/bin/esbuild',
+  path.join(RAIZ, '../escopo/pi/node_modules/esbuild/bin/esbuild'),
+];
+const ESBUILD = process.env.ESBUILD || CANDIDATOS.find((c) => fs.existsSync(c)) || CANDIDATOS[0];
 const conferir = process.argv.includes('--conferir');
 /* js/cliente.js -> js/m/cliente.js; css/temas/conizza.css -> css/m/temas/conizza.css */
 const destinoDe = (a) => path.join(RAIZ, a.replace(/^(js|css)\//, '$1/m/'));

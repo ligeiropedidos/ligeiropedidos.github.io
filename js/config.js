@@ -96,7 +96,10 @@ window.LIGEIRO_CONFIG = {
   /* Visitas: Cloudflare Web Analytics (gratis, sem cookie). Ligado desde 25/09/2026 pela configuracao automatica do
      Cloudflare (ele poe o contador sozinho em toda pagina, ja no modo de site de uma pagina so). Por isso o token fica
      vazio aqui: com os dois, cada visita contaria em dobro. automatico: so para a Central mostrar que esta ligado */
-  analytics: { cloudflareToken: '', automatico: true },
+  analytics: { cloudflareToken: '', automatico: true,
+    /* Pixel do Meta (anuncios no Instagram e no Facebook): o numero do pixel (so digitos) do Gerenciador de Anuncios. Vazio = desligado,
+       nada do Meta e carregado. Manda PageView, Lead (contato ou "terminar pelo WhatsApp") e CompleteRegistration (loja criada) */
+    metaPixel: '' },
 
   /* App Check: chave do site do reCAPTCHA v3 (Firebase > App Check > Apps > Web > reCAPTCHA v3).
      Com ela, so o site do Ligeiro consegue falar com o banco (robo que tenta gastar as leituras gratis fica de fora).

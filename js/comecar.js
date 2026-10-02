@@ -171,9 +171,13 @@
     ]));
     var barra = el('div', { class: 'cadastro-progresso', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(PASSOS.length) }, el('i'));
     raiz.appendChild(barra);
-    /* dentro do Instagram o Google nao deixa entrar no ultimo passo: avisa ja no primeiro, antes de digitar tudo */
-    var avisoApp = contaLogada ? null : UI.avisoNavegadorDeApp('comecar');
-    if (avisoApp) raiz.appendChild(el('div', { class: 'conteudo cadastro-aviso-app' }, [avisoApp]));
+    /* dentro do Instagram o Google nao deixa entrar. Android: no 1o passo, antes de digitar, um toque abre o Chrome. iPhone nao
+       tem atalho: o cadastro corre normal e o ultimo passo termina pelo WhatsApp (nao fica alerta vermelho no meio do caminho) */
+    var noApp = !D.modoDemo && !contaLogada && !!(D.navegadorDeApp && D.navegadorDeApp());
+    var androidNoApp = noApp && /Android/i.test(navigator.userAgent || '');
+    var avisoApp = androidNoApp ? UI.avisoNavegadorDeApp('comecar') : null;
+    var caixaAvisoApp = null;
+    if (avisoApp) { caixaAvisoApp = el('div', { class: 'conteudo cadastro-aviso-app' }, [avisoApp]); raiz.appendChild(caixaAvisoApp); }
     var corpo = el('div', { class: 'conteudo cadastro' });
     raiz.appendChild(corpo);
     var erro = el('div', { class: 'msg-erro', hidden: true, role: 'alert' });
@@ -230,6 +234,7 @@
       erro.hidden = true;
       botao = null;
       var passo = PASSOS[atual];
+      if (caixaAvisoApp) caixaAvisoApp.hidden = atual !== 0; /* o "Abrir no Chrome" so no 1o passo: depois ele recomecaria o cadastro */
       rotuloPasso.textContent = 'Passo ' + (atual + 1) + ' de ' + PASSOS.length;
       barra.setAttribute('aria-valuenow', String(atual + 1));
       barra.firstChild.style.width = Math.round((atual + 1) / PASSOS.length * 100) + '%';
@@ -336,7 +341,30 @@
         focar(iSenha);
       }
 
-      if (passo === 'acesso') {
+      if (passo === 'acesso' && noApp) {
+        /* o Google nao abre aqui dentro: quem ja respondeu tudo nao se perde. O contato vai para a lista do Ligeiro (Central) e
+           o WhatsApp abre com as respostas prontas; a equipe cria a loja e entrega */
+        var cfgApp = window.LIGEIRO_CONFIG || {};
+        var linhasApp = [
+          el('button', { class: 'btn btn-whats btn-gigante btn-largo', type: 'button', text: 'Terminar pelo WhatsApp', onclick: function (e) {
+            botao = e.currentTarget;
+            if (!exigirAceite()) return;
+            var cid = st.cidade || {};
+            var taxa = st.frete === 'gratis' ? 'entrega grátis' : (st.taxa ? 'taxa de entrega R$ ' + st.taxa : 'taxa de entrega a combinar');
+            var msg = 'Oi! Quero criar a minha loja no Ligeiro.' + '\nLoja: ' + st.nome + '\nTipo: ' + (st.tipo || 'não informado') + '\nCidade: ' + (cid.nome || '') + (cid.uf ? ' (' + cid.uf + ')' : '') + '\nMeu WhatsApp: ' + st.whatsapp + '\nEntrega: ' + taxa;
+            /* abre o WhatsApp no toque (o app do Instagram bloqueia janela aberta depois de uma espera) e grava o contato ao lado */
+            window.open(R.linkWhatsapp(cfgApp.whatsappLigeiro || '', msg), '_blank', 'noopener');
+            try { store.salvarLead({ nome: st.nome, whatsapp: st.whatsapp, loja: st.nome, cidade: cid.nome || '', uf: cid.uf || '', origem: 'cadastro-instagram', pagina: '#/comecar' }).catch(function () { /* a mensagem ja leva tudo */ }); } catch (_) { /* idem */ }
+            if (window.LigeiroMeta) window.LigeiroMeta.evento('Lead');
+            UI.soar('sucesso');
+            UI.avisar('Abrindo o WhatsApp. É só enviar a mensagem que a gente cria a sua loja.');
+          } }),
+          el('p', { class: 'muted pequeno centro', text: 'A gente monta a loja para você e chama no WhatsApp em poucos minutos. Os 7 dias grátis começam quando ela estiver no ar.' }),
+        ];
+        if (androidNoApp) linhasApp.push(el('a', { class: 'btn btn-fantasma btn-largo', href: 'intent://' + location.host + '/?ir=comecar#Intent;scheme=https;package=com.android.chrome;end' }, [UI.iconeLinha('site'), 'Prefiro fazer sozinho no Chrome']));
+        else linhasApp.push(el('p', { class: 'muted pequeno centro', text: 'Prefere fazer sozinho? Toque nos três pontinhos lá em cima, escolha "Abrir no navegador" e entre com o Google.' }));
+        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Última coisa: vamos criar a sua loja', 'Por dentro do Instagram o Google não deixa entrar. Então a gente termina para você pelo WhatsApp.').concat([legal()]).concat(linhasApp).concat([erro])));
+      } else if (passo === 'acesso') {
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Última coisa: onde guardar sua loja?', 'Entre com o Google e pronto. É com ele que você abre o painel depois, em qualquer celular.').concat([
           legal(),
           el('button', { class: 'btn btn-google btn-gigante btn-largo', type: 'button', text: 'Entrar com o Google', onclick: function (e) {
@@ -425,6 +453,7 @@
       }).then(function () { return store.criarLoja(dados); }).then(function (loja) {
         try { sessionStorage.setItem('ligeiro:painel:' + loja.slug, '1'); } catch (_) { /* ignora */ }
         criada = loja;
+        if (window.LigeiroMeta) window.LigeiroMeta.evento('CompleteRegistration');
         fim.then(function () { UI.soar('festa'); UI.vibrar([30, 40, 30, 40, 70]); mostrarPronto(loja); });
       }).catch(function (e) {
         fim.cancelar();
