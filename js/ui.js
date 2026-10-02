@@ -1033,6 +1033,21 @@
   /* Dentro do Instagram ou do Facebook o Google nao deixa entrar. O aviso vem ANTES (no cadastro, o que foi digitado
      ali se perderia ao trocar de navegador). Android: um toque abre o Chrome direto na tela certa (?ir=, ver app.js);
      iPhone: o caminho dos tres pontinhos. Fora de app (ou na demonstracao), nada. */
+  /* Embaixo do "Entrar com o Google": o que o Ligeiro recebe e o que nao recebe. E o medo de quem nunca entrou num site
+     pelo Google (a senha, o que vai ser postado). gratis: no cadastro, lembra que nada e cobrado agora */
+  function loginSeguro(gratis) {
+    var D = window.LigeiroDados;
+    if (D && D.modoDemo) return null;
+    var dias = ((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis || 7;
+    /* curtas: uma linha cada no celular de 360 (com a letra do iPhone, que e mais larga) */
+    var linhas = ['Sua senha fica só com o Google.', 'Recebemos só seu nome e e-mail.', 'Nada é postado no seu nome.'];
+    if (gratis) linhas.push(dias + ' dias grátis, sem cartão.');
+    return el('div', { class: 'login-seguro' }, [
+      el('b', { class: 'login-seguro-titulo' }, [iconeLinha('cadeado'), 'Login seguro pelo Google']),
+      el('ul', { class: 'plano-linhas' }, linhas.map(function (x) { return el('li', {}, [el('span', { class: 'plano-check', 'aria-hidden': 'true' }, [iconeLinha('check')]), el('span', { text: x })]); })),
+    ]);
+  }
+
   function avisoNavegadorDeApp(rota) {
     var D = window.LigeiroDados;
     if (!D || D.modoDemo || !D.navegadorDeApp || !D.navegadorDeApp()) return null;
@@ -1091,7 +1106,7 @@
   }
 
   window.LigeiroUI = {
-    $: $, el: el, limpar: limpar, ocupar: ocupar, caminho: caminho, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
+    $: $, el: el, limpar: limpar, ocupar: ocupar, caminho: caminho, pedacosDeLink: pedacosDeLink, icone: icone, faixaLimite: faixaLimite, iconeTraco: iconeTraco, iconeLinha: iconeLinha, iconeHtml: iconeHtml, avisoNavegadorDeApp: avisoNavegadorDeApp, loginSeguro: loginSeguro, seloTipo: seloTipo, carregandoMascote: carregandoMascote,
     guardarLocal: guardarLocal, lerLocal: lerLocal, erroCarregar: erroCarregar, carregarCss: carregarCss, lojaOficial: lojaOficial, ehOficial: ehOficial, aplicarTemaOficial: aplicarTemaOficial, seloVerificada: seloVerificada, splashOficial: splashOficial, splashLigeiro: splashLigeiro, splashLoja: splashLoja, lembrarCor: lembrarCor, imagensProntas: imagensProntas, oficialPronto: oficialPronto, abrirOficialCedo: abrirOficialCedo, temaPronto: function () { return temaPronto; }, limparTemaOficial: limparTemaOficial,
     avisar: avisar, soar: soar, somLigado: somLigado, vibrar: vibrar, somTravado: somTravado, somAcabouDeLiberar: somAcabouDeLiberar, quandoLiberarSom: quandoLiberarSom,
     avisoDeMentira: avisoDeMentira,

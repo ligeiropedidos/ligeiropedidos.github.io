@@ -346,6 +346,7 @@
             if (!soltar) return;
             store.entrarComGoogle().then(function (u) { if (u) { contaLogada = u; criar(); } else soltar(); }).catch(function (x) { soltar(); falhar(x.message); });
           } }),
+          UI.loginSeguro(false),
           erro,
         ])));
       }

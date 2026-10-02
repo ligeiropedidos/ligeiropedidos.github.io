@@ -1632,6 +1632,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .plano-linhas { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
 .plano-linhas li { display: flex; align-items: flex-start; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
 .plano-check { flex: none; }
+/* "Login seguro pelo Google", embaixo do botao do Google (cadastro e Entrar): a mesma lista com check do plano */
+.login-seguro { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 16px; background: var(--lime-suave); text-align: left; }
+.login-seguro-titulo { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--deep); }
+.login-seguro-titulo .ico-traco { color: var(--lime-escuro); }
+.login-seguro-titulo .ico-traco svg { width: 18px; height: 18px; stroke-width: 2.4; }
+.login-seguro .plano-linhas { margin: 0; font-size: 14px; }
+.login-seguro .plano-check .ico-traco { color: var(--lime-escuro); }
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
 @supports (grid-template-rows: subgrid) {
   .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }

@@ -790,6 +790,7 @@
     corpo.appendChild(el('div', { class: 'cartao login-caixa' }, [
       UI.avisoNavegadorDeApp('entrar'),
       btnGoogle,
+      UI.loginSeguro(false),
       erro,
       el('p', { class: 'muted pequeno centro', text: D().modoDemo ? 'Na demonstração a conta é de mentira e fica só neste aparelho.' : 'É a mesma conta Google do seu celular. Primeira vez? A conta do Ligeiro nasce sozinha, e em seguida você cria a loja.' }),
     ]));
