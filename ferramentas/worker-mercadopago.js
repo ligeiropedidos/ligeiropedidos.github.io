@@ -89,6 +89,31 @@ const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + 
    leitura do banco e gravacao do KV (1 mil por dia no gratis) sem nada ter mudado */
 const LOJA_VALE = 6 * 3600 * 1000;
 const VITRINE_VALE = 3 * 3600 * 1000;
+/* Contato novo (leads): e-mail para o admin com o botao do WhatsApp e a mensagem de resposta pronta. Mesmo Apps Script do mensageiro
+   do Asaas (EMAIL_URL e EMAIL_TOKEN como Secret tambem aqui); sem eles configurados, nao faz nada. Teto de 30 por dia para um
+   spam de contatos nao gastar a cota diaria de e-mails (que tambem leva os recibos de pagamento). */
+async function avisarNovoContato(env, lead) {
+  const url = String(env.EMAIL_URL || '').trim();
+  if (!url || !env.EMAIL_TOKEN || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) return false;
+  if (demais('lead-email', 30, 24 * 3600 * 1000)) return false;
+  const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const primeiro = String(lead.nome || '').split(' ')[0].slice(0, 30);
+  const resposta = 'Oi, ' + primeiro + '! Aqui é do Ligeiro. Vi o seu contato e já posso montar a sua loja. Me manda o nome da loja e uma foto do seu cardápio?';
+  const zap = 'https://wa.me/55' + lead.whatsapp + '?text=' + encodeURIComponent(resposta);
+  const onde = [lead.loja, lead.cidade && (lead.cidade + (lead.uf ? '/' + lead.uf : ''))].filter(Boolean).join(' · ');
+  const texto = 'Novo contato no Ligeiro: ' + lead.nome + (onde ? ' (' + onde + ')' : '') + '. WhatsApp ' + lead.whatsapp + '. Veio de: ' + (lead.origem || 'site') + ' ' + (lead.pagina || '') + '. Responder agora: ' + zap;
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1F2937;max-width:480px">'
+    + '<p style="margin:0 0 6px"><b>Novo contato no Ligeiro</b></p>'
+    + '<p style="margin:0 0 4px;font-size:20px"><b>' + esc(lead.nome) + '</b></p>'
+    + (onde ? '<p style="margin:0 0 4px">' + esc(onde) + '</p>' : '')
+    + '<p style="margin:0 0 14px">WhatsApp ' + esc(lead.whatsapp) + '<br><span style="color:#6B7280;font-size:13px">Veio de: ' + esc(lead.origem || 'site') + ' ' + esc(lead.pagina || '') + '</span></p>'
+    + '<p style="margin:0"><a href="' + esc(zap) + '" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:12px">Responder agora no WhatsApp</a></p>'
+    + '</div>';
+  const r = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: String(env.EMAIL_TOKEN).trim(), para: ADMIN, assunto: 'Novo contato: ' + lead.nome + (lead.cidade ? ' (' + lead.cidade + ')' : ''), texto: texto, html: html }) });
+  const j = await r.json().catch(() => ({}));
+  return !!j.ok;
+}
+
 /* fuso da loja pelo estado (o Brasil nao tem mais horario de verao): Acre 5 h atras de Londres; MT, MS, RO, RR e AM 4 h;
    o resto, 3 h (Brasilia). Antes era 3 h para todo mundo: loja de Cuiaba perdia a ultima hora de pedidos todo dia */
 function horasAtrasDeLondres(uf) {
@@ -2184,6 +2209,8 @@ export default {
         const id = idAleatorio(20);
         const lead = { id: id, nome: nome, whatsapp: whatsapp, loja: txt(c.loja, 80), cidade: txt(c.cidade, 80), uf: txt(c.uf, 2).toUpperCase().replace(/[^A-Z]/g, ''), origem: txt(c.origem, 40) || 'site', pagina: txt(c.pagina, 200), criadoEm: new Date().toISOString(), atendidoEm: '' };
         await fb.merge('leads/' + id, lead);
+        /* o dono do Ligeiro e avisado na hora (e-mail que apita no celular): quem responde em minutos fecha muito mais */
+        if (ctx && ctx.waitUntil) ctx.waitUntil(avisarNovoContato(env, lead).catch(() => false)); else await avisarNovoContato(env, lead).catch(() => false);
         return json({ ok: true, id: id });
       }
 

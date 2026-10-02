@@ -987,6 +987,30 @@ console.log('Contato da pagina de vendas');
   ok(r.status === 200, 'outro aparelho passa normal');
 }
 
+/* aviso na hora do contato novo (e-mail para o admin, com o botao do WhatsApp): so com EMAIL_URL e EMAIL_TOKEN no mensageiro */
+{
+  const emailsContato = [];
+  const fetchAntes = globalThis.fetch;
+  globalThis.fetch = async (url, op) => {
+    if (String(url).indexOf('https://script.google.com/macros/s/') === 0) { emailsContato.push(JSON.parse((op || {}).body || '{}')); return resposta({ ok: true }); }
+    return fetchAntes(url, op);
+  };
+  const ipE = { 'CF-Connecting-IP': '10.99.2.1' };
+  const envEmail = Object.assign({}, env, { EMAIL_URL: 'https://script.google.com/macros/s/AKfycbxTESTE/exec', EMAIL_TOKEN: 'segredo-do-script' });
+  const wE = await workerNovo();
+  let rr = await chamar(wE, '/lead', { metodo: 'POST', corpo: { nome: 'Joana Silva', whatsapp: '(13) 98888-7777', loja: 'Lanches da Joana', cidade: 'Registro', uf: 'SP', origem: 'cadastro-instagram', pagina: '#/comecar [cardapio]' }, headers: ipE, env: envEmail });
+  await esperarFundo();
+  ok(rr.status === 200 && emailsContato.length === 1 && emailsContato[0].para === 'ligeiro.pedidos@gmail.com' && /Joana Silva/.test(emailsContato[0].assunto) && /wa\.me\/5513988887777/.test(emailsContato[0].html) && /cadastro-instagram/.test(emailsContato[0].texto), 'contato novo: e-mail ao admin na hora, com o botao do WhatsApp e de onde veio');
+  ok(emailsContato[0].token === 'segredo-do-script' && !/segredo/.test(emailsContato[0].html + emailsContato[0].texto), 'o token vai so no pedido ao script, nunca no texto do e-mail');
+  rr = await chamar(wE, '/lead', { metodo: 'POST', corpo: { nome: 'Sem Email', whatsapp: '13977776666' }, headers: { 'CF-Connecting-IP': '10.99.2.2' } });
+  await esperarFundo();
+  ok(rr.status === 200 && emailsContato.length === 1, 'mensageiro sem EMAIL_URL e EMAIL_TOKEN: o contato grava e nenhum e-mail sai');
+  rr = await chamar(wE, '/lead', { metodo: 'POST', corpo: { nome: 'Html <b>Mau</b>', whatsapp: '13966665555' }, headers: { 'CF-Connecting-IP': '10.99.2.3' }, env: envEmail });
+  await esperarFundo();
+  ok(emailsContato.length === 2 && !/<b>Mau/.test(emailsContato[1].html) && /&lt;b&gt;/.test(emailsContato[1].html), 'nome com HTML no contato: escapado no e-mail');
+  globalThis.fetch = fetchAntes;
+}
+
 console.log('Marca do dono no login');
 {
   w = await workerNovo();
