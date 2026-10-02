@@ -354,7 +354,7 @@
             var msg = 'Oi! Quero criar a minha loja no Ligeiro.' + '\nLoja: ' + st.nome + '\nTipo: ' + (st.tipo || 'não informado') + '\nCidade: ' + (cid.nome || '') + (cid.uf ? ' (' + cid.uf + ')' : '') + '\nMeu WhatsApp: ' + st.whatsapp + '\nEntrega: ' + taxa;
             /* abre o WhatsApp no toque (o app do Instagram bloqueia janela aberta depois de uma espera) e grava o contato ao lado */
             window.open(R.linkWhatsapp(cfgApp.whatsappLigeiro || '', msg), '_blank', 'noopener');
-            try { store.salvarLead({ nome: st.nome, whatsapp: st.whatsapp, loja: st.nome, cidade: cid.nome || '', uf: cid.uf || '', origem: 'cadastro-instagram', pagina: '#/comecar' }).catch(function () { /* a mensagem ja leva tudo */ }); } catch (_) { /* idem */ }
+            try { store.salvarLead({ nome: st.nome, whatsapp: st.whatsapp, loja: st.nome, cidade: cid.nome || '', uf: cid.uf || '', origem: 'cadastro-instagram', pagina: '#/comecar [' + (window.LigeiroVariante || 'ifood') + ']' }).catch(function () { /* a mensagem ja leva tudo */ }); } catch (_) { /* idem */ }
             if (window.LigeiroMeta) window.LigeiroMeta.evento('Lead');
             UI.soar('sucesso');
             UI.avisar('Abrindo o WhatsApp. É só enviar a mensagem que a gente cria a sua loja.');

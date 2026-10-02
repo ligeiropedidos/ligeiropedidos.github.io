@@ -39,6 +39,18 @@
       .filter(function (p) { return /^[A-Za-z0-9-]{1,60}$/.test(p); });
   }
 
+  /* Qual titulo a pagina de venda mostra. "cardapio" (cardapio digital que recebe pedido e Pix sozinho) para quem vem de anuncio do
+     Meta (o link traz fbclid ou utm_source=ig/fb) e "ifood" (a comissao) para o resto. Para testar os dois no anuncio: coloque ?v=cardapio
+     ou ?v=ifood no link de cada anuncio. A escolha fica na sessao e vai junto no contato (campo pagina). Roda antes do ?ir= (que limpa o endereco). */
+  (function () {
+    var q = location.search || '', v = '', m = q.match(/[?&]v=(cardapio|ifood)(&|$)/);
+    try { v = sessionStorage.getItem('ligeiro:variante') || ''; } catch (_) { v = ''; }
+    if (m) v = m[1];
+    else if (/[?&]fbclid=/.test(q) || /[?&]utm_source=(ig|fb|facebook|instagram|meta)(&|$)/i.test(q)) v = 'cardapio';
+    try { if (v) sessionStorage.setItem('ligeiro:variante', v); } catch (_) { /* sem guardar */ }
+    window.LigeiroVariante = v === 'cardapio' ? 'cardapio' : 'ifood';
+  })();
+
   /* Pixel do Meta: so liga com o numero em config.analytics.metaPixel. Sem ele, nao baixa nada e LigeiroMeta.evento nao faz nada.
      Serve para o Meta achar mais gente parecida com quem se cadastra e para a gente ver quanto custa cada contato do anuncio. */
   (function () {

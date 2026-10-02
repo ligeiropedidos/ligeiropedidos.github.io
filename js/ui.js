@@ -1054,7 +1054,7 @@
     var ua = navigator.userAgent || '';
     var android = /Android/i.test(ua);
     var app = /Instagram/i.test(ua) ? 'do Instagram' : /FBAN|FBAV|FB_IAB/.test(ua) ? 'do Facebook' : 'de outro app';
-    var alvo = location.host + '/?ir=' + encodeURIComponent(rota);
+    var alvo = location.host + '/?ir=' + encodeURIComponent(rota) + (window.LigeiroVariante ? '&v=' + window.LigeiroVariante : '');
     return el('div', { class: 'aviso aviso-falta aviso-app' }, [
       iconeLinha('alerta'),
       el('div', { class: 'aviso-app-texto' }, [

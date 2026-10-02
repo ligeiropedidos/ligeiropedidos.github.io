@@ -168,7 +168,7 @@
       var cid = (f.cidade.valor && f.cidade.valor()) || { nome: f.cidade.input.value.replace(/\s*·\s*[A-Za-z]{2}$/, '').trim(), uf: '' };
       var soltar = UI.ocupar(btn, 'Enviando…');
       if (!soltar) return;
-      D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: '#/' + window.LigeiroApp.rota() })
+      D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: f.loja.input.value.trim(), cidade: cid.nome || '', uf: cid.uf || '', origem: origem || 'site', pagina: '#/' + window.LigeiroApp.rota() + ' [' + (window.LigeiroVariante || 'ifood') + ']' })
         .then(function () { if (window.LigeiroMeta) window.LigeiroMeta.evento('Lead'); UI.soar('sucesso'); contatoRecebido(nome, f.whatsapp.input.value, espera); })
         .catch(function (e) {
           soltar();
@@ -335,16 +335,23 @@
     raiz.appendChild(barraTopo());
 
     /* ---------- heroi ---------- */
+    var porCardapio = window.LigeiroVariante === 'cardapio';
     var seloLojas = el('span', { class: 'selo', hidden: true });
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
         /* nome de marca nunca parte no meio ("Anota" numa linha e "AI" na outra) */
-        el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
+        /* dois titulos (app.js decide: LigeiroVariante). Anuncio do Meta: o cardapio que recebe pedido e Pix sozinho, que e a dor de quem
+           vende pelo WhatsApp (no Vale o iFood pesa pouco). O resto: a comissao */
+        porCardapio
+          ? el('div', { class: 'kicker', text: 'Cardápio digital com pedido e Pix automáticos' })
+          : el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
-        el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
+        porCardapio
+          ? el('h1', { class: 'vender-titulo' }, ['Chega de mandar ', el('span', { class: 'dor-destaque', text: 'cardápio' }), ' no WhatsApp.'])
+          : el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
+        el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
         botoesChamada(true, true),
         el('div', { class: 'vender-selos' }, [
           el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'A gente monta para você']),
