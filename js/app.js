@@ -39,16 +39,15 @@
       .filter(function (p) { return /^[A-Za-z0-9-]{1,60}$/.test(p); });
   }
 
-  /* Qual titulo a pagina de venda mostra. "cardapio" (cardapio digital que recebe pedido e Pix sozinho) para quem vem de anuncio do
-     Meta (o link traz fbclid ou utm_source=ig/fb) e "ifood" (a comissao) para o resto. Para testar os dois no anuncio: coloque ?v=cardapio
-     ou ?v=ifood no link de cada anuncio. A escolha fica na sessao e vai junto no contato (campo pagina). Roda antes do ?ir= (que limpa o endereco). */
+  /* Qual titulo a pagina de venda mostra. Padrao: "cardapio" (cardapio digital que recebe pedido e Pix sozinho: no Vale a dor do dono
+     e mandar cardapio no WhatsApp, e o iFood pesa pouco). "ifood" (a comissao) so com ?v=ifood no link, para testar um contra o outro
+     no anuncio do Meta. A escolha fica na sessao e vai junto no contato (campo pagina). Roda antes do ?ir= (que limpa o endereco). */
   (function () {
     var q = location.search || '', v = '', m = q.match(/[?&]v=(cardapio|ifood)(&|$)/);
     try { v = sessionStorage.getItem('ligeiro:variante') || ''; } catch (_) { v = ''; }
     if (m) v = m[1];
-    else if (/[?&]fbclid=/.test(q) || /[?&]utm_source=(ig|fb|facebook|instagram|meta)(&|$)/i.test(q)) v = 'cardapio';
     try { if (v) sessionStorage.setItem('ligeiro:variante', v); } catch (_) { /* sem guardar */ }
-    window.LigeiroVariante = v === 'cardapio' ? 'cardapio' : 'ifood';
+    window.LigeiroVariante = v === 'ifood' ? 'ifood' : 'cardapio';
   })();
 
   /* Pixel do Meta: so liga com o numero em config.analytics.metaPixel. Sem ele, nao baixa nada e LigeiroMeta.evento nao faz nada.
