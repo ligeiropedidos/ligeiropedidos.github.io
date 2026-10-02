@@ -238,7 +238,7 @@
        sem # dava "arquivo nao encontrado") */
     var linkLojaDemo = UI.linkDoSite(lojaDemo);
     var pr = precos();
-    document.title = 'Ligeiro: sistema de pedidos para delivery, sem comissão';
+    document.title = 'Cardápio digital com pedido e Pix, sem comissão | Ligeiro';
 
     function botoesChamada(grande, garantia) {
       /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */
@@ -249,6 +249,8 @@
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '51 s' }),
       ]));
+      /* prova na hora, sem cadastro: uma loja de verdade para abrir e pedir (so no topo) */
+      if (grande) lista.push(el('a', { class: 'link-loja-real', href: linkLojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ou abra uma loja de verdade']));
       return el('div', { class: 'pilha chamada' }, lista);
     }
 
@@ -354,7 +356,10 @@
         el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
         botoesChamada(true, true),
         el('div', { class: 'vender-selos' }, [
-          el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'A gente monta para você']),
+          /* quem nao quer fazer sozinho chama no WhatsApp com a mensagem pronta (e o caminho que mais converte para dono de loja) */
+          cfg().whatsappLigeiro
+            ? el('a', { class: 'selo selo-acao', href: linkWhats('Oi! Quero que o Ligeiro monte a minha loja.'), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('check'), 'A gente monta para você', UI.iconeLinha('avancar')])
+            : el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'A gente monta para você']),
           seloFundador(),
           seloLojas,
         ]),
@@ -527,15 +532,17 @@
         duvida('Preciso cadastrar cartão para testar?', 'Não. Você cria a loja, usa ' + pr.diasGratis + ' dias com tudo liberado e só então decide. Se não quiser continuar, não paga nada.'),
         duvida('Eu não entendo de internet. Vou conseguir?', 'Vai. Se preferir, a gente monta a loja para você e tira dúvidas pelo WhatsApp. Depois, mudar preço ou pausar um item é um toque no celular.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
-        duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
+        duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, toque em "Encerrar assinatura" em Minha conta: a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
         duvida('Como eu recebo o dinheiro do Pix?', 'Direto na sua conta do Mercado Pago, que você conecta no painel com um toque; o Ligeiro nunca encosta no dinheiro. O Mercado Pago confirma na hora e o pedido já entra pago na cozinha (taxa deles, cerca de 1% por Pix).'),
         duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão: o cliente digita o cartão no formulário seguro do Mercado Pago e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, e você pode repassar ao cliente.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio com foto: toca no lanche, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
+        duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que olhamos em setembro de 2026 costumam limitar os pedidos por mês (de 30 a 65, em vários) e cobrar por pedido a mais ou parar de receber. No Ligeiro o pedido é ilimitado e o Pix cai confirmado sozinho. Você testa ' + pr.diasGratis + ' dias com tudo liberado, sem cartão, e só paga se compensar.'),
+        duvida('Preciso de CNPJ para criar a loja?', 'O Ligeiro não pede CNPJ para criar a loja. O dinheiro do Pix e do cartão cai na sua conta do Mercado Pago, que tem as próprias regras para abrir a conta.'),
         duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
         duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
-        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 a R$ 299,99 por mês (valores públicos de setembro de 2026). No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 (até 150 pedidos por mês), R$ 199,99 (até 250) e R$ 299,99 (acima disso), valores públicos de setembro de 2026. Ele pertence ao iFood desde 2022. No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem limite de pedidos e sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
         duvida('Minha loja pode ter a cara da minha marca?', 'Pode. No painel você escolhe cor, logo e capa. Se quiser algo feito sob medida, dentro do painel tem a Loja do Ligeiro, com logo, fotos, vídeo e design exclusivo, pagos uma vez só.'),
         duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. O sistema é enxuto, e o preço acompanha.'),
       ]),
@@ -905,7 +912,7 @@
       /* os dois concorrentes de verdade logo abaixo do Ligeiro; a comissao do iFood e a mesma da calculadora e do titulo */
       ['Ligeiro', reais(pr.mensal) + ' fixo', 'Nenhuma', true],
       ['iFood', 'R$ 110 a R$ 150', '15,2% a 26,2% de cada venda'],
-      ['Anota AI', 'R$ 99,99 a R$ 299,99', 'Nenhuma'],
+      ['Anota AI', 'R$ 99,99 até 150 pedidos; sobe para R$ 199,99 e R$ 299,99', 'Nenhuma'],
       ['aiqfome', 'Sem mensalidade', '12% a 18% de cada venda + taxa do pagamento'],
     ];
     return el('div', { class: 'comparativo' }, [
@@ -916,7 +923,7 @@
           return el('tr', { class: l[3] ? 'destaque' : '' }, [el('td', {}, el('b', { text: l[0] })), el('td', { text: l[1] }), el('td', { text: l[2] })]);
         })),
       ])),
-      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos. iFood, Anota AI e os outros nomes são marcas dos seus donos; o Ligeiro não tem ligação com eles.' }),
+      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos. O Anota AI pertence ao iFood desde 2022. iFood, Anota AI e os outros nomes são marcas dos seus donos; o Ligeiro não tem ligação com eles.' }),
     ]);
   }
 

@@ -1418,6 +1418,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vender-oferta { font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.25; color: var(--ink); max-width: 560px; text-wrap: balance; }
 .vender-capa .kicker, .vender-titulo, .vender-sub { text-wrap: balance; } /* linhas do mesmo tamanho: nada de palavra sozinha embaixo */
 /* vagas de fundador: mesmo amarelo do selo de fundador dos planos; leva ate os planos */
+.selo.selo-acao { text-decoration: none; cursor: pointer; gap: 6px; box-shadow: inset 0 0 0 1.5px #A8D98A; }
+.selo.selo-acao .ico-traco:last-child { margin-left: 2px; }
+@media (hover: hover) { .selo.selo-acao:hover { background: #DFF3C8; } }
+/* "Ou abra uma loja de verdade" embaixo do video, no topo da pagina de venda: texto de apoio, sem competir com o botao */
+.link-loja-real { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-weight: 700; font-size: 15px; color: var(--deep2); text-decoration: underline; text-underline-offset: 3px; }
+.link-loja-real .ico-traco svg { width: 18px; height: 18px; }
 .selo-fundador { background: #FFFBEB; color: #3F2A00; box-shadow: inset 0 0 0 1.5px #FCD34D; text-decoration: none; gap: 6px; }
 .selo-fundador .estrela { color: #D97706; }
 @media (hover: hover) { .selo-fundador:hover { background: #FEF3C7; } }
