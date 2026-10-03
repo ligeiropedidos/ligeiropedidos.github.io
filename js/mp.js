@@ -62,7 +62,7 @@
       return guardarToken(slug, 'SIMULACAO').then(function () { return 'demo'; });
     }
     if (!cfg.mercadoPagoClientId || !cfg.proxyMercadoPago) { var semApp = new Error('O Ligeiro ainda não ligou a conexão com o Mercado Pago. Cole o token por enquanto.'); semApp.publico = true; return Promise.reject(semApp); }
-    var nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var nonce = (function () { try { var b = new Uint8Array(16); window.crypto.getRandomValues(b); return Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); } catch (_) { return Math.random().toString(36).slice(2) + Date.now().toString(36); } })();
     /* leitura que falhou (internet, banco) para aqui: seguir com "nada lido" gravava o codigo por cima e apagava o token */
     return D().store.lerSegredo(slug, SEGREDO, true).then(function (seg) {
       var novo = Object.assign({}, seg || {}, { oauthNonce: nonce, oauthEm: new Date().toISOString() });

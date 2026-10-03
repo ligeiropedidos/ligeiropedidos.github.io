@@ -244,5 +244,28 @@ console.log('\n== painel de demonstracao da amostra (?demo=painel) ==');
   ok(r.status === 200 && h.indexOf('painel de demonstracao') >= 0, 'o endereco limpo do painel com ?demo=painel abre o site');
 }
 
+console.log('== cabecalhos de seguranca e caminhos internos ==');
+{
+  let r = await pedir('/juquia/dom-conizza');
+  ok(r.headers.get('X-Frame-Options') === 'SAMEORIGIN' && /frame-ancestors 'self'/.test(r.headers.get('Content-Security-Policy')), 'pagina: nao deixa outro site embutir o Ligeiro numa moldura');
+  ok(/max-age=31536000/.test(r.headers.get('Strict-Transport-Security')) && r.headers.get('Referrer-Policy') === 'strict-origin-when-cross-origin' && /camera=\(\)/.test(r.headers.get('Permissions-Policy')), 'pagina: HTTPS por 1 ano, referrer so com a origem e sem camera/microfone/localizacao');
+  r = await pedir('/index.html');
+  ok(r.headers.get('X-Frame-Options') === 'SAMEORIGIN', '/index.html (vinha direto do GitHub) tambem leva os cabecalhos');
+  r = await pedir('/404.html');
+  ok(r.headers.get('X-Frame-Options') === 'SAMEORIGIN', '/404.html tambem leva os cabecalhos');
+  r = await pedir('/__/auth/handler?apiKey=x');
+  ok(!r.headers.get('X-Frame-Options') && !r.headers.get('Content-Security-Policy'), 'login do Google (/__/auth/): sem moldura proibida (o Firebase embute essa tela)');
+  r = await pedir('/css/ligeiro.css?v=1');
+  ok(r.headers.get('X-De') === 'github' && !r.headers.get('X-Frame-Options'), 'css e js continuam indo direto para o GitHub, sem cabecalho extra');
+  for (const c of ['/ferramentas/worker-asaas.js', '/ferramentas/firestore.rules', '/ferramentas/', '/testes/worker.test.mjs', '/LEIA-ME.md', '/TEMAS.md', '/leia-me.md', '/Ferramentas/worker-site.js']) {
+    r = await pedir(c);
+    ok(r.status === 404 && r.headers.get('X-De') !== 'github', 'caminho interno ' + c + ' responde 404 e nem consulta o GitHub');
+  }
+  for (const c of ['/dados/cidades.json', '/js/app.js', '/img/previa-link.jpg', '/sw.js', '/manifest.webmanifest', '/juquia/ferramentas']) {
+    r = await pedir(c);
+    ok(r.status === 200, 'o site de verdade segue no ar: ' + c);
+  }
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

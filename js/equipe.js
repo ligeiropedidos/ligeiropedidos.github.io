@@ -157,11 +157,11 @@
     return function () { vivo = false; limpar(); UI.limparTemaOficial(raiz); };
   }
 
-  /* Modal "Senha da equipe": 6 a 8 numeros. Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */
+  /* Modal "Senha da equipe": 8 a 10 numeros (6 dava so 1 milhao de combinacoes e o login da equipe e aberto na internet). Na nuvem o mensageiro cria/troca o usuario de equipe da loja. */
   function definirSenha(loja) {
-    var campo = el('input', { type: 'text', inputmode: 'numeric', maxlength: '8', placeholder: 'Ex: 258013', 'aria-label': 'Senha da equipe', autocomplete: 'off' });
+    var campo = el('input', { type: 'text', inputmode: 'numeric', maxlength: '10', placeholder: 'Ex: 25801369', 'aria-label': 'Senha da equipe', autocomplete: 'off' });
     var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-      el('p', { text: 'Essa senha abre a cozinha e o entregador da ' + loja.nome + '. Só números, de 6 a 8.' }),
+      el('p', { text: 'Essa senha abre a cozinha e o entregador da ' + loja.nome + '. Só números, de 8 a 10.' }),
       el('div', { class: 'campo' }, [el('label', { text: 'Nova senha da equipe' }), campo]),
       /* trocar a senha derruba o login antigo, mas nao na hora: o Firebase so confere quando o acesso vence (ate 1 hora) */
       el('p', { class: 'muted pequeno', text: 'Anote e passe para quem trabalha com você. Quem entrou com a senha antiga vai precisar digitar a nova: a tela pede em até uma hora.' }),
@@ -173,9 +173,9 @@
     function salvar() {
       if (salvando) return;
       var pin = campo.value.replace(/\D/g, '');
-      if (pin.length < 6 || pin.length > 8) return UI.avisar('Use de 6 a 8 números.');
+      if (pin.length < 8 || pin.length > 10) return UI.avisar('Use de 8 a 10 números.');
       /* a mesma conta do mensageiro: 123456, 111111 e 654321 sao as primeiras que alguem tenta */
-      if (/^(\d)\1+$/.test(pin) || '0123456789'.indexOf(pin) >= 0 || '9876543210'.indexOf(pin) >= 0) return UI.avisar('Senha fácil demais. Evite números repetidos ou em sequência, como 123456.');
+      if (/^(\d)\1+$/.test(pin) || /^(\d{2,5})\1+$/.test(pin) || '0123456789'.indexOf(pin) >= 0 || '9876543210'.indexOf(pin) >= 0) return UI.avisar('Senha fácil demais. Evite números repetidos ou em sequência, como 12345678.');
       var soltar = UI.ocupar(btnSalvar, 'Salvando…');
       if (!soltar) return;
       salvando = true;

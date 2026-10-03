@@ -36,9 +36,9 @@ const SA = { project_id: 'proj', client_email: 'sa@proj.iam', private_key: priva
 const env = { ASAAS_KEY: 'chave', ASAAS_WEBHOOK: 'tokenDoWebhook123', FIREBASE_SA: JSON.stringify(SA), PLANOS: JSON.stringify({ uma: { mensal: 8900, anual: 89000, fm: 7900, fa: 79000 } }), CARDAPIO, EMAIL_URL: 'https://email.teste/exec', EMAIL_TOKEN: 'x' };
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 const logins = new Map([
-  ['tok-ze', { email: 'ze@x.com', emailVerified: true }], ['tok-outro', { email: 'outro@x.com', emailVerified: true }],
-  ['tok-admin', { email: ADMIN, emailVerified: true }], ['tok-equipe', { email: 'equipe-zeloja@equipe.ligeiropedidos.com.br', emailVerified: true }],
-  ['tok-nao', { email: 'ze@x.com', emailVerified: false }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura', { email: 'ze@x.com', emailVerified: true }], ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura', { email: 'outro@x.com', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura', { email: ADMIN, emailVerified: true }], ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura', { email: 'equipe-zeloja@equipe.ligeiropedidos.com.br', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJuYW8ifQ.assinatura', { email: 'ze@x.com', emailVerified: false }],
 ]);
 /* Asaas de mentira */
 const clientes = new Map([['cus_ze', { id: 'cus_ze', email: 'ze@x.com', cpfCnpj: '' }]]);
@@ -81,7 +81,7 @@ async function chamar(rota, corpo, token, extra) {
   return { status: r.status, j, r };
 }
 async function subir(q, dados, token) {
-  const r = await worker.fetch(new Request('https://ligeiro-asaas.x.workers.dev/servicos/subir?' + q, { method: 'POST', headers: { Authorization: 'Bearer ' + (token || 'tok-admin'), 'Content-Type': 'video/mp4', 'Content-Length': String(dados.length) }, body: dados }), env);
+  const r = await worker.fetch(new Request('https://ligeiro-asaas.x.workers.dev/servicos/subir?' + q, { method: 'POST', headers: { Authorization: 'Bearer ' + (token || 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura'), 'Content-Type': 'video/mp4', 'Content-Length': String(dados.length) }, body: dados }), env);
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 async function aviso(evento, pag, token) {
@@ -100,53 +100,53 @@ console.log('== quem entra ==');
 {
   let r = await chamar('meus', { loja: 'zeloja' });
   ok(r.status === 401, 'sem login: 401');
-  r = await chamar('meus', { loja: 'zeloja' }, 'tok-nao');
+  r = await chamar('meus', { loja: 'zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJuYW8ifQ.assinatura');
   ok(r.status === 401, 'e-mail nao confirmado: 401');
-  r = await chamar('meus', { loja: 'zeloja' }, 'tok-equipe');
+  r = await chamar('meus', { loja: 'zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura');
   ok(r.status === 403, 'login da equipe (cozinha/entregador): 403');
-  r = await chamar('meus', { loja: 'zeloja' }, 'tok-outro');
+  r = await chamar('meus', { loja: 'zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 403, 'dono de outra loja nao ve a Loja do Ligeiro desta: 403');
-  r = await chamar('meus', { loja: '../zeloja' }, 'tok-ze');
+  r = await chamar('meus', { loja: '../zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 404, 'nome de loja torto: 404');
-  r = await chamar('meus', { loja: 'zeloja' }, 'tok-ze');
+  r = await chamar('meus', { loja: 'zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 200 && r.j.ok && r.j.pedidos.length === 0 && r.j.maxVideos === 10, 'dono: a lista vazia');
   ok(r.r.headers.get('Access-Control-Allow-Origin') === ORIGEM, 'CORS: o site do Ligeiro');
-  r = await chamar('meus', { loja: 'zeloja' }, 'tok-ze', { origem: 'https://golpe.com' });
+  r = await chamar('meus', { loja: 'zeloja' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura', { origem: 'https://golpe.com' });
   ok(r.r.headers.get('Access-Control-Allow-Origin') === 'null', 'CORS: outro site nao le a resposta');
   ok(bancoLidas.length === 0, 'nada lido do banco (o dono vem da etiqueta do KV)');
   for (const rota of ['central', 'criar', 'etapa', 'entregar', 'reembolsar']) {
-    const x = await chamar(rota, { id: 'a'.repeat(20), loja: 'zeloja', servico: 'logo', whatsapp: '13999990000' }, 'tok-ze');
+    const x = await chamar(rota, { id: 'a'.repeat(20), loja: 'zeloja', servico: 'logo', whatsapp: '13999990000' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
     ok(x.status === 403, 'rota da Central com login de dono: 403 (' + rota + ')');
   }
-  const s = await subir('pedido=' + 'a'.repeat(20) + '&tipo=video&dur=10', MP4(), 'tok-ze');
+  const s = await subir('pedido=' + 'a'.repeat(20) + '&tipo=video&dur=10', MP4(), 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(s.status === 403, 'subir arquivo com login de dono: 403');
-  r = await chamar('meus', 'x'.repeat(9000), 'tok-ze');
+  r = await chamar('meus', 'x'.repeat(9000), 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 413, 'pedido grande demais: 413');
-  r = await chamar('nao-existe', {}, 'tok-ze');
+  r = await chamar('nao-existe', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 404, 'rota que nao existe: 404');
 }
 
 console.log('== comprar ==');
 let pedidoId = '', cobId = '';
 {
-  let r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000' }, 'tok-ze');
+  let r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 400 && /termos/i.test(r.j.erro), 'sem aceitar os termos: recusa');
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: '2020-01-01' }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: '2020-01-01' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 400, 'termos de outra versao: recusa');
   for (const s of ['__proto__', 'constructor', 'toString', 'nada']) {
-    const x = await chamar('comprar', { loja: 'zeloja', servico: s, whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
+    const x = await chamar('comprar', { loja: 'zeloja', servico: s, whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
     ok(x.status === 400, 'servico inventado "' + s + '": recusa');
   }
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '999', termos: TERMOS }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '999', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 400 && /WhatsApp/.test(r.j.erro), 'WhatsApp torto: recusa');
-  r = await chamar('comprar', { loja: 'outra', servico: 'video', whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'outra', servico: 'video', whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 403, 'comprar para a loja de outro: 403');
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 200 && r.j.ok === false && r.j.precisaDocumento === true, 'cliente do Asaas sem CPF: pede o documento');
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: TERMOS, documento: '11111111111' }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '13999990000', termos: TERMOS, documento: '11111111111' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 400 && /inválido/.test(r.j.erro), 'CPF invalido: recusa');
   const antes = chamadas.length;
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '(13) 99999-0000', termos: TERMOS, documento: CPF, valor: 1, value: 0.01, preco: 1 }, 'tok-ze');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'video', whatsapp: '(13) 99999-0000', termos: TERMOS, documento: CPF, valor: 1, value: 0.01, preco: 1 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 200 && r.j.ok && /^https:\/\/www\.asaas\.com\//.test(r.j.link), 'compra: link do Asaas');
   const cob = chamadas.slice(antes).find((c) => c.cam === '/payments' && c.metodo === 'POST');
   ok(cob && cob.corpo.value === 149 && cob.corpo.billingType === 'UNDEFINED', 'o preco vem do servidor (R$ 149), nunca do celular');
@@ -159,9 +159,9 @@ let pedidoId = '', cobId = '';
   const idx = JSON.parse(kv.get('srv:idx').valor);
   ok(lista.pedidos[0].id === pedidoId && idx[0].id === pedidoId && lista.pedidos[0].link, 'entrou na lista da loja e na da Central');
   ok(bancoLidas.length === 0, 'compra sem ler nem gravar no banco');
-  await chamar('comprar', { loja: 'zeloja', servico: 'logo', whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
-  await chamar('comprar', { loja: 'zeloja', servico: 'fotos', whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
-  r = await chamar('comprar', { loja: 'zeloja', servico: 'design', whatsapp: '13999990000', termos: TERMOS }, 'tok-ze');
+  await chamar('comprar', { loja: 'zeloja', servico: 'logo', whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
+  await chamar('comprar', { loja: 'zeloja', servico: 'fotos', whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
+  r = await chamar('comprar', { loja: 'zeloja', servico: 'design', whatsapp: '13999990000', termos: TERMOS }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 429, 'quarto pedido esperando pagamento: recusa (no maximo 3)');
 }
 
@@ -198,20 +198,20 @@ console.log('== aviso do Asaas ==');
 console.log('== Central: etapa, arquivo e entrega ==');
 let videoId = '';
 {
-  let r = await chamar('central', {}, 'tok-admin');
+  let r = await chamar('central', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200 && r.j.pedidos.length === 3, 'a Central ve todos os pedidos');
-  r = await chamar('entregar', { id: pedidoId, titulo: 'x' }, 'tok-admin');
+  r = await chamar('entregar', { id: pedidoId, titulo: 'x' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400 && /vídeo/.test(r.j.erro), 'entregar video sem o arquivo: recusa');
-  r = await chamar('etapa', { id: pedidoId }, 'tok-admin');
+  r = await chamar('etapa', { id: pedidoId }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   const p = JSON.parse(kv.get('srv:p:' + pedidoId).valor);
   ok(r.status === 200 && p.status === 'producao' && /^\d{4}-\d{2}-\d{2}$/.test(p.prazoAte) && ![0, 6].includes(new Date(p.prazoAte + 'T12:00:00Z').getUTCDay()), 'material chegou: producao, prazo em dia util');
-  r = await chamar('etapa', { id: pedidoId }, 'tok-admin');
+  r = await chamar('etapa', { id: pedidoId }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 409, 'etapa repetida: recusa');
   let s = await subir('pedido=' + pedidoId + '&tipo=video&dur=15', new TextEncoder().encode('<html><script>alert(1)</script></html>'));
   ok(s.status === 415, 'arquivo que nao e MP4 (HTML disfarcado): recusa');
   s = await subir('pedido=' + pedidoId + '&tipo=video&dur=45', MP4());
   ok(s.status === 400, 'video de 45 s: recusa');
-  const grande = await worker.fetch(new Request('https://x/servicos/subir?pedido=' + pedidoId + '&tipo=video&dur=10', { method: 'POST', headers: { Authorization: 'Bearer tok-admin', 'Content-Length': String(16 * 1024 * 1024) }, body: MP4() }), env);
+  const grande = await worker.fetch(new Request('https://x/servicos/subir?pedido=' + pedidoId + '&tipo=video&dur=10', { method: 'POST', headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura', 'Content-Length': String(16 * 1024 * 1024) }, body: MP4() }), env);
   ok(grande.status === 413, 'video acima de 15 MB (pelo tamanho anunciado): recusa');
   s = await subir('pedido=' + pedidoId + '&tipo=video&dur=18', MP4());
   ok(s.status === 200 && /^[a-z0-9]{20}$/.test(s.j.id), 'video MP4 de 18 s: guardado');
@@ -223,10 +223,10 @@ let videoId = '';
   c = await subir('pedido=' + pedidoId + '&tipo=capa&id=' + videoId, JPG());
   ok(c.status === 200, 'capa JPG: guardada');
   const outro = Object.keys(Object.fromEntries(kv)).find((k) => /^srv:p:/.test(k) && k !== 'srv:p:' + pedidoId);
-  r = await chamar('entregar', { id: outro.slice(6), titulo: 'x', video: videoId }, 'tok-admin');
+  r = await chamar('entregar', { id: outro.slice(6), titulo: 'x', video: videoId }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200 && !JSON.parse(kv.get('srv:p:' + outro.slice(6)).valor).video && !(JSON.parse(kv.get('srv:loja:zeloja').valor).videos || []).length, 'entrega de logo com um video no pedido: o video nao entra na loja por esse caminho');
   const emailsAntes = emails.length;
-  r = await chamar('entregar', { id: pedidoId, titulo: 'Promoção <script>alert(1)</script> de sexta', video: videoId, noSite: true, avisar: true }, 'tok-admin');
+  r = await chamar('entregar', { id: pedidoId, titulo: 'Promoção <script>alert(1)</script> de sexta', video: videoId, noSite: true, avisar: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   const p2 = JSON.parse(kv.get('srv:p:' + pedidoId).valor);
   ok(r.status === 200 && p2.status === 'entregue' && !/[<>]/.test(p2.titulo), 'entregue; nome do video sem < > (nunca vira codigo)');
   const l = JSON.parse(kv.get('srv:loja:zeloja').valor);
@@ -257,43 +257,43 @@ console.log('== o video no site ==');
 
 console.log('== o dono escolhe e apaga ==');
 {
-  let r = await chamar('video', { loja: 'zeloja', video: 'y'.repeat(20) }, 'tok-ze');
+  let r = await chamar('video', { loja: 'zeloja', video: 'y'.repeat(20) }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 404, 'escolher video que nao e da loja: recusa');
-  r = await chamar('video', { loja: 'outra', video: null }, 'tok-ze');
+  r = await chamar('video', { loja: 'outra', video: null }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 403, 'mexer no video da loja de outro: 403');
-  r = await chamar('video', { loja: 'zeloja', video: null }, 'tok-ze');
+  r = await chamar('video', { loja: 'zeloja', video: null }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 200 && !JSON.parse(kv.get('loja:zeloja').valor).loja.video && !kv.get('srv:video:zeloja'), 'tirar do site: sai da copia da loja');
-  r = await chamar('video', { loja: 'zeloja', video: videoId }, 'tok-ze');
+  r = await chamar('video', { loja: 'zeloja', video: videoId }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 200 && JSON.parse(kv.get('loja:zeloja').valor).loja.video.id === videoId, 'por no site de novo');
-  r = await chamar('apagar-video', { loja: 'zeloja', video: videoId }, 'tok-outro');
+  r = await chamar('apagar-video', { loja: 'zeloja', video: videoId }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 403, 'apagar video da loja de outro: 403');
 }
 
 console.log('== reembolso ==');
 {
-  let r = await chamar('reembolsar', { id: pedidoId, motivo: 'ok' }, 'tok-admin');
+  let r = await chamar('reembolsar', { id: pedidoId, motivo: 'ok' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'sem motivo: recusa');
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Loja desistiu', valor: 99999 }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Loja desistiu', valor: 99999 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'mais do que foi pago: recusa');
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Loja desistiu', valor: -100 }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Loja desistiu', valor: -100 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'valor negativo: recusa');
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Parte do servico', valor: 4900 }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'Parte do servico', valor: 4900 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   let p = JSON.parse(kv.get('srv:p:' + pedidoId).valor);
   ok(r.status === 200 && p.status === 'entregue' && p.reembolso.valor === 4900 && cobrancas.get(cobId).refunded === 49, 'parte: R$ 49 devolvidos pelo Asaas, o pedido segue entregue');
   reembolsoFalha = true;
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'O resto' }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'O resto' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 409 && r.j.manual === true, 'Asaas recusou (boleto): pede o registro manual');
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'O resto', manual: true }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'O resto', manual: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   p = JSON.parse(kv.get('srv:p:' + pedidoId).valor);
   ok(r.status === 200 && p.status === 'reembolsado' && p.reembolso.valor === 14900, 'registro manual do resto: reembolsado');
   reembolsoFalha = false;
-  r = await chamar('reembolsar', { id: pedidoId, motivo: 'De novo' }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pedidoId, motivo: 'De novo' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 409, 'reembolsar de novo o que ja foi devolvido: recusa');
 }
 
 console.log('== pedido que chegou pelo WhatsApp ==');
 {
-  const r = await chamar('criar', { loja: 'outra', servico: 'logo', whatsapp: '13988887777', documento: '11444777000161' }, 'tok-admin');
+  const r = await chamar('criar', { loja: 'outra', servico: 'logo', whatsapp: '13988887777', documento: '11444777000161' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200 && r.j.ok && r.j.link, 'a Central gera o link para a loja de outro dono');
   const p = JSON.parse(kv.get('srv:p:' + r.j.pedido.id).valor);
   const cli = [...clientes.values()].find((c) => c.email === 'outro@x.com');
@@ -317,24 +317,24 @@ console.log('== o preco do site e o do mensageiro ==');
 console.log('== video combinado por fora (Enviar video, na Central) ==');
 {
   const cobrancasAntes = chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length;
-  const cen = await chamar('central', {}, 'tok-admin');
+  const cen = await chamar('central', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(Array.isArray(cen.j.recursos) && cen.j.recursos.indexOf('fora') >= 0, 'fora: a Central sabe que este mensageiro ja faz o Enviar video');
-  let r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'tok-outro');
+  let r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 403, 'fora: dono nao cria pedido combinado por fora (so a Central)');
-  r = await chamar('comprar', { loja: 'outra', servico: 'video', fora: true, termos: TERMOS, whatsapp: '13999990000' }, 'tok-outro');
+  r = await chamar('comprar', { loja: 'outra', servico: 'video', fora: true, termos: TERMOS, whatsapp: '13999990000' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(!(r.j.pedido && r.j.pedido.status === 'producao'), 'fora: na compra do dono o "fora" e ignorado (nada nasce pago)');
-  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: -5 }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: -5 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'fora: valor negativo recusado');
-  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 99999999 }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 99999999 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'fora: valor acima de R$ 10.000 recusado');
-  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: '<b>' }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: '<b>' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'fora: valor que nao e numero recusado');
-  r = await chamar('criar', { loja: 'naoexiste', servico: 'video', fora: true }, 'tok-admin');
+  r = await chamar('criar', { loja: 'naoexiste', servico: 'video', fora: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 404, 'fora: loja que nao existe: 404');
-  r = await chamar('criar', { loja: 'outra', servico: 'foguete', fora: true }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'foguete', fora: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'fora: servico que nao existe: 400');
   const cobrancasFora = chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length;
-  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true, valor: 14900 }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   const pf = r.j.pedido || {};
   ok(r.status === 200 && pf.status === 'producao' && pf.forma === 'FORA' && pf.origem === 'fora' && pf.valor === 14900 && !pf.link, 'fora: o pedido nasce pago, em producao e sem link de pagamento');
   ok(chamadas.filter((c) => c.cam === '/payments' && c.metodo === 'POST').length === cobrancasFora, 'fora: nenhuma cobranca criada no Asaas');
@@ -342,18 +342,18 @@ console.log('== video combinado por fora (Enviar video, na Central) ==');
   ok(v.status === 200 && v.j.id, 'fora: o video sobe no pedido');
   const c = await subir('pedido=' + pf.id + '&tipo=capa&id=' + v.j.id, JPG());
   ok(c.status === 200, 'fora: a capa sobe junto');
-  r = await chamar('entregar', { id: pf.id, titulo: 'Combinado no balcão', video: v.j.id, noSite: true, avisar: false }, 'tok-admin');
+  r = await chamar('entregar', { id: pf.id, titulo: 'Combinado no balcão', video: v.j.id, noSite: true, avisar: false }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200 && r.j.pedido.status === 'entregue', 'fora: entregue pelo caminho de sempre');
-  r = await chamar('meus', { loja: 'outra' }, 'tok-outro');
+  r = await chamar('meus', { loja: 'outra' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.j.videos.some((x) => x.id === v.j.id) && r.j.noSite === v.j.id, 'fora: o video aparece em Videos da loja e no site dela');
   ok(r.j.pedidos.some((x) => x.id === pf.id && x.forma === 'FORA'), 'fora: a loja ve o pedido como combinado por fora');
-  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolver pelo Asaas' }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolver pelo Asaas' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 409 && r.j.manual === true, 'fora: reembolso pelo Asaas recusado (o dinheiro nao passou por ele)');
-  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolvi em dinheiro', manual: true }, 'tok-admin');
+  r = await chamar('reembolsar', { id: pf.id, motivo: 'devolvi em dinheiro', manual: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200, 'fora: reembolso feito por fora so e registrado');
-  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true }, 'tok-admin');
+  r = await chamar('criar', { loja: 'outra', servico: 'video', fora: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 200 && r.j.pedido.valor === 0, 'fora: sem valor (cortesia) fica R$ 0');
-  r = await chamar('reembolsar', { id: r.j.pedido.id, motivo: 'nada a devolver', manual: true }, 'tok-admin');
+  r = await chamar('reembolsar', { id: r.j.pedido.id, motivo: 'nada a devolver', manual: true }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 400, 'fora: cortesia nao tem o que devolver');
   ok(chamadas.filter((x) => x.cam === '/payments' && x.metodo === 'POST').length === cobrancasFora, 'fora: no fim, nenhuma cobranca nova alem das normais');
   ok(cobrancasAntes <= cobrancasFora, 'fora: contagem de cobrancas coerente');
@@ -364,16 +364,16 @@ console.log('== trocar o nome do video (dono) ==');
   const lista = JSON.parse(kv.get('srv:loja:outra').valor);
   const vid = (lista.videos || []).find((x) => x.id === lista.noSite) || lista.videos[0];
   ok(!!vid, 'renomear: ha um video da loja para o teste');
-  let r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-ze');
+  let r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura');
   ok(r.status === 403, 'renomear: dono de outra loja nao troca o nome (403)');
-  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: ' ' }, 'tok-outro');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: ' ' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 400, 'renomear: nome vazio recusado');
-  r = await chamar('renomear-video', { loja: 'outra', video: 'a'.repeat(20), titulo: 'Qualquer' }, 'tok-outro');
+  r = await chamar('renomear-video', { loja: 'outra', video: 'a'.repeat(20), titulo: 'Qualquer' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 404, 'renomear: video que nao e da loja: 404');
-  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: '<img src=x onerror=alert(1)> Promoção de sábado' + 'x'.repeat(80) }, 'tok-outro');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: '<img src=x onerror=alert(1)> Promoção de sábado' + 'x'.repeat(80) }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   const novo = (r.j.videos || []).find((x) => x.id === vid.id);
   ok(r.status === 200 && novo && !/[<>]/.test(novo.titulo) && novo.titulo.length <= 60, 'renomear: sem < e > e no maximo 60 letras');
-  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-outro');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 200 && r.j.videos.find((x) => x.id === vid.id).titulo === 'Promoção de sábado', 'renomear: o dono troca o nome');
   const salvo = JSON.parse(kv.get('srv:loja:outra').valor);
   ok(salvo.videos.find((x) => x.id === vid.id).titulo === 'Promoção de sábado' && salvo.renomes && salvo.renomes.n >= 1, 'renomear: gravado na lista da loja, com a contagem do dia');
@@ -384,13 +384,13 @@ console.log('== trocar o nome do video (dono) ==');
   const pedidos = salvo.pedidos.filter((x) => x.video === vid.id);
   ok(pedidos.every((x) => x.titulo !== 'Promoção de sábado'), 'renomear: o pedido guarda o nome original');
   const antes = JSON.parse(kv.get('srv:loja:outra').valor).renomes.n;
-  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'tok-outro');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Promoção de sábado' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 200 && JSON.parse(kv.get('srv:loja:outra').valor).renomes.n === antes, 'renomear: o mesmo nome de novo nao gasta troca');
   let ultimo = null;
-  for (let i = 0; i < 25; i++) { ultimo = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Nome ' + i }, 'tok-outro'); if (ultimo.status !== 200) break; }
+  for (let i = 0; i < 25; i++) { ultimo = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Nome ' + i }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura'); if (ultimo.status !== 200) break; }
   ok(ultimo.status === 429, 'renomear: passa de 20 trocas no dia: 429');
   ok(JSON.parse(kv.get('srv:loja:outra').valor).renomes.n === 20, 'renomear: a contagem para em 20');
-  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Pela Central' }, 'tok-admin');
+  r = await chamar('renomear-video', { loja: 'outra', video: vid.id, titulo: 'Pela Central' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
   ok(r.status === 429, 'renomear: o limite vale tambem para a Central (protege a cota)');
   const lojaDepois = JSON.parse(kv.get('srv:loja:outra').valor);
   ok(Array.isArray(lojaDepois.pedidos) && lojaDepois.pedidos.length >= 1, 'renomear: a lista de pedidos da loja continua inteira');

@@ -66,7 +66,8 @@
     window.fbq('init', id);
     window.fbq('track', 'PageView');
     var ultima = location.pathname + location.hash;
-    window.addEventListener('hashchange', function () { var agora = location.pathname + location.hash; if (agora !== ultima) { ultima = agora; window.fbq('track', 'PageView'); } });
+    var vendas = ['', 'lojas', 'comecar', 'assinar', 'entrar', 'servicos', 'termos', 'privacidade'];
+    window.addEventListener('hashchange', function () { var agora = location.pathname + location.hash; if (agora !== ultima) { ultima = agora; if (vendas.indexOf(partes()[0] || '') >= 0) window.fbq('track', 'PageView'); } });
     window.LigeiroMeta = { evento: function (nome) { try { window.fbq('track', nome); } catch (_) { /* sem pixel */ } } };
   })();
 
@@ -354,7 +355,8 @@
       /* painel de demonstracao da amostra: diz que os pedidos sao de exemplo e leva de volta para a loja */
       faixa.classList.add('faixa-demo-painel');
       faixa.appendChild(document.createTextNode('DEMONSTRAÇÃO: pedidos de exemplo, nada vai para a loja. '));
-      if (DPn.voltar) { var volta = document.createElement('a'); volta.href = DPn.voltar; volta.textContent = 'Voltar para a loja'; faixa.appendChild(volta); }
+      /* so caminho do proprio site: "//outro.com/..." ou "/\outro.com" levariam a outro endereco */
+      if (DPn.voltar && /^\/(?![\/\\])[^\\]*$/.test(String(DPn.voltar))) { var volta = document.createElement('a'); volta.href = DPn.voltar; volta.textContent = 'Voltar para a loja'; faixa.appendChild(volta); }
     } else faixa.textContent = 'MODO DEMONSTRAÇÃO: os dados ficam só neste aparelho';
     document.body.insertBefore(faixa, document.body.firstChild);
   }

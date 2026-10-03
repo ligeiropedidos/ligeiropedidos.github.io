@@ -720,9 +720,19 @@ function umPorVez(email) {
 
 /* quem esta logado: o token do Google conferido no Identity Toolkit. So e-mail conferido e login ativo (quem criou conta
    de e-mail e senha com o e-mail de outro, sem confirmar, nao passa) */
+/* O token tem que ser DESTE projeto do Firebase (aud e iss do proprio token). Quem confere a assinatura e o Google, mas um token
+   de OUTRO projeto, criado por qualquer pessoa com o e-mail do admin marcado como "verificado", nunca pode valer aqui */
+function tokenDoProjeto(idToken, projeto) {
+  try {
+    const meio = String(idToken).split('.')[1] || '';
+    const j = JSON.parse(atob(meio.replace(/-/g, '+').replace(/_/g, '/')));
+    return !!j && !!projeto && j.aud === projeto && j.iss === 'https://securetoken.google.com/' + projeto;
+  } catch (_) { return false; }
+}
 async function quemChamou(fb, request) {
   const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!idToken || idToken.length > 4000) return '';
+  if (!tokenDoProjeto(idToken, fb.projeto)) return '';
   const m = MEM.quem[idToken];
   if (m && Date.now() < m.ate) return m.email;
   const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ idToken: idToken }) });
@@ -1051,6 +1061,7 @@ async function firebase(env) {
       }
     },
     cab: cab,
+    projeto: sa.project_id,
     /* os documentos de uma colecao pequena (ate 100), com _id */
     async listar(colecao) {
       const r = await fetch(base + colecao + '?pageSize=100', { headers: cab });
@@ -1421,6 +1432,8 @@ async function srvEscolherVideo(env, fb, email, admin, corpo) {
   const id = corpo.video == null ? null : String(corpo.video);
   const v = id ? l.videos.find((x) => x && x.id === id) : null;
   if (id && !v) return falha(404, 'Esse vídeo não é desta loja.');
+  /* escolher o que ja esta escolhido nao grava nada (as gravacoes do KV sao poucas por dia e de todos) */
+  if ((l.noSite || null) === (v ? v.id : null)) return certo({ noSite: l.noSite || null });
   l.noSite = v ? v.id : null;
   await env.CARDAPIO.put('srv:loja:' + ok.loja.slug, JSON.stringify(l));
   await videoNoSite(env, ok.loja.slug, v);

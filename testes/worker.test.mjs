@@ -39,6 +39,9 @@ function deFs(v) {
 const versoes = new Map();
 function horaDe(caminho) { return '2026-09-23T20:00:00.' + String(versoes.get(caminho) || 0).padStart(6, '0') + 'Z'; }
 function docRest(caminho, obj) { return { name: 'projects/proj/databases/(default)/documents/' + caminho, fields: paraFs(obj).mapValue.fields, createTime: (obj && typeof obj.criadoEm === 'string' && obj.criadoEm) || '2026-09-23T20:00:00Z', updateTime: horaDe(caminho) }; } /* o pedido nasce no banco na hora do criadoEm */
+/* token de login de mentira no formato do Firebase (aud e iss do projeto): o mensageiro confere isso antes de perguntar ao Google */
+const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+const jwtDoProjeto = (nome, projeto) => b64u({ alg: 'RS256', typ: 'JWT' }) + '.' + b64u({ aud: projeto, iss: 'https://securetoken.google.com/' + projeto, sub: nome }) + '.assinatura';
 const resposta = (obj, status) => new Response(typeof obj === 'string' ? obj : JSON.stringify(obj), { status: status || 200, headers: { 'Content-Type': 'application/json' } });
 
 /* ---------- Mercado Pago e usuarios de mentira ---------- */
@@ -46,7 +49,7 @@ const ordens = new Map();
 const repeticoes = new Map();
 const cartoes = [];
 const devolucoes = [];
-const usuarios = { 'tok-dono': 'dono@x.com', 'tok-outro': 'outro@x.com', 'tok-admin': 'ligeiro.pedidos@gmail.com', 'tok-equipe': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'tok-equipe-velha': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-velha2': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'tok-equipe-outra': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'tok-novo': 'novo@x.com', 'tok-semconta': 'semconta@x.com', 'tok-corrida': 'corrida@x.com', 'tok-velho': 'velho@x.com', 'tok-pagou': 'pagou@x.com' };
+const usuarios = { 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura': 'dono@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura': 'outro@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura': 'ligeiro.pedidos@gmail.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura': 'equipe-dom-conizza@equipe.ligeiropedidos.com.br', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtdmVsaGEifQ.assinatura': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtdmVsaGEyIn0.assinatura': 'equipe-dom-conizza@equipe.ligeiro.app.br', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtb3V0cmEifQ.assinatura': 'equipe-outra-loja@equipe.ligeiropedidos.com.br', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura': 'novo@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJzZW1jb250YSJ9.assinatura': 'semconta@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJjb3JyaWRhIn0.assinatura': 'corrida@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ2ZWxobyJ9.assinatura': 'velho@x.com', 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJwYWdvdSJ9.assinatura': 'pagou@x.com' };
 /* servicos de aviso de mentira (Google e Apple): guarda o que chegou; codigoAviso[endpoint] simula aparelho que saiu */
 const avisos = [];
 const codigoAviso = {};
@@ -299,42 +302,42 @@ ok(conta.leituras === 1, 'loja que nao existe nao le o banco de novo no mesmo mi
 console.log('Publicar (painel salvou)');
 db.get('lojas/dom-conizza').aberta = true;
 zerar();
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-outro' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura' } });
 ok(r.status === 403 && conta.leituras === 0, 'quem nao e dono nao publica (e nao gasta leitura)');
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
 ok(r.status === 200 && conta.leituras === 1, 'dono publica com 1 leitura');
 await new Promise((ok2) => setTimeout(ok2, 20));
 kv.mapa.set('vitrine', { valor: '{"borda":1,"lista":[]}', metadata: { em: Date.now() } });
 db.get('lojas/dom-conizza').aberta = false;
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
 ok(r.status === 200 && !kv.mapa.has('vitrine'), 'fechar a loja apaga a vitrine da borda (a pagina da cidade nao fica dizendo "Aberta agora")');
 kv.mapa.set('vitrine', { valor: '{"borda":1,"lista":[]}', metadata: { em: Date.now() } });
 const produtos = db.get('lojas/dom-conizza').produtos || [];
 if (produtos[0]) produtos[0].preco = (produtos[0].preco || 0) + 100;
 db.get('lojas/dom-conizza').atualizadoEm = new Date().toISOString();
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
 ok(r.status === 200 && kv.mapa.has('vitrine'), 'mudar so preco de item nao apaga a vitrine (nao gasta gravacao do KV)');
 /* volta ao que os proximos testes esperam: loja aberta publicada e sem a vitrine de mentira */
 db.get('lojas/dom-conizza').aberta = true;
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
 kv.mapa.delete('vitrine');
 r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
 ok(j.loja.aberta === true, 'a mudanca aparece na hora para o cliente');
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 ok(r.status === 200, 'admin tambem publica');
 zerar();
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 ok(r.status === 200 && kv.gravacoes === 1, 'publicar sem mudar nada grava a copia de novo (a versao nova e o que faz o token do Mercado Pago ser relido)');
 db.get('lojas/dom-conizza').aberta = false;
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
 r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
 ok(kv.gravacoes >= 1 && j.loja.aberta === false, 'mudou algo: grava e aparece na hora');
 db.get('lojas/dom-conizza').aberta = true;
-r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-admin' } });
+r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
 kv.mapa.delete('vitrine');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' } });
@@ -470,21 +473,21 @@ console.log('Cartao de credito');
 
   /* a loja cancelou o pedido pago no cartao: o dinheiro volta sozinho, so pelo dono */
   const devolver = (tok) => chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC }, headers: tok ? { Authorization: 'Bearer ' + tok } : {} });
-  r = await devolver('tok-dono');
+  r = await devolver('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
   ok(r.status === 409 && devolucoes.length === 0, 'devolver pedido que nao foi cancelado: recusa');
   db.get('lojas/dom-conizza/pedidos/' + PC).status = 'cancelado';
-  r = await devolver('tok-outro');
+  r = await devolver('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
   ok(r.status === 403 && devolucoes.length === 0, 'devolver: quem nao e o dono nao devolve');
   r = await devolver('');
   ok(r.status === 400 && devolucoes.length === 0, 'devolver sem login: 400');
-  r = await devolver('tok-dono');
+  r = await devolver('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
   j = await r.json();
   ok(j.ok === true && devolucoes.length === 1 && devolucoes[0].id === db.get('lojas/dom-conizza/pedidos/' + PC).mp.id, 'dono cancela: devolve a order inteira no Mercado Pago');
   ok(!!db.get('lojas/dom-conizza/pedidos/' + PC).devolvidoEm && devolucoes[0].chave === 'devolver-' + PC, 'marca devolvido no pedido, com chave que nao repete');
-  r = await devolver('tok-dono');
+  r = await devolver('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
   ok((await r.json()).ja === true && devolucoes.length === 1, 'devolver de novo: nao chama o Mercado Pago outra vez');
   db.set('lojas/dom-conizza/pedidos/cartao00000000000003', { status: 'cancelado', formaPagamento: 'dinheiro_entrega', pagamentoStatus: 'na_entrega', total: 1000, senha: 11 });
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'cartao00000000000003' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'cartao00000000000003' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok(r.status === 409 && devolucoes.length === 1, 'pedido pago na porta: nao ha o que devolver pelo site');
 }
 
@@ -522,14 +525,14 @@ console.log('Pentest: ataques que tem que falhar');
   ok(r.status === 400, '/criar com loja "dom-conizza/pedidos": 400');
   r = await chamar(w, '/status?loja=dom-conizza&pedido=' + encodeURIComponent('../privado/mercadopago'));
   ok(r.status === 400, '/status com pedido "../privado/mercadopago": 400');
-  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: '../../contas/x', pin: '482913' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: '../../contas/x', pin: '48291375' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok(r.status === 400, '/equipe com loja inventada: 400');
-  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '123456' }, headers: { Authorization: 'Bearer tok-dono' } });
-  ok(r.status === 400, 'senha da equipe 123456 (sequencia): recusada');
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '12345678' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
+  ok(r.status === 400, 'senha da equipe 12345678 (sequencia): recusada');
   const contasAntes = contasAtualizadas.length;
-  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '482913' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: '48291375' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   const contaEquipe = contasAtualizadas.slice(contasAntes).filter((c) => c.password)[0] || {};
-  ok(r.status === 200 && contaEquipe.email === 'equipe-dom-conizza@equipe.ligeiropedidos.com.br' && contaEquipe.password === 'LIG-482913' && JSON.parse(contaEquipe.customAttributes || '{}').equipe === 'dom-conizza', 'senha da equipe salva: o login fica no dominio do Ligeiro (nao no ligeiro.app.br), com a marca da loja');
+  ok(r.status === 200 && contaEquipe.email === 'equipe-dom-conizza@equipe.ligeiropedidos.com.br' && contaEquipe.password === 'LIG-48291375' && JSON.parse(contaEquipe.customAttributes || '{}').equipe === 'dom-conizza', 'senha da equipe salva: o login fica no dominio do Ligeiro (nao no ligeiro.app.br), com a marca da loja');
   /* duas cobrancas do mesmo pedido: a segunda espera */
   const DUPLO = 'duploduploduplodup01';
   db.set('lojas/dom-conizza/pedidos/' + DUPLO, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'cartao_online', senha: 43, cliente: { nome: 'Dani' }, cobrandoEm: new Date().toISOString() }));
@@ -565,7 +568,7 @@ console.log('Pentest: ataques que tem que falhar');
   const tarde = db.get('lojas/dom-conizza/pedidos/' + TARDE);
   ok(tarde.status === 'cancelado' && tarde.pagamentoStatus === 'pago' && tarde.pagoAposCancelar === true, 'pago depois que a loja cancelou: continua cancelado e fica marcado para devolver');
   const devAntes = devolucoes.length;
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: TARDE }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: TARDE }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok((await r.json()).ok === true && devolucoes.length === devAntes + 1, 'e o dono devolve com um toque');
   /* aviso do Mercado Pago sem assinatura, com o segredo configurado: recusado */
   const envAssinado = Object.assign({}, env, { MP_WEBHOOK_SECRET: 'segredo-do-webhook' });
@@ -670,14 +673,14 @@ console.log('Pedido criado pelo servidor');
   /* balcao sem o login da equipe */
   r = await pedir(dados({ origem: 'balcao', telefone: '' }));
   ok(r.status === 401, 'pedido "do balcao" sem o login da equipe: 401');
-  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe' } }); j = await r.json();
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura' } }); j = await r.json();
   ok(r.status === 200 && j.pedido.origem === 'balcao', 'com o login da equipe, o balcao pede sem WhatsApp');
-  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha' } });
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtdmVsaGEifQ.assinatura' } });
   ok(r.status === 401, 'conta criada por fora com cara de equipe (equipe-<loja>@..., sem a marca do mensageiro): barrada');
   marcas['equipe-dom-conizza@equipe.ligeiro.app.br'] = JSON.stringify({ equipe: 'dom-conizza' });
-  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-velha2' } });
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtdmVsaGEyIn0.assinatura' } });
   ok(r.status === 401, 'login velho da equipe (ligeiro.app.br), mesmo com a marca: barrado ate o dono salvar a senha de novo');
-  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer tok-equipe-outra' } });
+  r = await pedir(dados({ origem: 'balcao', telefone: '', nome: '' }), { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUtb3V0cmEifQ.assinatura' } });
   ok(r.status === 401 || r.status === 403, 'equipe de outra loja nao pede pelo balcao desta');
   /* o aviso no celular so com endereco de servico de aviso de verdade */
   r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dados({ telefone: '13944443333' }), aviso: { e: 'https://site-do-golpe.example/x', k: 'a'.repeat(87), a: 'b'.repeat(22), u: '#/juquia/dom-conizza/pedido/' } } }); j = await r.json();
@@ -867,9 +870,9 @@ console.log('Mercado Pago: quando algo da errado');
   db.set(caminhoDe(D1), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 82, mp: { id: 'ORD990014' }, cliente: { nome: 'Rui' } }));
   const devAntes = devolucoes.length;
   comFalha((u, o) => /\/refund$/.test(u) && o.method === 'POST');
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json(); semFalha();
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json(); semFalha();
   ok(!j.ok && !db.get(caminhoDe(D1)).devolvidoEm, 'devolucao com o Mercado Pago fora do ar: avisa e nao marca devolvido');
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D1 }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   ok(j.ok && db.get(caminhoDe(D1)).devolvidoEm && devolucoes.length === devAntes + 1 && devolucoes[devolucoes.length - 1].chave === 'devolver-' + D1, 'de novo: devolve uma vez, com a mesma chave (o Mercado Pago nunca devolve em dobro)');
 
   /* 15. cartao em analise pelo banco: "em analise", trava firme, e nada de cobrar de novo */
@@ -909,13 +912,13 @@ console.log('Mercado Pago: quando algo da errado');
   orderPaga('ORD990181', D2); orderPaga('ORD990182', D2);
   db.set(caminhoDe(D2), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'cartao_online', pagamentoStatus: 'pago', senha: 86, mp: { id: 'ORD990182', cartao: true }, cobrancas: ['ORD990181', 'ORD990182'], cliente: { nome: 'Rui' } }));
   let dv0 = devolucoes.length;
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D2 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D2 }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   const idsDevolvidos = devolucoes.slice(dv0).map((d) => d.id).sort().join(',');
   ok(j.ok && idsDevolvidos === 'ORD990181,ORD990182', 'duas cobrancas aprovadas no mesmo pedido: as duas voltam (' + idsDevolvidos + ')');
   const D3 = 'mpfalhadevolve000003';
   ordens.set('ORD990183', { id: 'ORD990183', status: 'refunded', status_detail: 'refunded', external_reference: 'dom-conizza__' + D3 });
   db.set(caminhoDe(D3), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 87, mp: { id: 'ORD990183' }, cliente: { nome: 'Rui' } }));
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D3 }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: D3 }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   ok(j.ok && db.get(caminhoDe(D3)).devolvidoEm, 'o Mercado Pago diz que ja devolveu (toque anterior sem resposta): marca devolvido, sem erro');
 
   /* 19. o numero do pedido tem maiusculas (como os de verdade): o aviso acha a loja pela referencia */
@@ -946,7 +949,7 @@ console.log('Token do Mercado Pago guardado na borda');
   r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PTK2 } });
   ok(r.status === 200 && conta.leituras === 1, 'outra copia do worker: token da borda, so o pedido lido no banco (' + conta.leituras + ')');
   const deletesAntes = kv.apagadas || 0;
-  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   w = await workerNovo();
   const PTK2b = 'tokenborda000000002b';
   db.set('lojas/dom-conizza/pedidos/' + PTK2b, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 63, cliente: { nome: 'Gil' } }));
@@ -957,7 +960,7 @@ console.log('Token do Mercado Pago guardado na borda');
   const tokenAntes = privado.token;
   privado.token = '';
   /* o painel publica depois de guardar o token (guardarSegredo): a copia da loja muda de versao */
-  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+  await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   w = await workerNovo();
   const PTK3 = 'tokenborda0000000003';
   db.set('lojas/dom-conizza/pedidos/' + PTK3, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', senha: 62, cliente: { nome: 'Gil' } }));
@@ -1019,34 +1022,34 @@ console.log('Marca do dono no login');
   const marcaDe = (email) => { try { return JSON.parse(marcas[email] || '{}'); } catch (_) { return {}; } };
   r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' } });
   ok(r.status === 401, '/dono sem login: 401');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-outro' } });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura' } });
   ok(r.status === 403 && !marcaDe('outro@x.com').lojas, 'quem nao e dono nao ganha a marca');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-equipe' } });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura' } });
   ok(r.status === 403, 'login da equipe nao vira dono');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   ok(dono === 'dono@x.com' && r.status === 200 && j.marca === true && JSON.stringify(marcaDe('dono@x.com').lojas.slice().sort()) === '["dom-conizza","poucas"]', 'dono de verdade: marca "lojas" gravada no login (todas as lojas dele hoje)');
   const ate = marcaDe('dono@x.com').lojasAte;
   ok(ate > Date.now() / 1000 + 2.9 * 86400 && ate < Date.now() / 1000 + 3.1 * 86400, 'a marca vale 3 dias');
   const leiturasAntes = conta.leituras;
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   ok(j.ok === true && j.marca === false && conta.leituras === leiturasAntes, 'ja tem a marca: nao le o banco nem grava de novo');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok(r.status === 400, 'so o admin refaz a marca de outro e-mail');
   /* troca de dono feita na mao: o admin refaz a marca do antigo pelas lojas de hoje (nenhuma) */
   marcas['outro@x.com'] = JSON.stringify({ lojas: ['dom-conizza'], outra: 1 });
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer tok-admin' } }); j = await r.json();
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'outro@x.com' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } }); j = await r.json();
   ok(j.ok === true && !marcaDe('outro@x.com').lojas && marcaDe('outro@x.com').outra === 1, 'admin tira a marca de quem nao e mais dono (e guarda o resto da marca)');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'dono@x.com' }, headers: { Authorization: 'Bearer tok-admin' } }); j = await r.json();
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { email: 'dono@x.com' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } }); j = await r.json();
   ok(JSON.stringify((marcaDe('dono@x.com').lojas || []).sort()) === '["dom-conizza","poucas"]' && JSON.stringify(j.lojas.sort()) === '["dom-conizza","poucas"]', 'e refaz a de quem e dono de verdade (todas as lojas dele)');
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: '../contas/x' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: '../contas/x' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok(r.status === 400, '/dono com loja inventada: 400');
   /* marca perto de vencer: o painel pede de novo e ela renova conferindo no banco */
   marcas['dono@x.com'] = JSON.stringify({ lojas: ['dom-conizza', 'poucas'], lojasAte: Math.floor(Date.now() / 1000) + 3600 });
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } }); j = await r.json();
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } }); j = await r.json();
   ok(j.marca === true && marcaDe('dono@x.com').lojasAte > Date.now() / 1000 + 2 * 86400, 'marca perto de vencer: renova por mais 3 dias');
   /* dono trocado na mao e ninguem refez a marca: na renovacao ela perde a loja sozinha */
   marcas['outro@x.com'] = JSON.stringify({ lojas: ['dom-conizza'], lojasAte: Math.floor(Date.now() / 1000) + 3600 });
-  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-outro' } });
+  r = await chamar(w, '/dono', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura' } });
   ok(r.status === 403 && !marcaDe('outro@x.com').lojas, 'dono antigo pedindo a marca de novo: 403 e a loja sai da marca dele');
 }
 
@@ -1098,21 +1101,21 @@ ok(j.chave === VAPID && kv.gravacoes === 0, 'outro worker usa a mesma chave, sem
 
 r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao } });
 ok(r.status === 401, 'ligar avisos sem login: recusado');
-r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('tok-outro') });
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura') });
 ok(r.status === 403, 'ligar avisos de loja que nao e sua: recusado');
-r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: { endpoint: 'https://site-do-mal.com/x', keys: doPainel.inscricao.keys } }, headers: bearer('tok-dono') });
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: { endpoint: 'https://site-do-mal.com/x', keys: doPainel.inscricao.keys } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 ok(r.status === 400, 'endereco que nao e servico de aviso: recusado (o worker nunca manda nada para site qualquer)');
 zerar(); avisos.length = 0;
-r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('tok-dono') }); j = await r.json();
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') }); j = await r.json();
 ok(r.status === 200 && j.ok && j.teste === 201, 'dono liga os avisos do painel e o teste chega');
 ok(conta.leituras === 0 && conta.gravacoes === 0 && kv.gravacoes === 1, 'ligar aparelho: 0 leituras e 0 gravacoes no banco (1 gravacao no KV)');
 ok(avisos.length === 1 && abrirAviso(avisos[0], doPainel).titulo === 'Avisos ligados', 'o celular consegue abrir o aviso de teste');
 ok(await assinaturaOk(avisos[0], VAPID), 'aviso assinado com a chave do Ligeiro (o Google aceita)');
 zerar();
-r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('tok-dono') });
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 ok(r.status === 200 && kv.gravacoes === 0, 'abrir o painel de novo no mesmo aparelho: nao grava nada');
-await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'cozinha', inscricao: daCozinha.inscricao }, headers: bearer('tok-equipe') });
-r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doEntregador.inscricao }, headers: bearer('tok-equipe') });
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'cozinha', inscricao: daCozinha.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') });
+r = await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doEntregador.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') });
 ok(r.status === 200 && JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).length === 3, 'a equipe (senha da loja) liga a cozinha e o entregador');
 
 const NOVO = 'novonovonovo01234567';
@@ -1170,7 +1173,7 @@ ok(r.status === 404 && !db.has('lojas/dom-conizza/pedidos/naoexistenaoexiste12')
 
 zerar(); avisos.length = 0;
 const resumo = { senha: 21, total: 3500, tipoEntrega: 'entrega', nome: 'Bia', bairro: 'Centro' };
-r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('tok-equipe') }); j = await r.json();
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') }); j = await r.json();
 ok(j.cliente === 201 && j.equipe === 1, 'saiu para entrega: avisa o cliente e o entregador');
 const vCliente = abrirAviso(avisos.filter((a) => a.url === doCliente.inscricao.endpoint)[0], doCliente);
 ok(vCliente.titulo === 'Dom Conizza' && vCliente.texto === 'Seu pedido saiu para entrega! Já está a caminho. Senha 21.' && vCliente.url === '#/juquia/dom-conizza/pedido/' + NOVO, 'o cliente le o nome da loja, o que aconteceu e abre o pedido dele');
@@ -1180,13 +1183,13 @@ ok(vEntrega.titulo === 'Entrega pronta! Senha 21' && vEntrega.texto.indexOf('Cen
 ok(conta.leituras === 0 && conta.gravacoes === 0, 'pedido andou e avisou: 0 leituras e 0 gravacoes no banco');
 r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso } });
 ok(r.status === 401, 'avisar o cliente sem login: recusado');
-r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('tok-outro') });
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura') });
 ok(r.status === 403, 'outra loja nao manda aviso para o cliente desta');
 avisos.length = 0;
-await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'finalizado', resumo, aviso: comAviso.aviso }, headers: bearer('tok-dono') });
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'finalizado', resumo, aviso: comAviso.aviso }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 ok(avisos.length === 0, 'entregue: nao incomoda o cliente com mais um aviso');
 avisos.length = 0;
-await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pago', resumo: { senha: 23, total: 1000, tipoEntrega: 'retirada', nome: 'Edu' } }, headers: bearer('tok-dono') });
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pago', resumo: { senha: 23, total: 1000, tipoEntrega: 'retirada', nome: 'Edu' } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 ok(avisos.length === 1 && abrirAviso(avisos[0], daCozinha).titulo === 'Pix pago! Senha 23', 'Pix conferido a mao no painel: a cozinha fica sabendo');
 
 /* Pix que cai pelo Mercado Pago: loja e cliente avisados sozinhos */
@@ -1206,8 +1209,8 @@ ok(avisos.length === 0, 'o Mercado Pago avisando duas vezes: a loja apita uma ve
 
 /* o mesmo celular como painel e entregador (loja pequena: o dono entrega) */
 const doDono = aparelho('https://fcm.googleapis.com/fcm/send/dono-entrega');
-await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doDono.inscricao }, headers: bearer('tok-dono') });
-await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doDono.inscricao }, headers: bearer('tok-dono') });
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doDono.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', inscricao: doDono.inscricao }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 const entradaDono = JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).filter((a) => a.e === doDono.inscricao.endpoint);
 ok(entradaDono.length === 1 && entradaDono[0].p.join(',') === 'painel,entregas', 'o mesmo celular fica com os dois papeis (painel e entregas), numa entrada so');
 avisos.length = 0;
@@ -1216,10 +1219,10 @@ await chamar(w, '/novo', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido:
 const doDonoNovo = avisos.filter((a) => a.url === doDono.inscricao.endpoint);
 ok(doDonoNovo.length === 1 && abrirAviso(doDonoNovo[0], doDono).url === '#/painel/dom-conizza', 'pedido novo chega nele como painel');
 avisos.length = 0;
-await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'donoentregadono01234', status: 'pronto', resumo: { senha: 30, total: 2000, tipoEntrega: 'entrega', bairro: 'Centro' } }, headers: bearer('tok-dono') });
+await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: 'donoentregadono01234', status: 'pronto', resumo: { senha: 30, total: 2000, tipoEntrega: 'entrega', bairro: 'Centro' } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 const doDonoEntrega = avisos.filter((a) => a.url === doDono.inscricao.endpoint);
 ok(doDonoEntrega.length === 1 && abrirAviso(doDonoEntrega[0], doDono).titulo === 'Entrega pronta! Senha 30', 'e a entrega pronta chega nele como entregador');
-await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', remover: doDono.inscricao.endpoint }, headers: bearer('tok-dono') });
+await chamar(w, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'entregas', remover: doDono.inscricao.endpoint }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 const depoisDeTirar = JSON.parse(kv.mapa.get('aparelhos:dom-conizza').valor).filter((a) => a.e === doDono.inscricao.endpoint);
 ok(depoisDeTirar.length === 1 && depoisDeTirar[0].p.join(',') === 'painel', 'desligar no entregador tira so esse papel (o painel continua avisando)');
 
@@ -1228,7 +1231,7 @@ const listaAntes = kv.mapa.get('aparelhos:dom-conizza').valor;
 const getOriginal = kv.get;
 kv.get = async () => { throw new Error('KV fora do ar'); };
 const wFalha = await workerNovo();
-r = await chamar(wFalha, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('tok-dono') });
+r = await chamar(wFalha, '/aparelho', { metodo: 'POST', corpo: { loja: 'dom-conizza', papel: 'painel', inscricao: doPainel.inscricao, testar: true }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura') });
 ok(r.status === 503 && kv.mapa.get('aparelhos:dom-conizza').valor === listaAntes, 'KV sem responder: /aparelho diz tente de novo e nao mexe na lista');
 r = await chamar(wFalha, '/vapid');
 ok(r.status >= 500 && JSON.parse(kv.mapa.get('sistema:vapid').valor).publica === VAPID, 'KV sem responder: a chave dos avisos nao e trocada (os inscritos continuam valendo)');
@@ -1248,10 +1251,11 @@ console.log('Loja nova (so pelo mensageiro)');
   db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: hoje } });
   const lojaNova = (extra) => Object.assign({ nome: 'Pastel da Vila', cidade: 'Juquiá', tipo: 'Lanchonete', categorias: [{ id: 'c1', nome: 'Pastéis' }], produtos: [], horarios: { seg: ['18:00-23:00'] } }, extra || {});
   const criarLoja = (tok, loja, vit) => chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: loja || lojaNova(), vitrine: vit || { nome: 'Pastel da Vila', horarios: {} } }, headers: bearer(tok) });
-  r = await criarLoja('tok-novo', lojaNova({ verificada: true, email: 'ligeiro.pedidos@gmail.com', ativa: true, plano: { status: 'ativo', pagoAte: '2099-01-01T00:00:00.000Z', planoPago: 'oito' }, donoEmail: 'outro@x.com' }), { nome: 'x', verificada: true, email: 'y', donoEmail: 'z' }); j = await r.json();
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura', lojaNova({ verificada: true, email: 'ligeiro.pedidos@gmail.com', ativa: true, plano: { status: 'ativo', pagoAte: '2099-01-01T00:00:00.000Z', planoPago: 'oito' }, donoEmail: 'outro@x.com', amostra: true }), { nome: 'x', verificada: true, email: 'y', donoEmail: 'z', amostra: true }); j = await r.json();
   const nasceu = db.get('lojas/pastel-da-vila'), vitNova = db.get('vitrine/pastel-da-vila');
   ok(r.status === 200 && j.slug === 'pastel-da-vila' && nasceu && vitNova, 'conta nova cria a primeira loja pelo mensageiro (loja e vitrine juntas)');
   ok(nasceu.donoEmail === 'novo@x.com' && nasceu.verificada !== true && !('email' in nasceu) && nasceu.plano.status === 'teste' && nasceu.plano.planoPago === '' && nasceu.plano.pagoAte === '', 'o que o dono nao decide (dono, selo, plano pago, e-mail do Ligeiro) sai do documento');
+  ok(!('amostra' in nasceu) && !('amostra' in vitNova), 'conta comum nao marca a propria loja como amostra (amostra tira a loja da conta das vagas: so a conta do Ligeiro decide)');
   ok(JSON.stringify(vitNova.plano) === JSON.stringify(nasceu.plano) && !('email' in vitNova) && !('donoEmail' in vitNova) && vitNova.verificada !== true, 'a vitrine nasce com o mesmo plano da loja e sem e-mail');
   /* conta criada ha 20 dias que nunca teve loja (caiu na lista de espera ou desistiu no meio): o teste recomeca agora */
   {
@@ -1260,19 +1264,19 @@ console.log('Loja nova (so pelo mensageiro)');
     const criarV = (tok, nome) => chamar(wv, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: nome }), vitrine: { nome: nome, horarios: {} } }, headers: bearer(tok) });
     const vinte = new Date(Date.now() - 20 * 864e5).toISOString();
     db.set('contas/velho@x.com', { email: 'velho@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: vinte } });
-    r = await criarV('tok-velho', 'Pastel do Velho'); j = await r.json();
+    r = await criarV('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ2ZWxobyJ9.assinatura', 'Pastel do Velho'); j = await r.json();
     const cv = db.get('contas/velho@x.com'), lv = db.get('lojas/pastel-do-velho');
     ok(r.status === 200 && Date.now() - Date.parse(cv.plano.desde) < 60e3 && cv.plano.status === 'teste' && cv.plano.planoId === 'uma' && cv.lojaCriadaEm, 'conta sem loja ha 20 dias: a loja nasce e os 7 dias gratis comecam agora (antes vinha vencida)');
     ok(lv && lv.plano.desde === cv.plano.desde, 'a loja leva o teste novo no plano');
     /* quem ja pagou alguma vez nao ganha teste de novo */
     db.set('contas/pagou@x.com', { email: 'pagou@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: vinte, ultimoPagamentoEm: vinte } });
-    r = await criarV('tok-pagou', 'Pastel Pago');
+    r = await criarV('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJwYWdvdSJ9.assinatura', 'Pastel Pago');
     ok(db.get('contas/pagou@x.com').plano.desde === vinte, 'conta que ja pagou: o teste nao recomeca');
   }
-  r = await criarLoja('tok-novo');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura');
   ok(r.status === 409 && /já tem a sua loja/.test((await r.json()).erro), '1 loja por conta: a segunda e recusada, com o caminho (outra conta)');
   db.set('contas/novo@x.com', { email: 'novo@x.com', plano: { planoId: 'duas', planoPago: 'duas', pagoAte: '2099-01-01T00:00:00.000Z', tipo: 'mensal', status: 'ativo', desde: hoje } });
-  r = await criarLoja('tok-novo');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura');
   ok(r.status === 409, 'conta com plano antigo de 2 lojas: tambem 1 loja por conta');
   /* o endereco seguinte: as lojas de mesmo nome sao de outros donos, e a -3 foi apagada mas deixou o token do Mercado Pago */
   db.set('lojas/pastel-da-vila', Object.assign(db.get('lojas/pastel-da-vila'), { donoEmail: 'outro@x.com' }));
@@ -1282,7 +1286,7 @@ console.log('Loja nova (so pelo mensageiro)');
      worker novo: estas tentativas nao gastam o limite de lojas por hora do endereco dos testes de baixo */
   {
     const wn = await workerNovo();
-    const criarNome = (loja) => chamar(wn, '/loja-nova', { metodo: 'POST', corpo: { loja: loja, vitrine: { nome: loja.nome, horarios: {} } }, headers: bearer('tok-novo') });
+    const criarNome = (loja) => chamar(wn, '/loja-nova', { metodo: 'POST', corpo: { loja: loja, vitrine: { nome: loja.nome, horarios: {} } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura') });
     r = await criarNome(lojaNova()); j = await r.json();
     ok(r.status === 409 && j.nomeRepetido === true && /Já existe a loja "Pastel da Vila" em Juquiá/.test(j.erro), 'mesmo nome na mesma cidade: recusado, com o caminho (outro nome, com o bairro)');
     r = await criarNome(lojaNova({ nome: 'pastel da VILA!' })); j = await r.json();
@@ -1295,29 +1299,29 @@ console.log('Loja nova (so pelo mensageiro)');
     [...db.keys()].filter((k) => /^(lojas|vitrine)\/pastel-do-vilela/.test(k)).forEach((k) => db.delete(k));
   }
   /* o endereco e do Brasil todo: mesmo nome em outra cidade passa e ganha o proximo endereco livre */
-  r = await criarLoja('tok-novo', lojaNova({ cidade: 'Registro' })); j = await r.json();
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura', lojaNova({ cidade: 'Registro' })); j = await r.json();
   ok(r.status === 200 && j.slug === 'pastel-da-vila-4' && !db.has('lojas/pastel-da-vila-3'), 'mesmo nome em outra cidade passa; endereco com sobra de loja apagada (token do Mercado Pago) pulado, ninguem herda');
   db.set('publico/fundadores', { capacidade: { fechado: true } });
-  r = await criarLoja('tok-novo');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura');
   ok(r.status === 409 && (await r.json()).vagas === false, 'vagas fechadas: ninguem cria loja');
   db.set('publico/fundadores', { capacidade: { max: 3 } });
-  r = await criarLoja('tok-novo');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura');
   ok(r.status === 409, 'teto de lojas do Ligeiro batido (conta pelas lojas no ar da vitrine): recusado');
   db.delete('publico/fundadores');
-  r = await criarLoja('tok-equipe');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura');
   ok(r.status === 403, 'login da equipe nao cria loja');
-  r = await criarLoja('tok-semconta');
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJzZW1jb250YSJ9.assinatura');
   ok(r.status === 409, 'sem conta: pede para criar a conta antes');
   r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova(), vitrine: {} } });
   ok(r.status === 401, 'sem login: recusado');
   db.set('lojas/pastel-da-vila-4', Object.assign(db.get('lojas/pastel-da-vila-4'), { donoEmail: 'outro3@x.com' }));
-  r = await criarLoja('tok-novo', lojaNova({ categorias: Array.from({ length: 21 }, (_, i) => ({ id: 'c' + i, nome: 'C' + i })) }));
+  r = await criarLoja('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJub3ZvIn0.assinatura', lojaNova({ categorias: Array.from({ length: 21 }, (_, i) => ({ id: 'c' + i, nome: 'C' + i })) }));
   ok(r.status === 400, 'cardapio acima do limite (21 categorias): recusado');
   /* corrida: a mesma conta pede 6 lojas ao mesmo tempo, em workers diferentes (a contagem em memoria nao ajuda):
      todas contam zero lojas, mas so a primeira grava; as outras veem a trava da conta e ouvem "ja tem a sua loja" */
   db.set('contas/corrida@x.com', { email: 'corrida@x.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: hoje } });
   const workers = await Promise.all([1, 2, 3].map(() => workerNovo()));
-  const pedidos = Array.from({ length: 6 }, (_, i) => chamar(workers[i % 3], '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Corrida ' + i }), vitrine: { nome: 'Corrida ' + i, horarios: {} } }, headers: bearer('tok-corrida') }));
+  const pedidos = Array.from({ length: 6 }, (_, i) => chamar(workers[i % 3], '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Corrida ' + i }), vitrine: { nome: 'Corrida ' + i, horarios: {} } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJjb3JyaWRhIn0.assinatura') }));
   globalThis.__consultaLenta = true;
   const respostas = await Promise.all(pedidos);
   globalThis.__consultaLenta = false;
@@ -1329,12 +1333,12 @@ console.log('Loja nova (so pelo mensageiro)');
   [...db.keys()].filter((k) => /^(lojas|vitrine)\/corrida/.test(k)).forEach((k) => db.delete(k));
   const pagoDepois = new Date(Date.now() + 30 * 864e5).toISOString();
   globalThis.__antesDoLote = () => { const x = db.get('contas/corrida@x.com'); x.plano = Object.assign({}, x.plano, { status: 'ativo', pagoAte: pagoDepois }); versoes.set('contas/corrida@x.com', (versoes.get('contas/corrida@x.com') || 0) + 1); };
-  r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Pastel Livre' }), vitrine: { nome: 'Pastel Livre', horarios: {} } }, headers: bearer('tok-corrida') }); j = await r.json();
+  r = await chamar(w, '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Pastel Livre' }), vitrine: { nome: 'Pastel Livre', horarios: {} } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJjb3JyaWRhIn0.assinatura') }); j = await r.json();
   ok(r.status === 200 && j.slug === 'pastel-livre' && db.get('lojas/pastel-livre').plano.status === 'ativo' && db.get('lojas/pastel-livre').plano.pagoAte === pagoDepois && db.get('vitrine/pastel-livre').plano.status === 'ativo', 'pagamento no meio da criacao: a loja nasce no endereco dela (nao no -2) e com o plano pago');
 
   /* loja da propria conta do Ligeiro: cortesia de verdade (a copia publica nao leva o e-mail do dono) */
   db.set('contas/ligeiro.pedidos@gmail.com', { email: 'ligeiro.pedidos@gmail.com', plano: { planoId: 'uma', tipo: 'mensal', status: 'teste', desde: '2026-01-01T00:00:00.000Z' } });
-  r = await chamar(await workerNovo(), '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Loja do Ligeiro Teste' }), vitrine: { nome: 'Loja do Ligeiro Teste', horarios: {} } }, headers: bearer('tok-admin') }); j = await r.json();
+  r = await chamar(await workerNovo(), '/loja-nova', { metodo: 'POST', corpo: { loja: lojaNova({ nome: 'Loja do Ligeiro Teste' }), vitrine: { nome: 'Loja do Ligeiro Teste', horarios: {} } }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura') }); j = await r.json();
   const lojaAdm = db.get('lojas/' + j.slug) || {};
   const { createRequire } = await import('node:module');
   const regrasDoSite = createRequire(import.meta.url)('../js/regras.js');
@@ -1420,14 +1424,14 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   const ipLoja = '177.10.20.30';
   let balcaoOk = 0;
   for (let i = 0; i < 20; i++) {
-    r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: '', telefone: '', tipoEntrega: 'retirada', formaPagamento: 'cartao_entrega', itens: [{ produtoId: 'p1', quantidade: 1 }], origem: 'balcao' } }, headers: { Authorization: 'Bearer tok-equipe', 'CF-Connecting-IP': ipLoja } });
+    r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: '', telefone: '', tipoEntrega: 'retirada', formaPagamento: 'cartao_entrega', itens: [{ produtoId: 'p1', quantidade: 1 }], origem: 'balcao' } }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura', 'CF-Connecting-IP': ipLoja } });
     if (r.status === 200) balcaoOk++;
   }
   r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dadosD({ telefone: '13966660003' }) }, headers: { 'CF-Connecting-IP': ipLoja } });
   ok(balcaoOk === 20 && r.status === 200, 'balcao com a senha da equipe: 20 pedidos seguidos passam, e o cliente no wifi da loja continua pedindo');
   const lookupsAntes = conta.lookup;
   let recusas = 0;
-  for (let i = 0; i < 20; i++) { r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { origem: 'balcao', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }] } }, headers: { Authorization: 'Bearer lixo-' + i, 'CF-Connecting-IP': '177.10.20.99' } }); if (r.status === 401) recusas++; }
+  for (let i = 0; i < 20; i++) { r = await chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { origem: 'balcao', tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }] } }, headers: { Authorization: 'Bearer ' + jwtDoProjeto('lixo-' + i, 'proj'), 'CF-Connecting-IP': '177.10.20.99' } }); if (r.status === 401) recusas++; }
   ok(recusas === 20 && conta.lookup - lookupsAntes === 15, 'login de balcao inventado: 401, e depois de 15 do mesmo endereco nem confere mais o login');
 
   /* 4. publicar: token inventado nao trava o dono, e o dono que salva depressa sempre chega na borda */
@@ -1435,7 +1439,7 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   await chamar(w, '/loja/dom-conizza');
   for (let i = 0; i < 8; i++) await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer lixo-' + i } });
   lojaD.aberta = false;
-  r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   await esperarFundo();
   let jl = await (await chamar(await workerNovo(), '/loja/dom-conizza')).json();
   ok(r.status === 200 && jl.loja.aberta === false, '8 chamadas com token inventado: o dono publica na hora e a loja fechada ja aparece para o cliente');
@@ -1447,7 +1451,7 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   for (let i = 1; i <= 8; i++) {
     if (i === 7) { await esperarFundo(); gravacoesKv = kv.gravacoes; }
     lojaD.produtos[0].preco = 5000 + i;
-    r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer tok-dono' }, env: envRapido });
+    r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' }, env: envRapido });
     j = await r.json();
     estados.push(r.status + (j.depois ? 'd' : ''));
   }
@@ -1519,7 +1523,7 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   const voltaram = devolucoes.slice(devR).map((d) => d.id);
   ok(voltaram.length === 1 && pr.status === 'pago' && pr.cobrancas.length === 2 && (pr.duplicadasDevolvidas || [])[0] === voltaram[0] && pr.pagoPor !== voltaram[0], 'duas cobrancas aprovadas confirmadas juntas (dois workers): uma paga, a outra volta sozinha e as duas ficam anotadas');
   Object.assign(pr, { status: 'cancelado', canceladoPor: 'loja' });
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PR }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PR }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok((await r.json()).ok === true && devolucoes.slice(devR).map((d) => d.id).sort().join(',') === 'ORD990701,ORD990702', 'cancelar e devolver: volta a que pagou, e a que ja tinha voltado nao volta de novo');
   ok(db.get(caminhoDe(PR)).pagamentoStatus === 'devolvido' && !!db.get(caminhoDe(PR)).devolvidoEm, 'devolvido: pagamentoStatus "devolvido" (sai do "Falta devolver" do painel)');
   ordens.set('ORD990703', { id: 'ORD990703', status: 'processed', external_reference: 'dom-conizza__' + PR, total_amount: valorP1() });
@@ -1529,7 +1533,7 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   const PV = 'devolvidovelho000001';
   db.set(caminhoDe(PV), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 97, mp: { id: 'ORD990704' }, devolvidoEm: '2026-09-20T10:00:00.000Z', cliente: { nome: 'Rui' } }));
   const devV = devolucoes.length;
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PV }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PV }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok((await r.json()).ja === true && devolucoes.length === devV && db.get(caminhoDe(PV)).pagamentoStatus === 'devolvido', 'pedido devolvido antes desta marca: o toque de novo so acerta o pagamentoStatus (nada volta duas vezes)');
   /* /cartao com o aviso atrasado da cobranca anterior chegando no meio */
   const PC3 = 'cartaocorridacartao1';
@@ -1552,13 +1556,13 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   ok(disparou && (await r.json()).status === 'aprovado' && pc3.pagoPor === 'ORD990801' && pc3.cobrancas.indexOf('ORD990801') >= 0 && pc3.cobrancas.indexOf(pc3.mp.id) >= 0, 'aviso atrasado de outra cobranca no meio do cartao: as duas cobrancas continuam anotadas no pedido');
   Object.assign(pc3, { status: 'cancelado', canceladoPor: 'loja' });
   const devC = devolucoes.length;
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC3 }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PC3 }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok((await r.json()).ok === true && devolucoes.slice(devC).some((d) => d.id === 'ORD990801') && !devolucoes.slice(devC).some((d) => d.id === pc3.mp.id), 'cancelar e devolver alcanca a cobranca que pagou (e nao repete a que ja voltou)');
   const PP = 'devolverpagopor00001';
   for (const idP of ['ORD990901', 'ORD990902']) ordens.set(idP, { id: idP, status: 'processed', external_reference: 'dom-conizza__' + PP, total_amount: valorP1() });
   db.set(caminhoDe(PP), pedidoDe(1, { status: 'cancelado', canceladoPor: 'loja', formaPagamento: 'pix', pagamentoStatus: 'pago', senha: 99, mp: { id: 'ORD990901' }, cobrancas: ['ORD990901'], pagoPor: 'ORD990902', cliente: { nome: 'Rui' } }));
   const devP = devolucoes.length;
-  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PP }, headers: { Authorization: 'Bearer tok-dono' } });
+  r = await chamar(w, '/devolver', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: PP }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura' } });
   ok((await r.json()).ok === true && devolucoes.slice(devP).map((d) => d.id).sort().join(',') === 'ORD990901,ORD990902', 'devolver alcanca tambem a cobranca que pagou (pagoPor) mesmo fora da lista');
 
   /* 9. renovacao do token que ficou esperando na borda so vale para a mesma conexao */
@@ -1663,6 +1667,75 @@ console.log('Video da Loja do Ligeiro na copia da loja');
   kv.mapa.delete('loja:videoteste'); w2 = await workerNovo();
   r2 = await chamar(w2, '/loja/videoteste'); j2 = await r2.json();
   ok(!j2.loja.video, 'id de video torto: fica de fora');
+}
+
+console.log('Pentest de 03/10/2026');
+{
+  /* 1. login de OUTRO projeto do Firebase: mesmo que o Google o aceitasse, aqui nao vale */
+  const w3 = await workerNovo();
+  const tokAdminDeOutro = jwtDoProjeto('admin-de-outro-projeto', 'projeto-do-atacante');
+  usuarios[tokAdminDeOutro] = 'ligeiro.pedidos@gmail.com';
+  const lookupsAntes = conta.lookup;
+  let rr = await chamar(w3, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer ' + tokAdminDeOutro } });
+  ok(rr.status === 401 && conta.lookup === lookupsAntes, 'login de OUTRO projeto do Firebase (mesmo com o e-mail do admin): 401, e nem pergunta ao Google');
+  const tokBomAdmin = jwtDoProjeto('admin', 'proj');
+  usuarios[tokBomAdmin] = 'ligeiro.pedidos@gmail.com';
+  rr = await chamar(w3, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer ' + tokBomAdmin } });
+  ok(rr.status === 200 || rr.status === 202, 'o mesmo e-mail com o token do projeto certo continua valendo');
+  const tokSemIss = b64u({ alg: 'RS256' }) + '.' + b64u({ aud: 'proj', iss: 'https://evil.example/proj' }) + '.x';
+  usuarios[tokSemIss] = 'ligeiro.pedidos@gmail.com';
+  rr = await chamar(w3, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer ' + tokSemIss } });
+  ok(rr.status === 401, 'token com aud certo e emissor (iss) errado: 401');
+  rr = await chamar(w3, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer isto.nao.e-um-token' } });
+  ok(rr.status === 401, 'texto que nao e token: 401');
+
+  /* 2. senha da equipe: 8 a 10 numeros */
+  const equipe = (pin) => chamar(w3, '/equipe', { metodo: 'POST', corpo: { loja: 'dom-conizza', pin: pin }, headers: { Authorization: 'Bearer ' + jwtDoProjeto('dono', 'proj') } });
+  for (const [pin, texto] of [['482913', '6 numeros (era permitido, so 1 milhao de combinacoes)'], ['4829137', '7 numeros'], ['48291375601', '11 numeros'], ['12121212', 'bloco repetido (12 12 12 12)'], ['12341234', 'bloco repetido (1234 1234)'], ['87654321', 'sequencia'], ['00000000', 'tudo igual']]) {
+    rr = await equipe(pin);
+    ok(rr.status === 400, 'senha da equipe com ' + texto + ': recusada');
+  }
+  rr = await equipe('4829137560');
+  ok(rr.status === 200, 'senha da equipe com 10 numeros: aceita');
+
+  /* 3. IPv6 comprimido (2001:db8::1 e 2001:db8::2 sao a mesma casa) */
+  const w4 = await workerNovo();
+  let barrado = false;
+  for (let i = 0; i < 61; i++) { rr = await chamar(w4, '/status?loja=dom-conizza&pedido=' + PED, { headers: { 'CF-Connecting-IP': '2001:db8::' + (i + 1).toString(16) } }); if (rr.status === 429) barrado = true; }
+  ok(barrado, '/status pelo IPv6 comprimido (2001:db8::N): a mesma casa, para em 60 por minuto');
+
+  /* 4. teto diario de e-mails de contato (KV): a cota do script e uma so, dividida com os recibos */
+  const emailsC = [];
+  const fetchAntesC = globalThis.fetch;
+  globalThis.fetch = async (url, op) => {
+    if (String(url).indexOf('https://script.google.com/macros/s/') === 0) { emailsC.push(1); return resposta({ ok: true }); }
+    return fetchAntesC(url, op);
+  };
+  const envC = Object.assign({}, env, { EMAIL_URL: 'https://script.google.com/macros/s/AKfycbxTESTE/exec', EMAIL_TOKEN: 'segredo-do-script', CARDAPIO: kvNovo() });
+  const wC = await workerNovo();
+  let gravados = 0;
+  for (let i = 0; i < 30; i++) {
+    rr = await chamar(wC, '/lead', { metodo: 'POST', corpo: { nome: 'Contato ' + i, whatsapp: '1398888' + String(1000 + i) }, headers: { 'CF-Connecting-IP': '10.77.' + Math.floor(i / 8) + '.' + (i % 8) }, env: envC });
+    await esperarFundo();
+    if (rr.status === 200) gravados++;
+  }
+  ok(gravados >= 25 && emailsC.length === 25, 'contatos em massa: so 25 e-mails por dia (os recibos de pagamento ficam com o resto da cota), o contato continua gravado');
+  globalThis.fetch = fetchAntesC;
+
+  /* 5. /publicar de loja inventada: poucas por pessoa */
+  const w5 = await workerNovo();
+  const tokNovato = jwtDoProjeto('novato', 'proj'); usuarios[tokNovato] = 'novato@x.com';
+  let r429 = 0;
+  for (let i = 0; i < 12; i++) { rr = await chamar(w5, '/publicar', { metodo: 'POST', corpo: { loja: 'loja-que-nao-existe-' + i }, headers: { Authorization: 'Bearer ' + tokNovato } }); if (rr.status === 429) r429++; }
+  ok(r429 >= 3, '/publicar de loja que nao existe: a partir da 9a, 429 (nao le mais o banco)');
+
+  /* 6. vitrine inflada de proposito nao entra na lista que todo visitante baixa */
+  db.set('vitrine/inflada-teste', { slug: 'inflada-teste', nome: 'Inflada', cidadeSlug: 'juquia', ativa: true, lixo: 'x'.repeat(70000) });
+  kv.mapa.delete('vitrine');
+  const wV = await workerNovo();
+  rr = await chamar(wV, '/vitrine'); const jV = await rr.json();
+  ok(Array.isArray(jV.lista) && !jV.lista.some((l) => l.slug === 'inflada-teste'), 'vitrine: documento de mais de 60 mil caracteres fica de fora da lista');
+  db.delete && db.delete('vitrine/inflada-teste');
 }
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');

@@ -92,6 +92,25 @@ function comPreviaDaLoja(html, loja, onde) {
   return html;
 }
 
+/* Cabecalhos de seguranca das paginas do site (HTML): outro site nao pode embutir o Ligeiro numa moldura (clique roubado), so HTTPS
+   por 1 ano, o endereco completo nao vai para outros sites, e nada de camera, microfone ou localizacao (o Ligeiro nunca usa).
+   Nunca nas respostas de /__/auth/: o Firebase embute essa tela de login. A politica completa de scripts (CSP) fica para depois,
+   com teste em modo so-relatorio nos fluxos de login e de cartao. */
+const SEGURANCA = {
+  'Strict-Transport-Security': 'max-age=31536000',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Content-Security-Policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), usb=(), bluetooth=(), serial=()',
+};
+function comSeguranca(resposta) {
+  const r = new Response(resposta.body, resposta);
+  Object.keys(SEGURANCA).forEach((k) => r.headers.set(k, SEGURANCA[k]));
+  return r;
+}
+/* o repositorio do site e publico no GitHub, mas o endereco do Ligeiro nao entrega codigo do servidor, testes nem anotacoes internas */
+const INTERNO = /^\/(ferramentas|testes)(\/|$)|^\/[A-Za-z0-9_-]+\.md$/i;
+
 async function pagina(request, url) {
   const origem = await fetch(SITE + '/index.html', { headers: { 'User-Agent': request.headers.get('User-Agent') || '' } });
   if (!origem.ok) return origem;
@@ -108,7 +127,7 @@ async function pagina(request, url) {
   }
   return new Response(request.method === 'HEAD' ? null : html, {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Vary': 'User-Agent' },
+    headers: Object.assign({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Vary': 'User-Agent' }, SEGURANCA),
   });
 }
 
@@ -144,6 +163,9 @@ export default {
     if (url.hostname === 'ligeiropedidos.com.br' && /^\/__\/(auth|firebase)\//.test(url.pathname)) return loginFirebase(request, url);
     /* www, outro metodo e arquivo (tem extensao: .js, .css, .webp, index.html...): direto para o GitHub */
     if (url.hostname !== 'ligeiropedidos.com.br' || (request.method !== 'GET' && request.method !== 'HEAD')) return fetch(request);
+    if (INTERNO.test(url.pathname)) return new Response('Não encontrado', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' } });
+    /* a pagina inicial e a de erro tambem levam os cabecalhos (vinham direto do GitHub, sem nada) */
+    if (url.pathname === '/index.html' || url.pathname === '/404.html') return comSeguranca(await fetch(request));
     if (/\.[A-Za-z0-9]{1,12}$/.test(url.pathname) || url.pathname.indexOf('/.well-known/') === 0) return fetch(request);
     const l = /^\/_logo\/([^/]+)$/.exec(url.pathname);
     if (l) return logo(l[1]);
@@ -156,4 +178,4 @@ export default {
   },
 };
 
-export const _teste = { lojaDoCaminho, comPreviaDaLoja, ROBO };
+export const _teste = { lojaDoCaminho, comPreviaDaLoja, ROBO, SEGURANCA, INTERNO };

@@ -3437,7 +3437,7 @@
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [
           el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('chave'), 'Senha da equipe']),
-          el('p', { class: 'muted pequeno', text: 'Cozinha e entregador abrem com ela (6 a 8 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
+          el('p', { class: 'muted pequeno', text: 'Cozinha e entregador abrem com ela (8 a 10 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
         ]),
         el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));

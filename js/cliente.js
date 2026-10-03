@@ -879,7 +879,7 @@
       if (verPainel && l.amostra === true) {
         verPainel.href = '/?demo=painel#/painel/' + l.slug;
         verPainel.onclick = function () {
-          try { sessionStorage.setItem('ligeiro:demo-painel', JSON.stringify({ slug: l.slug, loja: l, voltar: location.pathname + location.hash })); } catch (_) { /* sem espaco: abre com a loja de exemplo */ }
+          try { sessionStorage.setItem('ligeiro:demo-painel', JSON.stringify({ slug: l.slug, loja: l, voltar: /^\/(?![\/\\])[^\\]*$/.test(location.pathname) ? location.pathname + location.hash : '/' })); } catch (_) { /* sem espaco: abre com a loja de exemplo */ }
         };
       }
       marcarForaDaBusca(l.amostra === true);

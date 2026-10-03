@@ -96,6 +96,17 @@ async function avisarNovoContato(env, lead) {
   const url = String(env.EMAIL_URL || '').trim();
   if (!url || !env.EMAIL_TOKEN || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) return false;
   if (demais('lead-email', 30, 24 * 3600 * 1000)) return false;
+  /* teto por dia contado no KV (vale para todas as copias do worker; o demais() acima conta so a desta). O Apps Script tem UMA
+     cota diaria de e-mails (100), dividida com os recibos de pagamento e os lembretes: contato falso em massa nao pode comer a
+     vaga dos recibos. O contato continua gravado e aparece na Central; so o aviso por e-mail para no teto */
+  if (env.CARDAPIO) {
+    try {
+      const chaveDia = 'lead-email:' + new Date().toISOString().slice(0, 10);
+      const feitos = Number(await env.CARDAPIO.get(chaveDia)) || 0;
+      if (feitos >= 25) return false;
+      await env.CARDAPIO.put(chaveDia, String(feitos + 1), { expirationTtl: 172800 });
+    } catch (_) { /* KV fora do ar: segue so com o teto por copia */ }
+  }
   const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const primeiro = String(lead.nome || '').split(' ')[0].slice(0, 30);
   const resposta = 'Oi, ' + primeiro + '! Aqui é do Ligeiro. Vi o seu contato e já posso montar a sua loja. Me manda o nome da loja e uma foto do seu cardápio?';
@@ -134,7 +145,12 @@ function demais(chave, maximo, janelaMs) {
   if (lista.length >= maximo) { MEM.vezes[chave] = lista; return true; }
   lista.push(agora);
   MEM.vezes[chave] = lista;
-  if (Object.keys(MEM.vezes).length > 5000) MEM.vezes = {};
+  if (Object.keys(MEM.vezes).length > 5000) {
+    /* tira so o que ja venceu e nunca os contadores de contato (lead-*): zerar tudo de uma vez deixaria quem inventa chaves
+       novas recomecar do zero. Se continuar cheio de chaves novas, ai sim recomeca (a memoria nao cresce sem fim) */
+    Object.keys(MEM.vezes).forEach((k) => { const v = MEM.vezes[k]; if (k.indexOf('lead-') !== 0 && (!v.length || agora - v[v.length - 1] > 10 * 60 * 1000)) delete MEM.vezes[k]; });
+    if (Object.keys(MEM.vezes).length > 5000) MEM.vezes = {};
+  }
   return false;
 }
 /* quantas vezes a chave apareceu na janela (so olha, nao conta) */
@@ -1981,6 +1997,9 @@ export default {
         const antes = await lerKv(env, 'loja:' + loja, 'text');
         const donoAntes = antes && antes.metadata ? String(antes.metadata.dono || '') : '';
         if (donoAntes && donoAntes !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
+        /* loja sem copia no KV (inventada, ou ainda nao publicada): poucas por pessoa, porque cada uma custa 1 leitura do banco
+           (o limite abaixo e por loja, e cada endereco inventado abria um limite novo) */
+        if (!donoAntes && quem !== ADMIN && demais('publicar-sem-copia:' + quem, 8, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         /* salvar em sequencia nao gasta as gravacoes do KV: 6 por minuto por loja e por pessoa. Passou disso, nao recusa
            (a ultima mudanca do dono nunca pode ficar de fora da borda): uma atualizacao so fica marcada para daqui a
            pouco, uma por loja, e ela le o banco na hora em que roda */
@@ -2078,6 +2097,8 @@ export default {
           || ('grupos' in l && (!ehMapa(l.grupos) || Object.keys(l.grupos).length > 30))) return json({ ok: false, erro: 'O cardápio passou do limite (20 categorias, 300 itens, 30 grupos de opções).' }, 400);
         const doc = Object.assign({}, l);
         ['email', 'verificada', 'senhaEquipeEm', 'cupons', 'plano', 'donoEmail', 'ativa', 'slug', 'cidadeSlug', 'criadoEm', 'atualizadoEm', 'senhaPainel'].forEach((k) => { delete doc[k]; });
+        /* "amostra" tira a loja da conta das vagas: so a conta do Ligeiro decide */
+        if (email !== ADMIN) delete doc.amostra;
         /* a copia do plano da conta (a mesma do site e do mensageiro do Asaas) */
         const planoDaConta = (p) => ({ status: p.status || 'teste', tipo: p.tipo || 'mensal', planoId: p.planoId || 'uma', planoPago: p.planoPago || '', fundador: p.fundador === true, desde: p.desde || agora.toISOString(), pagoAte: p.pagoAte || '', avisoPagamentoEm: p.avisoPagamentoEm || '', avisoValor: Number(p.avisoValor) || 0 });
         doc.nome = nome;
@@ -2101,6 +2122,7 @@ export default {
         doc.criadoEm = doc.atualizadoEm = agora.toISOString();
         const vit = Object.assign({}, c.vitrine);
         ['email', 'donoEmail', 'ativa', 'verificada'].forEach((k) => { delete vit[k]; });
+        if (email !== ADMIN) delete vit.amostra;
         if (Object.keys(vit).length > 55) return json({ ok: false, erro: 'faltou a loja' }, 400);
         Object.assign(vit, { nome: nome, cidadeSlug: doc.cidadeSlug, plano: doc.plano });
         if (!ehMapa(vit.horarios)) vit.horarios = {};
@@ -2154,9 +2176,9 @@ export default {
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         const { loja, pin } = await request.json().catch(() => ({}));
         const senha = String(pin || '').replace(/\D/g, '');
-        if (!idToken || !SLUG.test(String(loja || '')) || senha.length < 6 || senha.length > 8) return json({ ok: false, erro: 'senha de 6 a 8 números' }, 400);
+        if (!idToken || !SLUG.test(String(loja || '')) || senha.length < 8 || senha.length > 10) return json({ ok: false, erro: 'senha de 8 a 10 números' }, 400);
         /* senha fraca e a primeira que alguem tenta: nada de 123456, 000000, 111111... */
-        if (/^(\d)\1+$/.test(senha) || '0123456789'.indexOf(senha) >= 0 || '9876543210'.indexOf(senha) >= 0) return json({ ok: false, erro: 'senha fácil demais: evite números repetidos ou em sequência' }, 400);
+        if (/^(\d)\1+$/.test(senha) || /^(\d{2,5})\1+$/.test(senha) || '0123456789'.indexOf(senha) >= 0 || '9876543210'.indexOf(senha) >= 0) return json({ ok: false, erro: 'senha fácil demais: evite números repetidos ou em sequência' }, 400);
         const fb = await firebase(env);
         const quem = await usuarioDoToken(fb, idToken);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
@@ -2940,7 +2962,9 @@ async function lerVitrine(env, ctx) {
 async function atualizarVitrine(env) {
   const fb = await firebase(env);
   const lista = await fb.listar('vitrine');
-  const corpo = '{"borda":1,"lista":' + JSON.stringify(lista.map((d) => { const x = Object.assign({}, d); delete x._id; return x; })) + '}';
+  /* a vitrine e um resumo (1 a 15 mil caracteres por loja): documento inflado de proposito nao entra na lista que todo visitante baixa */
+  const enxutas = lista.map((d) => { const x = Object.assign({}, d); delete x._id; return x; }).filter((x) => JSON.stringify(x).length <= 60000);
+  const corpo = '{"borda":1,"lista":' + JSON.stringify(enxutas) + '}';
   await gravarKv(env, 'vitrine', corpo, { em: Date.now() });
   MEM.vitrine = { corpo: corpo, lida: Date.now() };
   return corpo;
@@ -3506,8 +3530,13 @@ function motivoDoCartao(detalhe) {
 
 /* o endereco de quem chama, para os limites: no IPv6 vale a casa (/64), porque o celular troca o fim a toda hora */
 function ipDaCasa(ip) {
-  const t = String(ip || 'sem-ip');
-  return t.indexOf(':') >= 0 ? t.split(':').slice(0, 4).join(':') + '::/64' : t;
+  const t = String(ip || 'sem-ip').toLowerCase();
+  if (t.indexOf(':') < 0) return t;
+  /* IPv6: abre o "::" antes de cortar. Sem isso, 2001:db8::1 e 2001:db8::2 viravam "casas" diferentes e o limite nao valia */
+  const [a, b = ''] = t.split('::');
+  const A = a ? a.split(':') : [], B = b ? b.split(':') : [];
+  const g = t.indexOf('::') >= 0 ? A.concat(Array(Math.max(0, 8 - A.length - B.length)).fill('0'), B) : A;
+  return g.slice(0, 4).map((x) => x.replace(/^0+(?=.)/, '') || '0').join(':') + '::/64';
 }
 
 function separarNome(nomeCompleto, lojaNome) {
@@ -3523,7 +3552,17 @@ async function usuarioDoToken(fb, idToken) {
 }
 /* e-mail (minusculo), id e a marca atual do login; so e-mail conferido e conta ativa: quem criou conta de e-mail e
    senha com o e-mail do dono, sem confirmar, nao passa */
+/* O token tem que ser DESTE projeto do Firebase (aud e iss do proprio token). Quem confere a assinatura e o Google, mas um token
+   de OUTRO projeto, criado por qualquer pessoa com o e-mail do admin marcado como "verificado", nunca pode valer aqui */
+function tokenDoProjeto(idToken, projeto) {
+  try {
+    const meio = String(idToken).split('.')[1] || '';
+    const j = JSON.parse(atob(meio.replace(/-/g, '+').replace(/_/g, '/')));
+    return !!j && !!projeto && j.aud === projeto && j.iss === 'https://securetoken.google.com/' + projeto;
+  } catch (_) { return false; }
+}
 async function contaDoToken(fb, idToken) {
+  if (!tokenDoProjeto(idToken, fb.projeto)) return null;
   const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup', { method: 'POST', headers: fb.cab, body: JSON.stringify({ idToken }) });
   if (!r.ok) return null;
   const j = await r.json().catch(() => ({}));

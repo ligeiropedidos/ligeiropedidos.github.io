@@ -30,11 +30,11 @@ const chamadas = [];
 let novaCobranca = 0;
 /* login do Google de mentira: token -> usuario */
 const logins = new Map([
-  ['tok-dono', { email: 'troca@x.com', emailVerified: true }],
-  ['tok-naoconferido', { email: 'troca@x.com', emailVerified: false }],
-  ['tok-equipe', { email: 'equipe-loja-troca@equipe.ligeiropedidos.com.br', emailVerified: true }],
-  ['tok-outro', { email: 'outro@x.com', emailVerified: true }],
-  ['tok-admin', { email: 'ligeiro.pedidos@gmail.com', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura', { email: 'troca@x.com', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJuYW9jb25mZXJpZG8ifQ.assinatura', { email: 'troca@x.com', emailVerified: false }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura', { email: 'equipe-loja-troca@equipe.ligeiropedidos.com.br', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura', { email: 'outro@x.com', emailVerified: true }],
+  ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura', { email: 'ligeiro.pedidos@gmail.com', emailVerified: true }],
 ]);
 /* gancho para o teste: roda a cada leitura de uma conta (simula outra aba mexendo no meio) */
 let aoLerConta = null;
@@ -351,41 +351,49 @@ let j;
 /* quem pode chamar */
 r = await pedir('simular', { tipo: 'anual' });
 ok(r.status === 401, 'sem login: 401');
-r = await pedir('simular', { tipo: 'anual' }, 'tok-inventado');
+r = await pedir('simular', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJpbnZlbnRhZG8ifQ.assinatura');
 ok(r.status === 401, 'token inventado: 401');
-r = await pedir('simular', { tipo: 'anual' }, 'tok-naoconferido');
+{
+  /* login de OUTRO projeto do Firebase com o e-mail de um dono (ou do admin): 401 mesmo que o Google o aceitasse */
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const deOutroProjeto = b64u({ alg: 'RS256', typ: 'JWT' }) + '.' + b64u({ aud: 'projeto-do-atacante', iss: 'https://securetoken.google.com/projeto-do-atacante', sub: 'x' }) + '.assinatura';
+  logins.set(deOutroProjeto, { email: 'ligeiro.pedidos@gmail.com', emailVerified: true });
+  r = await pedir('simular', { tipo: 'anual' }, deOutroProjeto);
+  ok(r.status === 401, 'login de OUTRO projeto do Firebase (com o e-mail do admin): 401');
+}
+r = await pedir('simular', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJuYW9jb25mZXJpZG8ifQ.assinatura');
 ok(r.status === 401, 'e-mail nao conferido (conta criada com o e-mail de outro): 401');
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-equipe');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura');
 ok(r.status === 403, 'login da equipe nao mexe na assinatura: 403');
 r = await pedir('simular', {}, null, 'https://ligeiropedidos.com.br', 'OPTIONS');
 ok(r.status === 204 && r.headers.get('Access-Control-Allow-Origin') === 'https://ligeiropedidos.com.br', 'o site pergunta antes (CORS): liberado so para o site');
 r = await pedir('simular', {}, null, 'https://golpe.com', 'OPTIONS');
 ok(r.headers.get('Access-Control-Allow-Origin') === 'null', 'outro site: o navegador nao deixa chamar');
-r = await pedir('apagar-tudo', {}, 'tok-dono');
+r = await pedir('apagar-tudo', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 404, 'rota que nao existe: 404');
-r = await pedir('trocar', { planoId: 'duas', tipo: 'mensal' }, 'tok-dono');
+r = await pedir('trocar', { planoId: 'duas', tipo: 'mensal' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 400 && /uma loja/.test((await r.json()).erro), 'pedir plano de 2 lojas: 400, com o caminho (outra conta)');
 for (const [corpo, nome] of [[{ planoId: '__proto__', tipo: 'mensal' }, 'plano "__proto__"'], [{ tipo: 'semanal' }, 'tipo inventado'], [{}, 'sem tipo']]) {
-  r = await pedir('trocar', corpo, 'tok-dono');
+  r = await pedir('trocar', corpo, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
   ok(r.status === 400, nome + ': 400');
 }
 ok(chamadas.length === 0 && conta2().plano.tipo === 'mensal', 'nenhuma chamada errada mexeu no Asaas ou na conta');
 
 /* mensal -> anual: simular nao mexe; trocar muda a MESMA assinatura, e vale na proxima fatura */
-j = await (await pedir('simular', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('simular', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.ok && j.acao === 'proxima' && j.valorNovo === 89000 && j.proxima === '2026-10-10', 'simular mensal -> anual: R$ 890 a partir de 10/10');
 ok(chamadas.length === 0 && assinaturas.get('sub_t').value === 89, 'simular nao muda a assinatura');
-j = await (await pedir('trocar', { planoId: 'uma', tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { planoId: 'uma', tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.ok && assinaturas.get('sub_t').value === 890 && assinaturas.get('sub_t').cycle === 'YEARLY' && feitas('PUT', '/subscriptions/sub_t')[0].corpo.updatePendingPayments === true, 'trocar: a MESMA assinatura vira R$ 890 por ano (e a fatura pendente junto)');
 ok(feitas('POST', '/subscriptions').length === 0 && feitas('POST', '/payments').length === 0, 'nenhuma assinatura nova e nenhuma cobranca avulsa (nada de cobrar em dobro)');
 ok(conta2().plano.tipo === 'anual' && conta2().plano.planoPago === 'uma' && conta2().plano.pagoAte === db.get('contas/troca@x.com').plano.pagoAte, 'a conta fica anual; os dias pagos nao mudam');
 ok(db.get('lojas/loja-troca').plano.tipo === 'anual', 'a loja fica sabendo');
 const antesIgual = chamadas.length;
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.acao === 'igual' && chamadas.length === antesIgual, 'pedir anual de novo: nada muda, nada no Asaas');
 /* fundador troca com o preco de fundador */
 contaTroca({ fundador: true }); assinaturaT({ value: 79 });
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.valorNovo === 79000 && assinaturas.get('sub_t').value === 790, 'fundador: anual por R$ 790');
 /* renovacao cai: a escolha do dono (anual) nao volta atras */
 contaTroca({ tipo: 'anual' }); assinaturaT({ value: 890, cycle: 'YEARLY' });
@@ -396,30 +404,30 @@ ok(conta2().plano.tipo === 'anual', 'renovacao da mesma assinatura cai: a escolh
 /* sem assinatura, assinatura sumida, pausada, encerrada */
 db.set('contas/troca@x.com', { email: 'troca@x.com', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: new Date().toISOString() } });
 let chamadasAntes = chamadas.length;
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.acao === 'marcar' && conta2().plano.tipo === 'anual' && chamadas.length === chamadasAntes, 'no teste gratis: so marca a escolha, sem mexer no Asaas');
 contaTroca(); assinaturas.delete('sub_t');
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.acao === 'marcar' && conta2().assinaturaAsaas === '' && conta2().assinaturasAntigas.indexOf('sub_t') >= 0, 'assinatura apagada no Asaas: a conta esquece ela e o proximo pagamento abre outra');
 contaTroca({ status: 'pausado' }); assinaturaT();
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 409, 'pausada pelo admin: nao troca');
 contaTroca({ status: 'cancelado' }); assinaturaT();
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 409 && /Reative/.test((await r.json()).erro), 'encerrada com a assinatura ainda viva: primeiro reativa');
 
 /* corrida: outra aba mudou a escolha no meio: 409 e a assinatura volta para o valor da escolha que ficou */
 contaTroca(); assinaturaT();
 let leituras = 0;
 aoLerConta = (cam) => { if (cam === 'contas/troca@x.com' && ++leituras === 2) { const c = db.get(cam); c.plano.tipo = 'mensal2'; db.set(cam, c); } };
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 aoLerConta = null;
 ok(r.status === 409 && assinaturas.get('sub_t').value === 89 && assinaturas.get('sub_t').cycle === 'MONTHLY', 'outra aba mudou a escolha no meio: 409 e a assinatura volta para a escolha que ficou (R$ 89 por mes)');
 /* o Asaas grava na conta logo depois do PUT (fatura atualizada): a troca nao falha por isso */
 contaTroca(); assinaturaT();
 leituras = 0;
 aoLerConta = (cam) => { if (cam === 'contas/troca@x.com' && ++leituras === 2) db.set(cam, Object.assign(db.get(cam), { faturaAsaas: { id: 'pay_x', status: 'PENDING' } })); };
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 aoLerConta = null;
 ok(j.ok && conta2().plano.tipo === 'anual' && conta2().faturaAsaas, 'o Asaas mexeu na conta no meio (fatura): a troca vai, e nada do Asaas se perde');
 
@@ -429,14 +437,14 @@ assinaturas.set('sub_pend', { id: 'sub_pend', customer: 'cus_troca', value: 79, 
 cobrancas.set('pay_pend', { id: 'pay_pend', customer: 'cus_troca', value: 79, status: 'PENDING', dueDate: '2026-10-08', subscription: 'sub_pend', invoiceUrl: 'https://www.asaas.com/i/pend' });
 await avisarCom(envE, { id: 'pay_pend', customer: 'cus_troca' }, 'PAYMENT_CREATED');
 ok(conta2().assinaturaPendente === 'sub_pend' && !conta2().assinaturaAsaas && conta2().faturaAsaas.id === 'pay_pend', 'boleto da assinatura ainda nao pago: a fatura aparece e a assinatura fica pendente');
-j = await (await pedir('trocar', { tipo: 'anual' }, 'tok-dono')).json();
+j = await (await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.acao === 'proxima' && assinaturas.get('sub_pend').value === 790, 'fundador pelo link, antes da primeira: anual por R$ 790 (a fatura pendente muda junto)');
-j = await (await pedir('encerrar', {}, 'tok-dono')).json();
+j = await (await pedir('encerrar', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(assinaturas.get('sub_pend').deleted === true && !conta2().assinaturaPendente && conta2().plano.status === 'cancelado', 'encerrar antes de pagar: a assinatura pendente e cancelada no Asaas');
 
 /* encerrar: cancela no Asaas; cobranca depois disso e devolvida */
 contaTroca({}, { faturaAsaas: { id: 'pay_fat', status: 'PENDING' } }); assinaturaT();
-j = await (await pedir('encerrar', {}, 'tok-dono')).json();
+j = await (await pedir('encerrar', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura')).json();
 ok(j.ok && j.cancelada && assinaturas.get('sub_t').deleted === true, 'encerrar: a assinatura e cancelada no Asaas (o cartao nao cobra mais)');
 ok(conta2().plano.status === 'cancelado' && conta2().assinaturaAsaas === '' && conta2().faturaAsaas === null, 'conta encerrada, sem fatura pendurada');
 ok(db.get('lojas/loja-troca').plano.status === 'cancelado', 'a loja fica sabendo (no ar ate o fim do pago)');
@@ -556,7 +564,7 @@ ok(assinaturas.get('sub_sv').value === 89 && assinaturas.get('sub_sv').cycle ===
 /* 4. encerrar: perde o fundador, a assinatura extra tambem para, e a loja recebe o fundador na copia (igual ao site) */
 contaTroca({ fundador: true }, { assinaturaAsaas: 'sub_t', assinaturasExtras: ['sub_extra'], assinaturasAntigas: [], assinaturaPendente: '' }); assinaturaT();
 assinaturas.set('sub_extra', { id: 'sub_extra', customer: 'cus_estranho', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
-r = await pedir('encerrar', {}, 'tok-dono');
+r = await pedir('encerrar', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 c = conta2();
 ok(r.status === 200 && c.plano.status === 'cancelado' && c.plano.fundador === false && assinaturas.get('sub_extra').deleted === true && c.assinaturasExtras.length === 0 && c.assinaturasAntigas.indexOf('sub_extra') >= 0, 'encerrar: perde o preco de fundador e a assinatura extra tambem e cancelada');
 ok(db.get('lojas/loja-troca').plano.fundador === false && db.get('lojas/loja-troca').plano.status === 'cancelado', 'a copia do plano na loja leva o fundador (a mesma da copia do site)');
@@ -695,14 +703,14 @@ ok(c.assinaturaAsaas === 'sub_ncnova' && c.assinaturasExtras.indexOf('sub_ncvelh
 /* assinatura que o Asaas ja tinha cancelado (DELETE responde 400): conta como cancelada */
 contaTroca({}, { assinaturaAsaas: 'sub_jacanc', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' });
 assinaturas.set('sub_jacanc', { id: 'sub_jacanc', value: 89, cycle: 'MONTHLY', status: 'ACTIVE', jaCancelada: true });
-r = await pedir('encerrar', {}, 'tok-dono'); j = await r.json();
+r = await pedir('encerrar', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura'); j = await r.json();
 ok(r.status === 200 && j.cancelada === true && conta2().assinaturaAsaas === '', 'assinatura ja cancelada no Asaas (DELETE 400): o encerrar conta como feito, e o Cron nao tenta todo dia');
 
 /* encerrou bem na hora em que um pagamento adotou uma assinatura nova: essa tambem e cancelada (nao fica cobrando solta) */
 contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
 assinaturas.set('sub_corrida2', { id: 'sub_corrida2', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
 globalThis.__antesDoLote = () => { const x = db.get('contas/troca@x.com'); x.assinaturaAsaas = 'sub_corrida2'; x.assinaturasAntigas = ['sub_t']; mudou('contas/troca@x.com'); };
-r = await pedir('encerrar', {}, 'tok-dono');
+r = await pedir('encerrar', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 c = conta2();
 ok(r.status === 200 && c.plano.status === 'cancelado' && c.assinaturaAsaas === '' && assinaturas.get('sub_corrida2').deleted === true, 'encerrar no meio de um pagamento: a assinatura nova tambem e cancelada');
 
@@ -720,10 +728,10 @@ ok(c.plano.status === 'pausado' && Math.round((Date.parse(c.plano.pagoAte) - pag
 /* troca mensal/anual e alguem grava na conta no meio: 409, e a assinatura volta ao valor de antes */
 contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
 globalThis.__antesDoLote = () => { mudou('contas/troca@x.com'); };
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 409 && assinaturas.get('sub_t').value === 89 && assinaturas.get('sub_t').cycle === 'MONTHLY' && conta2().plano.tipo === 'mensal', 'troca no meio de outra gravacao: 409, e a assinatura volta para o mensal de R$ 89');
 contaTroca({}, { assinaturaAsaas: 'sub_t', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' }); assinaturaT();
-r = await pedir('trocar', { tipo: 'anual' }, 'tok-dono');
+r = await pedir('trocar', { tipo: 'anual' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura');
 ok(r.status === 200 && assinaturas.get('sub_t').value === 890 && assinaturas.get('sub_t').cycle === 'YEARLY' && conta2().plano.tipo === 'anual', 'e sem ninguem no meio, a troca passa normal');
 
 /* Cron: a conta que ja nao precisa de nada nem e lida de novo */
@@ -753,11 +761,11 @@ const orfasAntes = [...db.keys()].filter((k) => k.indexOf('pagamentosSemConta/')
 r = await avisarCom(envE, { id: 'pay_orf', customer: 'cus_orf' });
 ok(r.status === 200 && [...db.keys()].filter((k) => k.indexOf('pagamentosSemConta/') === 0).length === orfasAntes, 'o Asaas mandou o aviso de novo: continua um registro so (e 200, a fila nao trava)');
 
-r = await central('sem-conta', {}, 'tok-outro');
+r = await central('sem-conta', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
 ok(r.status === 403, 'a lista de pagamentos sem conta: outro e-mail logado recebe 403');
 r = await central('sem-conta', {});
 ok(r.status === 403, 'a lista sem login: 403');
-r = await central('sem-conta', {}, 'tok-admin'); j = await r.json();
+r = await central('sem-conta', {}, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura'); j = await r.json();
 const naLista = j.lista.filter((x) => x.id === 'pay_orf');
 ok(r.status === 200 && j.lista.length === orfasAntes && naLista.length === 1 && naLista[0].valor === 8900 && naLista[0].email === 'errado@x.com' && naLista[0].nome === 'Dona Maria' && naLista[0]._id === 'pay_orf', 'a Central ve o pagamento: nome, e-mail digitado e valor');
 r = await worker.fetch(new Request('https://w/admin/sem-conta', { method: 'OPTIONS', headers: { Origin: 'https://ligeiropedidos.com.br' } }), envE);
@@ -765,20 +773,20 @@ ok(r.status === 204 && r.headers.get('Access-Control-Allow-Origin') === 'https:/
 r = await worker.fetch(new Request('https://w/admin/sem-conta', { method: 'OPTIONS', headers: { Origin: 'https://golpe.com' } }), envE);
 ok(r.headers.get('Access-Control-Allow-Origin') !== 'https://golpe.com', 'outro site nao chama a rota da Central');
 
-r = await central('vincular', { id: 'pay_orf', email: 'naoexiste@x.com' }, 'tok-admin');
+r = await central('vincular', { id: 'pay_orf', email: 'naoexiste@x.com' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
 ok(r.status === 404 && clientes.get('cus_orf').email === 'errado@x.com' && db.has('pagamentosSemConta/pay_orf'), 'vincular a um e-mail sem conta: recusado, e nada muda no Asaas');
-r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'tok-outro');
+r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura');
 ok(r.status === 403 && clientes.get('cus_orf').email === 'errado@x.com', 'vincular: so a Central');
-r = await central('vincular', { id: '../contas/x', email: 'certo@x.com' }, 'tok-admin');
+r = await central('vincular', { id: '../contas/x', email: 'certo@x.com' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
 ok(r.status === 400, 'vincular com id torto: 400');
-r = await central('vincular', { id: 'pay_orf', email: 'nao e email' }, 'tok-admin');
+r = await central('vincular', { id: 'pay_orf', email: 'nao e email' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
 ok(r.status === 400, 'vincular com e-mail torto: 400');
-r = await central('vincular', { id: 'pay_orf', email: ' Certo@X.com ' }, 'tok-admin'); j = await r.json();
+r = await central('vincular', { id: 'pay_orf', email: ' Certo@X.com ' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura'); j = await r.json();
 c = contaDe('certo@x.com');
 ok(r.status === 200 && j.ok && j.email === 'certo@x.com' && feitas('POST', '/customers/cus_orf').length === 1 && clientes.get('cus_orf').email === 'certo@x.com', 'vincular: o e-mail do cliente no Asaas vira o da conta (as proximas mensalidades caem certo)');
 ok(c.plano.status === 'ativo' && c.pagamentos.indexOf('pay_orf') >= 0 && diasDe(c.plano.pagoAte) >= 28 && diasDe(c.plano.pagoAte) <= 31 && c.assinaturaAsaas === 'sub_orf', 'vincular: os dias do mes entram na conta certa e a assinatura fica amarrada nela');
 ok(!db.has('pagamentosSemConta/pay_orf') && db.get('lojas/loja-certo').plano !== undefined, 'vincular: o pagamento sai da lista e a loja recebe o plano');
-r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'tok-admin');
+r = await central('vincular', { id: 'pay_orf', email: 'certo@x.com' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
 ok(r.status === 404, 'vincular de novo (dois toques): 404, nenhum dia em dobro');
 const pagoOrf = contaDe('certo@x.com').plano.pagoAte;
 cobrancas.set('pay_orf2', { id: 'pay_orf2', customer: 'cus_orf', value: 89, status: 'CONFIRMED', subscription: 'sub_orf', billingType: 'CREDIT_CARD' });
@@ -793,7 +801,7 @@ adminAntes = doAdmin().length;
 r = await avisarCom(envE, { id: 'pay_sm', customer: 'cus_sm' });
 ok(r.status === 200 && db.get('pagamentosSemConta/pay_sm').motivo === 'sem e-mail' && doAdmin().length === adminAntes + 1, 'pagou sem e-mail no Asaas: guardado para vincular e o admin recebe e-mail');
 db.set('contas/semmail@x.com', { email: 'semmail@x.com', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: new Date(Date.now() - 20 * DIA).toISOString() } });
-r = await central('vincular', { id: 'pay_sm', email: 'semmail@x.com' }, 'tok-admin');
+r = await central('vincular', { id: 'pay_sm', email: 'semmail@x.com' }, 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura');
 ok(r.status === 200 && contaDe('semmail@x.com').plano.status === 'ativo' && !db.has('pagamentosSemConta/pay_sm'), 'e a Central vincula esse tambem');
 
 /* aviso de servico (Loja do Ligeiro) com o KV desligado: 200 (a fila sequencial do Asaas nao para) e o admin sabe */
