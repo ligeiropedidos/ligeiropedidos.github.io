@@ -2630,7 +2630,13 @@
       funcionamento.appendChild(f.aberta);
       funcionamento.appendChild(f.usarHorarios);
       var dias = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sab', 'Sábado'], ['dom', 'Domingo']];
-      f.horarios = campoHorarios(l.horarios, dias);
+      /* mexeu nos horarios: o que ele quer e que valham. Com "Fechar sozinha fora do horario" desligado eles nao faziam nada:
+         loja marcada como fechada em todos os dias continuava aberta no site (Dom Conizza, 03/10/2026) */
+      f.horarios = campoHorarios(l.horarios, dias, function () {
+        if (f.usarHorarios.chave.ligado) return;
+        f.usarHorarios.chave.ligado = true; f.usarHorarios.chave.classList.add('on');
+        UI.avisar('Liguei "Fechar sozinha fora do horário" para os horários valerem.');
+      });
       funcionamento.appendChild(f.horarios);
       s.appendChild(funcionamento);
 
@@ -3051,7 +3057,7 @@
      * relogio "de" e "ate" (o seletor nativo do celular) e, se quiser, um
      * segundo turno (almoco e janta). "Copiar pra todos" repete a segunda.
      */
-    function campoHorarios(horarios, dias) {
+    function campoHorarios(horarios, dias, aoEditar) {
       var nomes = {};
       dias.forEach(function (d) { nomes[d[0]] = d[1]; });
       function faixaPar(fx) {
@@ -3098,6 +3104,10 @@
         }
         return linha;
       }
+      /* qualquer toque nos dias ou nas horas avisa quem chamou (os botoes sao redesenhados, entao o ouvinte fica na caixa) */
+      function editou() { if (aoEditar) aoEditar(); }
+      caixa.addEventListener('click', function (ev) { if (ev.target.closest && ev.target.closest('button')) editou(); });
+      caixa.addEventListener('change', editou);
       var linhas = {};
       function redesenhar(dia) {
         var nova = desenharDia(dia);

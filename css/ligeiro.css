@@ -49,6 +49,9 @@
 [hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
+/* rede de seguranca: se algum bloco passar da largura da tela, a pagina nao estica (o celular dava zoom para fora) nem ganha rolagem lateral;
+   "clip" nao cria area de rolagem, entao os cabecalhos fixos (sticky) continuam funcionando */
+@supports (overflow: clip) { html, body { overflow-x: clip; } }
 /* toque responde na hora: sem a espera do "toque duplo para ampliar" (o zoom de pinca continua) */
 html, a, button, input, select, textarea, label, summary { touch-action: manipulation; } /* botao dentro de trilho que rola de lado tambem */
 /* janela ou video aberto: a pagina para de rolar e o lugar da barra de rolagem vira espaco (nada anda para o lado) */
@@ -1343,6 +1346,10 @@ a.selo-google:hover { background: var(--lime-suave); }
   .tabela-concorrentes tr { padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .tabela-concorrentes tr:last-child { border-bottom: 0; }
   .tabela-concorrentes td { padding: 0; border: 0; white-space: normal; font-size: 14px; }
+  /* a regra do computador (preco em uma linha so, com mais forca que a de cima) deixava "R$ 99,99 ate 150 pedidos; sobe para..." numa linha de 450 px:
+     a tabela esticava a pagina inteira e o celular dava zoom para fora (02/10 a 03/10) */
+  .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: normal; }
+  .tabela-concorrentes td { overflow-wrap: anywhere; }
   .tabela-concorrentes td:first-child { font-size: 15px; margin-bottom: 4px; }
   .tabela-concorrentes td:nth-child(2)::before { content: 'Por mês: '; color: var(--muted); }
   .tabela-concorrentes td:nth-child(3)::before { content: 'Comissão: '; color: var(--muted); }
