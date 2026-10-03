@@ -267,5 +267,26 @@ console.log('== cabecalhos de seguranca e caminhos internos ==');
   }
 }
 
+console.log('== repasse do login do Google so para caminhos do Firebase ==');
+{
+  let r = await pedir('/__/auth/handler?apiKey=x&authType=signInViaPopup');
+  ok(r.headers.get('X-De') === 'firebase', 'handler do login: segue para o Firebase');
+  r = await pedir('/__/firebase/10.14.1/firebase-app.js');
+  ok(r.headers.get('X-De') === 'firebase', 'arquivo do SDK em /__/firebase/<versao>/: segue para o Firebase');
+  /* ("../" solto o proprio navegador/URL ja resolve antes de chegar: so as formas que sobram importam) */
+  for (const c of ['/__/auth/..%2findex.html', '/__/auth/..%5cindex.html', '/__/auth/', '/__/auth/a%20b', '/__/firebase/..%2f..%2fx']) {
+    r = await pedir(c);
+    ok(r.status === 404 && r.headers.get('X-De') !== 'firebase', 'caminho esquisito ' + c + ': 404, nao vai para o Firebase');
+  }
+  chamadas = [];
+  const req = new Request('https://ligeiropedidos.com.br/__/auth/handler', { headers: { Cookie: 'sessao=segredo', 'User-Agent': IPHONE } });
+  let cookieVisto = 'nao chamou';
+  const fetchAntes = globalThis.fetch;
+  globalThis.fetch = async (alvo, op) => { const u = typeof alvo === 'string' ? alvo : alvo.url; if (u.indexOf('ligeiro-18df1.firebaseapp.com') >= 0) cookieVisto = (op && op.headers && new Headers(op.headers).get('cookie')) || ''; return fetchAntes(alvo, op); };
+  await worker.fetch(req);
+  globalThis.fetch = fetchAntes;
+  ok(cookieVisto === '', 'o cookie do nosso dominio nao vai junto para o Firebase');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

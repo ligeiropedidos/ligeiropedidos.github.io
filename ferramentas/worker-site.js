@@ -148,9 +148,14 @@ async function logo(slug) {
 }
 
 const FIREBASE_AUTH = 'https://ligeiro-18df1.firebaseapp.com';
+const CAMINHO_FIREBASE = /^\/__\/(auth|firebase)\/[A-Za-z0-9._\/-]+$/;
 async function loginFirebase(request, url) {
+  /* so os caminhos do Firebase, sem ".." (o repasse aceitava qualquer coisa depois de /__/auth/) */
+  if (!CAMINHO_FIREBASE.test(url.pathname) || url.pathname.indexOf('..') >= 0) return new Response('Não encontrado', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' } });
   const cab = new Headers(request.headers);
   cab.delete('host');
+  /* os cookies do nosso dominio nao vao para o Firebase */
+  cab.delete('cookie');
   const corpo = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
   return fetch(FIREBASE_AUTH + url.pathname + url.search, { method: request.method, headers: cab, body: corpo, redirect: 'manual' });
 }
