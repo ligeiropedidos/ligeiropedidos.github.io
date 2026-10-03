@@ -636,6 +636,7 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 200 && comb && comb.formaPagamento === 'pix_combinado' && comb.status === 'aguardando_pagamento' && comb.pagamentoStatus === 'a_combinar' && !comb.pagoEm, 'Pix combinado ligado: nasce esperando a loja confirmar');
   r = await chamar(w, '/recursos'); j = await r.json();
   ok(r.status === 200 && j.borda === 1 && (j.recursos || []).indexOf('pix-combinado') >= 0, '/recursos diz que este mensageiro aceita o Pix combinado (o painel so oferece com ele)');
+  ok(j.email === false && JSON.stringify(j).indexOf('script.google.com') < 0, '/recursos mostra so se o aviso por e-mail esta ligado (sim ou nao), nunca o endereco nem a senha');
   delete loja.aceitaPixCombinado; await recarregar();
   loja.aberta = false; await recarregar();
   r = await pedir(dados({ telefone: '13966665555' })); j = await r.json();

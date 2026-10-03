@@ -1893,6 +1893,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .heroi-texto .chamada { max-width: 420px; }
   .heroi-texto .vender-selos { justify-content: flex-start; }
   .heroi-texto .garantia-botao { text-align: left; }
+  .heroi-texto .link-loja-real { justify-content: flex-start; } /* coluna alinhada a esquerda: o link nao fica centrado no meio dela */
   .vender-titulo { font-size: 44px; max-width: 640px; }
   .vender-sub { font-size: 19px; max-width: 560px; } .vender-oferta { font-size: 26px; max-width: 640px; }
   .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 40px; } /* PC: 40 antes de cada secao (a regua do PC) */
@@ -2160,14 +2161,22 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 
 /* contatos: acoes a direita no PC (duas colunas iguais); no celular embaixo, metades iguais */
 .adm-contato { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-height: 64px; padding: 12px 16px; border-top: 1px solid var(--line); }
-.adm-lista > .adm-contato:first-child { border-top: 0; }
 .adm-contato-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .adm-contato-topo .adm-data { flex: none; }
+.adm-lista > .adm-contato:first-child { border-top: 0; }
 .adm-contato.feito .adm-nome { color: var(--body); }
 .adm-contato-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .adm-contato-acoes .btn { width: 100%; min-width: 0; min-height: 44px; padding: 0 8px; font-size: 15px; white-space: nowrap; }
 @media (max-width: 360px) { .adm-contato-acoes .btn { font-size: 14px; } } /* "Ja chamei" com folga */
-@media (min-width: 760px) { .adm-contato { grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: 16px; } }
+/* computador: nome e detalhes na 1a coluna, a data e os botoes no MESMO eixo vertical (a data ficava solta no alto, na linha do nome) */
+@media (min-width: 760px) {
+  .adm-contato { grid-template-columns: minmax(0, 1fr) auto 280px; grid-template-rows: repeat(3, auto); align-items: center; column-gap: 16px; row-gap: 0; }
+  .adm-contato > .adm-textos, .adm-contato-topo { display: contents; }
+  .adm-contato .adm-nome { grid-column: 1; grid-row: 1; }
+  .adm-contato .adm-sub { grid-column: 1; margin-top: 2px; }
+  .adm-contato .adm-data { grid-column: 2; grid-row: 1 / -1; }
+  .adm-contato > .adm-contato-acoes { grid-column: 3; grid-row: 1 / -1; }
+}
 
 /* ferramentas: cartoes iguais, botao sempre no pe */
 .adm-ferramentas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
