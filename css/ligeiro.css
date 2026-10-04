@@ -1707,9 +1707,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .login-seguro-titulo .ico-traco svg { width: 18px; height: 18px; stroke-width: 2.4; }
 .login-seguro .plano-linhas { margin: 0; font-size: 14px; }
 .login-seguro .plano-check .ico-traco { color: var(--lime-escuro); }
-/* tela larga (PC): a caixa passa de 1000 px e o texto ficava colado na esquerda com um vazio enorme na direita; o titulo e as linhas formam um bloco so, no meio
-   da caixa (a mesma borda esquerda para o cadeado e os checks). No celular a caixa e estreita e nada muda */
-@media (min-width: 640px) { .login-seguro { display: grid; justify-content: center; } }
+/* o cadeado do titulo e os checks ocupam a mesma coluna de 18 px: a primeira letra do titulo e a das linhas comecam no mesmo ponto */
+.login-seguro .plano-linhas li { gap: 8px; }
+.login-seguro .plano-check { width: 18px; display: flex; justify-content: center; }
+/* tela larga (PC): a caixa verde tem o tamanho do proprio texto e fica no eixo do botao do Google (antes ia de ponta a ponta, com um vazio enorme nos
+   cantos). Cadeado e checks seguem na mesma borda esquerda. No celular a caixa ja e estreita e nada muda */
+@media (min-width: 640px) { .login-seguro { width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; } }
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
 @supports (grid-template-rows: subgrid) {
   .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }
