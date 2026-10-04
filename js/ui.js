@@ -993,6 +993,7 @@
     tocar: '<path d="M8 5.5v13l10.5-6.5z"/>',
     desfazer: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
     abrir: '<path d="m6 9 6 6 6-6"/>',
+    recolher: '<path d="m6 15 6-6 6 6"/>',
     avancar: '<path d="m9 6 6 6-6 6"/>',
     /* seta de "ir": desenho, nao a letra (cada fonte poe o "→" numa altura; aqui o meio e o meio da bolinha em todo aparelho) */
     seta: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',

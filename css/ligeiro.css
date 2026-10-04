@@ -1531,6 +1531,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .duvida summary::after { content: "+"; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
 .duvida[open] summary::after { content: "−"; }
 .duvida p { padding: 0 0 14px; color: var(--body); font-size: 15.5px; line-height: 1.45; }
+.duvida p a { color: var(--deep2); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 /* heroi: a garantia colada no botao de comecar */
 .garantia-botao { margin: 0; text-align: center; text-wrap: balance; font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--body); } /* 320: quebra em duas linhas centradas, com o check junto da primeira palavra */
 .garantia-botao .ico-traco { display: inline-flex; vertical-align: -2px; margin-right: 6px; color: var(--lime-escuro); }
@@ -2750,6 +2751,11 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .mp-caixa .mp-liberar { display: flex; flex-direction: column; gap: 8px; }
 .mp-caixa .mp-liberar[hidden] { display: none; }
 .mp-convite { display: flex; flex-direction: column; gap: 4px; }
+.mp-seguro { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line-forte); border-radius: var(--raio-p); background: var(--lime-suave); }
+.mp-seguro > b { font-size: 16px; }
+.mp-seguro .garantias { max-width: none; width: auto; margin: 0; }
+.mp-seguro-links { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 13.5px; line-height: 1.35; font-weight: 600; }
+.mp-seguro-links a { color: var(--deep2); text-decoration: underline; text-underline-offset: 2px; }
 .mp-convite b { font-size: 16px; }
 .passos-conectar { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .passos-conectar li { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.35; }

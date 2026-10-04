@@ -2007,7 +2007,7 @@ export default {
           publicarDepois(env, ctx, loja);
           return json({ ok: true, depois: true }, 202);
         }
-        const item = await atualizarLoja(env, loja);
+        const item = await atualizarLoja(env, loja, !!(antes && antes.value));
         if (!item.existe) return json({ ok: false, erro: 'loja não existe' }, 404);
         if (item.meta.dono !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
         const vitrine = depoisDePublicar(env, loja, antes, item);
@@ -2745,7 +2745,7 @@ async function lerLoja(env, ctx, slug) {
   if (g && g.value && g.metadata && g.metadata.em) {
     const item = { existe: true, corpo: g.value, meta: g.metadata, lida: Date.now() };
     MEM.lojas[slug] = item;
-    if (Date.now() - g.metadata.em > LOJA_VALE) atualizarDepois(ctx, 'loja:' + slug, () => atualizarLoja(env, slug));
+    if (Date.now() - g.metadata.em > LOJA_VALE) atualizarDepois(ctx, 'loja:' + slug, () => atualizarLoja(env, slug, true));
     return item;
   }
   return atualizarLoja(env, slug);
@@ -2754,12 +2754,18 @@ async function lerLoja(env, ctx, slug) {
 /* Le a loja no banco (1 leitura), tira o que nao e publico e guarda a resposta pronta no KV. Grava sempre, mesmo sem
    mudanca: a hora da copia e a versao que invalida o token do Mercado Pago guardado na borda (o dono que reconectou
    outra conta publica, e o Pix seguinte le o token novo). Pular a gravacao igual deixaria o Pix sair na conta velha */
-async function atualizarLoja(env, slug) {
+async function atualizarLoja(env, slug, tinhaCopia) {
   const fb = await firebase(env);
   const doc = await fb.get('lojas/' + slug);
   if (!doc) {
     const nada = { existe: false, lida: Date.now(), meta: { em: Date.now(), dono: '' } };
     MEM.lojas[slug] = nada;
+    /* a loja foi excluida de vez (o banco diz 404, e erro de leitura nunca chega aqui: o get joga): a copia que a borda ainda guarda
+       sai agora, senao a loja continuava abrindo para sempre. So quando havia copia (endereco inventado nao gasta apagamento) */
+    if (tinhaCopia && env.CARDAPIO) {
+      delete MEM.mp[slug];
+      await Promise.all(['loja:' + slug, 'fotos:' + slug, 'mpnovo:' + slug, 'vitrine'].map((k) => env.CARDAPIO.delete(k).catch(() => {})));
+    }
     return nada;
   }
   const publica = Object.assign({}, doc);
@@ -2817,7 +2823,7 @@ function publicarDepois(env, ctx, slug) {
       vez.lendo = true;
       vez.deNovo = false;
       const antes = await lerKv(env, 'loja:' + slug, 'text');
-      const item = await atualizarLoja(env, slug);
+      const item = await atualizarLoja(env, slug, !!(antes && antes.value));
       if (item.existe) await depoisDePublicar(env, slug, antes, item);
       if (!vez.deNovo) break;
     }

@@ -573,9 +573,11 @@
 
   /* ---------- Central (aba Loja do Ligeiro) ---------- */
   var COLUNAS = [['Esperando pagamento', ['aguardando_pagamento']], ['Esperando material', ['material']], ['Em produção', ['producao']], ['Entregues', ['entregue', 'reembolsado', 'contestado']]];
+  /* so a coluna dos entregues e enxuta (os 3 mais recentes + "Ver mais"): o que esta esperando ou em producao aparece sempre inteiro */
+  var LIMITE_ENTREGUES = 3, MAXIMO_COLUNA = 40;
   function central(alvo, lojas) {
     carregando(alvo, 'Buscando os pedidos da loja…');
-    var todos = [], recursos = D.modoDemo ? ['fora'] : [];
+    var todos = [], recursos = D.modoDemo ? ['fora'] : [], entreguesAbertos = false;
     function desenhar() {
       UI.limpar(alvo);
       var pagos = todos.filter(function (p) { return ['material', 'producao', 'entregue'].indexOf(p.status) >= 0 && String(p.pagoEm || '').slice(0, 7) === new Date().toISOString().slice(0, 7); });
@@ -599,7 +601,16 @@
         ].map(function (k) { return el('div', { class: 'srv-kpi' }, [el('span', { class: 'srv-kpi-rotulo', text: k[0] }), el('span', { class: 'srv-kpi-valor', text: String(k[1]) })]); })),
         el('div', { class: 'srv-quadro' }, COLUNAS.map(function (c) {
           var itens = todos.filter(function (p) { return c[1].indexOf(p.status) >= 0; });
-          return el('div', { class: 'srv-coluna' }, [el('div', { class: 'srv-coluna-cabeca' }, [el('h3', { text: c[0] }), el('span', { class: 'srv-qtd', text: String(itens.length) })])].concat(itens.length ? itens.slice(0, 40).map(cartaoCentral) : [el('p', { class: 'srv-peq srv-coluna-vazia', text: 'Nada aqui.' })]));
+          var enxuta = c[0] === 'Entregues' && itens.length > LIMITE_ENTREGUES;
+          if (c[0] === 'Entregues') itens.sort(function (a, b) { return Date.parse(b.entregueEm || b.pagoEm || b.criadoEm || 0) - Date.parse(a.entregueEm || a.pagoEm || a.criadoEm || 0); });
+          var aberta = enxuta && entreguesAbertos;
+          var visiveis = itens.slice(0, enxuta && !aberta ? LIMITE_ENTREGUES : MAXIMO_COLUNA);
+          var filhos = visiveis.length ? visiveis.map(cartaoCentral) : [el('p', { class: 'srv-peq srv-coluna-vazia', text: 'Nada aqui.' })];
+          if (enxuta) {
+            var resto = Math.min(itens.length, MAXIMO_COLUNA) - LIMITE_ENTREGUES;
+            filhos.push(el('button', { class: 'btn srv-btn-p btn-fantasma', type: 'button', onclick: function () { entreguesAbertos = !entreguesAbertos; desenhar(); } }, [ico(aberta ? 'recolher' : 'abrir'), aberta ? 'Mostrar menos' : 'Ver mais ' + resto + (resto === 1 ? ' entregue' : ' entregues')]));
+          }
+          return el('div', { class: 'srv-coluna' }, [el('div', { class: 'srv-coluna-cabeca' }, [el('h3', { text: c[0] }), el('span', { class: 'srv-qtd', text: String(itens.length) })])].concat(filhos));
         })),
       ]));
     }

@@ -319,5 +319,38 @@ console.log('Amostra: fora da lista da cidade e entrega para o dono');
   ok(depois.some((x) => x.slug === 'amostra-teste'), 'e a loja entra na lista da cidade');
 }
 
+console.log('apagarLojaDeVez: exclui a loja inteira (so desativada), por lotes, e limpa a borda');
+{
+  /* banco de mentira: os documentos por caminho, listagem por colecao e lotes de apagar */
+  const docs = new Map();
+  const filhos = (caminho) => [...docs.keys()].filter((k) => k.startsWith(caminho + '/') && k.slice(caminho.length + 1).indexOf('/') < 0);
+  const ref = (caminho) => ({ path: caminho, get: () => Promise.resolve({ exists: docs.has(caminho), data: () => docs.get(caminho) }), collection: (n) => colecao(caminho + '/' + n) });
+  const colecao = (caminho) => ({
+    doc: (id) => ref(caminho + '/' + id),
+    limit: (n) => ({ get: () => { const ids = filhos(caminho).slice(0, n); return Promise.resolve({ empty: !ids.length, size: ids.length, docs: ids.map((k) => ({ ref: { path: k } })) }); } }),
+  });
+  const lotes = [];
+  const bancoFalso = { collection: colecao, batch: () => { const lista = []; lotes.push(lista); return { delete: (r) => lista.push(r.path), commit: () => { lista.forEach((c) => docs.delete(c)); return Promise.resolve(); } }; } };
+  const { store, publicacoes } = lojaNaNuvem();
+  store._iniciar = () => Promise.resolve();
+  store.db = bancoFalso;
+  docs.set('lojas/ativa', { ativa: true });
+  let erro = null;
+  await store.apagarLojaDeVez('ativa').catch((e) => { erro = e; });
+  ok(erro && /desativada/.test(erro.message) && docs.has('lojas/ativa'), 'loja no ar: recusa, e nada e apagado');
+  docs.set('lojas/morta', { ativa: false });
+  docs.set('vitrine/morta', { nome: 'x' });
+  for (let i = 0; i < 650; i++) docs.set('lojas/morta/pedidos/p' + i, {});
+  docs.set('lojas/morta/fotos/_pacote1', {}); docs.set('lojas/morta/contadores/senha', {}); docs.set('lojas/morta/resumos/2026-10-01', {}); docs.set('lojas/morta/privado/mp', {});
+  docs.set('lojas/outra', { ativa: false }); docs.set('lojas/outra/pedidos/a', {});
+  const antes = publicacoes().length;
+  const r = await store.apagarLojaDeVez('morta');
+  ok(r === true, 'loja desativada: exclui');
+  ok(![...docs.keys()].some((k) => k.startsWith('lojas/morta') || k === 'vitrine/morta'), 'sem sobra: pedidos, fotos, contadores, resumos, privado, o documento e a vitrine');
+  ok(docs.has('lojas/outra') && docs.has('lojas/outra/pedidos/a'), 'a loja do lado nao e tocada');
+  ok(lotes.every((l) => l.length <= 300 + 2), 'apaga em lotes (nunca passa do limite do banco)');
+  ok(publicacoes().length === antes + 1 && JSON.parse(publicacoes()[publicacoes().length - 1].opcoes.body).loja === 'morta', 'avisa a borda (/publicar) para ela limpar a copia');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' ok' + (falhas ? ', ' + falhas + ' falharam' : ''));
 if (falhas) process.exit(1);

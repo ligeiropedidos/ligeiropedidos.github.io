@@ -2806,6 +2806,19 @@
           el('li', {}, [el('span', { class: 'numero', text: '2' }), el('span', { text: 'Entre na sua conta do Mercado Pago (ou crie uma, grátis)' })]),
           el('li', {}, [el('span', { class: 'numero', text: '3' }), el('span', {}, ['Toque em ', el('b', { text: 'Autorizar' }), ' e volte: o Pix já volta ligado'])]),
         ]));
+        /* medo de conectar a conta: o que acontece de verdade, com a explicacao oficial do proprio Mercado Pago */
+        conexao.appendChild(el('div', { class: 'mp-seguro' }, [
+          el('b', { text: 'É seguro conectar?' }),
+          el('ul', { class: 'garantias' }, [
+            el('li', {}, [UI.iconeLinha('escudo'), el('span', { text: 'Você autoriza dentro do próprio Mercado Pago. O Ligeiro nunca vê a sua senha.' })]),
+            el('li', {}, [UI.iconeLinha('cadeado'), el('span', { text: 'O dinheiro cai direto na sua conta. O Ligeiro não recebe, não guarda e não repassa.' })]),
+            el('li', {}, [UI.iconeLinha('sair'), el('span', { text: 'Você desconecta quando quiser, aqui mesmo.' })]),
+          ]),
+          el('div', { class: 'mp-seguro-links' }, [
+            el('a', { href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction', target: '_blank', rel: 'noopener noreferrer', text: 'Como funciona a autorização' }),
+            el('a', { href: 'https://www.mercadopago.com.br/seguranca', target: '_blank', rel: 'noopener noreferrer', text: 'Segurança no Mercado Pago' }),
+          ]),
+        ]));
         conexao.appendChild(botaoConectar());
         conexao.appendChild(el('p', { class: 'muted pequeno', text: 'Taxas do Mercado Pago: cerca de 1% no Pix e 5% no cartão. O dinheiro cai na sua conta e o Ligeiro não cobra nada por venda.' }));
       }

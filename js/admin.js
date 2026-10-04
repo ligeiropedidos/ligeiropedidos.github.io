@@ -1377,6 +1377,44 @@
       setTimeout(function () { if (!D.modoDemo) email.focus(); }, 60);
     }
 
+    /* Excluir de vez: so loja desativada, e so depois de digitar o endereco dela (nao tem volta) */
+    function excluirDeVez(l, marca, trava) {
+      if (trava.ocupado) { avisarOcupado(trava); return; }
+      var campo = el('input', { id: 'admExcluirSlug', type: 'text', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', placeholder: l.slug, maxlength: 60 });
+      var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
+      var cancelar = el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1' }, text: 'Voltar', onclick: function () { UI.fecharModal(); reabrir(marca); } });
+      var botao = el('button', { class: 'btn btn-erro', type: 'button', style: { flex: '1' }, disabled: true, text: 'Excluir de vez' });
+      campo.addEventListener('input', function () { botao.disabled = campo.value.trim().toLowerCase() !== l.slug; });
+      botao.addEventListener('click', function () {
+        if (botao.disabled) return;
+        var soltar = UI.ocupar(botao, 'Excluindo…');
+        if (!soltar) return;
+        trava.ocupado = true;
+        erro.hidden = true;
+        Promise.resolve().then(function () { return store.apagarLojaDeVez(l.slug); }).then(function () {
+          trava.ocupado = false;
+          estado.ficha = null;
+          UI.fecharModal();
+          UI.avisar(l.nome + ' excluída de vez');
+          /* sai da lista aqui mesmo, sem ler o banco de novo (recarregar a Central custa uma leitura de cada loja, conta, contato...) */
+          estado.lojas = (estado.lojas || []).filter(function (x) { return x.slug !== l.slug; });
+          sincronizarCapacidade();
+          pintar();
+        }, function (e) {
+          trava.ocupado = false;
+          soltar();
+          erro.textContent = erroTexto(e, 'Não deu para excluir agora. Tente de novo.');
+          erro.hidden = false;
+        });
+      });
+      UI.abrirModal({ titulo: 'Excluir ' + l.nome + '?', corpo: el('div', { class: 'pilha' }, [
+        el('p', { text: 'Isso apaga a loja do Ligeiro para sempre: o cardápio, as fotos, o histórico de pedidos e o endereço ' + l.slug + '. Não dá para desfazer.' }),
+        el('p', { class: 'muted', text: 'Só para tirar do site? Deixe como está: ela já está desativada e dá para reativar.' }),
+        el('div', { class: 'campo' }, [el('label', { for: 'admExcluirSlug', text: 'Para confirmar, digite o endereço da loja' }), el('p', { class: 'ajuda', text: 'É o nome que aparece no link: ' + l.slug + '.' }), campo]),
+        erro,
+      ]), rodape: [cancelar, botao] });
+    }
+
     function abrirLoja(slug) {
       var l = acharLoja(slug);
       if (!l) { UI.avisar('Loja não encontrada. Toque em Atualizar.'); return; }
@@ -1447,6 +1485,7 @@
               executar(trava, marca, function () { return D.modoDemo ? store.salvarLoja({ slug: l.slug, ativa: false }) : store.excluirLoja(l.slug); }, l.nome + ' desativada');
             });
           } }),
+        l.ativa === false ? el('button', { class: 'btn btn-erro', type: 'button', title: 'Apaga a loja de vez: cardápio, fotos e pedidos', onclick: function () { excluirDeVez(l, marca, trava); } }, [UI.iconeLinha('lixeira'), 'Excluir de vez']) : null,
       ]));
 
       if (!l.donoEmail) {

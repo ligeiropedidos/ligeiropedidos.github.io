@@ -539,6 +539,7 @@
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, toque em "Encerrar assinatura" em Minha conta: a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
         duvida('Como eu recebo o dinheiro do Pix?', 'Direto na sua conta do Mercado Pago, que você conecta no painel com um toque; o Ligeiro nunca encosta no dinheiro. O Mercado Pago confirma na hora e o pedido já entra pago na cozinha (taxa deles, cerca de 1% por Pix).'),
+        duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, pela autorização oficial deles: o Ligeiro recebe só uma permissão limitada para criar os pagamentos da sua loja, nunca a sua senha. O dinheiro cai direto na sua conta, e você desconecta quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão: o cliente digita o cartão no formulário seguro do Mercado Pago e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, e você pode repassar ao cliente.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio com foto: toca no lanche, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
         duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que olhamos em setembro de 2026 costumam limitar os pedidos por mês (de 30 a 65, em vários) e cobrar por pedido a mais ou parar de receber. No Ligeiro o pedido é ilimitado e o Pix cai confirmado sozinho. Você testa ' + pr.diasGratis + ' dias com tudo liberado, sem cartão, e só paga se compensar.'),
@@ -935,8 +936,10 @@
   function raio(icone, titulo, texto, tag) {
     return el('div', { class: 'cartao raio' }, [el('span', { class: 'icone', text: icone }), el('b', { text: titulo }), el('p', { text: texto }), el('span', { class: 'tag', text: tag })]);
   }
-  function duvida(pergunta, resposta) {
-    return el('details', { class: 'duvida' }, [el('summary', { text: pergunta }), el('p', { text: resposta })]);
+  /* extra (opcional): um link de referencia embaixo da resposta, { texto, href } */
+  function duvida(pergunta, resposta, extra) {
+    return el('details', { class: 'duvida' }, [el('summary', { text: pergunta }), el('p', { text: resposta }),
+      extra ? el('p', {}, [el('a', { href: extra.href, target: '_blank', rel: 'noopener noreferrer', text: extra.texto })]) : null]);
   }
 
   window.LigeiroParceiro = { abrir: abrir, assinar: assinar, entrar: entrar, termos: termos, privacidade: privacidade, barraTopo: barraTopo, abrirContato: abrirContato };

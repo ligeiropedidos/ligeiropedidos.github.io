@@ -782,6 +782,8 @@
     return Promise.resolve();
   };
 
+  DemoStore.prototype.apagarLojaDeVez = function (slug) { return this.excluirLoja(slug); };
+
   DemoStore.prototype.criarPedido = function (lojaSlug, pedido) {
     var db = this._ler();
     if (!db.lojas[lojaSlug]) return Promise.reject(new Error('Loja não encontrada.'));
@@ -2022,6 +2024,33 @@
       lote.set(eu.db.collection('lojas').doc(slug), { ativa: false }, { merge: true });
       lote.set(eu.db.collection('vitrine').doc(slug), { ativa: false }, { merge: true });
       return lote.commit().then(function () { eu.publicarLoja(slug); });
+    });
+  };
+
+  /* Apaga uma colecao de dentro da loja em lotes (o banco nao apaga as colecoes de dentro quando apaga o documento) */
+  function apagarColecao(db, col) {
+    return col.limit(300).get().then(function (q) {
+      if (q.empty) return;
+      var lote = db.batch();
+      q.docs.forEach(function (d) { lote.delete(d.ref); });
+      return lote.commit().then(function () { if (q.size >= 300) return apagarColecao(db, col); });
+    });
+  }
+  /* Exclui a loja de vez (so o admin, e so loja ja desativada): pedidos, fotos, contadores, resumos e a parte privada, depois o
+     documento, a vitrine e, por fim, a copia que a borda guarda (o /publicar do admin limpa quando a loja nao existe mais) */
+  FirebaseStore.prototype.apagarLojaDeVez = function (slug) {
+    var eu = this;
+    return this._pronto.then(function () {
+      var ref = eu.db.collection('lojas').doc(slug);
+      return ref.get().then(function (d) {
+        if (d.exists && d.data().ativa !== false) throw new Error('Só dá para excluir uma loja desativada. Desative primeiro.');
+        return ['pedidos', 'fotos', 'contadores', 'resumos', 'privado'].reduce(function (fila, nome) { return fila.then(function () { return apagarColecao(eu.db, ref.collection(nome)); }); }, Promise.resolve());
+      }).then(function () {
+        var lote = eu.db.batch();
+        lote.delete(ref);
+        lote.delete(eu.db.collection('vitrine').doc(slug));
+        return lote.commit();
+      }).then(function () { return eu.publicarLoja(slug, { agora: true }); }).then(function () { return true; });
     });
   };
 
