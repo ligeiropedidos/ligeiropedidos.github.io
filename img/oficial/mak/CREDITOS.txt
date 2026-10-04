@@ -29,3 +29,5 @@ mak-costela.webp <- Pexels 3727243 (burger gourmet com cheddar cremoso) https://
 mak-monster.webp <- Pexels 28828556 (burger gigante empilhado) https://www.pexels.com/photo/28828556/
 batata-trionda.webp <- Pexels 17035135 (batata frita com queijo, bacon e molho) https://www.pexels.com/photo/17035135/
 fundo-hero.webp <- Pexels 15010309 (burger duplo com cheddar e bacon, usado escurecido no fundo da abertura) https://www.pexels.com/photo/15010309/
+refri-lata.webp <- Pexels 8879621 (refrigerante com gelo) https://www.pexels.com/photo/8879621/
+suco.webp <- Pexels 8679338 (suco de laranja na garrafa com laranjas) https://www.pexels.com/photo/8679338/
