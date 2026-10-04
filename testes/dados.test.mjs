@@ -328,18 +328,22 @@ console.log('apagarLojaDeVez: exclui a loja inteira (so desativada), por lotes, 
   const colecao = (caminho) => ({
     doc: (id) => ref(caminho + '/' + id),
     limit: (n) => ({ get: () => { const ids = filhos(caminho).slice(0, n); return Promise.resolve({ empty: !ids.length, size: ids.length, docs: ids.map((k) => ({ ref: { path: k } })) }); } }),
+    where: (campo, _op, valor) => ({ limit: (n) => ({ get: () => { const ids = filhos(caminho).filter((k) => docs.get(k)[campo] === valor).slice(0, n); return Promise.resolve({ empty: !ids.length, size: ids.length, docs: ids.map((k) => ({ ref: { path: k } })) }); } }) }),
   });
   const lotes = [];
   const bancoFalso = { collection: colecao, batch: () => { const lista = []; lotes.push(lista); return { delete: (r) => lista.push(r.path), commit: () => { lista.forEach((c) => docs.delete(c)); return Promise.resolve(); } }; } };
-  const { store, publicacoes } = lojaNaNuvem();
+  const { n, store, publicacoes } = lojaNaNuvem();
   store._iniciar = () => Promise.resolve();
   store.db = bancoFalso;
   docs.set('lojas/ativa', { ativa: true });
   let erro = null;
   await store.apagarLojaDeVez('ativa').catch((e) => { erro = e; });
   ok(erro && /desativada/.test(erro.message) && docs.has('lojas/ativa'), 'loja no ar: recusa, e nada e apagado');
-  docs.set('lojas/morta', { ativa: false });
+  docs.set('lojas/morta', { ativa: false, donoEmail: 'Dono@Exemplo.com' });
   docs.set('vitrine/morta', { nome: 'x' });
+  /* o indice de pagamentos do Mercado Pago (so nasce quando o nome da loja e comprido): o da loja morta sai, o das outras fica */
+  docs.set('mp_indice/111', { loja: 'morta', pedido: 'a' }); docs.set('mp_indice/222', { loja: 'morta', pedido: 'b' }); docs.set('mp_indice/333', { loja: 'outra', pedido: 'c' });
+  docs.set('contas/dono@exemplo.com', { plano: { status: 'teste' } });
   for (let i = 0; i < 650; i++) docs.set('lojas/morta/pedidos/p' + i, {});
   docs.set('lojas/morta/fotos/_pacote1', {}); docs.set('lojas/morta/contadores/senha', {}); docs.set('lojas/morta/resumos/2026-10-01', {}); docs.set('lojas/morta/privado/mp', {});
   docs.set('lojas/outra', { ativa: false }); docs.set('lojas/outra/pedidos/a', {});
@@ -348,6 +352,10 @@ console.log('apagarLojaDeVez: exclui a loja inteira (so desativada), por lotes, 
   ok(r === true, 'loja desativada: exclui');
   ok(![...docs.keys()].some((k) => k.startsWith('lojas/morta') || k === 'vitrine/morta'), 'sem sobra: pedidos, fotos, contadores, resumos, privado, o documento e a vitrine');
   ok(docs.has('lojas/outra') && docs.has('lojas/outra/pedidos/a'), 'a loja do lado nao e tocada');
+  ok(!docs.has('mp_indice/111') && !docs.has('mp_indice/222') && docs.has('mp_indice/333'), 'o indice de pagamentos da loja sai e o das outras fica');
+  ok(docs.has('contas/dono@exemplo.com'), 'a conta do dono (plano e historico) nao e apagada: e dele, nao da loja');
+  const marca = n.chamadas.filter((c) => c.endereco === 'https://borda.teste/dono');
+  ok(marca.length === 1 && JSON.parse(marca[0].opcoes.body).email === 'dono@exemplo.com' && marca[0].opcoes.headers.Authorization === 'Bearer tok-dono', 'pede a marca de dono nova (sem a loja apagada) para o antigo dono, com o login do admin');
   ok(lotes.every((l) => l.length <= 300 + 2), 'apaga em lotes (nunca passa do limite do banco)');
   ok(publicacoes().length === antes + 1 && JSON.parse(publicacoes()[publicacoes().length - 1].opcoes.body).loja === 'morta', 'avisa a borda (/publicar) para ela limpar a copia');
 }

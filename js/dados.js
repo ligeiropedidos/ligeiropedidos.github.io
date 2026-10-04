@@ -2036,21 +2036,44 @@
       return lote.commit().then(function () { if (q.size >= 300) return apagarColecao(db, col); });
     });
   }
-  /* Exclui a loja de vez (so o admin, e so loja ja desativada): pedidos, fotos, contadores, resumos e a parte privada, depois o
-     documento, a vitrine e, por fim, a copia que a borda guarda (o /publicar do admin limpa quando a loja nao existe mais) */
+  /* o mesmo, para os documentos de fora da loja que apontam para ela (o indice de pagamentos do Mercado Pago: campo "loja") */
+  function apagarPorLoja(db, nome, slug) {
+    return db.collection(nome).where('loja', '==', slug).limit(300).get().then(function (q) {
+      if (q.empty) return;
+      var lote = db.batch();
+      q.docs.forEach(function (d) { lote.delete(d.ref); });
+      return lote.commit().then(function () { if (q.size >= 300) return apagarPorLoja(db, nome, slug); });
+    });
+  }
+  /* A marca do dono (no login dele) guarda as lojas dele por 3 dias. Apagada a loja, o admin pede ao mensageiro para refazer a
+     marca com as lojas de hoje: o endereco apagado nao fica com ninguem, nem por esses dias. Falhou: segue (a marca vence sozinha) */
+  FirebaseStore.prototype.refazerMarcaDoDono = function (email) {
+    var base = enderecoBorda();
+    if (!base || !email) return Promise.resolve(false);
+    return this.obterIdToken().then(function (token) {
+      return fetch(base + '/dono', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ email: email }) })
+        .then(function (r) { return !!(r && r.ok); });
+    }).catch(function () { return false; });
+  };
+  /* Exclui a loja de vez (so o admin, e so loja ja desativada): pedidos, fotos, contadores, resumos e a parte privada (onde fica o
+     token do Mercado Pago), o indice de pagamentos dela, depois o documento e a vitrine (que libera a vaga) e, por fim, a copia que a
+     borda guarda (o /publicar do admin limpa quando a loja nao existe mais) e a marca de dono do antigo dono. Fica de fora, de
+     proposito: a conta do dono (plano e historico de pagamentos), que e dele e nao da loja */
   FirebaseStore.prototype.apagarLojaDeVez = function (slug) {
     var eu = this;
+    var dono = '';
     return this._pronto.then(function () {
       var ref = eu.db.collection('lojas').doc(slug);
       return ref.get().then(function (d) {
         if (d.exists && d.data().ativa !== false) throw new Error('Só dá para excluir uma loja desativada. Desative primeiro.');
+        dono = d.exists ? String(d.data().donoEmail || '').trim().toLowerCase() : '';
         return ['pedidos', 'fotos', 'contadores', 'resumos', 'privado'].reduce(function (fila, nome) { return fila.then(function () { return apagarColecao(eu.db, ref.collection(nome)); }); }, Promise.resolve());
-      }).then(function () {
+      }).then(function () { return apagarPorLoja(eu.db, 'mp_indice', slug); }).then(function () {
         var lote = eu.db.batch();
         lote.delete(ref);
         lote.delete(eu.db.collection('vitrine').doc(slug));
         return lote.commit();
-      }).then(function () { return eu.publicarLoja(slug, { agora: true }); }).then(function () { return true; });
+      }).then(function () { return eu.publicarLoja(slug, { agora: true }); }).then(function () { return eu.refazerMarcaDoDono(dono); }).then(function () { return true; });
     });
   };
 
