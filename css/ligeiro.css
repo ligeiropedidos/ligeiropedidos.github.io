@@ -1701,7 +1701,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .plano-linhas li { display: flex; align-items: flex-start; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */
 .plano-check { flex: none; }
 /* "Login seguro pelo Google", embaixo do botao do Google (cadastro e Entrar): a mesma lista com check do plano */
-.login-seguro { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 16px; background: var(--lime-suave); text-align: left; }
+.login-seguro { display: flex; flex-direction: column; gap: 8px; width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; text-align: left; }
 .login-seguro-titulo { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--deep); }
 .login-seguro-titulo .ico-traco { color: var(--lime-escuro); }
 .login-seguro-titulo .ico-traco svg { width: 18px; height: 18px; stroke-width: 2.4; }
@@ -1710,10 +1710,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o cadeado do titulo e os checks ocupam a mesma coluna de 18 px: a primeira letra do titulo e a das linhas comecam no mesmo ponto */
 .login-seguro .plano-linhas li { gap: 8px; }
 .login-seguro .plano-check { width: 18px; display: flex; justify-content: center; }
-/* tela larga (PC): sem a caixa verde. Era uma faixa do tamanho do botao com tres linhas curtas no meio, e sobrava vazio dos dois lados. Vira so o texto,
-   num bloco no eixo do botao do Google, com o cadeado e os checks na mesma borda esquerda (o que sites de login fazem: aviso discreto embaixo do botao).
-   No celular a caixa verde ja tem a largura do texto e nada muda */
-@media (min-width: 640px) { .login-seguro { width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; padding: 0; background: none; } }
+/* o aviso e so o texto embaixo do botao do Google, igual no celular e no PC (antes era uma caixa verde no celular e so texto no PC, e a caixa deixava vazio nos
+   cantos). Um bloco do tamanho do texto, no eixo do botao, com o cadeado e os checks na mesma borda esquerda */
 /* a tela de Entrar no PC e uma coluna estreita no meio, como a do cadastro (antes o cartao ia de ponta a ponta, com o botao do Google de 1000 px) */
 .vender.entrar { max-width: 520px; }
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
