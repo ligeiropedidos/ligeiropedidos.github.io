@@ -1055,6 +1055,12 @@
       if (tem('produto:' + p.id)) return desenhos['produto:' + p.id];
       return tem(p.categoria) ? desenhos[p.categoria] : null;
     }
+    /* miniatura: se a imagem nao abrir, fica o emoji do item (e nao o icone de imagem quebrada) */
+    function imagemOuEmoji(src, emoji) {
+      var img = el('img', { src: src, alt: '' });
+      img.addEventListener('error', function () { img.replaceWith(document.createTextNode(emoji || '🍽️')); });
+      return img;
+    }
     function fotoDoProduto(p) {
       var src = D.fotoSrc(p, estado.fotos);
       if (src) {
@@ -1063,7 +1069,12 @@
         return img;
       }
       var desenho = desenhoDoProduto(p);
-      if (desenho) return el('img', { class: 'foto-desenho', src: desenho, alt: '', loading: 'lazy' });
+      if (desenho) {
+        /* imagem que nao abre (arquivo ainda nao chegou ao ar, apagado): vira o emoji do item, nunca o icone de imagem quebrada */
+        var imgDesenho = el('img', { class: 'foto-desenho', src: desenho, alt: '', loading: 'lazy' });
+        imgDesenho.addEventListener('error', function () { imgDesenho.replaceWith(document.createTextNode(p.emoji || '🍽️')); });
+        return imgDesenho;
+      }
       return document.createTextNode(p.emoji || '🍽️');
     }
 
@@ -1463,7 +1474,7 @@
         var produtoDoItem = (estado.loja.produtos || []).filter(function (x) { return x.id === item.produtoId; })[0];
         var srcItem = D.fotoSrc(produtoDoItem, estado.fotos) || desenhoDoProduto(produtoDoItem);
         lista.appendChild(el('div', { class: 'item-carrinho' }, [
-          el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? el('img', { src: srcItem, alt: '' }) : (item.emoji || '🍽️')),
+          el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? imagemOuEmoji(srcItem, item.emoji) : (item.emoji || '🍽️')),
           el('div', { class: 'corpo' }, [
             el('div', { class: 'nome', text: item.quantidade + 'x ' + (conta ? conta.nome : item.nome) }),
             det,
