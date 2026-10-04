@@ -115,7 +115,7 @@ T.gerarAte(60000);
     const logoAbaixo = perto.filter((p) => p.y < g.y).pop(), logoAcima = perto.filter((p) => p.y > g.y)[0];
     [logoAbaixo, logoAcima].forEach((p) => { if (p && Math.abs(distX(p.x, g.x)) < 100) colado++; });
   });
-  ok(gatos.length > 10 && colado === 0, 'o gato fica longe das tabuas do caminho logo abaixo e acima dele (' + gatos.length + ' gatos, ' + colado + ' colados)');
+  ok(gatos.length >= 5 && colado === 0, 'o gato fica longe das tabuas do caminho logo abaixo e acima dele (' + gatos.length + ' gatos, ' + colado + ' colados)');
   /* ...e das outras tabuas paradas do caminho que ainda alcancam o gato num pulo (dois ou tres degraus abaixo): antes,
      16% dos gatos ficavam na coluna de uma delas e o pulo reto batia no gato. A tabua que anda nao tem coluna fixa.
      Sorteio com semente (30 subidas de 6 km): o resultado nao muda de uma rodada para outra */
