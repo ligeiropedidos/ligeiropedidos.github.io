@@ -1049,7 +1049,11 @@
        e no carrinho: o lojista ve a loja inteira como ela fica) */
     function desenhoDoProduto(p) {
       var desenhos = estado.oficial && estado.oficial.desenhos;
-      return p && desenhos && Object.prototype.hasOwnProperty.call(desenhos, p.categoria) ? desenhos[p.categoria] : null;
+      if (!p || !desenhos) return null;
+      var tem = function (k) { return Object.prototype.hasOwnProperty.call(desenhos, k); };
+      /* "produto:<id>": uma imagem so deste item (foto parecida de banco de imagem, enquanto a foto de verdade nao chega); senao a da categoria */
+      if (tem('produto:' + p.id)) return desenhos['produto:' + p.id];
+      return tem(p.categoria) ? desenhos[p.categoria] : null;
     }
     function fotoDoProduto(p) {
       var src = D.fotoSrc(p, estado.fotos);

@@ -1,0 +1,30 @@
+Fotos de banco de imagens (Pexels, Licenca Pexels: uso livre, inclusive comercial, sem atribuicao obrigatoria), so como
+placeholder da amostra do Mak Burguer. Nao sao fotos dos lanches reais.
+
+mak-burguer.webp <- Pexels 4080534 (cheeseburger simples com cheddar) https://www.pexels.com/photo/4080534/
+mak-salada.webp <- Pexels 30500751 (cheeseburger com alface e tomate) https://www.pexels.com/photo/30500751/
+mak-doritos.webp <- Pexels 12325104 (burger com molho e cebola crocante) https://www.pexels.com/photo/12325104/
+mak-picles.webp <- Pexels 32480062 (burger com picles) https://www.pexels.com/photo/32480062/
+mak-palha.webp <- Pexels 15476368 (burger com cobertura crocante e cheddar) https://www.pexels.com/photo/15476368/
+mak-toscana.webp <- Pexels 37387410 (burger de carne e salada, cortado ao meio) https://www.pexels.com/photo/37387410/
+mak-chicken.webp <- Pexels 9211149 (sanduiche de frango crocante) https://www.pexels.com/photo/9211149/
+mak-vegetariano-1.webp <- Pexels 13833633 (burger vegetariano) https://www.pexels.com/photo/13833633/
+mak-vegetariano-2.webp <- Pexels 20741663 (burger vegetariano com legumes) https://www.pexels.com/photo/20741663/
+mak-bacon.webp <- Pexels 19247565 (burger com bacon e cheddar) https://www.pexels.com/photo/19247565/
+mak-cheddar.webp <- Pexels 15010309 (burger duplo com cheddar e bacon) https://www.pexels.com/photo/15010309/
+mak-onion.webp <- Pexels 11462997 (burger com cebola caramelizada) https://www.pexels.com/photo/11462997/
+mak-ring.webp <- Pexels 15662151 (burger com aneis de cebola) https://www.pexels.com/photo/15662151/
+mak-chilli.webp <- Pexels 38895877 (burger com bacon e pimenta) https://www.pexels.com/photo/38895877/
+mak-egg.webp <- Pexels 28705635 (burger com ovo) https://www.pexels.com/photo/28705635/
+mak-fabuloso.webp <- Pexels 4315148 (burgers artesanais na tabua) https://www.pexels.com/photo/4315148/
+mak-churrasco.webp <- Pexels 37624172 (sanduiche de pao frances com carne e queijo) https://www.pexels.com/photo/37624172/
+mak-ousadia.webp <- Pexels 20722057 (burger colorido com legumes) https://www.pexels.com/photo/20722057/
+mak-mix.webp <- Pexels 5374420 (burger grelhado cortado ao meio) https://www.pexels.com/photo/5374420/
+mak-duplo.webp <- Pexels 20652782 (burger com ovo e bacon) https://www.pexels.com/photo/20652782/
+mak-duplo-burguer.webp <- Pexels 6697455 (duplo com queijo derretido) https://www.pexels.com/photo/6697455/
+mak-duplo-salada.webp <- Pexels 14709732 (duplo com queijo, alface e tomate) https://www.pexels.com/photo/14709732/
+mak-duplo-cheddar.webp <- Pexels 34407517 (duplo com cheddar derretido) https://www.pexels.com/photo/34407517/
+mak-duplo-bacon.webp <- Pexels 5179783 (duplo com bacon) https://www.pexels.com/photo/5179783/
+mak-costela.webp <- Pexels 3727243 (burger gourmet com cheddar cremoso) https://www.pexels.com/photo/3727243/
+mak-monster.webp <- Pexels 28828556 (burger gigante empilhado) https://www.pexels.com/photo/28828556/
+batata-trionda.webp <- Pexels 17035135 (batata frita com queijo, bacon e molho) https://www.pexels.com/photo/17035135/

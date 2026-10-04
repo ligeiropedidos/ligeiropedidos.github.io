@@ -1230,6 +1230,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .splash-burgerhouse .splash-pontos span { background: #FFC23A; }
 .splash-burgerhouse .splash-pontos span:nth-child(2) { background: #FF8A1F; }
 .splash-burgerhouse .splash-pontos span:nth-child(3) { background: #FF6A13; }
+.splash-makburguer .splash-pontos span { background: #231610; }
+.splash-makburguer .splash-pontos span:nth-child(2) { background: #FFC21A; }
+.splash-makburguer .splash-pontos span:nth-child(3) { background: #F26A0E; }
 @keyframes splash-ponto { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-8px); opacity: 1; } }
 /* paineis (lojista, cozinha, entregador, Central): a tela do Ligeiro. O fundo branco cobre tudo na hora; mascote, nome
    e bolinhas surgem depois de um instante. Cores fixas da marca (nao mudam com a cor de cada loja). */
