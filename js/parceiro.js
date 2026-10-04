@@ -778,7 +778,7 @@
     var store = D().store;
     document.title = 'Entrar · Ligeiro';
     raiz.appendChild(barraTopo());
-    var corpo = el('div', { class: 'conteudo vender assinar' });
+    var corpo = el('div', { class: 'conteudo vender assinar entrar' });
     raiz.appendChild(corpo);
     var erro = el('div', { class: 'msg-erro', hidden: true });
     function falhar(msg) { erro.hidden = false; erro.textContent = msg; UI.soar('erro'); }

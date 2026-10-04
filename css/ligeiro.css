@@ -1710,9 +1710,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o cadeado do titulo e os checks ocupam a mesma coluna de 18 px: a primeira letra do titulo e a das linhas comecam no mesmo ponto */
 .login-seguro .plano-linhas li { gap: 8px; }
 .login-seguro .plano-check { width: 18px; display: flex; justify-content: center; }
-/* tela larga (PC): a caixa verde tem o tamanho do proprio texto e fica no eixo do botao do Google (antes ia de ponta a ponta, com um vazio enorme nos
-   cantos). Cadeado e checks seguem na mesma borda esquerda. No celular a caixa ja e estreita e nada muda */
-@media (min-width: 640px) { .login-seguro { width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; } }
+/* tela larga (PC): sem a caixa verde. Era uma faixa do tamanho do botao com tres linhas curtas no meio, e sobrava vazio dos dois lados. Vira so o texto,
+   num bloco no eixo do botao do Google, com o cadeado e os checks na mesma borda esquerda (o que sites de login fazem: aviso discreto embaixo do botao).
+   No celular a caixa verde ja tem a largura do texto e nada muda */
+@media (min-width: 640px) { .login-seguro { width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; padding: 0; background: none; } }
+/* a tela de Entrar no PC e uma coluna estreita no meio, como a do cadastro (antes o cartao ia de ponta a ponta, com o botao do Google de 1000 px) */
+.vender.entrar { max-width: 520px; }
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
 @supports (grid-template-rows: subgrid) {
   .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }
