@@ -1,8 +1,8 @@
 {
- "css/ligeiro.css": "c2e956cd719981eb",
+ "css/ligeiro.css": "f51019e3b43c7669",
  "css/temas/burgerhouse.css": "f41e02ae48719583",
  "css/temas/conizza.css": "831b6af4a90123eb",
- "css/temas/makburguer.css": "cf64a840712f2cfc",
+ "css/temas/makburguer.css": "6dc0d334bdf20701",
  "js/admin.js": "72bf213738a9f993",
  "js/app.js": "b9b960ff63072236",
  "js/avisos.js": "58c3d37648f00ec4",
@@ -10,7 +10,7 @@
  "js/cliente.js": "8581665e476987ee",
  "js/cobranca.js": "0ffcd1c9ffa2bf66",
  "js/comecar.js": "3c1fb9e8e351b08b",
- "js/config.js": "4b1d7f5aeb355e56",
+ "js/config.js": "82ba4949dc0e6857",
  "js/conta.js": "88ddd1eae2c283fc",
  "js/dados.js": "78d6e0c43106c559",
  "js/demo-painel.js": "170dbff51f05de6d",
@@ -24,6 +24,6 @@
  "js/regras.js": "2e0db431277a5bc4",
  "js/seed.js": "9be6aaafecf5b50b",
  "js/servicos.js": "ff60bdad12507daa",
- "js/ui.js": "68d83177249e3e08",
+ "js/ui.js": "2a4e369819086e61",
  "js/video-leve.js": "ed0a149d9a2f7e3e"
 }

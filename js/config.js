@@ -151,8 +151,11 @@ window.LIGEIRO_CONFIG = {
       desenhos: { lanches: 'img/oficial/bh-burger.svg', porcoes: 'img/oficial/bh-batata.svg', refrigerantes: 'img/oficial/bh-bebida.svg', sucos: 'img/oficial/bh-bebida.svg', bebidas: 'img/oficial/bh-bebida.svg' } },
     /* cliente com design exclusivo (03/10/2026): palco laranja com raios de sol e o selo da marca; fotos PARECIDAS de banco de imagem (Pexels) nos lanches
        enquanto as fotos de verdade nao chegam (img/oficial/mak/CREDITOS.txt) */
-    'mak-burguer': { oficial: false, tema: 'makburguer', logo: 'img/oficial/mak-burguer-logo.webp', enfeites: ['🍅', '🧀', '🥓', '🍟', '🧅', '🌶️'], corFundo: '#F7881E',
+    'mak-burguer': { oficial: false, tema: 'makburguer', logo: 'img/oficial/mak-burguer-logo.webp', frase: 'Acendendo a chapa', fogo: true, enfeites: ['', '', '', '', '', '', '', '', '', '', '', '', '', ''], corFundo: '#0C0907',
       desenhos: {
+        /* cardapio de exemplo da amostra (antes de colar o do Mak): as mesmas fotos, para a loja nunca aparecer com ilustracao */
+        'produto:x-burguer': 'img/oficial/mak/mak-burguer.webp', 'produto:x-salada': 'img/oficial/mak/mak-salada.webp', 'produto:x-bacon': 'img/oficial/mak/mak-bacon.webp',
+        'produto:x-tudo': 'img/oficial/mak/mak-monster.webp', 'produto:batata': 'img/oficial/mak/batata-trionda.webp', 'produto:batata-cheddar': 'img/oficial/mak/batata-trionda.webp', 'produto:refri-lata': 'img/oficial/mak/refri-lata.webp', 'produto:suco': 'img/oficial/mak/suco.webp',
         'produto:mak-burguer': 'img/oficial/mak/mak-burguer.webp',
         'produto:mak-salada': 'img/oficial/mak/mak-salada.webp',
         'produto:mak-doritos': 'img/oficial/mak/mak-doritos.webp',

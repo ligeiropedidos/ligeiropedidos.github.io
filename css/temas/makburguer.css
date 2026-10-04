@@ -1,10 +1,12 @@
 /* ==========================================================
-   Tema exclusivo "Mak Burguer" (Juquia/SP): a cara do cardapio impresso dele. Primeira tela num palco
-   laranja e amarelo com raios de sol atras do selo, letra marrom-escura (o anel da logo) e cartoes
-   creme; as telas do pedido seguem em creme, com o cabecalho no marrom e a linha amarela embaixo.
-   Tudo aqui vive dentro de .tema-makburguer. O painel e a cozinha tambem recebem a classe: as regras
-   da loja vao presas a #tela-inicio (so existe no site da loja), entao la dentro nada muda de cor.
-   So cor, letra, fundo e efeito: medidas e espacos sao os do padrao do Ligeiro.
+   Tema exclusivo "Mak Burguer" (Juquia/SP): hamburgueria premium, de dar fome. Preto quente com ouro e brasa, foto de
+   hamburguer grande no fundo da abertura (zoom lento), faiscas de brasa subindo, logo com anel de luz, letra condensada
+   nos titulos (Oswald) e serifada nos nomes dos lanches (Playfair). As telas do pedido seguem escuras, com a foto do
+   lanche em destaque. As fontes (@font-face) ficam em ligeiro.css, porque a tela de carregamento ja usa.
+   Tudo aqui vive dentro de .tema-makburguer. O painel e a cozinha tambem recebem a classe: as regras da loja vao
+   presas a #tela-inicio (so existe no site da loja), entao la dentro nada escurece.
+   So cor, letra, fundo e efeito: vaos, alturas e alinhamentos sao os do padrao do Ligeiro (o cartao do lanche tem a
+   mesma altura das outras lojas; a fome vem da foto, da luz e da cor).
    ========================================================== */
 
 .tema-makburguer {
@@ -17,108 +19,234 @@
   --mk-creme: #FFF6E5;
   --mk-creme-2: #FFE7C2;
   --mk-chama: linear-gradient(180deg, #FFD23F 0%, #FFB11A 55%, #FF8A1F 100%);
+  /* a loja (escura) */
+  --mk-preto: #0C0907;
+  --mk-carvao: #15100D;
+  --mk-carvao-2: #1D1612;
+  --mk-carvao-3: #2A2019;
+  --mk-ouro: #F2B233;
+  --mk-ouro-claro: #FFD36B;
+  --mk-fogo: linear-gradient(180deg, #FFD65C 0%, #FFAE26 52%, #F2760F 100%);
+  --mk-texto: #F6EBDD;
+  --mk-texto-suave: #D8C7B1;
+  --mk-cinza: #A8957F;
   --mk-logo: min(300px, 78vw);
+  --mk-display: "Oswald", "Ligeiro Display", Bahnschrift, "Segoe UI", system-ui, sans-serif;
+  --mk-serifa: "Playfair Display", Georgia, "Times New Roman", serif;
 }
 
-/* ---------- primeira tela: o palco laranja ---------- */
-.tema-makburguer #tela-inicio {
-  /* as pecas da tela usam estas cores: cartao creme, letra marrom-escura */
-  --card: var(--mk-creme);
-  --ink: var(--mk-tinta);
-  --body: #4A2C1B;
-  --muted: #6E4A32;
-  --line: rgba(35, 22, 16, 0.14);
-  --line-forte: rgba(35, 22, 16, 0.28);
-  --deep: #A93F06;
-  --deep2: #8A3204;
-  --lime-suave: var(--mk-creme-2);
-  --sombra: 0 8px 22px rgba(35, 22, 16, 0.22);
-  background: linear-gradient(180deg, #FFA526 0%, #FF8F1F 26%, #F7881E 62%, #FF7A2F 100%);
-  color: var(--mk-tinta);
+/* ---------- a loja inteira em escuro (o painel e a cozinha ficam de fora: nao tem #tela-inicio) ---------- */
+.tema-makburguer:has(#tela-inicio), body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer {
+  --bg: #0C0907; --card: #1B1511; --ink: #F6EBDD; --body: #D8C7B1; --muted: #A8957F;
+  --line: rgba(246, 235, 221, 0.10); --line-forte: rgba(246, 235, 221, 0.22);
+  --deep: #F2B233; --deep2: #FFD36B; --lime: #F2B233; --lime-escuro: #C98A12; --lime-suave: #2B2016; --lime2: #FFD36B;
+  --orange: #FF8A1F; --orange-suave: #2B1A0E; --erro: #FF8B7B; --erro-suave: rgba(255, 90, 74, 0.13);
+  --texto-no-destaque: #1A0E07; --anel: rgba(242, 178, 51, 0.5); --sombra: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --display: var(--mk-display);
+  color: var(--ink);
 }
 /* a cor escrita aqui (e nao var): o body fica por fora da loja e nao enxerga as cores dela; sem isso as laterais do PC ficavam brancas */
-body:has(.tema-makburguer #tela-inicio.ativa) { background: #F7881E; }
-
-.tema-makburguer .abertura {
-  position: relative;
-  --mk-raios: calc(24px + var(--mk-logo) + 96px);
+/* clarao quente no alto, textura fina de grao e o preto que escurece para baixo: no body, para a pagina inteira (no PC a loja e uma coluna de 720) */
+body:has(.tema-makburguer #tela-inicio) {
+  background-color: #0C0907;
+  background-image:
+    radial-gradient(ellipse 120% 55% at 50% 0%, rgba(255, 138, 31, 0.18), rgba(255, 138, 31, 0) 62%),
+    url('../../img/oficial/mak/grao.svg'),
+    linear-gradient(180deg, #120D0A 0%, #0C0907 52%, #080504 100%);
 }
+body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer { background: rgba(6, 4, 3, 0.74); }
+body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: var(--mk-texto); box-shadow: 0 0 0 1px rgba(242, 178, 51, 0.45), 0 12px 30px rgba(0, 0, 0, 0.6); }
+
+/* ---------- primeira tela: palco escuro, com brasas subindo ---------- */
+.tema-makburguer #tela-inicio {
+  color: var(--mk-texto);
+}
+/* as brasas: duas camadas de pontos de luz que sobem em velocidades diferentes, presas na janela (nao na pagina inteira, que pesaria
+   no celular) e atras de qualquer tela da loja: a abertura, o cardapio, o item, o carrinho */
+.tema-makburguer:has(#tela-inicio) { --mk-brasa-a:
+    radial-gradient(circle at 60px 430px, #FFE8A8 0 1.2px, rgba(255, 170, 50, 0.95) 1.9px, rgba(255, 120, 20, 0.3) 3.6px, rgba(255, 110, 20, 0) 6.5px),
+    radial-gradient(circle at 210px 120px, #FFE8A8 0 1px, rgba(255, 160, 40, 0.9) 1.7px, rgba(255, 120, 20, 0.3) 3.2px, rgba(255, 110, 20, 0) 6px),
+    radial-gradient(circle at 300px 300px, #FFF0C0 0 1.6px, rgba(255, 180, 60, 0.95) 2.4px, rgba(255, 120, 20, 0.34) 4.4px, rgba(255, 110, 20, 0) 8px),
+    radial-gradient(circle at 110px 210px, #FFE8A8 0 0.9px, rgba(255, 150, 40, 0.85) 1.5px, rgba(255, 120, 20, 0.28) 3px, rgba(255, 110, 20, 0) 5.5px),
+    radial-gradient(circle at 400px 60px, #FFE8A8 0 1.3px, rgba(255, 170, 50, 0.95) 2px, rgba(255, 120, 20, 0.3) 3.8px, rgba(255, 110, 20, 0) 7px),
+    radial-gradient(circle at 150px 360px, #FFF0C0 0 1.1px, rgba(255, 165, 45, 0.9) 1.8px, rgba(255, 120, 20, 0.3) 3.4px, rgba(255, 110, 20, 0) 6px),
+    radial-gradient(circle at 40px 20px, #FFE8A8 0 1px, rgba(255, 160, 40, 0.85) 1.6px, rgba(255, 120, 20, 0.28) 3px, rgba(255, 110, 20, 0) 5.5px);
+  --mk-brasa-a-tam: 270px 480px, 330px 480px, 390px 480px, 450px 480px, 510px 480px, 300px 480px, 360px 480px;
+  --mk-brasa-b:
+    radial-gradient(circle at 90px 600px, rgba(255, 230, 160, 0.95) 0 2px, rgba(255, 150, 40, 0.75) 3.4px, rgba(255, 110, 20, 0.22) 6px, rgba(255, 100, 10, 0) 10px),
+    radial-gradient(circle at 320px 250px, rgba(255, 230, 160, 0.9) 0 2.4px, rgba(255, 150, 40, 0.7) 4px, rgba(255, 110, 20, 0.22) 7px, rgba(255, 100, 10, 0) 12px),
+    radial-gradient(circle at 180px 90px, rgba(255, 230, 160, 0.9) 0 1.8px, rgba(255, 150, 40, 0.7) 3px, rgba(255, 110, 20, 0.2) 5.5px, rgba(255, 100, 10, 0) 9px),
+    radial-gradient(circle at 440px 470px, rgba(255, 230, 160, 0.9) 0 2.2px, rgba(255, 150, 40, 0.7) 3.8px, rgba(255, 110, 20, 0.22) 6.5px, rgba(255, 100, 10, 0) 11px),
+    radial-gradient(circle at 30px 330px, rgba(255, 230, 160, 0.9) 0 1.6px, rgba(255, 150, 40, 0.7) 2.8px, rgba(255, 110, 20, 0.2) 5px, rgba(255, 100, 10, 0) 8.5px);
+  --mk-brasa-b-tam: 420px 720px, 500px 720px, 580px 720px, 340px 720px, 660px 720px;
+}
+.tema-makburguer:has(#tela-inicio) .tela { position: relative; isolation: isolate; }
+.tema-makburguer:has(#tela-inicio) .tela::before, .tema-makburguer:has(#tela-inicio) .tela::after {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: -1; pointer-events: none; will-change: transform, opacity;
+}
+.tema-makburguer:has(#tela-inicio) .tela::before {
+  height: calc(100vh + 480px); background-image: var(--mk-brasa-a); background-size: var(--mk-brasa-a-tam); background-repeat: repeat;
+  animation: mk-brasas-a 14s linear infinite, mk-cintilar 2.6s ease-in-out infinite;
+}
+.tema-makburguer:has(#tela-inicio) .tela::after {
+  height: calc(100vh + 720px); background-image: var(--mk-brasa-b); background-size: var(--mk-brasa-b-tam); background-repeat: repeat; opacity: 0.8;
+  animation: mk-brasas-b 24s linear infinite, mk-cintilar 3.7s ease-in-out -1.2s infinite;
+}
+@keyframes mk-brasas-a { 0% { transform: translate3d(0, 0, 0); } 35% { transform: translate3d(16px, -168px, 0); } 70% { transform: translate3d(-12px, -336px, 0); } 100% { transform: translate3d(0, -480px, 0); } }
+@keyframes mk-brasas-b { 0% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(-22px, -360px, 0); } 100% { transform: translate3d(0, -720px, 0); } }
+@keyframes mk-cintilar { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+.tema-makburguer .abertura { position: relative; --mk-cena: calc(24px + var(--mk-logo) + 150px); --mk-altura-fogo: calc(24px + var(--mk-logo) * 0.86); }
 .tema-makburguer .abertura > *:not(.enfeites) { position: relative; z-index: 1; }
 .tema-makburguer .capa-loja { display: none; }
-
-/* raios de sol saindo de tras do selo (full-bleed no PC) e um clarao amarelo no alto, como o fundo do cartaz */
-.tema-makburguer .abertura::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 0; height: var(--mk-raios); z-index: 0; pointer-events: none;
-  --centro-y: calc(24px + var(--mk-logo) / 2);
-  background:
-    radial-gradient(ellipse 70% 62% at 50% var(--centro-y), rgba(255, 224, 120, 0.85) 0%, rgba(255, 194, 26, 0.35) 38%, rgba(255, 194, 26, 0) 72%),
-    repeating-conic-gradient(from -4deg at 50% var(--centro-y), rgba(255, 236, 170, 0.34) 0deg 7.5deg, rgba(255, 236, 170, 0) 7.5deg 15deg);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
+/* fagulhas que saem do fogo e fumaca que sobe atras do selo (os "enfeites" da loja sao vazios: so servem de pecas para o movimento) */
+.tema-makburguer .enfeites { position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--mk-altura-fogo); z-index: 1; overflow: hidden; pointer-events: none; }
+.tema-makburguer .enfeites span {
+  position: absolute; bottom: 4%; width: 4px; height: 4px; border-radius: 50%; background: #FFE9B0; opacity: 0;
+  box-shadow: 0 0 8px 3px rgba(255, 160, 40, 0.85); animation: mk-fagulha var(--d, 4s) ease-out var(--l, 0s) infinite;
 }
-/* no PC a loja e uma coluna de 720: o palco vai de uma borda a outra da janela (o que passa dela o body corta) */
-.tema-makburguer .abertura::before, .tema-makburguer .enfeites { left: calc(50% - 50vw); right: calc(50% - 50vw); }
+.tema-makburguer .enfeites span:nth-child(1)  { left:  7%; --x:  18px; --d: 4.2s; --l: -0.4s; }
+.tema-makburguer .enfeites span:nth-child(2)  { left: 16%; --x: -22px; --d: 5.4s; --l: -2.1s; width: 3px; height: 3px; }
+.tema-makburguer .enfeites span:nth-child(3)  { left: 25%; --x:  14px; --d: 3.8s; --l: -3.0s; }
+.tema-makburguer .enfeites span:nth-child(4)  { left: 34%; --x: -16px; --d: 6.0s; --l: -1.2s; width: 3px; height: 3px; }
+.tema-makburguer .enfeites span:nth-child(5)  { left: 44%; --x:  24px; --d: 4.8s; --l: -4.0s; width: 5px; height: 5px; }
+.tema-makburguer .enfeites span:nth-child(6)  { left: 56%; --x: -20px; --d: 5.2s; --l: -0.9s; }
+.tema-makburguer .enfeites span:nth-child(7)  { left: 66%; --x:  16px; --d: 4.0s; --l: -2.6s; width: 3px; height: 3px; }
+.tema-makburguer .enfeites span:nth-child(8)  { left: 76%; --x: -18px; --d: 5.8s; --l: -3.5s; width: 5px; height: 5px; }
+.tema-makburguer .enfeites span:nth-child(9)  { left: 86%; --x:  22px; --d: 4.5s; --l: -1.7s; }
+.tema-makburguer .enfeites span:nth-child(10) { left: 94%; --x: -14px; --d: 5.0s; --l: -4.4s; width: 3px; height: 3px; }
+.tema-makburguer .enfeites span:nth-child(n+11) {
+  width: 130px; height: 130px; bottom: 8%; margin-left: -65px; box-shadow: none; filter: blur(7px);
+  background: radial-gradient(circle, rgba(255, 238, 215, 0.2) 0%, rgba(255, 238, 215, 0) 68%); animation: mk-fumaca var(--d, 9s) ease-out var(--l, 0s) infinite;
+}
+.tema-makburguer .enfeites span:nth-child(11) { left: 30%; --x: -30px; --d: 9s;  --l: -1s; }
+.tema-makburguer .enfeites span:nth-child(12) { left: 68%; --x:  34px; --d: 11s; --l: -5s; }
+.tema-makburguer .enfeites span:nth-child(13) { left: 50%; --x:  16px; --d: 10s; --l: -8s; }
+.tema-makburguer .enfeites span:nth-child(14) { left: 14%; --x:  26px; --d: 12s; --l: -3s; }
+@keyframes mk-fagulha {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 0; }
+  10%  { opacity: 1; }
+  60%  { opacity: 0.85; }
+  100% { transform: translate3d(var(--x, 0px), calc(var(--mk-altura-fogo) * -0.92), 0) scale(0.3); opacity: 0; }
+}
+@keyframes mk-fumaca {
+  0%   { transform: translate3d(0, 0, 0) scale(0.6); opacity: 0; }
+  20%  { opacity: 0.9; }
+  100% { transform: translate3d(var(--x, 0px), calc(var(--mk-altura-fogo) * -0.8), 0) scale(1.7); opacity: 0; }
+}
 
-/* o selo da marca: redondo, com sombra no chao; a imagem ja vem recortada no circulo (sem sobra transparente em cima ou embaixo) */
+/* foto de hamburguer grande no fundo, escurecida e com zoom lento (o que da fome); o fogo atras do selo, as chamas andando em
+   sentidos contrarios e a grelha de ferro acesa na frente delas; o brilho de brasa pulsa no ritmo das chamas */
+.tema-makburguer .abertura::before, .tema-makburguer .abertura::after {
+  content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--mk-cena); z-index: 0; pointer-events: none;
+}
+.tema-makburguer .abertura::before {
+  background: url('../../img/oficial/mak/fundo-hero.webp') 50% 42% / cover no-repeat; opacity: 0.2; filter: saturate(1.2) contrast(1.05);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 58%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 58%, transparent 100%);
+  transform-origin: 50% 46%; animation: mk-zoom 24s ease-in-out infinite alternate;
+}
+.tema-makburguer .abertura::after {
+  --barra: linear-gradient(180deg, #FFC98A 0%, #FF8A2A 24%, #6A3A20 54%, #17100C 100%);
+  --centro-y: calc(24px + var(--mk-logo) / 2);
+  height: var(--mk-altura-fogo);
+  background-image:
+    var(--barra), var(--barra), var(--barra), var(--barra),
+    url('../../img/oficial/mak-chamas-frente.svg'), url('../../img/oficial/mak-chamas-fundo.svg'),
+    radial-gradient(ellipse 64% 52% at 50% var(--centro-y), rgba(255, 150, 30, 0.50) 0%, rgba(255, 110, 15, 0.20) 44%, rgba(255, 100, 10, 0) 76%);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, no-repeat;
+  background-size: 100% 6px, 100% 6px, 100% 6px, 100% 6px, 260px 300px, 260px 300px, 100% 100%;
+  background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 0 100%, 0 100%, 0 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+  transform-origin: 50% 100%; animation: mk-tremular 2.4s ease-in-out infinite, mk-labaredas 7s linear infinite;
+}
+@keyframes mk-labaredas {
+  from { background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 0 100%, 0 100%, 0 0; }
+  to   { background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 260px 100%, -260px 100%, 0 0; }
+}
+@keyframes mk-tremular {
+  0%, 100% { transform: scaleY(1) skewX(0deg); opacity: 0.92; }
+  33% { transform: scaleY(1.05) skewX(0.8deg); opacity: 1; }
+  66% { transform: scaleY(0.97) skewX(-0.8deg); opacity: 0.88; }
+}
+@keyframes mk-zoom { from { transform: scale(1) translate3d(0, 0, 0); } to { transform: scale(1.14) translate3d(0, -10px, 0); } }
+
+/* o selo da marca: redondo, com luz de brasa em volta e dois aneis de ouro que abrem e somem; a imagem ja vem recortada no circulo */
 .tema-makburguer .logo-grande, .tema-makburguer .abertura.com-capa .logo-grande {
   width: var(--mk-logo); height: var(--mk-logo); height: round(var(--mk-logo), 1px); margin: 0;
   background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; position: relative;
 }
 .tema-makburguer .logo-grande img {
   position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; border-radius: 0;
-  filter: drop-shadow(0 12px 14px rgba(35, 22, 16, 0.38));
+  filter: drop-shadow(0 16px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 26px rgba(255, 150, 30, 0.38));
 }
-/* o brilho atras do selo respira no ritmo do cartaz */
-.tema-makburguer .logo-grande::before {
-  content: ""; position: absolute; left: 50%; top: 50%; z-index: 0; width: 112%; aspect-ratio: 1; border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(255, 214, 90, 0.75) 0%, rgba(255, 194, 26, 0) 68%);
+.tema-makburguer .logo-grande::before, .tema-makburguer .logo-grande::after {
+  content: ""; position: absolute; left: 0; top: 0; z-index: 0; width: 100%; height: 100%; border-radius: 50%;
+  border: 1.5px solid rgba(255, 200, 90, 0.6); pointer-events: none; animation: mk-onda 3.8s ease-out infinite;
 }
+.tema-makburguer .logo-grande::after { animation-delay: 1.9s; }
+@keyframes mk-onda { 0% { transform: scale(0.96); opacity: 0.7; } 100% { transform: scale(1.5); opacity: 0; } }
 
 /* o nome ja esta no selo: fica para o leitor de tela e para o Google, sem repetir na tela */
 .tema-makburguer #nomeLoja { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tema-makburguer #descLoja {
-  color: var(--mk-tinta); font-family: var(--display); font-weight: 800; font-size: 15px; line-height: 20px;
-  text-transform: uppercase; letter-spacing: 0.14em; max-width: 30ch; text-wrap: balance;
+  display: flex; align-items: center; justify-content: center; gap: 12px; text-indent: 0.3em;
+  color: var(--mk-ouro); font-family: var(--mk-display); font-weight: 500; font-size: 14px; line-height: 20px;
+  text-transform: uppercase; letter-spacing: 0.3em; max-width: none;
   margin-top: 0 !important; /* o -8 do padrao e para colar no nome, que aqui fica escondido (esta no selo): 16 como todo bloco */
 }
+.tema-makburguer #descLoja::before, .tema-makburguer #descLoja::after { content: ""; flex: 0 0 26px; height: 1px; background: linear-gradient(90deg, rgba(242, 178, 51, 0), var(--mk-ouro)); }
+.tema-makburguer #descLoja::after { transform: scaleX(-1); }
 
-/* ingredientes boiando nas bordas (tomate, queijo, bacon...): bem leves, atras do selo */
-.tema-makburguer .enfeites { position: absolute; top: 0; height: var(--mk-raios); overflow: hidden; pointer-events: none; z-index: 0; }
-.tema-makburguer .enfeites span { position: absolute; font-size: 34px; opacity: 0.55; animation: mk-boiar ease-in-out infinite; }
-.tema-makburguer .enfeites span:nth-child(1) { top:  6%; left: 10px; font-size: 40px; animation-duration: 7s;   animation-delay: 0s;    rotate: -14deg; }
-.tema-makburguer .enfeites span:nth-child(2) { top:  8%; right: 10px; font-size: 34px; animation-duration: 9s;   animation-delay: -2s;   rotate: 12deg; }
-.tema-makburguer .enfeites span:nth-child(3) { top: 34%; left: 2px; font-size: 30px; animation-duration: 8s;   animation-delay: -4s;   rotate: 20deg; }
-.tema-makburguer .enfeites span:nth-child(4) { top: 40%; right: 2px; font-size: 34px; animation-duration: 10s;  animation-delay: -1s;   rotate: -18deg; }
-.tema-makburguer .enfeites span:nth-child(5) { top: 62%; left: 6px; font-size: 28px; animation-duration: 8.5s; animation-delay: -6s;   rotate: 8deg; }
-.tema-makburguer .enfeites span:nth-child(6) { top: 70%; right: 6px; font-size: 28px; animation-duration: 7.5s; animation-delay: -3s;   rotate: -10deg; }
-.tema-makburguer .enfeites span:nth-child(n+7) { display: none; }
-@media (max-width: 440px) { .tema-makburguer .enfeites span { opacity: 0.4; font-size: 26px !important; } }
-
-/* movimento sempre ligado, tambem com "Reduzir movimento" no celular (pedido de quem tem design exclusivo): o selo chega e flutua,
-   o brilho respira e os ingredientes boiam */
-.tema-makburguer .logo-grande { animation: mk-chegar 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, mk-flutuar 4.8s ease-in-out 0.7s infinite; }
-.tema-makburguer .logo-grande::before { animation: mk-respirar 3.2s ease-in-out infinite; }
+/* movimento sempre ligado, tambem com "Reduzir movimento" no celular (pedido de quem tem design exclusivo) */
+.tema-makburguer .logo-grande { animation: mk-chegar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, mk-flutuar 5s ease-in-out 0.8s infinite; }
+/* a abertura entra em sequencia: selos, botao, passos e os mais pedidos sobem um depois do outro */
+.tema-makburguer #tela-inicio .selos { animation: mk-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s backwards; }
+/* o pulso do botao e o do padrao (2,6 s), no brilho dourado: o anel verde da loja nao combina */
+.tema-makburguer #tela-inicio .btn-gigante { animation: mk-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards, mk-pulsar 2.6s ease-in-out 1s infinite; }
+.tema-makburguer #tela-inicio .como-funciona { animation: mk-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.55s backwards; }
+.tema-makburguer #tela-inicio #destaques { animation: mk-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s backwards; }
+.tema-makburguer:has(#tela-inicio) .card-produto { animation: mk-subir 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s backwards; }
+.tema-makburguer:has(#tela-inicio) .card-produto:nth-child(2) { animation-delay: 0.18s; }
+.tema-makburguer:has(#tela-inicio) .card-produto:nth-child(3) { animation-delay: 0.26s; }
+.tema-makburguer:has(#tela-inicio) .card-produto:nth-child(4) { animation-delay: 0.34s; }
+.tema-makburguer:has(#tela-inicio) .card-produto:nth-child(n+5) { animation-delay: 0.42s; }
+/* a foto do lanche na janela respira (zoom lento), o fio de ouro do cabecalho acende e passa, e a senha pulsa em ouro */
+.tema-makburguer .foto-modal-desenho img { animation: mk-zoom 9s ease-in-out infinite alternate; transform-origin: 50% 55%; }
+.tema-makburguer:has(#tela-inicio) .topo { position: relative; }
+.tema-makburguer:has(#tela-inicio) .topo::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 244, 200, 0) 0%, #FFF4C8 50%, rgba(255, 244, 200, 0) 100%) -60% 0 / 40% 100% no-repeat; animation: mk-fio 3.4s ease-in-out infinite;
+}
+.tema-makburguer:has(#tela-inicio) .senha-gigante { animation: mk-brilho-senha 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .tema-makburguer .enfeites span { animation: mk-boiar ease-in-out infinite !important; }
-  .tema-makburguer .enfeites span:nth-child(1) { animation-duration: 7s !important; }
-  .tema-makburguer .enfeites span:nth-child(2) { animation-duration: 9s !important; }
-  .tema-makburguer .enfeites span:nth-child(3) { animation-duration: 8s !important; }
-  .tema-makburguer .enfeites span:nth-child(4) { animation-duration: 10s !important; }
-  .tema-makburguer .enfeites span:nth-child(5) { animation-duration: 8.5s !important; }
-  .tema-makburguer .enfeites span:nth-child(6) { animation-duration: 7.5s !important; }
-  .tema-makburguer .logo-grande { animation: mk-chegar 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, mk-flutuar 4.8s ease-in-out 0.7s infinite !important; }
-  .tema-makburguer .logo-grande::before { animation: mk-respirar 3.2s ease-in-out infinite !important; }
+  .tema-makburguer:has(#tela-inicio) .tela::before { animation: mk-brasas-a 14s linear infinite, mk-cintilar 2.6s ease-in-out infinite !important; }
+  .tema-makburguer:has(#tela-inicio) .tela::after { animation: mk-brasas-b 24s linear infinite, mk-cintilar 3.7s ease-in-out -1.2s infinite !important; }
+  .tema-makburguer .abertura::before { animation: mk-zoom 24s ease-in-out infinite alternate !important; }
+  .tema-makburguer .abertura::after { animation: mk-tremular 2.4s ease-in-out infinite, mk-labaredas 7s linear infinite !important; }
+  .tema-makburguer .logo-grande { animation: mk-chegar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, mk-flutuar 5s ease-in-out 0.8s infinite !important; }
+  .tema-makburguer .logo-grande::before, .tema-makburguer .logo-grande::after { animation: mk-onda 3.8s ease-out infinite !important; }
+  .tema-makburguer .logo-grande::after { animation-delay: 1.9s !important; }
+  .tema-makburguer .enfeites span { animation: mk-fagulha var(--d, 4s) ease-out var(--l, 0s) infinite !important; }
+  .tema-makburguer .enfeites span:nth-child(n+11) { animation: mk-fumaca var(--d, 9s) ease-out var(--l, 0s) infinite !important; }
   .tema-makburguer #tela-inicio .btn-gigante:not(:disabled) { animation: mk-pulsar 2.6s ease-in-out infinite !important; }
   .tema-makburguer #tela-inicio .btn-principal::after { animation: brilho 5s ease-in-out infinite !important; }
+  .tema-makburguer .foto-modal-desenho img { animation: mk-zoom 9s ease-in-out infinite alternate !important; }
+  .tema-makburguer:has(#tela-inicio) .topo::after { animation: mk-fio 3.4s ease-in-out infinite !important; }
+  .tema-makburguer:has(#tela-inicio) .senha-gigante { animation: mk-brilho-senha 2.4s ease-in-out infinite !important; }
 }
-@keyframes mk-boiar { 0%, 100% { translate: 0 0; } 50% { translate: 0 -14px; } }
+@keyframes mk-subir { from { opacity: 0; transform: translateY(18px); } }
+@keyframes mk-fio { 0% { background-position: -60% 0; } 100% { background-position: 160% 0; } }
+@keyframes mk-brilho-senha { 0%, 100% { text-shadow: 0 0 12px rgba(255, 190, 70, 0.35); } 50% { text-shadow: 0 0 30px rgba(255, 190, 70, 0.9); } }
 @keyframes mk-flutuar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes mk-respirar { 0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); } }
-@keyframes mk-chegar { 0% { opacity: 0; transform: scale(0.82); } 100% { opacity: 1; transform: none; } }
+@keyframes mk-chegar { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: none; } }
 
 /* ---------- selos, botao de pedir e os tres passos ---------- */
-.tema-makburguer #tela-inicio .selo { background: var(--mk-tinta); border: 1px solid var(--mk-tinta); color: var(--mk-creme); }
+.tema-makburguer #tela-inicio .selo {
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(242, 178, 51, 0.4); color: var(--mk-texto);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
 .tema-makburguer #tela-inicio .selo .bolinha { background: #3DDC84; }
 /* mesmo meio de letra do padrao dos temas: 35 px inteiros de altura, bolinha e estrela no meio da caixa */
 .tema-makburguer #tela-inicio .selos .selo { line-height: 21px; padding-top: 4.75px; padding-bottom: 7.25px; }
@@ -126,74 +254,80 @@ body:has(.tema-makburguer #tela-inicio.ativa) { background: #F7881E; }
 .tema-makburguer #tela-inicio .selos .selo-google { padding-left: 10px; }
 .tema-makburguer #tela-inicio .selos .selo > .bolinha { top: calc(var(--icone) / 2 - 0.35em + 1px); top: calc(var(--icone) / 2 - 0.5cap + 1px); }
 .tema-makburguer #tela-inicio .selos .selo > .selo-google-estrela { top: calc(var(--icone) / 2 - 0.35em + 0.25px); top: calc(var(--icone) / 2 - 0.5cap + 0.25px); }
-.tema-makburguer #tela-inicio .selo.fechado { color: #FFB4A8; }
+.tema-makburguer #tela-inicio .selo.fechado { color: #FFB4A8; border-color: rgba(255, 120, 100, 0.45); }
 .tema-makburguer #tela-inicio .selo.fechado .bolinha { background: #FF5A4A; }
-.tema-makburguer #tela-inicio a.selo-google:hover { background: var(--mk-marrom); }
-.tema-makburguer #tela-inicio .selo-google-estrela { color: var(--mk-amarelo); }
+.tema-makburguer #tela-inicio a.selo-google:hover { background: rgba(255, 255, 255, 0.12); }
+.tema-makburguer #tela-inicio .selo-google-estrela { color: var(--mk-ouro-claro); }
 
-/* o botao de acao da casa: marrom do anel da logo com letra amarela no palco; no resto do site (e nas janelas dele) o degrade amarelo-laranja */
-.tema-makburguer:has(#tela-inicio) .btn-principal, body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .btn-principal { background: var(--mk-chama); color: var(--mk-tinta); }
-.tema-makburguer:has(#tela-inicio) .card-produto .mais { background: var(--mk-tinta); color: var(--mk-amarelo); }
+/* o botao de acao da casa: ouro e brasa, letra escura, com o brilho que atravessa */
+.tema-makburguer:has(#tela-inicio) .btn-principal, body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .btn-principal {
+  background: var(--mk-fogo); color: #1A0E07; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(120, 50, 0, 0.3);
+}
+.tema-makburguer:has(#tela-inicio) .btn-principal:disabled { box-shadow: none; }
 .tema-makburguer #tela-inicio .btn-gigante {
-  background: var(--mk-tinta); color: var(--mk-amarelo);
-  font-family: var(--display); font-weight: 800; letter-spacing: 0.04em;
-  box-shadow: 0 10px 26px rgba(35, 22, 16, 0.34), inset 0 -3px 0 rgba(0, 0, 0, 0.45);
-  animation-name: mk-pulsar; /* o mesmo pulso do padrao (2,6 s), no brilho amarelo: o anel verde da loja nao combina com o laranja */
+  font-family: var(--mk-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  box-shadow: 0 10px 28px rgba(242, 140, 30, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32);
 }
 @keyframes mk-pulsar {
-  0%, 100% { box-shadow: 0 10px 26px rgba(35, 22, 16, 0.34), inset 0 -3px 0 rgba(0, 0, 0, 0.45); }
-  60%      { box-shadow: 0 10px 40px rgba(255, 214, 90, 0.85), inset 0 -3px 0 rgba(0, 0, 0, 0.45); }
+  0%, 100% { box-shadow: 0 10px 28px rgba(242, 140, 30, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32); }
+  60%      { box-shadow: 0 10px 46px rgba(255, 190, 70, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32); }
 }
-.tema-makburguer #tela-inicio .btn-gigante .sub { color: var(--mk-creme); opacity: 0.86; letter-spacing: 0; }
-.tema-makburguer #tela-inicio .btn-gigante:disabled { background: #5A4636; color: #E9D3B5; box-shadow: none; }
-.tema-makburguer #tela-inicio .btn:focus-visible { outline-color: var(--mk-tinta); }
+.tema-makburguer #tela-inicio .btn-gigante .sub { color: #3B2310; opacity: 0.9; letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
+.tema-makburguer #tela-inicio .btn-gigante:disabled { background: #3A2E25; color: #A8957F; box-shadow: none; }
+.tema-makburguer #tela-inicio .btn:focus-visible { outline-color: var(--mk-ouro-claro); }
 
-.tema-makburguer .como-passo { color: var(--mk-tinta); font-weight: 700; }
-.tema-makburguer .como-passo .n { background: var(--mk-tinta); color: var(--mk-amarelo); }
+.tema-makburguer #tela-inicio .como-passo {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)); border: 1px solid rgba(242, 178, 51, 0.24);
+  color: var(--mk-texto); font-weight: 600; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.tema-makburguer #tela-inicio .como-passo .n { background: transparent; border: 1.5px solid var(--mk-ouro); color: var(--mk-ouro); font-family: var(--mk-display); font-weight: 600; }
 
 /* ---------- video, mais pedidos e cupom ---------- */
-.tema-makburguer #destaques b, .tema-makburguer .video-loja-titulo b { font-family: var(--display); font-size: 15px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mk-tinta); }
-.tema-makburguer .video-loja-titulo span { color: var(--mk-marrom-2); }
-.tema-makburguer #tela-inicio .cupom-abrir { color: var(--mk-tinta); text-decoration: underline; }
-.tema-makburguer .video-loja-capa { background: linear-gradient(135deg, var(--mk-marrom) 0%, #6B2A0B 100%); box-shadow: 0 8px 22px rgba(35, 22, 16, 0.3); }
-.tema-makburguer .video-loja-play { color: var(--mk-tinta); }
-.tema-makburguer .video-loja-bolinha { background: var(--mk-amarelo); color: var(--mk-tinta); }
+.tema-makburguer #destaques b, .tema-makburguer .video-loja-titulo b { font-family: var(--mk-display); font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.2em; color: var(--mk-ouro); }
+.tema-makburguer .video-loja-titulo span { color: var(--mk-texto-suave); }
+.tema-makburguer #tela-inicio .cupom-abrir { color: var(--mk-texto-suave); text-decoration: underline; text-decoration-color: rgba(242, 178, 51, 0.6); }
+.tema-makburguer .video-loja-capa { background: linear-gradient(135deg, #2E1D10 0%, #120C08 100%); box-shadow: 0 0 0 1px rgba(242, 178, 51, 0.32), 0 10px 26px rgba(0, 0, 0, 0.5); }
+.tema-makburguer .video-loja-play { color: #1A0E07; }
+.tema-makburguer .video-loja-bolinha { background: var(--mk-ouro); color: #1A0E07; }
 
-/* cartao do lanche: creme com a borda fina do anel; foto de banco de imagem preenchendo o quadro */
-.tema-makburguer #tela-inicio .card-produto { background: var(--mk-creme); border: 1px solid rgba(35, 22, 16, 0.16); box-shadow: 0 8px 22px rgba(35, 22, 16, 0.2); }
-.tema-makburguer .card-produto .foto:has(.foto-desenho) { background: var(--mk-marrom); }
-.tema-makburguer .card-produto .foto img.foto-desenho { object-fit: cover; }
-.tema-makburguer .foto-modal-desenho, .tema-makburguer .item-carrinho .miniatura.com-desenho { background: var(--mk-marrom); }
-.tema-makburguer .foto-modal-desenho img, .tema-makburguer .item-carrinho .miniatura.com-desenho img { object-fit: cover; }
+/* ---------- o lanche: foto suculenta (cartoes, janela do item, carrinho) ---------- */
+.tema-makburguer:has(#tela-inicio) .card-produto {
+  background: linear-gradient(180deg, #221A14 0%, #16100C 100%); border: 1px solid rgba(242, 178, 51, 0.22);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.tema-makburguer .card-produto .nome { font-family: var(--mk-serifa); font-weight: 700; font-size: 18.5px; line-height: 1.2; color: var(--mk-texto); }
+.tema-makburguer .card-produto .preco { font-family: var(--mk-display); font-weight: 600; letter-spacing: 0.02em; color: var(--mk-ouro); }
+.tema-makburguer:has(#tela-inicio) .card-produto .mais { background: var(--mk-fogo); color: #1A0E07; font-family: var(--mk-display); font-weight: 600; letter-spacing: 0.1em; line-height: 19px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.tema-makburguer .card-produto .foto:has(.foto-desenho) { background: var(--mk-carvao-3); box-shadow: 0 0 0 1px rgba(242, 178, 51, 0.3), 0 8px 18px rgba(0, 0, 0, 0.5); }
+.tema-makburguer .card-produto .foto img.foto-desenho { object-fit: cover; filter: saturate(1.14) contrast(1.05); }
+.tema-makburguer .foto-modal-desenho, .tema-makburguer .item-carrinho .miniatura.com-desenho { background: var(--mk-carvao-3); }
+.tema-makburguer .foto-modal-desenho img, .tema-makburguer .item-carrinho .miniatura.com-desenho img { object-fit: cover; filter: saturate(1.14) contrast(1.05); }
+.tema-makburguer .foto-modal-desenho::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(12, 9, 7, 0) 62%, rgba(12, 9, 7, 0.5) 100%); }
 
 /* ---------- rodape no palco ---------- */
-.tema-makburguer #tela-inicio .rodape .ligeiro { color: #5A3622; }
-.tema-makburguer #tela-inicio .rodape-verificada { color: var(--mk-tinta); }
+.tema-makburguer #tela-inicio .rodape .ligeiro { color: var(--mk-cinza); }
+.tema-makburguer #tela-inicio .rodape-verificada { color: var(--mk-ouro-claro); }
 
-/* ---------- telas do pedido: creme, com o cabecalho no marrom ---------- */
-.tema-makburguer:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #5A2A0C 0%, var(--mk-tinta) 75%); }
-.tema-makburguer:has(#tela-inicio) .senha-gigante { color: var(--mk-amarelo); }
-.tema-makburguer:has(#tela-inicio) .painel-senha .rotulo { color: var(--mk-amarelo); }
+/* ---------- telas do pedido: escuras, com o cabecalho no preto e a linha de ouro embaixo ---------- */
+.tema-makburguer:has(#tela-inicio) .topo { background: linear-gradient(180deg, #17110D 0%, #0C0907 100%); border-bottom: 2px solid var(--mk-ouro); color: var(--mk-texto); }
+.tema-makburguer:has(#tela-inicio) .topo-titulo { font-family: var(--mk-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--mk-texto); }
+.tema-makburguer:has(#tela-inicio) .topo-passo { color: var(--mk-ouro); }
+.tema-makburguer:has(#tela-inicio) .topo .voltar { background: rgba(255, 255, 255, 0.07); border-color: rgba(246, 235, 221, 0.24); color: var(--mk-texto); }
+.tema-makburguer:has(#tela-inicio) .aba { background: #1B1511; border-color: rgba(246, 235, 221, 0.2); color: var(--mk-texto); font-family: var(--mk-display); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+.tema-makburguer:has(#tela-inicio) .aba.ativa { background: var(--mk-fogo); border-color: transparent; color: #1A0E07; font-weight: 600; }
+.tema-makburguer:has(#tela-inicio) .escolha-grande { background: linear-gradient(180deg, #221A14 0%, #16100C 100%); border-color: rgba(242, 178, 51, 0.22); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); }
+.tema-makburguer:has(#tela-inicio) .escolha-grande .rotulo { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.tema-makburguer:has(#tela-inicio) .item-carrinho .nome { font-family: var(--mk-serifa); font-weight: 700; }
+.tema-makburguer:has(#tela-inicio) .item-carrinho .preco { color: var(--mk-ouro); }
+.tema-makburguer:has(#tela-inicio) .aviso, body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .aviso { border-color: rgba(242, 178, 51, 0.35); }
+.tema-makburguer:has(#tela-inicio) .opcao, body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .opcao { background: rgba(255, 255, 255, 0.03); }
+.tema-makburguer:has(#tela-inicio) .opcao.marcada, body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .opcao.marcada { border-color: var(--mk-ouro); background: rgba(242, 178, 51, 0.1); }
+body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .modal-caixa { box-shadow: 0 -1px 0 rgba(242, 178, 51, 0.4), 0 -18px 50px rgba(0, 0, 0, 0.6); }
+.tema-makburguer:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #4A2A10 0%, #0C0907 78%); }
+.tema-makburguer:has(#tela-inicio) .senha-gigante { color: var(--mk-ouro-claro); }
+.tema-makburguer:has(#tela-inicio) .painel-senha .rotulo { color: var(--mk-ouro); }
 .tema-makburguer:has(#tela-inicio) .jogo-convite, .tema-makburguer:has(#tela-inicio) .aviso-cel-pedido.ligado { border-color: var(--line-forte); }
-.tema-makburguer:has(#tela-inicio) .chave:not(.on) { background: #E6D5C4; }
-/* fundo e linhas em creme quente (o padrao do site puxa para o verde, que briga com o laranja da casa) */
-.tema-makburguer:has(#tela-inicio), body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer { --bg: #FFF6E5; --line: #F0DDBD; --line-forte: #E0C69E; --muted: #75583F; --body: #4A3523; --ink: #231610; }
-body:has(.tema-makburguer #tela-inicio) { background: #FFF6E5; }
-body:has(.tema-makburguer #tela-inicio.ativa) { background: #F7881E; }
-.tema-makburguer:has(#tela-inicio) .tela:not(#tela-inicio) { background: #FFF6E5; }
-/* telas do pedido e janelas (item, carrinho): o verde do padrao some, entram marrom, laranja e amarelo da casa (preco, icones, "gratis", quantidade, marcas) */
-.tema-makburguer:has(#tela-inicio) .tela:not(#tela-inicio), body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer {
-  --card: #FFFFFF; --deep: #231610; --deep2: #A93F06; --lime: #FF8A1F; --lime-escuro: #C2560F; --lime-suave: #FFEBCF; --lime2: #FFC21A;
-  --texto-no-destaque: #231610; --anel: rgba(255, 138, 31, 0.45);
-}
-/* a letra que nao tem cor propria herda do body (que fica por fora da loja e e verde-escura): aqui ela e o marrom da casa; a cortina da janela tambem */
-.tema-makburguer:has(#tela-inicio) .tela:not(#tela-inicio), body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer { color: var(--mk-tinta); }
-body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer { background: rgba(35, 22, 16, 0.58); }
-body:has(.tema-makburguer #tela-inicio) .torrada { background: var(--mk-tinta); color: var(--mk-creme); }
-.tema-makburguer:has(#tela-inicio) .topo { background: var(--mk-tinta); border-bottom: 3px solid var(--mk-amarelo); color: var(--mk-creme); }
-.tema-makburguer:has(#tela-inicio) .topo-titulo { color: var(--mk-creme); }
-.tema-makburguer:has(#tela-inicio) .topo-passo { color: var(--mk-amarelo); }
-.tema-makburguer:has(#tela-inicio) .topo .voltar { background: rgba(255, 246, 229, 0.1); border-color: rgba(255, 246, 229, 0.26); color: var(--mk-creme); }
+.tema-makburguer .status-loja.aberta { --ponto: #2E9D4F; }
 
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem) ---------- */
 .tema-makburguer:has(.painel-topo), .tema-makburguer:has(.login), body:has(.tema-makburguer .painel-topo) .modal.tema-makburguer {
@@ -208,20 +342,19 @@ body:has(.tema-makburguer .painel-topo), body:has(.tema-makburguer .login) { bac
 .tema-makburguer .painel-topo .btn-pequeno.on { background: var(--mk-chama); color: var(--mk-tinta); }
 .tema-makburguer:has(.painel-topo) .btn-principal, .tema-makburguer:has(.login) .btn-principal, body:has(.tema-makburguer .painel-topo) .modal.tema-makburguer .btn-principal { background: var(--mk-chama); color: var(--mk-tinta); }
 
-/* a previa "A cara da sua loja" no ajuste: a abertura do site em miniatura (palco laranja, raios, o selo da marca) */
-.tema-makburguer .previa-site.previa-exclusiva { background: #F7881E; }
-.tema-makburguer .previa-exclusiva .previa-status { color: var(--mk-tinta); }
-.tema-makburguer .previa-exclusiva .previa-capa { background: radial-gradient(ellipse 70% 90% at 50% 50%, rgba(255, 224, 120, 0.9), rgba(255, 194, 26, 0) 72%), repeating-conic-gradient(from -4deg at 50% 60%, rgba(255, 236, 170, 0.34) 0deg 7.5deg, rgba(255, 236, 170, 0) 7.5deg 15deg), #FF8F1F; }
+/* a previa "A cara da sua loja" no ajuste: a abertura do site em miniatura (escura, com o brilho de brasa e o selo da marca) */
+.tema-makburguer .previa-site.previa-exclusiva { background: #0C0907; }
+.tema-makburguer .previa-exclusiva .previa-status { color: var(--mk-texto); }
+.tema-makburguer .previa-exclusiva .previa-capa { background: radial-gradient(ellipse 70% 90% at 50% 50%, rgba(255, 150, 30, 0.55), rgba(255, 110, 15, 0) 72%), url('../../img/oficial/mak/fundo-hero.webp') 50% 40% / cover, #1A110B; }
 .tema-makburguer .previa-exclusiva .previa-capa.sem-capa::before { content: none; }
 .tema-makburguer .previa-exclusiva .previa-logo { width: 132px; height: 132px; margin-top: -44px; border: 0; border-radius: 0; background: none; box-shadow: none; }
-.tema-makburguer .previa-exclusiva .previa-logo img { position: relative; object-fit: contain; border-radius: 0; filter: drop-shadow(0 6px 8px rgba(35, 22, 16, 0.35)); }
+.tema-makburguer .previa-exclusiva .previa-logo img { position: relative; object-fit: contain; border-radius: 0; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 14px rgba(255, 150, 30, 0.4)); }
 .tema-makburguer .previa-exclusiva .previa-nome { display: none; }
-.tema-makburguer .previa-exclusiva .previa-tipo { color: var(--mk-tinta); font-family: var(--display); font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; }
-.tema-makburguer .previa-exclusiva .previa-selo { background: var(--mk-tinta); border: 1px solid var(--mk-tinta); color: var(--mk-creme); }
+.tema-makburguer .previa-exclusiva .previa-tipo { color: var(--mk-ouro); font-family: var(--display); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.22em; }
+.tema-makburguer .previa-exclusiva .previa-selo { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(242, 178, 51, 0.4); color: var(--mk-texto); }
 .tema-makburguer .previa-exclusiva .previa-selo .bolinha { background: #3DDC84; }
-.tema-makburguer .previa-exclusiva .previa-botao { background: var(--mk-tinta); color: var(--mk-amarelo); }
-.tema-makburguer .previa-exclusiva .previa-home { background: var(--mk-creme); }
-.tema-makburguer .status-loja.aberta { --ponto: #2E9D4F; }
+.tema-makburguer .previa-exclusiva .previa-botao { background: var(--mk-fogo); color: #1A0E07; }
+.tema-makburguer .previa-exclusiva .previa-home { background: #0C0907; }
 .tema-makburguer:has(.painel-topo) .mp-status { background: #E4F4E8; color: #1F6B36; }
 .tema-makburguer:has(.painel-topo) .mp-status .bolinha { background: #2E9D4F; }
 .tema-makburguer:has(.painel-topo) .aviso, .tema-makburguer:has(.painel-topo) .design-exclusivo, .tema-makburguer:has(.painel-topo) .taxa-exemplo { border-color: var(--line-forte); }

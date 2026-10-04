@@ -1230,9 +1230,55 @@ a.selo-google:hover { background: var(--lime-suave); }
 .splash-burgerhouse .splash-pontos span { background: #FFC23A; }
 .splash-burgerhouse .splash-pontos span:nth-child(2) { background: #FF8A1F; }
 .splash-burgerhouse .splash-pontos span:nth-child(3) { background: #FF6A13; }
-.splash-makburguer .splash-pontos span { background: #231610; }
-.splash-makburguer .splash-pontos span:nth-child(2) { background: #FFC21A; }
-.splash-makburguer .splash-pontos span:nth-child(3) { background: #F26A0E; }
+/* Mak Burguer: a tela de carregamento ja e a da hamburgueria (preto quente, brasas subindo, selo com luz e um fio de ouro que corre).
+   Mora aqui e nao no tema porque ela aparece antes de o css do tema chegar; as fontes tambem (so baixam se a loja de fato usar). */
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../fontes/oswald-latin.woff2') format('woff2'); ascent-override: 105%; descent-override: 24%; line-gap-override: 0%; size-adjust: 94%; }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 600 800; font-display: swap; src: url('../fontes/playfairdisplay-latin.woff2') format('woff2'); ascent-override: 96%; descent-override: 28%; line-gap-override: 0%; }
+.splash-makburguer { overflow: hidden; gap: 18px; background-image: radial-gradient(ellipse 80% 44% at 50% 44%, rgba(255, 140, 30, 0.42), rgba(255, 100, 10, 0) 70%), linear-gradient(180deg, #120D0A 0%, #0C0907 60%, #080504 100%) !important; }
+.splash-makburguer > * { position: relative; z-index: 1; }
+.splash-makburguer::before, .splash-makburguer::after { content: ""; position: absolute; left: 0; right: 0; top: 0; z-index: 0; pointer-events: none; will-change: transform; }
+.splash-makburguer::before {
+  height: calc(100% + 480px); background-repeat: repeat; background-size: 270px 480px, 330px 480px, 390px 480px, 450px 480px, 300px 480px;
+  background-image:
+    radial-gradient(circle at 60px 430px, #FFE8A8 0 1.2px, rgba(255, 170, 50, 0.95) 1.9px, rgba(255, 120, 20, 0.3) 3.6px, rgba(255, 110, 20, 0) 6.5px),
+    radial-gradient(circle at 210px 120px, #FFE8A8 0 1px, rgba(255, 160, 40, 0.9) 1.7px, rgba(255, 120, 20, 0.3) 3.2px, rgba(255, 110, 20, 0) 6px),
+    radial-gradient(circle at 300px 300px, #FFF0C0 0 1.6px, rgba(255, 180, 60, 0.95) 2.4px, rgba(255, 120, 20, 0.34) 4.4px, rgba(255, 110, 20, 0) 8px),
+    radial-gradient(circle at 110px 210px, #FFE8A8 0 0.9px, rgba(255, 150, 40, 0.85) 1.5px, rgba(255, 120, 20, 0.28) 3px, rgba(255, 110, 20, 0) 5.5px),
+    radial-gradient(circle at 150px 360px, #FFF0C0 0 1.1px, rgba(255, 165, 45, 0.9) 1.8px, rgba(255, 120, 20, 0.3) 3.4px, rgba(255, 110, 20, 0) 6px);
+  animation: splash-mk-brasas 6s linear infinite, splash-mk-cintilar 1.8s ease-in-out infinite;
+}
+.splash-makburguer::after {
+  height: calc(100% + 720px); background-repeat: repeat; background-size: 420px 720px, 500px 720px, 340px 720px; opacity: 0.8;
+  background-image:
+    radial-gradient(circle at 90px 600px, rgba(255, 230, 160, 0.95) 0 2px, rgba(255, 150, 40, 0.75) 3.4px, rgba(255, 110, 20, 0.22) 6px, rgba(255, 100, 10, 0) 10px),
+    radial-gradient(circle at 320px 250px, rgba(255, 230, 160, 0.9) 0 2.4px, rgba(255, 150, 40, 0.7) 4px, rgba(255, 110, 20, 0.22) 7px, rgba(255, 100, 10, 0) 12px),
+    radial-gradient(circle at 180px 90px, rgba(255, 230, 160, 0.9) 0 1.8px, rgba(255, 150, 40, 0.7) 3px, rgba(255, 110, 20, 0.2) 5.5px, rgba(255, 100, 10, 0) 9px);
+  animation: splash-mk-brasas-b 10s linear infinite, splash-mk-cintilar 2.4s ease-in-out -0.8s infinite;
+}
+.splash-makburguer img {
+  width: min(240px, 62vw); transform-origin: 50% 50%;
+  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 30px rgba(255, 150, 30, 0.45));
+  animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite;
+}
+.splash-makburguer .splash-frase { font-family: 'Oswald', 'Ligeiro Display', Bahnschrift, 'Segoe UI', system-ui, sans-serif; font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.34em; text-indent: 0.34em; text-transform: uppercase; color: #F2B233; animation: splash-mk-frase 1.6s ease-in-out infinite; }
+.splash-makburguer .splash-pontos { position: relative; display: block; width: 148px; height: 3px; border-radius: 3px; background: rgba(246, 235, 221, 0.14); overflow: hidden; }
+.splash-makburguer .splash-pontos span { display: none; }
+.splash-makburguer .splash-pontos::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, rgba(255, 214, 90, 0), #FFD65C 55%, #FF9A1F); box-shadow: 0 0 10px rgba(255, 170, 50, 0.9); animation: splash-mk-fio 1.3s ease-in-out infinite; }
+.splash-makburguer .splash-fogo {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 300px; pointer-events: none; transform-origin: 50% 100%;
+  background: url('../img/oficial/mak-chamas-frente.svg') 0 100% / 260px 300px repeat-x, url('../img/oficial/mak-chamas-fundo.svg') 0 100% / 260px 300px repeat-x;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 45%); mask-image: linear-gradient(180deg, transparent 0%, #000 45%);
+  animation: splash-mk-labaredas 5s linear infinite, splash-mk-tremular 1.8s ease-in-out infinite;
+}
+@keyframes splash-mk-labaredas { from { background-position: 0 100%, 0 100%; } to { background-position: 260px 100%, -260px 100%; } }
+@keyframes splash-mk-tremular { 0%, 100% { transform: scaleY(1); opacity: 0.92; } 40% { transform: scaleY(1.07); opacity: 1; } 70% { transform: scaleY(0.96); opacity: 0.88; } }
+@keyframes splash-mk-brasas { to { transform: translate3d(0, -480px, 0); } }
+@keyframes splash-mk-brasas-b { to { transform: translate3d(0, -720px, 0); } }
+@keyframes splash-mk-cintilar { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes splash-mk-entrar { 0% { opacity: 0; transform: scale(0.78); } 100% { opacity: 1; transform: none; } }
+@keyframes splash-mk-flutuar { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.025); } }
+@keyframes splash-mk-frase { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes splash-mk-fio { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
 @keyframes splash-ponto { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-8px); opacity: 1; } }
 /* paineis (lojista, cozinha, entregador, Central): a tela do Ligeiro. O fundo branco cobre tudo na hora; mascote, nome
    e bolinhas surgem depois de um instante. Cores fixas da marca (nao mudam com a cor de cada loja). */
@@ -1977,6 +2023,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   /* a tela de carregamento da loja oficial tambem fica igual ao PC (iPhone com "Reduzir movimento" via ela parada) */
   .splash-oficial { transition: opacity 0.3s ease !important; }
   .splash-oficial img { animation: splash-pulsar 1.1s ease-in-out infinite !important; }
+  .splash-makburguer::before { animation: splash-mk-brasas 6s linear infinite, splash-mk-cintilar 1.8s ease-in-out infinite !important; }
+  .splash-makburguer::after { animation: splash-mk-brasas-b 10s linear infinite, splash-mk-cintilar 2.4s ease-in-out -0.8s infinite !important; }
+  .splash-makburguer img { animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite !important; }
+  .splash-makburguer .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
+  .splash-makburguer .splash-fogo { animation: splash-mk-labaredas 5s linear infinite, splash-mk-tremular 1.8s ease-in-out infinite !important; }
+  .splash-makburguer .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
   .splash-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .splash-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
   .splash-pontos span:nth-child(3) { animation-delay: 0.3s !important; }

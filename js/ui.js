@@ -758,8 +758,10 @@
      Evita o "pisca" do visual padrao antes do tema. Devolve a funcao que tira a tela. */
   function splashOficial(o) {
     var caixa = el('div', { class: 'splash-oficial' + (o.ligeiro ? ' splash-ligeiro' : '') + (o.tema ? ' splash-' + o.tema : ''), style: { background: o.corFundo || '#f6e6c4' }, role: 'status', 'aria-label': 'Abrindo a loja' }, [
+      o.fogo ? el('div', { class: 'splash-fogo', 'aria-hidden': 'true' }) : null,
       o.logo ? el('img', { src: o.logo, alt: '' }) : el('img', { src: 'img/mascote.webp', alt: '' }),
       o.ligeiro ? el('div', { class: 'splash-marca' }, ['Ligei', el('span', { text: 'ro' })]) : null,
+      o.frase ? el('div', { class: 'splash-frase', text: o.frase }) : null,
       el('div', { class: 'splash-pontos' }, [el('span'), el('span'), el('span')]),
     ]);
     document.body.appendChild(caixa);
