@@ -2815,8 +2815,8 @@
             el('li', {}, [UI.iconeLinha('sair'), el('span', { text: 'Você desconecta quando quiser, aqui mesmo.' })]),
           ]),
           el('div', { class: 'mp-seguro-links' }, [
-            el('a', { href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction', target: '_blank', rel: 'noopener noreferrer', text: 'Como funciona a autorização' }),
-            el('a', { href: 'https://www.mercadopago.com.br/seguranca', target: '_blank', rel: 'noopener noreferrer', text: 'Segurança no Mercado Pago' }),
+            el('a', { href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction', target: '_blank', rel: 'noopener noreferrer' }, [el('span', { text: 'Como funciona a autorização' }), UI.iconeLinha('externo')]),
+            el('a', { href: 'https://www.mercadopago.com.br/seguranca', target: '_blank', rel: 'noopener noreferrer' }, [el('span', { text: 'Segurança no Mercado Pago' }), UI.iconeLinha('externo')]),
           ]),
         ]));
         conexao.appendChild(botaoConectar());

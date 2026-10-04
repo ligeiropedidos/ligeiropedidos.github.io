@@ -55,7 +55,8 @@ body:has(.tema-makburguer #tela-inicio) {
     linear-gradient(180deg, #120D0A 0%, #0C0907 52%, #080504 100%);
 }
 body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer { background: rgba(6, 4, 3, 0.74); }
-body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: var(--mk-texto); box-shadow: 0 0 0 1px rgba(242, 178, 51, 0.45), 0 12px 30px rgba(0, 0, 0, 0.6); }
+/* a torrada fica no body, fora do .tema-makburguer: as variaveis --mk-* nao chegam nela (a letra saia escura em cima do fundo escuro). Cores direto. */
+body:has(.tema-makburguer #tela-inicio) .torrada { background: #2A1D14; color: #FFF6E5; box-shadow: 0 0 0 1px rgba(242, 178, 51, 0.6), 0 12px 30px rgba(0, 0, 0, 0.6); }
 
 /* ---------- primeira tela: palco escuro, com brasas subindo ---------- */
 .tema-makburguer #tela-inicio {

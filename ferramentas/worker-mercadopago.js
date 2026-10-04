@@ -2008,7 +2008,9 @@ export default {
           return json({ ok: true, depois: true }, 202);
         }
         const item = await atualizarLoja(env, loja, !!(antes && antes.value));
-        if (!item.existe) return json({ ok: false, erro: 'loja não existe' }, 404);
+        /* a Central apaga a loja de vez e avisa aqui para a copia sair: nao ter mais loja e o resultado esperado (200), nao um erro
+           vermelho no console. Para os outros, loja que nao existe continua sendo 404 */
+        if (!item.existe) return quem === ADMIN ? json({ ok: true, removida: true }) : json({ ok: false, erro: 'loja não existe' }, 404);
         if (item.meta.dono !== quem && quem !== ADMIN) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
         const vitrine = depoisDePublicar(env, loja, antes, item);
         if (vitrine && ctx && ctx.waitUntil) ctx.waitUntil(vitrine);

@@ -2910,44 +2910,44 @@
     /* cartao da tela da senha: "vamos te avisar" (ja ligado) ou o botao para ligar agora (1 gravacao no pedido) */
     /* Corrida e Pulo do Ligeiro: os joguinhos enquanto o pedido fica pronto. So depois de pago (antes, o certo e pagar) e
        ate sair ou ficar pronto. Zero banco: rodam no aparelho, e o codigo de cada um so baixa quando a pessoa toca em Jogar */
-    /* arte do icone da Corrida: ceu, sol, morro, a rua em perspectiva com as faixas e a motinho do Ligeiro de costas */
+    /* arte do icone da Corrida: noite, lua, a cidade com janelas acesas, a rua em perspectiva com as faixas e a motinho do Ligeiro de costas */
     var ARTE_CORRIDA = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
-      '<defs><linearGradient id="arteCorridaCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FB6EE"/><stop offset="1" stop-color="#D4F0FF"/></linearGradient></defs>' +
+      '<defs><linearGradient id="arteCorridaCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B0B33"/><stop offset=".62" stop-color="#8E2F3A"/><stop offset="1" stop-color="#E8542B"/></linearGradient></defs>' +
       '<rect width="48" height="48" fill="url(#arteCorridaCeu)"/>' +
-      '<circle cx="37.5" cy="9.5" r="7" fill="#FFF3B8" opacity=".6"/><circle cx="37.5" cy="9.5" r="4.6" fill="#FFD84A"/>' +
-      '<path d="M0 21c7-6 13-6 19-2s12 2 17-3 9-2 12 1v7H0z" fill="#A9D98C"/>' +
-      '<path d="M0 23c9-4 16-3 24 0s16 2 24-1v26H0z" fill="#7CC35A"/>' +
-      '<path d="M20.6 23h6.8L47 48H1z" fill="#E3DCCB"/>' +
-      '<path d="M21.6 23h4.8L43 48H5z" fill="#4B5058"/>' +
-      '<path d="M21.6 23 5 48H2.6L20.9 23zM26.4 23 43 48h2.4L27.1 23z" fill="#D64541"/>' +
-      '<path d="M23.2 23.5 19.5 48M24.8 23.5 28.5 48" stroke="#fff" stroke-width=".9" stroke-dasharray="2.2 2.4" opacity=".9"/>' +
+      '<circle cx="37.5" cy="9.5" r="7" fill="#FFE6BE" opacity=".28"/><circle cx="37.5" cy="9.5" r="4.4" fill="#FFF1D0"/><g fill="#fff" opacity=".8"><rect x="6" y="5" width=".9" height=".9"/><rect x="15" y="9" width=".9" height=".9"/><rect x="25" y="4" width=".9" height=".9"/><rect x="11" y="13" width=".9" height=".9"/></g>' +
+      '<g fill="#2A1243"><rect x="0" y="16" width="6" height="9"/><rect x="6" y="12" width="6" height="13"/><rect x="12" y="17" width="5" height="8"/><rect x="31" y="14" width="6" height="11"/><rect x="37" y="18" width="5" height="7"/><rect x="42" y="13" width="6" height="12"/></g><g fill="#FFD27A"><rect x="1.4" y="18" width="1.2" height="1.4"/><rect x="3.4" y="21" width="1.2" height="1.4"/><rect x="7.4" y="14" width="1.2" height="1.4"/><rect x="9.6" y="18" width="1.2" height="1.4"/><rect x="7.4" y="21" width="1.2" height="1.4"/><rect x="13.4" y="19.5" width="1.2" height="1.4"/><rect x="32.4" y="16" width="1.2" height="1.4"/><rect x="34.4" y="20" width="1.2" height="1.4"/><rect x="38.4" y="20" width="1.2" height="1.4"/><rect x="43.4" y="15" width="1.2" height="1.4"/><rect x="45.6" y="19" width="1.2" height="1.4"/></g>' +
+      '<path d="M0 23c9-4 16-3 24 0s16 2 24-1v26H0z" fill="#1E1030"/>' +
+      '<path d="M20.6 23h6.8L47 48H1z" fill="#5A4670"/>' +
+      '<path d="M21.6 23h4.8L43 48H5z" fill="#2D2438"/>' +
+      '<path d="M21.6 23 5 48H2.6L20.9 23zM26.4 23 43 48h2.4L27.1 23z" fill="#E8542B"/>' +
+      '<path d="M23.2 23.5 19.5 48M24.8 23.5 28.5 48" stroke="#FFD27A" stroke-width=".9" stroke-dasharray="2.2 2.4" opacity=".9"/>' +
       '<circle cx="28" cy="27" r="1" fill="#F7C325" stroke="#D9A109" stroke-width=".4"/><circle cx="29.8" cy="30.6" r="1.35" fill="#F7C325" stroke="#D9A109" stroke-width=".45"/><circle cx="32.2" cy="35.6" r="1.75" fill="#F7C325" stroke="#D9A109" stroke-width=".5"/>' +
-      '<path d="M7 29.5 3.5 36M41 29.5l3.5 6.5M9.5 37 6.5 43M38.5 37l3 6" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".85"/>' +
+      '<path d="M7 29.5 3.5 36M41 29.5l3.5 6.5M9.5 37 6.5 43M38.5 37l3 6" stroke="#FFD27A" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>' +
       '<g stroke="#A99FB0" stroke-width=".45"><circle cx="20.5" cy="31.3" r="2.3" fill="#DDD6E2"/><circle cx="27.5" cy="31.3" r="2.3" fill="#DDD6E2"/>' +
       '<circle cx="24" cy="32.6" r="2.9" fill="#F1EDF3"/></g>' +
       '<g fill="#fff" stroke="#C9CFCC" stroke-width=".4"><rect x="21.3" y="28" width="5.4" height="2.2" rx=".8"/><circle cx="22.2" cy="27.5" r="1.5"/><circle cx="25.8" cy="27.5" r="1.5"/><circle cx="24" cy="26.8" r="1.8"/></g>' +
-      '<path d="M18.7 34.6h10.6l-.9-1.5h-8.8z" fill="#1B6B4A"/>' +
-      '<rect x="18.2" y="34.4" width="11.6" height="8.2" rx="1.7" fill="#0F3D2E"/>' +
-      '<circle cx="24" cy="37.8" r="2.4" fill="#fff"/><circle cx="24" cy="37.8" r="1.1" fill="#84CC16"/>' +
-      '<rect x="18.4" y="40.5" width="11.2" height="1.1" fill="#84CC16"/>' +
-      '<rect x="20.6" y="42" width="6.8" height="3.8" rx="1.6" fill="#84CC16"/>' +
+      '<path d="M18.7 34.6h10.6l-.9-1.5h-8.8z" fill="#FF6A3D"/>' +
+      '<rect x="18.2" y="34.4" width="11.6" height="8.2" rx="1.7" fill="#E8431A"/>' +
+      '<circle cx="24" cy="37.8" r="2.4" fill="#fff"/><circle cx="24" cy="37.8" r="1.1" fill="#FFC21A"/>' +
+      '<rect x="18.4" y="40.5" width="11.2" height="1.1" fill="#FFC21A"/>' +
+      '<rect x="20.6" y="42" width="6.8" height="3.8" rx="1.6" fill="#FF8A1F"/>' +
       '<rect x="22.4" y="42.7" width="3.2" height="1.2" rx=".5" fill="#FF3B30"/>' +
       '<rect x="22.5" y="44.9" width="3" height="3.1" rx="1.2" fill="#1D1F22"/>' +
       '</svg>';
-    /* arte do icone do Pulo: ceu, nuvens, as tabuas (verde, azul e a caixa de papelao), a moeda e o ratinho no ar */
+    /* arte do icone do Pulo: noite, lua, a cidade, as tabuas (laranja, vermelha e a caixa de papelao), a moeda e o ratinho no ar */
     var ARTE_PULO = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
-      '<defs><linearGradient id="artePuloCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FB6EE"/><stop offset="1" stop-color="#D4F0FF"/></linearGradient></defs>' +
+      '<defs><linearGradient id="artePuloCeu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B0B33"/><stop offset=".6" stop-color="#7A2A45"/><stop offset="1" stop-color="#E8542B"/></linearGradient></defs>' +
       '<rect width="48" height="48" fill="url(#artePuloCeu)"/>' +
-      '<g fill="#fff" opacity=".9"><rect x="4" y="9" width="13" height="4" rx="2"/><circle cx="8.5" cy="9.2" r="2.6"/><circle cx="12.4" cy="8.4" r="3.2"/><rect x="33" y="26" width="11" height="3.6" rx="1.8"/><circle cx="36.8" cy="26.2" r="2.3"/><circle cx="40" cy="25.6" r="2.7"/></g>' +
-      '<circle cx="39" cy="11" r="3" fill="#F7C325" stroke="#D9A109" stroke-width=".8"/><path d="M38.2 9.6v2.8h1.8" stroke="#0F3D2E" stroke-width=".8" fill="none"/>' +
-      '<rect x="3" y="40" width="17" height="4.4" rx="2.2" fill="#84CC16"/><rect x="3" y="42.6" width="17" height="1.8" rx=".9" fill="#5E9A0C"/>' +
-      '<rect x="29" y="35" width="15" height="4" rx="2" fill="#3BA3E8"/><rect x="29" y="37.3" width="15" height="1.7" rx=".85" fill="#1E78B8"/>' +
+      '<g fill="#8C5A9E" opacity=".75"><rect x="4" y="9" width="13" height="4" rx="2"/><circle cx="8.5" cy="9.2" r="2.6"/><circle cx="12.4" cy="8.4" r="3.2"/><rect x="33" y="26" width="11" height="3.6" rx="1.8"/><circle cx="36.8" cy="26.2" r="2.3"/><circle cx="40" cy="25.6" r="2.7"/></g>' +
+      '<circle cx="38" cy="8" r="6" fill="#FFE6BE" opacity=".25"/><circle cx="38" cy="8" r="3.6" fill="#FFF1D0"/><g fill="#fff" opacity=".8"><rect x="24" y="5" width=".9" height=".9"/><rect x="30" y="15" width=".9" height=".9"/><rect x="45" y="19" width=".9" height=".9"/></g><circle cx="41" cy="19" r="3" fill="#F7C325" stroke="#D9A109" stroke-width=".8"/><path d="M40.2 17.6v2.8h1.8" stroke="#2A1000" stroke-width=".8" fill="none"/>' +
+      '<rect x="3" y="40" width="17" height="4.4" rx="2.2" fill="#FF9A1F"/><rect x="3" y="42.6" width="17" height="1.8" rx=".9" fill="#D9560B"/>' +
+      '<rect x="29" y="35" width="15" height="4" rx="2" fill="#E8433A"/><rect x="29" y="37.3" width="15" height="1.7" rx=".85" fill="#B3261E"/>' +
       '<rect x="6" y="24" width="12" height="3.6" rx=".8" fill="#C8955A"/><rect x="11.2" y="24" width="1.6" height="3.6" fill="#E8D3A8"/>' +
       '<path d="M13 39.4C14.5 33 17.5 31.5 20.5 31" stroke="#fff" stroke-width="1" stroke-dasharray="1.4 1.6" fill="none" opacity=".95"/>' +
       '<g transform="translate(24 12.5)">' +
       '<circle cx="-4.6" cy="4.2" r="3.1" fill="#E6E1E8"/><circle cx="4.6" cy="4.2" r="3.1" fill="#E6E1E8"/><circle cx="-4.6" cy="4.2" r="1.7" fill="#F4A7B9"/><circle cx="4.6" cy="4.2" r="1.7" fill="#F4A7B9"/>' +
       '<path d="M-3.4 14.4-6 10.2M3.4 14.4 6 10.2" stroke="#E6E1E8" stroke-width="1.7" stroke-linecap="round"/>' +
-      '<rect x="-3.5" y="12" width="7" height="7" rx="2.6" fill="#84CC16"/><rect x="-3.5" y="16.8" width="7" height="2.2" rx="1" fill="#5E9A0C"/>' +
+      '<rect x="-3.5" y="12" width="7" height="7" rx="2.6" fill="#E8431A"/><rect x="-3.5" y="16.8" width="7" height="2.2" rx="1" fill="#FFC21A"/>' +
       '<ellipse cx="-1.8" cy="19.6" rx="1.7" ry="1" fill="#F4A7B9"/><ellipse cx="1.8" cy="19.6" rx="1.7" ry="1" fill="#F4A7B9"/>' +
       '<circle cx="0" cy="7" r="4.9" fill="#ECE8EE" stroke="#C9C1CE" stroke-width=".5"/>' +
       '<circle cx="-1.7" cy="6.8" r=".8" fill="#1D1F22"/><circle cx="1.7" cy="6.8" r=".8" fill="#1D1F22"/><circle cx="0" cy="8.7" r=".7" fill="#F07A9A"/>' +

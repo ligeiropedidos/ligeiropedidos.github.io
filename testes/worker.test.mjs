@@ -338,12 +338,12 @@ kv.mapa.set('vitrine', { valor: '{"borda":1,"lista":[]}', metadata: { em: Date.n
 db.delete('lojas/loja-apagada');
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'loja-apagada' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 await new Promise((ok2) => setTimeout(ok2, 20));
-ok(r.status === 404 && !kv.mapa.has('loja:loja-apagada') && !kv.mapa.has('fotos:loja-apagada') && !kv.mapa.has('vitrine'), 'loja excluida: a copia, as fotos e a vitrine da borda saem');
+ok(r.status === 200 && (await r.json()).removida === true && !kv.mapa.has('loja:loja-apagada') && !kv.mapa.has('fotos:loja-apagada') && !kv.mapa.has('vitrine'), 'loja excluida: a copia, as fotos e a vitrine da borda saem, e o admin recebe 200 (nada de erro vermelho no console)');
 r = await chamar(w, '/loja/loja-apagada');
 ok(r.status === 404, 'loja excluida: o cliente ve "nao existe", nao a copia velha');
 zerar();
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'endereco-inventado' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
-ok(r.status === 404 && kv.gravacoes === 0, 'endereco inventado nao gasta apagamento no KV');
+ok(r.status === 200 && kv.gravacoes === 0, 'endereco inventado nao gasta apagamento no KV');
 zerar();
 r = await chamar(w, '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura' } });
 ok(r.status === 200 && kv.gravacoes === 1, 'publicar sem mudar nada grava a copia de novo (a versao nova e o que faz o token do Mercado Pago ser relido)');

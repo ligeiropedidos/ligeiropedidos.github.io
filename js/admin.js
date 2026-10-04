@@ -1485,7 +1485,6 @@
               executar(trava, marca, function () { return D.modoDemo ? store.salvarLoja({ slug: l.slug, ativa: false }) : store.excluirLoja(l.slug); }, l.nome + ' desativada');
             });
           } }),
-        l.ativa === false ? el('button', { class: 'btn btn-erro', type: 'button', title: 'Apaga a loja de vez: cardápio, fotos e pedidos', onclick: function () { excluirDeVez(l, marca, trava); } }, [UI.iconeLinha('lixeira'), 'Excluir de vez']) : null,
       ]));
 
       if (!l.donoEmail) {
@@ -1532,6 +1531,19 @@
             el('span', { class: 'adm-nome', text: l.donoEmail }),
           ]),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Abrir conta', onclick: function () { abrirConta(l.donoEmail); } }),
+        ]));
+      }
+
+      /* apagar de vez: sozinho no fim da ficha (acao sem volta nao fica no meio dos botoes do dia a dia), so para loja desativada;
+         a mesma linha da Assinatura: texto de um lado, botao do outro */
+      if (l.ativa === false) {
+        corpo.appendChild(el('h3', { text: 'Excluir loja' }));
+        corpo.appendChild(el('div', { class: 'adm-caixa adm-conta-linha' }, [
+          el('div', { class: 'adm-textos' }, [
+            el('span', { class: 'adm-sub', text: 'Só para loja desativada, e não tem volta' }),
+            el('span', { class: 'adm-nome', text: 'Apaga o cardápio, as fotos e os pedidos' }),
+          ]),
+          el('button', { class: 'btn btn-erro btn-pequeno', type: 'button', onclick: function () { excluirDeVez(l, marca, trava); } }, [UI.iconeLinha('lixeira'), 'Excluir de vez']),
         ]));
       }
 

@@ -1707,6 +1707,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .login-seguro-titulo .ico-traco svg { width: 18px; height: 18px; stroke-width: 2.4; }
 .login-seguro .plano-linhas { margin: 0; font-size: 14px; }
 .login-seguro .plano-check .ico-traco { color: var(--lime-escuro); }
+/* tela larga (PC): a caixa passa de 1000 px e o texto ficava colado na esquerda com um vazio enorme na direita; o titulo e as linhas formam um bloco so, no meio
+   da caixa (a mesma borda esquerda para o cadeado e os checks). No celular a caixa e estreita e nada muda */
+@media (min-width: 640px) { .login-seguro { display: grid; justify-content: center; } }
 /* lado a lado: cada parte do cartao na mesma altura dos vizinhos (a frase maior manda na fileira) */
 @supports (grid-template-rows: subgrid) {
   .planos > .plano-card { display: grid; grid-template-rows: subgrid; grid-row: span var(--partes); row-gap: 8px; align-content: start; }
@@ -1937,7 +1940,8 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 @media (max-width: 400px) { .cta-fixa b { display: block; } .cta-fixa .cta-sep { display: none; } }
 .cta-fixa .btn { flex: none; }
 @media (prefers-reduced-motion: reduce) { .cta-fixa, .cta-fixa.visivel { transition: none; } }
-@media (max-width: 759px) { .zap-flutuante { bottom: 84px; width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
+/* o botao fica 16 px acima da barra "Comecar gratis" (65 de barra + 16 = 81) mais a faixa de baixo do iPhone, que engorda a barra: com o 84 fixo ele encostava, e com a faixa entrava em cima dela */
+@media (max-width: 759px) { .zap-flutuante { bottom: calc(81px + env(safe-area-inset-bottom)); width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
 @media (min-width: 760px) { .cta-fixa { display: none; } }
 .texto-legal h1 { font-size: 30px; margin-bottom: 4px; }
 .texto-legal h2 { font-size: 19px; margin-top: 16px; } /* 16 + 8 do gap: 24 antes de cada secao */
@@ -1966,6 +1970,15 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .duvida { align-self: start; }
   .vender-final { padding: 16px 0 10px; }
+}
+
+/* PC: o topo e o rodape da pagina inicial usam a mesma coluna do resto (1028 de largura util). Antes, a logo e o botao Comecar gratis
+   ficavam 60 px para fora do texto da capa e das secoes. Do 1181 para cima o topo vai de ponta a ponta, como a faixa da capa */
+@media (min-width: 900px) {
+  .app:has(.conteudo.vender) .barra-topo, .app:has(.conteudo.vender) .rodape-vendas { padding-left: max(var(--margem), calc((100% - 1028px) / 2)); padding-right: max(var(--margem), calc((100% - 1028px) / 2)); }
+}
+@media (min-width: 1181px) {
+  .app:has(.conteudo.vender) .barra-topo { width: var(--vw, 100vw); margin-left: calc(50% - var(--vw, 100vw) / 2); padding-left: calc(var(--vw, 100vw) / 2 - 514px); padding-right: calc(var(--vw, 100vw) / 2 - 514px); }
 }
 
 /* ---------- Tela da cozinha ---------- */
@@ -2754,8 +2767,13 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .mp-seguro { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line-forte); border-radius: var(--raio-p); background: var(--lime-suave); }
 .mp-seguro > b { font-size: 16px; }
 .mp-seguro .garantias { max-width: none; width: auto; margin: 0; }
-.mp-seguro-links { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 13.5px; line-height: 1.35; font-weight: 600; }
-.mp-seguro-links a { color: var(--deep2); text-decoration: underline; text-underline-offset: 2px; }
+/* os dois links oficiais: duas linhas inteiras (alvo de toque de 44), texto na esquerda, "abre fora" na direita, separadas por filete.
+   Texto que quebra em celular estreito continua dentro da linha, sem sublinhado cortando no meio */
+.mp-seguro-links { display: flex; flex-direction: column; margin-top: 4px; border-top: 1px solid var(--line-forte); font-size: 14px; line-height: 1.3; font-weight: 700; }
+.mp-seguro-links a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 0; color: var(--deep2); text-decoration: none; }
+.mp-seguro-links a + a { border-top: 1px solid var(--line); }
+.mp-seguro-links a .ico-traco { flex: none; color: var(--lime-escuro); }
+.mp-seguro-links a .ico-traco svg { width: 18px; height: 18px; }
 .mp-convite b { font-size: 16px; }
 .passos-conectar { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .passos-conectar li { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.35; }
