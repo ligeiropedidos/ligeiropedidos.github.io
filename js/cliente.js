@@ -141,7 +141,9 @@
   function cidade(raiz, cidadeSlug) {
     var estadoHub = { lojas: [], termo: '', soAbertas: false, tipo: '' };
 
-    var tituloCidade = el('h1', { class: 'hub-titulo', text: 'Carregando…' });
+    /* o titulo nasce com o tamanho que vai ter (texto + o botao da cidade, que quebram em duas linhas): antes nascia "Carregando…" em
+       uma linha e, quando a cidade chegava, tudo abaixo descia uns 55 px */
+    var tituloCidade = el('h1', { class: 'hub-titulo' }, [el('span', { text: 'Peça no delivery de' }), el('span', { 'aria-hidden': 'true', style: { visibility: 'hidden', width: '120px', height: '47px' } })]);
     raiz.classList.add('fundo-hub');
     raiz.appendChild(el('div', { class: 'hub-capa hub-cidade' }, [
       el('img', { class: 'hub-mascote-fundo', src: 'img/mascote.webp', alt: '' }),

@@ -106,12 +106,17 @@
     var logado = !!(store && store.pareceLogado && store.pareceLogado());
     if (logado) comoLogado(true);
     /* o Firebase confirma (e traz o nome) ou corrige se a sessao tiver caido. Quem nunca entrou neste aparelho nao
-       espera por ele: o banco (uns 180 KB) so vem depois que a pagina terminou de abrir */
+       espera por ele: o banco e o login (uns 300 KB, e o processador do celular ocupado com eles) so vem quando a pessoa
+       mexe na pagina (toque, rolagem ou tecla). Quem so abre e sai nao gasta internet nem bateria com isso */
     function conferir() { store.usuarioAtual().then(function (u) { comoLogado(!!u, u); }); }
+    function aoPrimeiroToque(fn) {
+      var eventos = ['pointerdown', 'touchstart', 'keydown', 'scroll', 'wheel'], feito = false;
+      function uma() { if (feito) return; feito = true; eventos.forEach(function (e) { window.removeEventListener(e, uma, true); }); fn(); }
+      eventos.forEach(function (e) { window.addEventListener(e, uma, { capture: true, passive: true }); });
+    }
     if (store && store.usuarioAtual) {
       if (logado) conferir();
-      else if (document.readyState === 'complete') setTimeout(conferir, 3000);
-      else window.addEventListener('load', function () { setTimeout(conferir, 3000); }, { once: true });
+      else aoPrimeiroToque(function () { setTimeout(conferir, 1200); });
     }
     return barra;
   }

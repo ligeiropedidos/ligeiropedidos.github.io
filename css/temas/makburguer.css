@@ -102,7 +102,7 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
 /* fagulhas que saem do fogo e fumaca que sobe atras do selo (os "enfeites" da loja sao vazios: so servem de pecas para o movimento) */
 .tema-makburguer .enfeites { position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--mk-altura-fogo); z-index: 1; overflow: hidden; pointer-events: none; }
 .tema-makburguer .enfeites span {
-  position: absolute; bottom: 4%; width: 4px; height: 4px; border-radius: 50%; background: #FFE9B0; opacity: 0;
+  position: absolute; bottom: 4%; width: 4px; height: 4px; border-radius: 50%; background: #FFE9B0; opacity: 0; z-index: 2;
   box-shadow: 0 0 8px 3px rgba(255, 160, 40, 0.85); animation: mk-fagulha var(--d, 4s) ease-out var(--l, 0s) infinite;
 }
 .tema-makburguer .enfeites span:nth-child(1)  { left:  7%; --x:  18px; --d: 4.2s; --l: -0.4s; }
@@ -115,8 +115,8 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
 .tema-makburguer .enfeites span:nth-child(8)  { left: 76%; --x: -18px; --d: 5.8s; --l: -3.5s; width: 5px; height: 5px; }
 .tema-makburguer .enfeites span:nth-child(9)  { left: 86%; --x:  22px; --d: 4.5s; --l: -1.7s; }
 .tema-makburguer .enfeites span:nth-child(10) { left: 94%; --x: -14px; --d: 5.0s; --l: -4.4s; width: 3px; height: 3px; }
-.tema-makburguer .enfeites span:nth-child(n+11) {
-  width: 130px; height: 130px; bottom: 8%; margin-left: -65px; box-shadow: none; filter: blur(7px);
+.tema-makburguer .enfeites span:nth-child(n+11):nth-child(-n+14) {
+  width: 130px; height: 130px; bottom: 8%; margin-left: -65px; box-shadow: none; z-index: 1;
   background: radial-gradient(circle, rgba(255, 238, 215, 0.2) 0%, rgba(255, 238, 215, 0) 68%); animation: mk-fumaca var(--d, 9s) ease-out var(--l, 0s) infinite;
 }
 .tema-makburguer .enfeites span:nth-child(11) { left: 30%; --x: -30px; --d: 9s;  --l: -1s; }
@@ -141,36 +141,44 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
   content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--mk-cena); z-index: 0; pointer-events: none;
 }
 .tema-makburguer .abertura::before {
-  background: url('../../img/oficial/mak/fundo-hero.webp') 50% 42% / cover no-repeat; opacity: 0.2; filter: saturate(1.2) contrast(1.05);
+  background: url('../../img/oficial/mak/fundo-hero.webp') 50% 42% / cover no-repeat; opacity: 0.2;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 58%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 58%, transparent 100%);
   transform-origin: 50% 46%; animation: mk-zoom 24s ease-in-out infinite alternate;
 }
 .tema-makburguer .abertura::after {
-  --barra: linear-gradient(180deg, #FFC98A 0%, #FF8A2A 24%, #6A3A20 54%, #17100C 100%);
   --centro-y: calc(24px + var(--mk-logo) / 2);
   height: var(--mk-altura-fogo);
-  background-image:
-    var(--barra), var(--barra), var(--barra), var(--barra),
-    url('../../img/oficial/mak-chamas-frente.svg'), url('../../img/oficial/mak-chamas-fundo.svg'),
-    radial-gradient(ellipse 64% 52% at 50% var(--centro-y), rgba(255, 150, 30, 0.50) 0%, rgba(255, 110, 15, 0.20) 44%, rgba(255, 100, 10, 0) 76%);
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, no-repeat;
-  background-size: 100% 6px, 100% 6px, 100% 6px, 100% 6px, 260px 300px, 260px 300px, 100% 100%;
-  background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 0 100%, 0 100%, 0 0;
+  background: radial-gradient(ellipse 64% 52% at 50% var(--centro-y), rgba(255, 150, 30, 0.50) 0%, rgba(255, 110, 15, 0.20) 44%, rgba(255, 100, 10, 0) 76%);
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
-  transform-origin: 50% 100%; animation: mk-tremular 2.4s ease-in-out infinite, mk-labaredas 7s linear infinite;
+  transform-origin: 50% 100%; animation: mk-tremular 2.4s ease-in-out infinite;
 }
-@keyframes mk-labaredas {
-  from { background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 0 100%, 0 100%, 0 0; }
-  to   { background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px), 260px 100%, -260px 100%, 0 0; }
+/* as chamas (duas camadas que andam em sentidos contrarios) e a grelha de ferro acesa sao pecas proprias: so se movem (translate) e
+   tremem (escala), coisas que a placa de video faz sem repintar a cada quadro */
+.tema-makburguer .enfeites span:nth-child(n+15) {
+  left: 0; bottom: 0; width: calc(100% + 260px); height: 300px; margin: 0; border-radius: 0; box-shadow: none; opacity: 1; z-index: 0; background-color: transparent;
+  background-repeat: repeat-x; background-position: 0 100%; background-size: 260px 300px; transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
 }
+.tema-makburguer .enfeites span:nth-child(15) { background-image: url('../../img/oficial/mak-chamas-fundo.svg'); animation: mk-correr-a 14s linear infinite, mk-tremular 2.4s ease-in-out infinite; }
+.tema-makburguer .enfeites span:nth-child(16) { left: -260px; background-image: url('../../img/oficial/mak-chamas-frente.svg'); animation: mk-correr-b 11s linear infinite, mk-tremular 1.9s ease-in-out -0.7s infinite; }
+.tema-makburguer .enfeites span:nth-child(17) {
+  --barra: linear-gradient(180deg, #FFC98A 0%, #FF8A2A 24%, #6A3A20 54%, #17100C 100%);
+  left: 0; width: 100%; height: 60px; z-index: 1; animation: none; transform-origin: 50% 50%;
+  -webkit-mask-image: none; mask-image: none;
+  background-image: var(--barra), var(--barra), var(--barra), var(--barra);
+  background-repeat: no-repeat; background-size: 100% 6px; background-position: 0 calc(100% - 8px), 0 calc(100% - 23px), 0 calc(100% - 38px), 0 calc(100% - 53px);
+}
+@keyframes mk-correr-a { from { translate: 0 0; } to { translate: -260px 0; } }
+@keyframes mk-correr-b { from { translate: 0 0; } to { translate: 260px 0; } }
 @keyframes mk-tremular {
   0%, 100% { transform: scaleY(1) skewX(0deg); opacity: 0.92; }
   33% { transform: scaleY(1.05) skewX(0.8deg); opacity: 1; }
   66% { transform: scaleY(0.97) skewX(-0.8deg); opacity: 0.88; }
 }
-@keyframes mk-zoom { from { transform: scale(1) translate3d(0, 0, 0); } to { transform: scale(1.14) translate3d(0, -10px, 0); } }
+@keyframes mk-zoom { from { transform: scale(1) translate3d(0, 0, 0); } to { transform: scale(1.1) translate3d(0, -8px, 0); } }
 
 /* o selo da marca: redondo, com luz de brasa em volta e dois aneis de ouro que abrem e somem; a imagem ja vem recortada no circulo */
 .tema-makburguer .logo-grande, .tema-makburguer .abertura.com-capa .logo-grande {
@@ -224,12 +232,14 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
   .tema-makburguer:has(#tela-inicio) .tela::before { animation: mk-brasas-a 14s linear infinite, mk-cintilar 2.6s ease-in-out infinite !important; }
   .tema-makburguer:has(#tela-inicio) .tela::after { animation: mk-brasas-b 24s linear infinite, mk-cintilar 3.7s ease-in-out -1.2s infinite !important; }
   .tema-makburguer .abertura::before { animation: mk-zoom 24s ease-in-out infinite alternate !important; }
-  .tema-makburguer .abertura::after { animation: mk-tremular 2.4s ease-in-out infinite, mk-labaredas 7s linear infinite !important; }
+  .tema-makburguer .abertura::after { animation: mk-tremular 2.4s ease-in-out infinite !important; }
+  .tema-makburguer .enfeites span:nth-child(15) { animation: mk-correr-a 14s linear infinite, mk-tremular 2.4s ease-in-out infinite !important; }
+  .tema-makburguer .enfeites span:nth-child(16) { animation: mk-correr-b 11s linear infinite, mk-tremular 1.9s ease-in-out -0.7s infinite !important; }
   .tema-makburguer .logo-grande { animation: mk-chegar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, mk-flutuar 5s ease-in-out 0.8s infinite !important; }
   .tema-makburguer .logo-grande::before, .tema-makburguer .logo-grande::after { animation: mk-onda 3.8s ease-out infinite !important; }
   .tema-makburguer .logo-grande::after { animation-delay: 1.9s !important; }
   .tema-makburguer .enfeites span { animation: mk-fagulha var(--d, 4s) ease-out var(--l, 0s) infinite !important; }
-  .tema-makburguer .enfeites span:nth-child(n+11) { animation: mk-fumaca var(--d, 9s) ease-out var(--l, 0s) infinite !important; }
+  .tema-makburguer .enfeites span:nth-child(n+11):nth-child(-n+14) { animation: mk-fumaca var(--d, 9s) ease-out var(--l, 0s) infinite !important; }
   .tema-makburguer #tela-inicio .btn-gigante:not(:disabled) { animation: mk-pulsar 2.6s ease-in-out infinite !important; }
   .tema-makburguer #tela-inicio .btn-principal::after { animation: brilho 5s ease-in-out infinite !important; }
   .tema-makburguer .foto-modal-desenho img { animation: mk-zoom 9s ease-in-out infinite alternate !important; }
@@ -244,8 +254,7 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
 
 /* ---------- selos, botao de pedir e os tres passos ---------- */
 .tema-makburguer #tela-inicio .selo {
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(242, 178, 51, 0.4); color: var(--mk-texto);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  background: rgba(40, 30, 22, 0.78); border: 1px solid rgba(242, 178, 51, 0.4); color: var(--mk-texto);
 }
 .tema-makburguer #tela-inicio .selo .bolinha { background: #3DDC84; }
 /* mesmo meio de letra do padrao dos temas: 35 px inteiros de altura, bolinha e estrela no meio da caixa */
@@ -266,19 +275,17 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #231A14; color: v
 .tema-makburguer:has(#tela-inicio) .btn-principal:disabled { box-shadow: none; }
 .tema-makburguer #tela-inicio .btn-gigante {
   font-family: var(--mk-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  box-shadow: 0 10px 28px rgba(242, 140, 30, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32);
+  box-shadow: 0 10px 34px rgba(242, 150, 30, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32);
 }
-@keyframes mk-pulsar {
-  0%, 100% { box-shadow: 0 10px 28px rgba(242, 140, 30, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32); }
-  60%      { box-shadow: 0 10px 46px rgba(255, 190, 70, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(120, 50, 0, 0.32); }
-}
+/* o pulso e um batimento leve (escala, feito pela placa de video), e nao a sombra mudando de tamanho a cada quadro */
+@keyframes mk-pulsar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 .tema-makburguer #tela-inicio .btn-gigante .sub { color: #3B2310; opacity: 0.9; letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
 .tema-makburguer #tela-inicio .btn-gigante:disabled { background: #3A2E25; color: #A8957F; box-shadow: none; }
 .tema-makburguer #tela-inicio .btn:focus-visible { outline-color: var(--mk-ouro-claro); }
 
 .tema-makburguer #tela-inicio .como-passo {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)); border: 1px solid rgba(242, 178, 51, 0.24);
-  color: var(--mk-texto); font-weight: 600; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, #1D1612, #130E0B); border: 1px solid rgba(242, 178, 51, 0.24);
+  color: var(--mk-texto); font-weight: 600;
 }
 .tema-makburguer #tela-inicio .como-passo .n { background: transparent; border: 1.5px solid var(--mk-ouro); color: var(--mk-ouro); font-family: var(--mk-display); font-weight: 600; }
 
