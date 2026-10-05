@@ -56,7 +56,7 @@ export default {
     /* Central: pagamentos que entraram sem conta no Ligeiro (vincular a conta certa) e a conferencia da configuracao */
     if (caminhoPedido.indexOf('/admin/') === 0) return rotaAdmin(request, env, caminhoPedido);
     if (caminhoPedido === '/saude') return saude(env);
-    if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok', { status: 200 });
+    if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok (versao 2026-10-05)', { status: 200 });
     const token = request.headers.get('asaas-access-token') || '';
     if (!env.ASAAS_WEBHOOK || !igual(token, env.ASAAS_WEBHOOK)) return json({ ok: false, erro: 'token' }, 401);
 
