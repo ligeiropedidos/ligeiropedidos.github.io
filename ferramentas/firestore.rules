@@ -69,6 +69,7 @@ service cloud.firestore {
           && novo.get('reativadoEm', '') is string && novo.get('reativadoEm', '').size() <= 40
           && novo.get('canceladoEm', '') is string && novo.get('canceladoEm', '').size() <= 40
           && novo.get('tipo', 'mensal') in ['mensal', 'anual']
+          && txt(novo.get('avisoPagamentoEm', ''), 40) && txt(novo.get('planoId', ''), 20)
           /* plano unico: 1 loja por conta. O dono so escolhe o de 1 loja (conta antiga pode ficar no que tinha) */
           && novo.get('avisoValor', 0) is int && novo.get('avisoValor', 0) >= 0 && novo.get('avisoValor', 0) <= 10000000;
     }
@@ -91,11 +92,16 @@ service cloud.firestore {
     }
     /* endereco valido, vagas do Ligeiro e plano copiado da conta: conferidos no mensageiro (/loja-nova), onde a loja nasce */
     function minhaConta() { return get(/databases/$(db)/documents/contas/$(request.auth.token.email)).data; }
+    /* ajudantes (pentest de 04/10/2026) */
+    function txt(v, n) { return v is string && v.size() <= n; }
+    function diaDoResumo(d) { return d.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') && d >= dataISO(request.time - duration.value(40, 'd')) && d <= dataISO(request.time + duration.value(1, 'd')); }
 
     /* conta do dono: a assinatura e daqui. Dono le, escolhe plano, avisa pagamento, encerra e reativa; pagoAte, planoPago, desde e 'ativo' so o admin */
     match /contas/{email} {
       allow read: if isAdmin() || (conferido() && request.auth.token.email == email);
       allow create: if isAdmin() || (conferido() && request.auth.token.email == email && !ehLoginDeEquipe()
+        /* pentest 04/10: D-12: conta nova so com login Google (e-mail de dominio proprio com caixa que aceita tudo gera conta conferida de graca) */
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
         /* so os campos do cadastro, e o plano so com os campos do comeco */
         && request.resource.data.keys().hasOnly(['email', 'nome', 'criadoEm', 'atualizadoEm', 'plano'])
         && planoDe(request.resource.data).keys().hasOnly(['planoId', 'tipo', 'status', 'desde'])
@@ -103,6 +109,7 @@ service cloud.firestore {
         && planoDe(request.resource.data).get('planoId', 'uma') == 'uma'
         && planoDe(request.resource.data).get('tipo', 'mensal') in ['mensal', 'anual']
         && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 80
+        && request.resource.data.keys().hasAll(['criadoEm']) && txt(request.resource.data.criadoEm, 40) && txt(request.resource.data.get('atualizadoEm', ''), 40)
         /* o campo email e o do proprio dono (o e-mail do Ligeiro ali daria cortesia) */
         && request.resource.data.get('email', email) == email
         /* os dias gratis comecam hoje ou antes: ninguem nasce com "desde" no futuro pra ganhar tempo.
@@ -150,6 +157,14 @@ service cloud.firestore {
         && request.resource.data.get('cidadeSlug', '') is string && request.resource.data.get('cidadeSlug', '').matches('^[a-z0-9-]{0,60}$')
         && request.resource.data.get('horarios', {}) is map
         && request.resource.data.size() <= 60
+        /* pentest 04/10: D-04/D-06: tipos que o hub le (cidade nula derrubava a lista de cidades) e o que a vitrine nao decide */
+        && txt(request.resource.data.get('cidade', ''), 80)
+        && txt(request.resource.data.get('uf', ''), 40) && txt(request.resource.data.get('tipo', ''), 40) && txt(request.resource.data.get('emoji', ''), 40)
+        && txt(request.resource.data.get('descricao', ''), 200) && txt(request.resource.data.get('logoDados', ''), 300000) && txt(request.resource.data.get('logoUrl', ''), 300)
+        && txt(request.resource.data.get('criadoEm', ''), 40)
+        && request.resource.data.get('produtos', []) is list && request.resource.data.get('categorias', []) is list
+        && request.resource.data.get('amostra', false) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('amostra', false)
+        && request.resource.data.get('criadoEm', '') == get(/databases/$(db)/documents/lojas/$(loja)).data.get('criadoEm', '')
         && planoDe(request.resource.data) == planoDe(get(/databases/$(db)/documents/lojas/$(loja)).data)
         && request.resource.data.get('ativa', true) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('ativa', true)
         && request.resource.data.get('verificada', false) == get(/databases/$(db)/documents/lojas/$(loja)).data.get('verificada', false));
@@ -215,6 +230,11 @@ service cloud.firestore {
         /* o slug e o endereco: uma loja nao se passa por outra (trocar o slug abria a pagina com o tema e o selo da outra) */
         && request.resource.data.get('slug', loja) == loja
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+        /* pentest 04/10: D-04: nome sempre texto (a Central e o hub ordenam por ele) */
+        && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 80
+        /* pentest 04/10: D-06: o que conta vagas e o dia em que a loja nasceu so o Ligeiro muda */
+        && request.resource.data.get('amostra', false) == resource.data.get('amostra', false)
+        && request.resource.data.get('criadoEm', '') == resource.data.get('criadoEm', '')
         /* cupom nunca no documento publico: so apagar a lista antiga (vazia ou sem o campo) */
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cupons']) || !(request.resource.data.get('cupons', []) is list) || request.resource.data.get('cupons', []).size() == 0)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['categorias', 'produtos', 'grupos']) || cardapioNoLimite()));
@@ -225,21 +245,40 @@ service cloud.firestore {
          (dava para queimar o cupom da loja, repetir senha ou travar os pedidos gravando sem parar) */
       match /contadores/{c} {
         allow get: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
-        allow list, write: if isDonoFirme(loja) || isAdmin();
+        allow list: if isDonoFirme(loja) || isAdmin();
+        /* pentest 04/10: D-01: quem grava senha e cupom e o mensageiro; o dono so apaga (zerar o uso de um cupom) */
+        allow create, update: if isAdmin();
+        allow delete: if isDonoFirme(loja) || isAdmin();
       }
       /* vendas de cada dia que ja fechou (o relatorio de 30 dias le 30 resumos, nao os pedidos do mes): so o dono e o admin */
       match /resumos/{dia} {
-        allow read, write: if isDonoFirme(loja) || isAdmin();
+        allow read, delete: if isDonoFirme(loja) || isAdmin();
+        /* pentest 04/10: D-01: so o dia (ultimos 40) e so o que o relatorio grava */
+        allow create, update: if isAdmin() || (isDonoFirme(loja) && diaDoResumo(dia)
+          && request.resource.data.keys().hasOnly(['pedidos', 'total', 'porHora', 'porForma', 'produtos', 'clientes', 'atualizadoEm'])
+          && request.resource.data.get('produtos', []) is list && request.resource.data.get('produtos', []).size() <= 60
+          && request.resource.data.get('clientes', []) is list && request.resource.data.get('clientes', []).size() <= 2000
+          && request.resource.data.get('porHora', {}) is map && request.resource.data.get('porForma', {}) is map
+          && txt(request.resource.data.get('atualizadoEm', ''), 40));
       }
       match /fotos/{foto} {
         allow read: if true;
-        allow write: if isDonoFirme(loja) || isAdmin();
+        allow delete: if isDonoFirme(loja) || isAdmin();
+        /* pentest 04/10: D-01: so os nomes que o painel usa e fotos de tamanho de foto */
+        allow create, update: if isAdmin() || (isDonoFirme(loja)
+          && foto.matches('^(f[a-z0-9]{10}|capa-[a-z0-9]{8}|_pacote[0-3])$')
+          && request.resource.data.keys().hasOnly(['dados', 'criadoEm', 'fotos', 'atualizadoEm'])
+          && txt(request.resource.data.get('dados', ''), 300000)
+          && request.resource.data.get('fotos', {}) is map && request.resource.data.get('fotos', {}).size() <= 300
+          && txt(request.resource.data.get('criadoEm', ''), 40) && txt(request.resource.data.get('atualizadoEm', ''), 40));
       }
       /* token do Mercado Pago e outros segredos: so o dono (e o admin, pra suporte) */
       match /privado/{doc} {
         allow read, delete: if isDonoFirme(loja) || isAdmin();
         /* cupons: ate 20 por loja (o painel avisa antes; aqui ninguem passa por fora) */
         allow create, update: if isAdmin() || (isDonoFirme(loja)
+          /* pentest 04/10: D-01: so os tres documentos que o painel usa, e poucos campos */
+          && doc in ['mercadopago', 'cupons', 'termos'] && request.resource.data.size() <= 20
           && (doc != 'cupons' || (request.resource.data.get('lista', []) is list && request.resource.data.get('lista', []).size() <= 20)));
       }
       match /pedidos/{pedido} {
@@ -247,7 +286,8 @@ service cloud.firestore {
            pedido com as regras do site e o cardapio, da a senha e conta o cupom. Gravado direto pelo celular, nao:
            era por aqui que dava para criar pedido de graca, com cupom inventado, com o nome de uma pizza e o preco de uma
            agua, em loja fechada ou com forma de pagamento desligada. So o dono (na propria loja) e o admin gravam direto */
-        allow create: if isAdmin() || isDonoFirme(loja);
+        /* pentest 04/10: D-01: pedido nasce no mensageiro; direto so o Ligeiro */
+        allow create: if isAdmin();
         /* o cliente acompanha pelo id (ninguem adivinha). Nome, telefone e endereco ficam abertos so por 3 dias: link
            vazado depois disso nao mostra mais nada */
         allow get: if resource.data.get('criadoEm', '') >= dataISO(request.time - duration.value(3, 'd'))
@@ -257,7 +297,7 @@ service cloud.firestore {
         /* a loja e a equipe dela listam a fila; a equipe sempre com limite (nunca o historico inteiro de clientes) */
         /* a equipe (senha de 6 numeros, compartilhada) ve so a fila e os pedidos dos ultimos 2 dias: paginando, antes ela
            chegava ao historico inteiro de clientes (nome, telefone, endereco) */
-        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300
+        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300 && request.query.get('offset', 0) == 0 /* pentest 04/10: staff offset: pular documentos custa leitura */
           && (resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto']
               || resource.data.criadoEm >= dataISO(request.time - duration.value(2, 'd'))));
         allow update: if
@@ -273,13 +313,23 @@ service cloud.firestore {
               /* Pix e cartao pelo Mercado Pago: quem confirma e o mensageiro, com o banco. A equipe nao marca como pago (print
                  falso nao libera pedido) */
               && !(resource.data.get('mp', null) != null && resource.data.status == 'aguardando_pagamento'
-                   && (request.resource.data.status == 'pago' || request.resource.data.get('pagamentoStatus', '') == 'pago')))
+                   && (request.resource.data.status == 'pago' || request.resource.data.get('pagamentoStatus', '') == 'pago'))
+              /* pentest 04/10: D-05: pedido com cobranca no Mercado Pago: a equipe nao libera (producao, pronto, finalizado) nem mexe no
+                 pagamentoStatus (devolvido e do dono, pela Devolucao); so pode cancelar */
+              && (resource.data.get('mp', null) == null
+                  || (request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', '')
+                      && (resource.data.status != 'aguardando_pagamento' || request.resource.data.status in ['aguardando_pagamento', 'cancelado'])))
+              /* pentest 04/10: D-05: tipos e tamanhos dos campos que a equipe grava */
+              && txt(request.resource.data.get('pagamentoStatus', ''), 20) && txt(request.resource.data.get('canceladoPor', ''), 30)
+              && txt(request.resource.data.get('pagoEm', ''), 40) && txt(request.resource.data.get('atualizadoEm', ''), 40))
           || isDonoDaLoja(loja) || isAdmin()
           /* (o "ja paguei" do cliente saiu: o Pix confirma sozinho e o aviso deixava o pedido laranja, "Diz que pagou", com
              qualquer print) */
           /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix (nunca com o cartao em analise no banco:
              ele pode passar depois, e o cliente pagaria de novo por outro pedido) */
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
+              /* pentest 04/10: D-09: so na mesma janela em que o pedido pode ser aberto pelo link */
+              && resource.data.get('criadoEm', '') >= dataISO(request.time - duration.value(3, 'd'))
               && request.resource.data.status == 'cancelado' && request.resource.data.canceladoPor in ['cliente', 'pix-vencido']
               && resource.data.status == 'aguardando_pagamento' && resource.data.get('cobrancaIncerta', '') == ''
               && request.resource.data.get('atualizadoEm', '') is string && request.resource.data.get('atualizadoEm', '').size() <= 30);

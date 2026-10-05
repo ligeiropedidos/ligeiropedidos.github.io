@@ -198,22 +198,29 @@
       UI.limpar(raiz);
       /* pergunta ja ao abrir: o tutorial (em 0,9 s) cita o Pix combinado so quando ele existe */
       pixCombinadoPossivel().then(function (sim) { estado.pixCombinadoOk = sim; });
-      /* voltou do "Conectar com Mercado Pago" */
-      var mpVolta = (('#/' + window.LigeiroApp.rota()).match(/\/mp-(ok|erro)(?:\?(.*))?$/) || [])[1];
+      /* voltou do "Conectar com Mercado Pago": o codigo chega aqui e este celular termina (concluir) */
+      var rotaMp = ('#/' + window.LigeiroApp.rota()).match(/\/mp-(ok|erro|concluir)(?:\?(.*))?$/) || [];
+      var mpVolta = rotaMp[1];
       if (mpVolta) {
         window.LigeiroApp.substituir('painel/' + slug);
         estado.aba = 'ajustes';
         var querCartao = !!UI.lerLocal('ligeiro:ligar-cartao:' + slug);
         UI.guardarLocal('ligeiro:ligar-cartao:' + slug, null);
-        setTimeout(function () {
-          if (mpVolta === 'ok' && querCartao && estado.loja && estado.loja.mpChavePublica) {
+        var parametro = function (nome) { var m = new RegExp('(?:^|&)' + nome + '=([^&]*)').exec(rotaMp[2] || ''); try { return m ? decodeURIComponent(m[1]) : ''; } catch (_) { return ''; } };
+        var terminou = mpVolta === 'concluir'
+          ? (UI.avisar('Conectando o Mercado Pago...'), window.LigeiroMP.concluir(slug, parametro('code'), parametro('state')))
+          : new Promise(function (ok) { setTimeout(function () { ok({ ok: mpVolta === 'ok', cartao: !!(estado.loja && estado.loja.mpChavePublica) }); }, 400); });
+        terminou.then(function (fim) {
+          mpVolta = fim.ok ? 'ok' : 'erro';
+          if (mpVolta === 'ok' && querCartao && fim.cartao) {
             salvarLoja({ aceitaCartaoOnline: true, mpAtivo: true }, 'Cartão de crédito ligado! O cliente já vê a opção no seu site.').then(function () { if (estado.aba === 'ajustes') desenharAjustes(); }).catch(function () { UI.avisar('Mercado Pago conectado. Ligue o cartão em Ajustes, Pagamento.'); });
             UI.soar('sucesso');
             return;
           }
           if (mpVolta === 'ok') { UI.soar('sucesso'); UI.avisar('Mercado Pago conectado! Pix ligado. O cartão liga com um toque em Pagamento.'); }
-          else UI.avisar('O Mercado Pago não autorizou. Tente de novo em Ajustes, Pagamento.');
-        }, 400);
+          else UI.avisar('O Mercado Pago não conectou. Toque em Conectar de novo, neste mesmo celular, em Ajustes, Pagamento.');
+          if (estado.aba === 'ajustes' && typeof desenharAjustes === 'function') desenharAjustes();
+        });
       }
       /* loja oficial com tema (Dom Conizza): o topo usa as cores do tema; as outras, as do Ligeiro */
       var topoComTema = !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).tema);

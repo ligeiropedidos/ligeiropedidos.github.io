@@ -102,6 +102,14 @@ export default {
   },
 };
 
+/* cliente do Asaas lido de novo: apagado la (404) vira null, para o aviso responder ok e nao travar a fila de todo mundo */
+async function lerCliente(env, id) {
+  if (!id || !/^[A-Za-z0-9_-]{1,80}$/.test(String(id))) return null;
+  return asaas(env, '/customers/' + encodeURIComponent(id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+}
+/* e-mail que vira endereco no banco: so o formato comum (nada de barra, espaco ou letra estranha) */
+const EMAIL_OK = /^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,}$/;
+
 /* Um pagamento confirmado: quantos dias ele vale e a gravacao na conta e nas lojas */
 async function processarPagamento(env, pag) {
       /* segredo PLANOS torto (JSON quebrado, "Uma", preco em reais): antes, qualquer pagamento valia um ano. Agora nada e
@@ -120,7 +128,11 @@ async function processarPagamento(env, pag) {
       if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return json({ ok: true, ignorado: 'status ' + String(real.status || '') });
       Object.assign(pag, { value: real.value, originalValue: real.originalValue, customer: real.customer, description: real.description, externalReference: real.externalReference, subscription: real.subscription, billingType: real.billingType });
       if (!pag.customer) return json({ ok: false, erro: 'sem pagamento' }, 400);
-      const cliente = await asaas(env, '/customers/' + encodeURIComponent(pag.customer));
+      const cliente = await lerCliente(env, pag.customer);
+      if (!cliente) {
+        await avisarAdmin(env, 'Pagamento de cliente que nao existe mais', 'A cobranca ' + String(pag.id) + ' e de um cliente que o Asaas nao encontra. Nada foi liberado. Confira no Asaas.');
+        return json({ ok: true, ignorado: 'cliente desconhecido' });
+      }
       const email = String(cliente.email || '').trim().toLowerCase();
       /* pagou sem e-mail, ou com um e-mail que nao tem conta no Ligeiro (digitou outro no Asaas): o dinheiro entrou, entao
          nada se perde. Fica em pagamentosSemConta e a Central mostra, com o botao de vincular a conta certa (que troca o
@@ -137,6 +149,18 @@ async function processarPagamento(env, pag) {
         await semConta('sem e-mail');
         await avisarAdmin(env, 'Pagamento sem e-mail', 'Entrou ' + reais(Math.round(Number(pag.value || 0) * 100)) + ' (cobrança ' + pag.id + ', cliente ' + String(cliente.name || pag.customer) + ') de um cliente sem e-mail no Asaas. Vincule à conta certa na Central (Visão geral, Pagamentos sem conta).');
         return json({ ok: true, ignorado: 'cliente sem e-mail' });
+      }
+      /* e-mail fora do formato: nunca vira endereco no banco (e o aviso responde ok, para nao travar a fila) */
+      if (!EMAIL_OK.test(email)) {
+        await semConta('e-mail invalido');
+        await avisarAdmin(env, 'Pagamento com e-mail estranho', 'Entrou ' + reais(Math.round(Number(pag.value || 0) * 100)) + ' (cobranca ' + pag.id + ') com um e-mail fora do formato. Ficou em Pagamentos sem conta, na Central.');
+        return json({ ok: true, ignorado: 'e-mail invalido' });
+      }
+      /* a conta do Ligeiro e cortesia e nao assina nada: pagamento com esse e-mail nunca mexe nela nem nas lojas dela */
+      if (email === ADMIN) {
+        await semConta('e-mail do Ligeiro');
+        await avisarAdmin(env, 'Pagamento com o e-mail do Ligeiro', 'Alguem pagou ' + reais(Math.round(Number(pag.value || 0) * 100)) + ' (cobranca ' + pag.id + ') digitando o e-mail do Ligeiro. A conta do Ligeiro nao foi mexida; o pagamento ficou em Pagamentos sem conta, na Central.');
+        return json({ ok: true, ignorado: 'e-mail do Ligeiro' });
       }
 
       /* multa e juros de atraso nao mudam o plano: vale o valor original da cobranca (o que entrou vai para o e-mail) */
@@ -249,9 +273,13 @@ async function processarPagamento(env, pag) {
       let adota = false;
       if (novaAssinatura) {
         let atualViva = false;
-        if (atual && (Date.parse(p.pagoAte || '') || 0) > agoraMs + 864e5) {
+        /* a assinatura viva fica quando o plano ainda corre, e tambem quando a nova e de OUTRO pagador (cliente do Asaas): alguem
+           que assinou com o e-mail do dono vira assinatura extra e nunca cancela a do dono, nem na vespera da renovacao */
+        if (atual) {
           const a = await asaas(env, '/subscriptions/' + encodeURIComponent(atual)).catch((e) => { if (e && e.status === 404) return null; throw e; });
-          atualViva = !!a && a.deleted !== true && String(a.status || 'ACTIVE') === 'ACTIVE';
+          const viva = !!a && a.deleted !== true && String(a.status || 'ACTIVE') === 'ACTIVE';
+          const outroPagador = !!a && !!a.customer && String(a.customer) !== String(pag.customer || '');
+          atualViva = viva && ((Date.parse(p.pagoAte || '') || 0) > agoraMs + 864e5 || outroPagador);
         }
         adota = !atualViva;
       }
@@ -261,9 +289,9 @@ async function processarPagamento(env, pag) {
       const pausada = p.status === 'pausado';
       /* so os campos deste pagamento (uma troca mensal/anual no mesmo instante nao se perde) */
       const campos = {
-        email: email, pagamentos: ((conta && conta.pagamentos) || []).concat([pag.id]).slice(-50), atualizadoEm: agoraIso,
+        email: email, pagamentos: ((conta && conta.pagamentos) || []).concat([pag.id]).slice(-200), atualizadoEm: agoraIso,
         /* quantos dias cada pagamento deu: se ele for devolvido ou contestado, esses dias saem */
-        creditos: (Array.isArray(conta.creditos) ? conta.creditos : []).concat([{ id: pag.id, dias: dias, assinatura: sub }]).slice(-24),
+        creditos: (Array.isArray(conta.creditos) ? conta.creditos : []).concat([Object.assign({ id: pag.id, dias: dias, assinatura: sub, cliente: String(pag.customer || '') }, fundador === true && p.fundador !== true ? { vaga: true } : {})]).slice(-24),
         'plano.status': pausada ? 'pausado' : 'ativo', 'plano.pagoAte': pagoAte, 'plano.planoId': PLANO, 'plano.planoPago': PLANO,
         'plano.avisoPagamentoEm': '', 'plano.avisoValor': 0, 'plano.ultimoPagamentoEm': agoraIso, 'plano.cobrancaAsaas': pag.id, 'plano.fundador': fundador,
         /* pago a menos: guarda o que entrou, o que faltava e quantos dias valeu (Minha conta mostra; ninguem ganha o periodo inteiro) */
@@ -323,6 +351,9 @@ async function processarPagamento(env, pag) {
         await mandarEmail(env, email, emailPagamentoConfirmado({ nome: cliente.name || '', pagoAte: pagoAte, valor: entrou, tipo: campos['plano.tipo'] || p.tipo || plano.tipo, fundador: fundador === true, pausada: pausada, slug: /^[a-z0-9-]{2,60}$/.test(loja0) ? loja0 : '' }))
           .catch((e) => console.error('e-mail de pagamento confirmado', e && e.message || e));
       }
+      /* se esse pagamento tinha ficado em Pagamentos sem conta (o e-mail foi acertado no Asaas depois), sai de la: senao
+         o Vincular da Central ainda dava os mesmos dias para uma segunda conta */
+      await fb.apagar('pagamentosSemConta/' + encodeURIComponent(pag.id)).catch((e) => console.error('limpar sem conta', e && e.message || e));
       return json({ ok: true, email: email, plano: PLANO, tipo: plano.tipo, pagoAte: pagoAte, lojas: lojas.length });
 }
 
@@ -514,9 +545,11 @@ async function pausarPorEstorno(env, pag) {
   if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
   const st = String(real.status || '');
   if (['REFUNDED', 'REFUND_IN_PROGRESS', 'CHARGEBACK_REQUESTED', 'CHARGEBACK_DISPUTE', 'AWAITING_CHARGEBACK_REVERSAL'].indexOf(st) < 0) return json({ ok: true, ignorado: 'status ' + st });
-  const cliente = await asaas(env, '/customers/' + encodeURIComponent(real.customer || pag.customer));
+  const cliente = await lerCliente(env, real.customer || pag.customer);
+  if (!cliente) return json({ ok: true, ignorado: 'cliente desconhecido' });
   const email = String(cliente.email || '').trim().toLowerCase();
   if (!email) return json({ ok: false, erro: 'cliente sem e-mail' }, 200);
+  if (!EMAIL_OK.test(email) || email === ADMIN) return json({ ok: true, ignorado: 'e-mail fora do formato' });
   const fb = await firebase(env);
   const caminho = 'contas/' + encodeURIComponent(email);
   /* com trava: um pagamento que grave no meio (pagoAte novo) faz reler e refazer a conta, em vez de perder os dias dele */
@@ -548,14 +581,33 @@ async function pausarUmaVez(env, fb, pag, real, st, email, caminho) {
   /* pagamento de uma assinatura extra (alguem assinou com o e-mail do dono, e a do dono seguiu a da conta): os dias dela
      saem, mas a conta do dono nao pausa. O admin confere */
   const subDoPagamento = String(real.subscription || '');
-  if (subDoPagamento && (conta.assinaturasExtras || []).map(String).indexOf(subDoPagamento) >= 0) {
+  /* e pagamento de OUTRO pagador (o dono ja pagou antes por outro cliente do Asaas): mesma coisa, desconta sem pausar */
+  const pagador = String((credito && credito.cliente) || real.customer || '');
+  const outros = (Array.isArray(conta.creditos) ? conta.creditos : []).filter((x) => x && x.id !== pag.id && x.cliente).map((x) => String(x.cliente));
+  const deOutroPagador = !!pagador && outros.length > 0 && outros.indexOf(pagador) < 0;
+  if ((subDoPagamento && (conta.assinaturasExtras || []).map(String).indexOf(subDoPagamento) >= 0) || deOutroPagador) {
     await fb.gravarJuntos([{ caminho: caminho, campos: { 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora }, versao: conta._versao }]);
     await espelharPlano(env, fb, email, Object.assign({}, p, { pagoAte: pagoAte }));
     await avisarAdmin(env, 'Estorno de assinatura extra', 'A cobrança ' + pag.id + ' (assinatura ' + subDoPagamento + ', que não é a da conta ' + email + ') foi estornada ou contestada. Os ' + tirar + ' dias dela saíram e a conta não foi pausada. Confira no Asaas quem assinou.');
     return json({ ok: true, descontado: email, dias: tirar });
   }
-  await fb.gravarJuntos([{ caminho: caminho, campos: { 'plano.status': 'pausado', 'plano.pausadoEm': agora, 'plano.motivoPausa': 'estorno', 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora }, versao: conta._versao }]);
-  const lojas = await espelharPlano(env, fb, email, Object.assign({}, p, { status: 'pausado', pagoAte: pagoAte, avisoPagamentoEm: '', avisoValor: 0, desde: p.desde || agora }));
+  const campos = { 'plano.status': 'pausado', 'plano.pausadoEm': agora, 'plano.motivoPausa': 'estorno', 'plano.pagoAte': pagoAte, estornos: listaEstornos, atualizadoEm: agora };
+  const escritas = [{ caminho: caminho, campos: campos, versao: conta._versao }];
+  /* a vaga de fundador que esse pagamento pegou volta para a fila (senao estornos gastavam as 10 vagas) */
+  let devolveuVaga = false;
+  if (credito && credito.vaga === true && p.fundador === true) {
+    const pubDoc = await fb.get('publico/fundadores', true);
+    const usados = Number((pubDoc || {}).usados) || 0;
+    if (pubDoc && usados > 0) {
+      escritas.push({ caminho: 'publico/fundadores', campos: { usados: usados - 1, atualizadoEm: agora }, versao: pubDoc._versao });
+      campos['plano.fundador'] = false;
+      devolveuVaga = true;
+    }
+  }
+  await fb.gravarJuntos(escritas);
+  const lojas = await espelharPlano(env, fb, email, Object.assign({}, p, { status: 'pausado', pagoAte: pagoAte, avisoPagamentoEm: '', avisoValor: 0, desde: p.desde || agora }, devolveuVaga ? { fundador: false } : {}));
+  await avisarAdmin(env, 'Conta pausada por estorno', 'A cobrança ' + pag.id + ' da conta ' + email + ' foi estornada ou contestada (' + st + '). Os ' + tirar + ' dias dela saíram e a conta ficou pausada.' + (devolveuVaga ? ' A vaga de fundador que ela pegou voltou para a fila.' : '') + ' Se foi outra pessoa pagando com o e-mail do dono, libere a conta na Central.')
+    .catch((e) => console.error('aviso de pausa', e && e.message || e));
   return json({ ok: true, pausada: email, lojas: lojas.length, dias: tirar });
 }
 
@@ -568,9 +620,11 @@ async function anotarFatura(env, pag, evento) {
   if (!real) return json({ ok: true, ignorado: 'cobranca desconhecida' });
   /* so a cobranca de assinatura (a dos links do Ligeiro); cobranca avulsa nao e mensalidade */
   if (!real.subscription) return json({ ok: true, ignorado: 'cobranca avulsa' });
-  const cliente = await asaas(env, '/customers/' + encodeURIComponent(real.customer || pag.customer));
+  const cliente = await lerCliente(env, real.customer || pag.customer);
+  if (!cliente) return json({ ok: true, ignorado: 'cliente desconhecido' });
   const email = String(cliente.email || '').trim().toLowerCase();
   if (!email) return json({ ok: true, ignorado: 'cliente sem e-mail' });
+  if (!EMAIL_OK.test(email) || email === ADMIN) return json({ ok: true, ignorado: 'e-mail fora do formato' });
   const fb = await firebase(env);
   const caminho = 'contas/' + encodeURIComponent(email);
   const conta = await fb.get(caminho);
@@ -1605,6 +1659,12 @@ async function avisoDeServico(env, pag, evento) {
   const st = String(real.status || '');
   if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(st) >= 0) {
     if (p.status !== 'aguardando_pagamento' && p.status !== 'cancelado') return json({ ok: true, repetido: true });
+    /* o valor pago tem que cobrir o preco do pedido (cobranca mexida no Asaas para menos nao libera o servico) */
+    const pagoCentavos = Math.round(Number(real.value || 0) * 100) || 0;
+    if (p.valor > 0 && pagoCentavos < p.valor) {
+      await avisarAdmin(env, 'Pagamento menor que o pedido', 'A cobrança ' + String(real.id) + ' de ' + p.nome + ' (' + p.lojaNome + ') foi paga com ' + reais(pagoCentavos) + ', mas o pedido é de ' + reais(p.valor) + '. O pedido não foi liberado. Confira no Asaas.');
+      return json({ ok: true, ignorado: 'valor menor que o pedido' });
+    }
     p.status = 'material'; p.pagoEm = new Date().toISOString(); p.forma = String(real.billingType || ''); p.valorPago = Math.round(Number(real.value || 0) * 100) || p.valor;
     await gravarServico(env, p);
     await avisarAdmin(env, 'Pedido pago na Loja do Ligeiro', p.nome + ' para ' + p.lojaNome + ' (' + reais(p.valorPago) + ', ' + (p.forma || 'Asaas') + '). WhatsApp: ' + p.whatsapp + '. Chame para pegar o material.');
@@ -1619,7 +1679,7 @@ async function avisoDeServico(env, pag, evento) {
     return json({ ok: true, servico: 'reembolsado' });
   }
   if (/^CHARGEBACK|AWAITING_CHARGEBACK/.test(st)) {
-    if (p.status !== 'contestado') { p.status = 'contestado'; await gravarServico(env, p); await avisarAdmin(env, 'Contestação na Loja do Ligeiro', p.nome + ' da ' + p.lojaNome + ': o pagador contestou no cartão. Veja no Asaas.'); }
+    if (p.status !== 'contestado') { p.status = 'contestado'; await gravarServico(env, p); await avisarAdmin(env, 'Contestação na Loja do Ligeiro', p.nome + ' da ' + p.lojaNome + ': o pagador contestou no cartão. Veja no Asaas e, se for o vídeo, tire da loja pela Central enquanto a contestação não termina.'); }
     return json({ ok: true, servico: 'contestado' });
   }
   if ((evento === 'PAYMENT_OVERDUE' || evento === 'PAYMENT_DELETED' || st === 'OVERDUE' || real.deleted) && p.status === 'aguardando_pagamento') {

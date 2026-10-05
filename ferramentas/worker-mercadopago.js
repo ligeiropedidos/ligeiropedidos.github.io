@@ -73,6 +73,8 @@
  */
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
+/* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
+const VERSAO_MENSAGEIRO = '2026-10-05';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -781,6 +783,8 @@ const REGRAS = (function () {
       throw ErroDoCliente('O troco precisa ser para um valor maior que ' + dinheiro(orcamento.total) + '.');
     }
 
+    /* pedido de valor zero (cupom de 100%): nada a cobrar, entao nada de troco (o entregador nao sai com dinheiro para devolver) */
+    if (orcamento.total === 0) trocoPara = 0;
     var pagoNaHora = orcamento.total === 0;
     var quando = (instante || agora || new Date()).toISOString();
 
@@ -1710,35 +1714,53 @@ export default {
     const caminho = url.pathname.replace(/\/+$/, '') || '/';
 
     try {
-      /* ---- volta do "Conectar com Mercado Pago" (OAuth): troca o codigo pelo token da loja ---- */
+      /* ---- volta do "Conectar com Mercado Pago" (OAuth): o codigo vai para o painel, e quem termina e o celular que
+         comecou (ele guarda o verificador, que nao anda no link). Antes, a volta ja trocava o codigo pelo token: um link
+         de conectar repassado a outra pessoa ligava a conta do Mercado Pago dela na loja de quem mandou ---- */
       if (caminho === '/mp/volta' && request.method === 'GET') {
         const site = ORIGENS[0];
         const code = url.searchParams.get('code') || '';
         const state = url.searchParams.get('state') || '';
         const ponto = state.indexOf('.');
         const slug = ponto > 0 ? state.slice(0, ponto) : '';
+        if (!code || code.length > 300 || !SLUG.test(slug) || state.length > 200) return Response.redirect(site + '/#/painel/' + encodeURIComponent(SLUG.test(slug) ? slug : '') + '/mp-erro', 302);
+        return Response.redirect(site + '/#/painel/' + encodeURIComponent(slug) + '/mp-concluir?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state), 302);
+      }
+
+      /* ---- o painel que comecou o "Conectar" termina: codigo + state + verificador (guardado so naquele celular) ---- */
+      if (caminho === '/mp/concluir' && request.method === 'POST') {
+        let pedidoOauth = {};
+        try { pedidoOauth = await request.json(); } catch (_) { pedidoOauth = {}; }
+        const code = String(pedidoOauth.code || '');
+        const state = String(pedidoOauth.state || '');
+        const verificador = String(pedidoOauth.verificador || '');
+        const ponto = state.indexOf('.');
+        const slug = ponto > 0 ? state.slice(0, ponto) : '';
         const nonce = ponto > 0 ? state.slice(ponto + 1) : '';
-        const voltar = (ok) => Response.redirect(site + '/#/painel/' + encodeURIComponent(slug || '') + '/mp-' + (ok ? 'ok' : 'erro'), 302);
-        if (!code || !SLUG.test(slug) || !/^[A-Za-z0-9]{8,80}$/.test(nonce) || !env.MP_CLIENT_ID || !env.MP_CLIENT_SECRET) return voltar(false);
+        const voltar = (ok, extra) => json(Object.assign({ ok: !!ok }, extra || {}));
+        if (!code || code.length > 300 || !SLUG.test(slug) || !/^[A-Za-z0-9]{8,80}$/.test(nonce) || !/^[a-z0-9]{16,80}$/.test(verificador) || !env.MP_CLIENT_ID || !env.MP_CLIENT_SECRET) return voltar(false);
         /* loja inventada no "state" nao gasta o banco sem fim: volta sem ler depois de 30 erros do mesmo endereco */
         const ipV = request.headers.get('CF-Connecting-IP');
         if (faltasDemais(ipV)) return voltar(false);
         const fb = await firebase(env);
         const seg = (await fb.get('lojas/' + slug + '/privado/mercadopago')) || {};
         const recente = seg.oauthEm && (Date.now() - new Date(seg.oauthEm).getTime()) < 30 * 60 * 1000;
-        if (!seg.oauthNonce || seg.oauthNonce !== nonce || !recente) { contarFalta(ipV); return voltar(false); }
+        if (!seg.oauthNonce || seg.oauthNonce !== nonce || !recente || !seg.oauthVerificador || seg.oauthVerificador !== verificador) { contarFalta(ipV); return voltar(false); }
+        /* loja de amostra (da conta do Ligeiro) nunca liga o Mercado Pago: o dono de verdade conecta depois da entrega */
+        const lojaDoc = (await fb.get('lojas/' + slug)) || {};
+        if (lojaDoc.amostra === true) { await fb.merge('lojas/' + slug + '/privado/mercadopago', { oauthNonce: '', oauthEm: '', oauthVerificador: '' }).catch(() => {}); return voltar(false); }
         const r = await fetch(MP + '/oauth/token', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ client_id: env.MP_CLIENT_ID, client_secret: env.MP_CLIENT_SECRET, grant_type: 'authorization_code', code: code, redirect_uri: url.origin + '/mp/volta' }),
         });
         const t = await r.json().catch(() => ({}));
         /* o codigo de uso unico vale uma vez so, deu certo ou nao */
-        if (!r.ok || !t.access_token) { await fb.merge('lojas/' + slug + '/privado/mercadopago', { oauthNonce: '', oauthEm: '' }).catch(() => {}); return voltar(false); }
+        if (!r.ok || !t.access_token) { await fb.merge('lojas/' + slug + '/privado/mercadopago', { oauthNonce: '', oauthEm: '', oauthVerificador: '' }).catch(() => {}); return voltar(false); }
         const agora = new Date().toISOString();
         await fb.merge('lojas/' + slug + '/privado/mercadopago', {
           token: t.access_token, refresh: t.refresh_token || '', mpUserId: String(t.user_id || ''), publica: String(t.public_key || ''),
           tokenExpiraEm: new Date(Date.now() + (Number(t.expires_in) || 15552000) * 1000).toISOString(),
-          conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '',
+          conectadoEm: agora, atualizadoEm: agora, oauthNonce: '', oauthEm: '', oauthVerificador: '',
         });
         esquecerToken(env, ctx, slug);
         /* renovacao do token antigo que ficou esperando na borda (o banco nao tinha aceitado): nao vale para a conexao
@@ -1749,7 +1771,7 @@ export default {
         await fb.merge('vitrine/' + slug, { aceitaPix: true, atualizadoEm: agora }).catch(() => {});
         /* o Pix aparece na loja na hora, sem esperar a copia da borda vencer */
         await atualizarLoja(env, slug).catch(() => {});
-        return voltar(true);
+        return voltar(true, { cartao: !!t.public_key });
       }
 
       /* ---- webhook do Mercado Pago (vem do servidor deles, sem Origin) ---- */
@@ -1767,7 +1789,7 @@ export default {
         if (!assinado) {
           /* aviso do app da propria loja (?loja=): a chave e a dela. Nada muda sem o Mercado Pago confirmar com o token da loja.
              Sem assinatura, sempre com limite por endereco (cada aviso consulta o Mercado Pago e le o banco) */
-          if (env.MP_WEBHOOK_SECRET && !slug) return json({ ok: false, erro: 'assinatura' }, 401);
+          if (env.MP_WEBHOOK_SECRET) return json({ ok: false, erro: 'assinatura' }, 401);
           if (demais('aviso:' + ipDaCasa(ipW), 120, 60 * 1000)) return json({ ok: false, erro: 'devagar' }, 429);
         }
         let pedidoId = null;
@@ -1842,7 +1864,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, recursos: ['pix-combinado', 'fundadores'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -1866,8 +1888,11 @@ export default {
         if (!env.CARDAPIO) return json({ ok: false, erro: 'sem KV' }, 501);
         const c = await request.json().catch(() => ({}));
         if (!SLUG.test(c.loja || '')) return json({ ok: false, erro: 'faltou a loja' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const quem = await quemChamou(env, request);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        /* cada aparelho novo e uma gravacao no KV (1 mil por dia no gratis, para o Ligeiro inteiro): poucos por conta */
+        if (demais('aparelho:' + quem.email, 20, 60 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
         const lista = await aparelhosDaLoja(env, c.loja).catch(() => null);
         if (!lista) return json({ ok: false, erro: 'não deu para ligar agora. Tente de novo daqui a pouco.' }, 503);
@@ -1947,8 +1972,10 @@ export default {
       if (caminho === '/avisar' && request.method === 'POST') {
         const c = await request.json().catch(() => ({}));
         if (!SLUG.test(c.loja || '') || !PEDIDO_ID.test(c.pedido || '')) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const quem = await quemChamou(env, request);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
+        if (demais('avisar:' + quem.email, 300, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'essa loja não é sua' }, 403);
         const r = resumoLimpo(c.resumo, c.pedido);
         const tarefas = [];
@@ -2181,6 +2208,7 @@ export default {
         if (!idToken || !SLUG.test(String(loja || '')) || senha.length < 8 || senha.length > 10) return json({ ok: false, erro: 'senha de 8 a 10 números' }, 400);
         /* senha fraca e a primeira que alguem tenta: nada de 123456, 000000, 111111... */
         if (/^(\d)\1+$/.test(senha) || /^(\d{2,5})\1+$/.test(senha) || '0123456789'.indexOf(senha) >= 0 || '9876543210'.indexOf(senha) >= 0) return json({ ok: false, erro: 'senha fácil demais: evite números repetidos ou em sequência' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000) || demais('equipe:' + loja, 10, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const fb = await firebase(env);
         const quem = await usuarioDoToken(fb, idToken);
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
@@ -2331,13 +2359,13 @@ export default {
             /* chegou no limite: confere quem gastou. Pedido cancelado ou Pix que venceu sem pagar devolve o uso (antes o uso
                ficava gasto para sempre, e quem conhecia o codigo esgotava o cupom com pedidos abandonados). Contador antigo,
                sem a lista, segue como antes */
-            if (regraCupom && regraCupom.limite > 0 && usos >= regraCupom.limite && quem && quem.length) {
+            if (regraCupom && regraCupom.limite > 0 && usos >= regraCupom.limite && quem && quem.length && quem.length >= usos) {
               const agoraMs = Date.now();
-              const docs = await Promise.all(quem.slice(-200).map((pid) => fb.get(lojaDoc + '/pedidos/' + pid).catch(() => ({ status: 'erro' }))));
+              const docs = await Promise.all(quem.slice(-200).map((pid) => fb.get(lojaDoc + '/pedidos/' + pid, true).catch(() => ({ status: 'erro' }))));
               quem = quem.slice(-200).filter((pid, i) => {
                 const pd = docs[i];
                 if (!pd) return false; /* pedido que nao existe mais */
-                if (pd.status === 'cancelado') return false;
+                if (pd.status === 'cancelado') { const fimPix = Date.parse(pd.pixExpiraEm || ''); return !!(pd.mp && pd.mp.id && (pd.canceladoPor === 'cliente' || pd.canceladoPor === 'pix-vencido') && !isNaN(fimPix) && agoraMs < fimPix); }
                 if (pd.status === 'aguardando_pagamento' && pixVencidoNoServidor(pd, agoraMs)) return false;
                 return true;
               });
@@ -2589,6 +2617,7 @@ export default {
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         const { loja, pedido } = await request.json().catch(() => ({}));
         if (!idToken || !SLUG.test(loja || '') || !PEDIDO_ID.test(pedido || '')) return json({ ok: false, erro: 'faltou a loja, o pedido ou o login' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000) || demais('devolver:' + loja, 60, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const fb = await firebase(env);
         const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
@@ -2676,19 +2705,8 @@ export default {
         return json({ status: status, vencido: status === 'aguardando_pagamento' && pixVencidoNoServidor(p, Date.now()) });
       }
 
-      /* ---- repasse antigo: o painel manda o POST com o proprio token ---- */
-      if (caminho === '/' && request.method === 'POST') {
-        /* so o painel do proprio site (com o token da propria loja) usa: nada de repasse aberto para qualquer um */
-        if (conferir && ORIGENS.indexOf(origem) < 0) return json({ erro: 'origem não permitida' }, 403);
-        const token = request.headers.get('Authorization') || '';
-        if (!token.startsWith('Bearer ')) return json({ message: 'Sem token' }, 401);
-        const resposta = await fetch(MP + '/v1/payments', {
-          method: 'POST',
-          headers: { Authorization: token, 'Content-Type': 'application/json', 'X-Idempotency-Key': request.headers.get('X-Idempotency-Key') || crypto.randomUUID() },
-          body: await request.text(),
-        });
-        return new Response(await resposta.text(), { status: resposta.status, headers: { ...cors, 'Content-Type': 'application/json' } });
-      }
+      /* o repasse antigo (POST / para o Mercado Pago com o token de quem chamava) saiu em 04/10/2026: o site nao usa mais e ele servia de
+         ponte aberta para a API do Mercado Pago */
 
       if (request.method === 'GET') return new Response('Ligeiro + Mercado Pago: ok', { status: 200, headers: cors });
       return json({ erro: 'rota' }, 404);
@@ -2733,10 +2751,11 @@ async function lerKv(env, chave, tipo) {
   if (!env.CARDAPIO) return null;
   try { return await env.CARDAPIO.getWithMetadata(chave, { type: tipo || 'text' }); } catch (_) { return null; }
 }
-async function gravarKv(env, chave, valor, metadata) {
+async function gravarKv(env, chave, valor, metadata, validadeSegundos) {
   if (!env.CARDAPIO) return false;
   /* passou do limite de gravacoes do dia (1 mil no gratis): segue servindo o que leu do banco, sem guardar */
-  try { await env.CARDAPIO.put(chave, valor, { metadata: metadata }); return true; } catch (_) { return false; }
+  const op = validadeSegundos ? { metadata: metadata, expirationTtl: validadeSegundos } : { metadata: metadata };
+  try { await env.CARDAPIO.put(chave, valor, op); return true; } catch (_) { return false; }
 }
 
 /* A loja pronta para o site: da memoria (1 min), do KV (e confere o banco por tras se passou de 6 h) ou do banco. */
@@ -2766,12 +2785,14 @@ async function atualizarLoja(env, slug, tinhaCopia) {
        sai agora, senao a loja continuava abrindo para sempre. So quando havia copia (endereco inventado nao gasta apagamento) */
     if (tinhaCopia && env.CARDAPIO) {
       delete MEM.mp[slug];
-      await Promise.all(['loja:' + slug, 'fotos:' + slug, 'mpnovo:' + slug, 'vitrine'].map((k) => env.CARDAPIO.delete(k).catch(() => {})));
+      await Promise.all(['loja:' + slug, 'fotos:' + slug, 'mpnovo:' + slug, 'mptoken:' + slug, 'cupons:' + slug, 'aparelhos:' + slug, 'srv:video:' + slug, 'vitrine'].map((k) => env.CARDAPIO.delete(k).catch(() => {})));
     }
     return nada;
   }
   const publica = Object.assign({}, doc);
   delete publica.donoEmail; delete publica.senhaEquipeEm; delete publica.email;
+  /* o endereco da cidade vira link no site: so o formato de sempre (letras, numeros e -) */
+  if (!/^[a-z0-9-]{1,60}$/.test(String(publica.cidadeSlug || ''))) publica.cidadeSlug = '';
   /* cupons: so "tem cupom" (o site mostra o campo do codigo); a lista fica na parte privada (loja antiga: ate o painel
      abrir e mudar, ela ainda esta no documento, mas a copia publica ja nao mostra) */
   publica.temCupom = doc.temCupom === true || (Array.isArray(doc.cupons) && doc.cupons.some((c) => c && c.ativo !== false));
@@ -2788,7 +2809,8 @@ async function atualizarLoja(env, slug, tinhaCopia) {
     dono: String(doc.donoEmail || '').toLowerCase().slice(0, 200),
     fotosVersao: String(doc.fotosVersao || '').slice(0, 60),
     pacote: doc.fotosPacote === 1 && !doc.fotosAvulsas ? 1 : 0,
-    capa: String(doc.capa || '').slice(0, 60),
+    /* a capa vira pedaco de caminho no banco: so letras, numeros, - e _ (nada de / nem ..) */
+    capa: /^[A-Za-z0-9_-]{1,60}$/.test(String(doc.capa || '')) ? String(doc.capa) : '',
     nome: String(doc.nome || '').slice(0, 80),
   };
   const corpo = '{"borda":1,"loja":' + JSON.stringify(publica) + '}';
@@ -3247,6 +3269,11 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env, devolverD
       const refCerta = refDoMp === limpo(slug + '__' + id).slice(0, 64) || refDoMp === slug + '|' + id || refDoMp === id;
       const valorMp = Math.round(Number(pg.total_amount != null ? pg.total_amount : pg.transaction_amount) * 100);
       if (!refCerta || valorMp !== p.total) return 'aguardando_pagamento';
+      if (limpo(slug + '__' + id).length > 64) {
+        /* referencia cortada em 64 letras: dois pedidos podem ter a mesma. A ligacao pedido <-> pagamento tem que estar gravada */
+        const ligado = (p.mp && String(p.mp.id) === idPg) || (Array.isArray(p.cobrancas) && p.cobrancas.map(String).indexOf(idPg) >= 0);
+        if (!ligado) { const ix = await fb.get('mp_indice/' + idPg).catch(() => null); if (!(ix && ix.loja === slug && ix.pedido === id)) return 'aguardando_pagamento'; }
+      }
       const agora3 = new Date().toISOString();
       const cobrancasAntes = Array.isArray(p.cobrancas) ? p.cobrancas.map(String) : [];
       /* toda cobranca aprovada fica anotada (a devolucao alcanca todas) e o pedido guarda qual delas pagou */
@@ -3257,6 +3284,8 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env, devolverD
       const devolvido = p.pagamentoStatus === 'devolvido' || !!p.devolvidoEm;
       const trava = p._atualizadoNoBanco;
       if ((p.pagamentoStatus === 'pago' || devolvido) && pagador && idPg !== pagador) {
+        /* pedido pago por uma order (ORD...): um id de pagamento avulso (numero) e o mesmo dinheiro visto pela outra API, nunca uma segunda cobranca */
+        if (pagador.indexOf('ORD') === 0 && !pgEhOrder) return 'pago';
         /* segunda cobranca aprovada do mesmo pedido (resposta do banco que nao chegou e o cliente tentou de novo, Pix
            gerado duas vezes e pago duas vezes): o pedido ja estava pago por outra, entao esta volta sozinha para o cliente */
         const devolvidas = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];
@@ -3369,7 +3398,7 @@ async function cuponsDaLoja(env, fb, slug) {
 }
 async function tokenDaLoja(fb, slug, env) {
   const m = MEM.mp[slug];
-  if (m && Date.now() - m.em < 10 * 60 * 1000) return m.token;
+  if (m && Date.now() - m.em < 60 * 1000) return m.token;
   const versao = env && env.CARDAPIO ? await versaoDaCopia(env, slug) : 0;
   if (env && env.CARDAPIO) {
     const g = await lerKv(env, 'mptoken:' + slug, 'text');
@@ -3426,7 +3455,7 @@ async function tokenDaLoja(fb, slug, env) {
   /* sem token (loja desconectada) nao guarda: a proxima conferencia le o banco, e o Pix volta assim que conectar */
   if (token && versao && env && env.CARDAPIO) {
     const venceEm = seg && seg.tokenExpiraEm ? new Date(seg.tokenExpiraEm).getTime() : 0;
-    await gravarKv(env, 'mptoken:' + slug, token, { em: Date.now(), vence: venceEm || 0, loja: versao });
+    await gravarKv(env, 'mptoken:' + slug, token, { em: Date.now(), vence: venceEm || 0, loja: versao }, 7 * 3600); /* some sozinha: nunca fica guardada para sempre */
   }
   return token;
 }
@@ -3643,7 +3672,7 @@ async function firebase(env) {
   /* chave recusada: assina outra na proxima. 429: o banco gratis chegou no limite de hoje */
   const recusou = (r) => { if (r.status === 401) MEM.google = null; if (r.status === 429) marcarPausa(env); };
   /* defesa extra: caminho de documento nunca carrega ?, #, % ou .. (nem que alguma rota esqueca de conferir) */
-  const seguro = (caminho) => { if (/[?#%\s]|\.\./.test(String(caminho))) throw new Error('caminho inválido'); return caminho; };
+  const seguro = (caminho) => { const c = String(caminho); if (/[?#%\s]|\.\.|\/\.|^\./.test(c) || c.indexOf(String.fromCharCode(92)) >= 0) throw new Error('caminho inválido'); return caminho; };
   return {
     cab: cab, projeto: sa.project_id,
     async get(caminho, comHora) {
@@ -3658,13 +3687,13 @@ async function firebase(env) {
     },
     /* o documento como o banco manda (texto), sem abrir: fotos grandes passam direto */
     async getTexto(caminho) {
-      const r = await fetch(base + caminho, { headers: cab });
+      const r = await fetch(base + seguro(caminho), { headers: cab });
       if (r.status === 404) return '';
       if (!r.ok) { recusou(r); throw new Error('Firestore get ' + r.status); }
       return r.text();
     },
     async listarTexto(colecao, tamanho, pagina) {
-      const r = await fetch(base + colecao + '?pageSize=' + (tamanho || 50) + (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''), { headers: cab });
+      const r = await fetch(base + seguro(colecao) + '?pageSize=' + (tamanho || 50) + (pagina ? '&pageToken=' + encodeURIComponent(pagina) : ''), { headers: cab });
       if (r.status === 404) return '';
       if (!r.ok) { recusou(r); throw new Error('Firestore list ' + r.status); }
       return r.text();

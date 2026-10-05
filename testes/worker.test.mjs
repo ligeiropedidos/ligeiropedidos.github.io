@@ -1491,7 +1491,7 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
     statusAntigo: await leiturasDe(60, (wx, i) => chamar(wx, '/status?loja=dom-conizza&pedido=' + idx(i), { headers: IPX })),
     aviso: await leiturasDe(60, (wx, i) => chamar(wx, '/webhook?loja=inventada-w' + i, { metodo: 'POST', corpo: { data: { id: 'ORD' + i } }, headers: Object.assign({ Origin: '' }, IPX) })),
     avisoSemLoja: await leiturasDe(60, (wx, i) => chamar(wx, '/webhook', { metodo: 'POST', corpo: { data: { id: 'ORDSEMREF' + i } }, headers: Object.assign({ Origin: '' }, IPX) })),
-    volta: await leiturasDe(60, (wx, i) => chamar(wx, '/mp/volta?code=abc&state=inventada-v' + i + '.nonce12345678', { headers: IPX, env: envMp })),
+    concluir: await leiturasDe(60, (wx, i) => chamar(wx, '/mp/concluir', { metodo: 'POST', corpo: { code: 'abc', state: 'inventada-v' + i + '.nonce12345678', verificador: 'verificador0123456789' }, headers: IPX, env: envMp })),
   };
   ok(Object.keys(medidas).every((k) => medidas[k] === 30), '60 chamadas com loja ou pedido inventado: no maximo 30 leituras em cada rota (' + JSON.stringify(medidas) + ')');
   const wReal = await workerNovo();
@@ -1599,13 +1599,27 @@ console.log('Pente fino de set/2026: pedido, limites, publicar e dinheiro');
   guardarPendente({ token: 'T-VELHO', refresh: 'R-VELHO', de: 'R2', tokenExpiraEm: longe });
   await statusMp();
   ok(db.get(privadoMp).token === 'T3' && !kv.mapa.has('mpnovo:loja-mp'), 'conectou de novo antes: a renovacao da conexao antiga nao passa por cima');
-  db.set(privadoMp, { token: 'T3', refresh: 'R3', tokenExpiraEm: longe, oauthNonce: 'nonce12345678', oauthEm: new Date().toISOString() });
+  db.set(privadoMp, { token: 'T3', refresh: 'R3', tokenExpiraEm: longe, oauthNonce: 'nonce12345678', oauthEm: new Date().toISOString(), oauthVerificador: 'verificadordodono0123' });
   guardarPendente({ token: 'T-VELHO', refresh: 'R-VELHO', de: 'R3', tokenExpiraEm: longe });
   const fetchDaVolta = globalThis.fetch;
-  globalThis.fetch = async (u, o) => String(u) === 'https://api.mercadopago.com/oauth/token' ? resposta({ access_token: 'T-NOVO', refresh_token: 'R-NOVO', user_id: 7, public_key: 'PUB-NOVO', expires_in: 15552000 }) : fetchDaVolta(u, o);
-  r = await chamar(await workerNovo(), '/mp/volta?code=abc&state=loja-mp.nonce12345678', { env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  let trocas = 0;
+  globalThis.fetch = async (u, o) => { if (String(u) === 'https://api.mercadopago.com/oauth/token') { trocas++; return resposta({ access_token: 'T-NOVO', refresh_token: 'R-NOVO', user_id: 7, public_key: 'PUB-NOVO', expires_in: 15552000 }); } return fetchDaVolta(u, o); };
+  /* a volta do Mercado Pago nao troca nada: leva o codigo para o painel */
+  r = await chamar(await workerNovo(), '/mp/volta?code=TG-abc&state=loja-mp.nonce12345678', { env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  const destino = r.headers.get('Location') || '';
+  ok(r.status === 302 && /#\/painel\/loja-mp\/mp-concluir\?code=TG-abc&state=loja-mp\.nonce12345678$/.test(destino) && trocas === 0 && db.get(privadoMp).token === 'T3', 'a volta do Mercado Pago leva o codigo para o painel e nao troca nada sozinha');
+  /* golpe: o link de conectar foi repassado para outra pessoa; o painel dela nao tem o verificador */
+  r = await chamar(await workerNovo(), '/mp/concluir', { metodo: 'POST', corpo: { code: 'TG-abc', state: 'loja-mp.nonce12345678' }, env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  j = await r.json();
+  ok(j.ok === false && trocas === 0 && db.get(privadoMp).token === 'T3', 'link de conectar repassado: sem o verificador do celular do dono, nada e trocado');
+  r = await chamar(await workerNovo(), '/mp/concluir', { metodo: 'POST', corpo: { code: 'TG-abc', state: 'loja-mp.nonce12345678', verificador: 'verificadorerrado01234' }, env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  j = await r.json();
+  ok(j.ok === false && trocas === 0 && db.get(privadoMp).token === 'T3', 'verificador errado: nada e trocado');
+  /* o celular do dono termina */
+  r = await chamar(await workerNovo(), '/mp/concluir', { metodo: 'POST', corpo: { code: 'TG-abc', state: 'loja-mp.nonce12345678', verificador: 'verificadordodono0123' }, env: envMp, headers: { 'CF-Connecting-IP': ipNovo() } });
+  j = await r.json();
   globalThis.fetch = fetchDaVolta;
-  ok(r.status === 302 && /mp-ok$/.test(r.headers.get('Location') || '') && db.get(privadoMp).token === 'T-NOVO' && !kv.mapa.has('mpnovo:loja-mp'), 'conectar de novo apaga a renovacao que esperava na borda');
+  ok(j.ok === true && j.cartao === true && trocas === 1 && db.get(privadoMp).token === 'T-NOVO' && db.get(privadoMp).oauthVerificador === '' && !kv.mapa.has('mpnovo:loja-mp'), 'o painel do dono termina: token novo, verificador gasto e a renovacao que esperava na borda sai');
 
   /* 11. cartao em analise no banco nao "vence" como Pix */
   const quarentaMin = new Date(Date.now() - 40 * 60e3).toISOString();

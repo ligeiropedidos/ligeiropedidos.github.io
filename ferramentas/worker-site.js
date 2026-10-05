@@ -109,7 +109,9 @@ function comSeguranca(resposta) {
   return r;
 }
 /* o repositorio do site e publico no GitHub, mas o endereco do Ligeiro nao entrega codigo do servidor, testes nem anotacoes internas */
-const INTERNO = /^\/(ferramentas|testes)(\/|$)|^\/[A-Za-z0-9_-]+\.md$/i;
+const INTERNO = /^\/(ferramentas|testes)(\/|$)|\.md$/i;
+/* o caminho como o GitHub entende: %66 vira f e // vira / (senao /%66erramentas/ ou //testes/ passavam pela trava) */
+function caminhoReal(p) { let c = String(p || ''); try { c = decodeURIComponent(c); } catch (_) { /* fica como veio */ } return c.replace(/\/{2,}/g, '/'); }
 
 async function pagina(request, url) {
   const origem = await fetch(SITE + '/index.html', { headers: { 'User-Agent': request.headers.get('User-Agent') || '' } });
@@ -167,6 +169,7 @@ export default {
        mostra ligeiropedidos.com.br em vez de ligeiro-18df1.firebaseapp.com); tudo repassado como veio */
     if (url.hostname === 'ligeiropedidos.com.br' && /^\/__\/(auth|firebase)\//.test(url.pathname)) return loginFirebase(request, url);
     /* www, outro metodo e arquivo (tem extensao: .js, .css, .webp, index.html...): direto para o GitHub */
+    if (INTERNO.test(caminhoReal(url.pathname))) return new Response('Não encontrado', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' } });
     if (url.hostname !== 'ligeiropedidos.com.br' || (request.method !== 'GET' && request.method !== 'HEAD')) return fetch(request);
     if (INTERNO.test(url.pathname)) return new Response('Não encontrado', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' } });
     /* a pagina inicial e a de erro tambem levam os cabecalhos (vinham direto do GitHub, sem nada) */
@@ -183,4 +186,4 @@ export default {
   },
 };
 
-export const _teste = { lojaDoCaminho, comPreviaDaLoja, ROBO, SEGURANCA, INTERNO };
+export const _teste = { lojaDoCaminho, comPreviaDaLoja, ROBO, SEGURANCA, INTERNO, caminhoReal };

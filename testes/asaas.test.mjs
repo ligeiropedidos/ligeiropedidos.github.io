@@ -693,12 +693,38 @@ ok(c.assinaturaAsaas === 'sub_exoutra' && c.assinaturasExtras.indexOf('sub_exout
 
 /* adotou a nova, mas o Asaas nao cancelou a velha: ela fica nas extras (o encerrar e o Cron alcancam) e o admin sabe */
 novaConta('naocancela@x.com', 'cus_nc', { pagoAte: new Date(Date.now() - DIA).toISOString(), ultimoPagamentoEm: '2026-08-01T00:00:00.000Z' }, { assinaturaAsaas: 'sub_ncvelha' });
-assinaturas.set('sub_ncvelha', { id: 'sub_ncvelha', value: 89, cycle: 'MONTHLY', status: 'ACTIVE', naoCancela: true });
+assinaturas.set('sub_ncvelha', { id: 'sub_ncvelha', customer: 'cus_nc', value: 89, cycle: 'MONTHLY', status: 'ACTIVE', naoCancela: true });
 cobrancas.set('pay_nc', { id: 'pay_nc', customer: 'cus_nc', value: 89, status: 'CONFIRMED', subscription: 'sub_ncnova', billingType: 'CREDIT_CARD' });
 adminAntes = doAdmin().length;
 await avisarCom(envE, { id: 'pay_nc', customer: 'cus_nc' });
 c = contaDe('naocancela@x.com');
 ok(c.assinaturaAsaas === 'sub_ncnova' && c.assinaturasExtras.indexOf('sub_ncvelha') >= 0 && (c.assinaturasAntigas || []).indexOf('sub_ncvelha') < 0 && doAdmin().length === adminAntes + 1, 'a velha nao cancelou no Asaas: fica nas extras (nao nas antigas) e o admin recebe e-mail');
+
+/* pentest 04/10/2026: alguem paga uma assinatura com o e-mail do dono na vespera da renovacao: a do dono NAO e cancelada */
+novaConta('vespera@x.com', 'cus_vd', { status: 'ativo', pagoAte: new Date(Date.now() + 12 * 36e5).toISOString(), ultimoPagamentoEm: '2026-09-04T00:00:00.000Z' }, { assinaturaAsaas: 'sub_vddono', assinaturasAntigas: [], assinaturasExtras: [] });
+assinaturas.set('sub_vddono', { id: 'sub_vddono', customer: 'cus_vd', value: 89, cycle: 'MONTHLY', status: 'ACTIVE' });
+clientes.set('cus_vdout', { email: 'vespera@x.com', name: 'Outra pessoa' });
+cobrancas.set('pay_vdout', { id: 'pay_vdout', customer: 'cus_vdout', value: 89, status: 'CONFIRMED', subscription: 'sub_vdout', billingType: 'CREDIT_CARD' });
+await avisarCom(envE, { id: 'pay_vdout', customer: 'cus_vdout' });
+c = contaDe('vespera@x.com');
+ok(!assinaturas.get('sub_vddono').deleted && c.assinaturaAsaas === 'sub_vddono' && c.assinaturasExtras.indexOf('sub_vdout') >= 0, 'outra pessoa assinou com o e-mail do dono na vespera: a assinatura do dono fica, a nova vira extra');
+
+/* e o e-mail do proprio Ligeiro num pagamento: nenhuma conta e mexida, vai para Pagamentos sem conta */
+clientes.set('cus_adm', { email: 'ligeiro.pedidos@gmail.com', name: 'Alguem' });
+cobrancas.set('pay_adm', { id: 'pay_adm', customer: 'cus_adm', value: 89, status: 'CONFIRMED', subscription: 'sub_adm', billingType: 'PIX' });
+r = await avisarCom(envE, { id: 'pay_adm', customer: 'cus_adm' });
+ok(r.status === 200 && !db.get('contas/ligeiro.pedidos@gmail.com'), 'pagamento com o e-mail do Ligeiro: 200 e nenhuma conta criada ou mexida');
+
+/* cliente apagado no Asaas (404): responde 200 para nao travar a fila */
+cobrancas.set('pay_sumiu', { id: 'pay_sumiu', customer: 'cus_sumiu', value: 89, status: 'CONFIRMED', billingType: 'PIX' });
+r = await avisarCom(envE, { id: 'pay_sumiu', customer: 'cus_sumiu' });
+ok(r.status === 200, 'cliente que o Asaas nao acha mais: 200 (a fila de avisos nao trava)');
+
+/* e-mail fora do formato: nunca vira endereco no banco */
+clientes.set('cus_ruim', { email: 'a/b@x.com', name: 'Ruim' });
+cobrancas.set('pay_ruim', { id: 'pay_ruim', customer: 'cus_ruim', value: 89, status: 'CONFIRMED', billingType: 'PIX' });
+r = await avisarCom(envE, { id: 'pay_ruim', customer: 'cus_ruim' });
+ok(r.status === 200 && !db.get('contas/a/b@x.com'), 'e-mail com barra: 200 e nenhum documento criado');
 
 /* assinatura que o Asaas ja tinha cancelado (DELETE responde 400): conta como cancelada */
 contaTroca({}, { assinaturaAsaas: 'sub_jacanc', assinaturasAntigas: [], assinaturasExtras: [], assinaturaPendente: '' });

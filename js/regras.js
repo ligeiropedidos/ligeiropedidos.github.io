@@ -609,6 +609,8 @@
       throw ErroDoCliente('O troco precisa ser para um valor maior que ' + dinheiro(orcamento.total) + '.');
     }
 
+    /* pedido de valor zero (cupom de 100%): nada a cobrar, entao nada de troco (o entregador nao sai com dinheiro para devolver) */
+    if (orcamento.total === 0) trocoPara = 0;
     var pagoNaHora = orcamento.total === 0;
     var quando = (instante || agora || new Date()).toISOString();
 

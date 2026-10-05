@@ -55,17 +55,24 @@
     });
   }
   /* Botao "Conectar com Mercado Pago": grava um codigo de uma vez e manda pro Mercado Pago autorizar.
-     O mensageiro (/mp/volta) troca o codigo pelo token da loja e volta pro painel. */
+     O mensageiro (/mp/volta) devolve o codigo ao painel, e o painel deste celular termina (concluir) com o verificador
+     guardado aqui: um link de conectar repassado a outra pessoa nao liga a conta dela na loja de quem mandou. */
+  function aleatorio() {
+    try { var b = new Uint8Array(16); window.crypto.getRandomValues(b); return Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); } catch (_) { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  }
+  function chaveVerificador(slug) { return 'ligeiro:mp-verificador:' + slug; }
   function conectar(slug) {
     var cfg = window.LIGEIRO_CONFIG || {};
     if (D().modoDemo) {
       return guardarToken(slug, 'SIMULACAO').then(function () { return 'demo'; });
     }
     if (!cfg.mercadoPagoClientId || !cfg.proxyMercadoPago) { var semApp = new Error('O Ligeiro ainda não ligou a conexão com o Mercado Pago. Cole o token por enquanto.'); semApp.publico = true; return Promise.reject(semApp); }
-    var nonce = (function () { try { var b = new Uint8Array(16); window.crypto.getRandomValues(b); return Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); } catch (_) { return Math.random().toString(36).slice(2) + Date.now().toString(36); } })();
+    var nonce = aleatorio();
+    var verificador = aleatorio() + aleatorio().slice(0, 8);
+    try { localStorage.setItem(chaveVerificador(slug), verificador); } catch (_) { /* sem memoria no navegador: a volta avisa para tentar de novo */ }
     /* leitura que falhou (internet, banco) para aqui: seguir com "nada lido" gravava o codigo por cima e apagava o token */
     return D().store.lerSegredo(slug, SEGREDO, true).then(function (seg) {
-      var novo = Object.assign({}, seg || {}, { oauthNonce: nonce, oauthEm: new Date().toISOString() });
+      var novo = Object.assign({}, seg || {}, { oauthNonce: nonce, oauthEm: new Date().toISOString(), oauthVerificador: verificador });
       return D().store.guardarSegredo(slug, SEGREDO, novo);
     }).then(function () {
       var volta = cfg.proxyMercadoPago.replace(/\/$/, '') + '/mp/volta';
@@ -75,6 +82,18 @@
       location.href = url;
       return 'indo';
     });
+  }
+  /* a volta do Mercado Pago chegou neste painel: termina com o verificador deste celular. Resolve { ok, cartao } */
+  function concluir(slug, code, state) {
+    var cfg = window.LIGEIRO_CONFIG || {};
+    var verificador = '';
+    try { verificador = localStorage.getItem(chaveVerificador(slug)) || ''; localStorage.removeItem(chaveVerificador(slug)); } catch (_) { /* fica vazio */ }
+    if (!cfg.proxyMercadoPago || !code || !state || !verificador) return Promise.resolve({ ok: false });
+    return fetch(cfg.proxyMercadoPago.replace(/\/$/, '') + '/mp/concluir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, state: state, verificador: verificador }),
+    }).then(function (r) { return r.json(); }).then(function (j) { return { ok: !!(j && j.ok), cartao: !!(j && j.cartao) }; })
+      .catch(function () { return { ok: false }; });
   }
   function desconectar(slug) {
     return D().store.guardarSegredo(slug, SEGREDO, { token: '', desconectadoEm: new Date().toISOString() });
@@ -213,5 +232,5 @@
   }
 
   window.LigeiroMP = {
-    lerConexao: lerConexao, conectar: conectar, desconectar: desconectar, iniciar: iniciar, lerToken: lerToken, guardarToken: guardarToken };
+    lerConexao: lerConexao, conectar: conectar, concluir: concluir, desconectar: desconectar, iniciar: iniciar, lerToken: lerToken, guardarToken: guardarToken };
 })();
