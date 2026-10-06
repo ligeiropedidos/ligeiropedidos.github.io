@@ -375,7 +375,7 @@
            vende pelo WhatsApp (no Vale o iFood pesa pouco). O resto: a comissao */
         porCardapio
           ? el('div', { class: 'kicker', text: 'Cardápio e catálogo digital, com pedido e Pix automáticos' })
-          : el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
+          : el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para receber pedidos pelo WhatsApp']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
         porCardapio
           ? el('h1', { class: 'vender-titulo' }, ['Chega de mandar '].concat(palavraQueTroca(['cardápio', 'catálogo']), [' no WhatsApp.']))
@@ -419,7 +419,7 @@
     ]));
 
     /* ---------- calculadora ---------- */
-    var vendas = el('input', { type: 'text', inputmode: 'numeric', value: dinheiro(500000), 'aria-label': 'Vendas por mês no delivery' });
+    var vendas = el('input', { type: 'text', inputmode: 'numeric', value: dinheiro(500000), 'aria-label': 'Vendas por mês em pedidos' });
     UI.mascaraDinheiro(vendas);
     var pedidos = el('input', { type: 'number', min: '1', max: '5000', value: '150', inputmode: 'numeric', 'aria-label': 'Pedidos por mês' });
     var resultado = el('div', { class: 'calc-linhas' });
@@ -467,7 +467,7 @@
       el('div', { class: 'calc-entrada' }, [
         el('div', { class: 'kicker', text: 'Faça a conta' }),
         el('h2', { text: 'Quanto você deixa na mesa hoje?' }),
-        el('p', { class: 'muted', text: 'Coloque mais ou menos quanto vende no delivery por mês e quantos pedidos são. A conta é só com o que vai para o intermediário ou para o sistema.' }),
+        el('p', { class: 'muted', text: 'Coloque mais ou menos quanto vende por mês em pedidos (entrega e retirada) e quantos pedidos são. A conta é só com o que vai para o intermediário ou para o sistema.' }),
         el('div', { class: 'linha-campos' }, [
           el('div', { class: 'campo' }, [el('label', { text: 'Vendas por mês' }), vendas]),
           el('div', { class: 'campo' }, [el('label', { text: 'Pedidos' }), pedidos]),

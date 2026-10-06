@@ -237,7 +237,7 @@
       el('div', { class: 'srv-hero-texto' }, [
         el('span', { class: 'srv-sobre', text: 'Feito sob medida' }),
         el('h2', { class: 'srv-hero-titulo', text: 'Sua loja com cara de marca grande' }),
-        el('p', { class: 'srv-hero-frase', text: vx ? 'Veja em 40 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende no delivery. Preço fechado e prazo certo.' }),
+        el('p', { class: 'srv-hero-frase', text: vx ? 'Veja em 40 segundos como funciona e o que a gente faz pela sua loja.' : 'Logo, fotos e vídeo para quem vende pelo WhatsApp e pelo link. Preço fechado e prazo certo.' }),
         el('div', { class: 'srv-hero-garantias' }, [['check', 'Preço fechado'], ['ampulheta', 'Prazo em dias úteis'], ['lista', 'Acompanhe cada etapa']].map(function (g) {
           return el('span', { class: 'srv-hero-garantia' }, [ico(g[0]), g[1]]);
         })),
