@@ -1908,7 +1908,6 @@ a.selo-google:hover { background: var(--lime-suave); }
   background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3 4.9 8.7 9.6 3.6' fill='none' stroke='%230E1F14' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat; }
 .teste-botoes { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 440px; justify-self: center; }
 .teste-botoes .btn { width: 100%; }
-.teste-montar-dica { margin: 0; font-size: 14px; line-height: 1.4; color: rgba(255, 255, 255, 0.88); text-wrap: balance; } /* o que a pessoa manda e o que recebe, colado no botao */
 .btn-contorno { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.42); }
 @media (hover: hover) { .btn-contorno:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.7); } }
 @media (max-width: 420px) { .teste-banner { padding-left: 16px; padding-right: 16px; } .teste-banner h2 { font-size: 25px; } .teste-botoes .btn { padding-left: 14px; padding-right: 14px; } } /* "Criar minha loja grátis" numa linha so */
@@ -1918,8 +1917,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 340px) { .teste-botoes .btn.btn-contorno { font-size: 14.5px; padding-left: 8px; padding-right: 8px; } } /* vence a regra de 340 logo abaixo (15 px e 12 de lado nao cabia com a letra do iPhone) */
 @media (max-width: 340px) { .teste-banner { padding-left: 12px; padding-right: 12px; } .teste-botoes .btn { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
 /* o mesmo par de botoes no fechamento da pagina: "Quero que montem para mim" numa linha so ate 320 */
-@media (max-width: 380px) { .vender-final .btn-fantasma { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
-@media (max-width: 340px) { .vender-final .btn-fantasma { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
+@media (max-width: 380px) { .vender-final .btn-fantasma, .monta-cta { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
+@media (max-width: 340px) { .vender-final .btn-fantasma, .monta-cta { font-size: 15px; padding-left: 12px; padding-right: 12px; } } /* "Quero que montem para mim" numa linha so, igual nos dois lugares */
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 /* mensal e anual lado a lado, ate no celular (as partes dos dois na mesma altura, pelo subgrid); o incluso embaixo */
@@ -2003,6 +2002,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .antes-depois .lado p { margin: 8px 0 0; font-size: 15.5px; }
 .antes-depois .sem { background: #FBF4F2; border-color: #F0D5CF; color: #7A3B2E; }
 .antes-depois .com { background: var(--lime-suave); border-color: #CFE3B4; color: var(--deep); }
+/* "a gente monta": o que a pessoa manda (cartao branco, icone de cada coisa) e o que recebe (verde, com o check) */
+.antes-depois .manda { background: var(--card); border-color: var(--line); color: var(--ink); }
+.antes-depois .manda p .ico-traco { color: var(--deep2); }
+.monta-cta { width: 100%; }
+@media (min-width: 560px) { .monta-cta { align-self: flex-start; width: auto; min-width: 280px; padding-left: 28px; padding-right: 28px; } }
+.por-dia { color: var(--deep); }
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
 .raio .icone { font-size: 26px; }

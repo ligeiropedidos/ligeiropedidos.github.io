@@ -534,6 +534,18 @@
       ]),
     ]));
 
+    /* ---------- a gente monta: o que a pessoa manda e o que recebe (sem tempo de montar nao e motivo para ficar de fora) ---------- */
+    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+      el('div', { class: 'kicker', text: 'Sem tempo de montar?' }),
+      el('h2', { text: 'A gente monta a loja para você' }),
+      el('p', { class: 'muted', text: 'Você manda pelo WhatsApp o que já tem. A gente cadastra tudo e devolve a loja pronta para vender.' }),
+      el('div', { class: 'antes-depois monta' }, [
+        el('div', { class: 'cartao lado manda' }, [el('b', { text: 'Você manda' })].concat([['camera', 'Fotos do cardápio ou dos produtos'], ['dinheiro', 'Os preços (e os tamanhos, se tiver)'], ['imagem', 'Sua logo, se tiver'], ['relogio', 'Horário e taxa de entrega']].map(function (x) { return el('p', {}, [UI.iconeLinha(x[0]), x[1]]); }))),
+        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Você recebe' })].concat(['A loja montada, com fotos e categorias', 'O link para a bio do Instagram e o status', 'O QR code para imprimir no balcão', 'Ajuda para ligar o Pix do Mercado Pago'].map(function (x) { return el('p', {}, [UI.iconeLinha('check'), x]); }))),
+      ]),
+      el('button', { class: 'btn btn-fantasma monta-cta', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('monta'); } }),
+    ]));
+
     /* ---------- teste gratis ---------- */
     /* faixa escura da marca: selo, titulo, garantias e duas saidas (criar sozinho ou pedir para a gente montar) */
     corpo.appendChild(el('section', { class: 'teste-banner' }, [
@@ -545,7 +557,6 @@
       el('div', { class: 'teste-botoes' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
-        el('p', { class: 'teste-montar-dica', text: 'Você manda as fotos e os preços pelo WhatsApp; a gente cadastra tudo e devolve a loja pronta.' }),
       ]),
     ]));
 
@@ -553,7 +564,7 @@
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Preço' }),
       el('h2', { text: 'Um plano só. Tudo incluso.' }),
-      el('p', { class: 'muted', text: 'Pedidos ilimitados, cardápio ou catálogo, estoque, ofertas, painel, cozinha e entregador, Pix e cartão automáticos. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.' }),
+      el('p', { class: 'muted' }, [el('b', { class: 'por-dia', text: 'Menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' }), ' Pedidos ilimitados, cardápio ou catálogo, estoque, ofertas, painel, cozinha e entregador, Pix e cartão automáticos. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.']),
       (function () {
         var t = 'mensal';
         var caixa = el('div', { class: 'pilha planos-venda' });
@@ -594,12 +605,11 @@
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: toca no item, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
         duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que olhamos em setembro de 2026 costumam limitar os pedidos por mês (de 30 a 65, em vários) e cobrar por pedido a mais ou parar de receber. No Ligeiro o pedido é ilimitado e o Pix cai confirmado sozinho. Você testa ' + pr.diasGratis + ' dias com tudo liberado, sem cartão, e só paga se compensar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'O Ligeiro não pede CNPJ para criar a loja. O dinheiro do Pix e do cartão cai na sua conta do Mercado Pago, que tem as próprias regras para abrir a conta.'),
-        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha (ou na separação) e impressora são opcionais.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
         duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Com o estoque ligado, nem isso: quando a quantidade zera, o site mostra "Esgotado" sozinho.'),
         duvida('Dá para fazer promoção?', 'Dá. No lápis do item, ligue "Por tempo limitado" e escolha até quando: o site mostra um foguinho com quanto falta, o preço antigo riscado e uma vitrine de ofertas no topo. Na hora marcada o preço volta sozinho, ou o item sai do site, como você escolher. Também tem cupom de desconto.'),
-        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha o pedido pelo mesmo link. Funciona em qualquer celular.'),
-        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 (até 150 pedidos por mês), R$ 199,99 (até 250) e R$ 299,99 (acima disso), valores públicos de setembro de 2026. Ele pertence ao iFood desde 2022. No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem limite de pedidos e sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
+        duvida('Preciso instalar alguma coisa?', 'Não. Você usa o painel no celular que já tem (tela na cozinha ou na separação e impressora são opcionais). E o seu cliente só abre o link: escolhe, paga e acompanha o pedido, em qualquer celular.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem robô no WhatsApp e cobra por faixa de pedidos (os valores estão na tabela de preços acima). Ele pertence ao iFood desde 2022. No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem limite de pedidos e sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
         duvida('Minha loja pode ter a cara da minha marca?', 'Pode. No painel você escolhe cor, logo e capa. Se quiser algo feito sob medida, dentro do painel tem a Loja do Ligeiro, com logo, fotos, vídeo e design exclusivo, pagos uma vez só.'),
       ]),
     ]));
