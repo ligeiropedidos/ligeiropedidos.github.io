@@ -3177,6 +3177,22 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .tour.tour-abertura .tour-titulo { font-size: 24px; }
 .tour.tour-abertura .tour-rodape { justify-content: center; }
 .tour.tour-abertura .tour-rodape .btn { flex: 1 1 0; } /* na abertura os dois botoes do mesmo tamanho */
+
+/* boas-vindas da amostra: a abertura do tutorial (ratinho em cima, balao no meio), com a lista do que a loja resolve.
+   Mora no body, fora do tema da loja: quem fala e o Ligeiro, com as cores dele em qualquer loja */
+.boas-vindas { overflow-y: auto; justify-content: flex-start; animation: bv-entrar 0.3s ease both; }
+.boas-vindas > .tour-mascote-caixa { margin-top: auto; } /* no meio da tela quando cabe; rola sem cortar o topo quando nao cabe */
+.boas-vindas > .tour-balao { margin-bottom: auto; }
+.boas-vindas.saindo { opacity: 0; transition: opacity 0.25s ease; }
+.boas-vindas .tour-texto { margin-top: 0; }
+.bv-lista { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.bv-lista li { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--ink); text-wrap: pretty; }
+.bv-lista .ico-traco { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--lime-suave); color: var(--deep); align-items: center; justify-content: center; }
+.bv-lista .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.2; }
+.bv-garantia { margin: 16px 0 0; font-size: 14px; font-weight: 700; line-height: 1.4; color: var(--deep); text-wrap: balance; }
+@media (max-height: 720px) { .boas-vindas .tour-mascote { width: 104px; height: 104px; } }
+@media (max-width: 359px) { .boas-vindas .tour-rodape { flex-direction: column-reverse; align-items: stretch; } .boas-vindas .tour-rodape .btn { flex: none; width: 100%; } } /* 320: um botao em cima do outro (lado a lado, o texto ficava a 8 px da borda) */
+@keyframes bv-entrar { from { opacity: 0; } }
 /* animacoes do tutorial: rodam sempre, tambem com "Reduzir movimento" (o !important passa por cima da regra geral
    do site). So transform e opacity: o celular faz na placa de video, sem pesar */
 .tour-balao.entrando { animation: tour-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both !important; transform-origin: 30% 100%; }

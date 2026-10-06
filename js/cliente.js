@@ -822,6 +822,8 @@
       if (primeira && !estado.oficial && !o.pedidoId) setTimeout(function () { UI.imagensProntas(raiz.querySelector('.abertura'), 2500).then(tirarSplash); }, 0);
       UI.lembrarCor(dados.slug, dados.cor || '#84CC16');
       montarInicio();
+      /* amostra: o ratinho recebe o dono depois da tela de carregamento (so na abertura da loja, nunca no meio de um pedido) */
+      if (primeira && !o.pedidoId && dados.amostra === true) setTimeout(function () { if (vivo && $('tela-inicio') && $('tela-inicio').classList.contains('ativa')) boasVindasAmostra(); }, 1700);
       /* o carrinho guardado volta ANTES de montar o fluxo: se a loja desligou a entrega enquanto a pessoa estava em outro
          app, o fluxo corrige para a retirada (antes a entrega voltava sem endereco e sem como trocar) */
       if (primeira) restaurarRascunho();
@@ -981,6 +983,54 @@
         trilho.appendChild(observarCartao(card));
       });
       pintarSelos();
+    }
+
+    /* amostra (loja que o Ligeiro montou para mostrar ao dono): na primeira vez neste aparelho, o ratinho recebe o dono como no
+       tutorial do painel. Diz o que a loja resolve (pedido que nao se perde, relatorio, Pix conferido sozinho, gente no WhatsApp) e o
+       que tira o medo (sem compromisso, sem comissao, dias gratis sem cartao e sem fidelidade), e o toque leva para a loja. Uma vez
+       por loja em cada aparelho; "Quero no ar" abre o WhatsApp do Ligeiro com a mensagem pronta. */
+    function boasVindasAmostra() {
+      var l = estado.loja;
+      if (!l || l.amostra !== true || balcao || document.querySelector('.boas-vindas')) return;
+      var chave = 'ligeiro:amostra-recebida:' + l.slug;
+      if (UI.lerLocal(chave)) return;
+      var cfgSite = window.LIGEIRO_CONFIG || {};
+      var dias = (cfgSite.precos && cfgSite.precos.diasGratis) || 7;
+      var tecla = function (e) { if (e.key === 'Escape') fechar(); };
+      var caixa = null;
+      function fechar() {
+        UI.guardarLocal(chave, Date.now());
+        document.removeEventListener('keydown', tecla);
+        if (!caixa) return;
+        caixa.classList.add('saindo');
+        var ir = caixa;
+        caixa = null;
+        setTimeout(function () { if (ir.parentNode) ir.parentNode.removeChild(ir); }, 260);
+      }
+      var item = function (ico, texto) { return el('li', null, [UI.iconeLinha(ico), el('span', { text: texto })]); };
+      var ver = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ver minha loja', onclick: fechar });
+      var quero = cfgSite.whatsappLigeiro
+        ? el('a', { class: 'btn btn-fantasma btn-pequeno', href: R.linkWhatsapp(cfgSite.whatsappLigeiro, 'Oi! Vi a amostra da ' + l.nome + ' no Ligeiro e quero colocar no ar.'), target: '_blank', rel: 'noopener', text: 'Quero no ar', onclick: function () { setTimeout(fechar, 300); } })
+        : null;
+      caixa = el('div', { class: 'tour tour-abertura boas-vindas', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'bvTitulo', tabindex: '-1' }, [
+        el('span', { class: 'tour-mascote-caixa' }, [el('img', { class: 'tour-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 })]),
+        el('div', { class: 'tour-balao' }, [
+          el('span', { class: 'tour-nome', text: 'Ligeiro' }),
+          el('div', { class: 'tour-titulo', id: 'bvTitulo', text: l.nome + ', esta é a sua loja no Ligeiro!' }),
+          el('p', { class: 'tour-texto', text: 'Montamos para você ver como ela fica. Tudo sem compromisso.' }),
+          el('ul', { class: 'bv-lista' }, [
+            item('sino', 'Nenhum pedido perdido: chega pronto no celular e apita.'),
+            item('vendas', 'Relatório de tudo o que vendeu: hoje, na semana e no mês.'),
+            item('escudo', 'Pix confirmado sozinho, sem conferir comprovante.'),
+            item('pessoa', 'Suporte no WhatsApp, com gente de verdade.'),
+          ]),
+          el('p', { class: 'bv-garantia', text: '0% de comissão. ' + dias + ' dias grátis, sem cartão e sem fidelidade.' }),
+          el('div', { class: 'tour-rodape' }, [quero, ver]),
+        ]),
+      ]);
+      document.body.appendChild(caixa);
+      document.addEventListener('keydown', tecla);
+      setTimeout(function () { try { ver.focus({ preventScroll: true }); } catch (_) { /* foco nao e essencial */ } }, 60);
     }
 
     function montarInicio() {
