@@ -31,7 +31,7 @@
     var validas = {};
     ((loja && loja.produtos) || []).forEach(function (p) {
       if (!R.controlaEstoque(p)) return;
-      var tam = R.gruposDaCategoria(loja, p.categoria).filter(function (g) { return g.tipo === 'unico'; })[0];
+      var tam = R.grupoTamanho(loja, p);
       if (tam) (tam.opcoes || []).forEach(function (o) { validas[R.chaveEstoque(p.id, o.id)] = true; });
       else validas[R.chaveEstoque(p.id)] = true;
     });
@@ -283,25 +283,26 @@
     return Promise.resolve(mapa[id] || null);
   };
 
-  DemoStore.prototype.listarFotos = function (lojaSlug) {
+  DemoStore.prototype.listarFotos = function (lojaSlug, versao, loja) {
     var db = this._ler();
-    return Promise.resolve(clonar((db.fotos && db.fotos[lojaSlug]) || {}));
+    /* as fotos extras dos itens ficam fora do mapa da loja (vem quando o item abre), como no site de verdade */
+    return Promise.resolve(clonar(semExtras((db.fotos && db.fotos[lojaSlug]) || {}, loja || db.lojas[lojaSlug])));
   };
 
-  DemoStore.prototype.salvarFoto = function (lojaSlug, id, dados) {
+  DemoStore.prototype.salvarFoto = function (lojaSlug, id, dados, opcoes) {
     var db = this._ler();
     db.fotos = db.fotos || {};
     db.fotos[lojaSlug] = db.fotos[lojaSlug] || {};
     db.fotos[lojaSlug][id] = dados;
-    if (db.lojas[lojaSlug]) db.lojas[lojaSlug].fotosVersao = agoraISO();
+    if (db.lojas[lojaSlug] && !(opcoes && opcoes.extra)) db.lojas[lojaSlug].fotosVersao = agoraISO();
     if (!this._gravar(db)) return Promise.reject(new Error('Sem espaço no aparelho para guardar mais fotos. Apague alguma ou use uma foto menor.'));
     return Promise.resolve(id);
   };
 
-  DemoStore.prototype.excluirFoto = function (lojaSlug, id) {
+  DemoStore.prototype.excluirFoto = function (lojaSlug, id, opcoes) {
     var db = this._ler();
     if (db.fotos && db.fotos[lojaSlug]) delete db.fotos[lojaSlug][id];
-    if (db.lojas[lojaSlug]) db.lojas[lojaSlug].fotosVersao = agoraISO();
+    if (db.lojas[lojaSlug] && !(opcoes && opcoes.extra)) db.lojas[lojaSlug].fotosVersao = agoraISO();
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
     return Promise.resolve();
   };
@@ -1226,7 +1227,7 @@
     if (cache && versao && cache.versao === versao && cache.borda) { eu._pacotes[lojaSlug] = !!cache.pacote; return Promise.resolve(cache.mapa); }
     return pegarBorda('/fotos/' + encodeURIComponent(lojaSlug) + '?v=' + encodeURIComponent(versao || '')).then(function (x) {
       if (x.status !== 200) throw erroBorda();
-      var mapa = mapaDaBorda(x.dados);
+      var mapa = semExtras(mapaDaBorda(x.dados), loja);
       var pacote = x.dados.pacote === true;
       /* pacote sem a foto de algum item (app antigo gravou so a foto): esta visita le do Firestore, que sabe se virar */
       var produtos = (loja && loja.produtos) || [];
@@ -1981,6 +1982,17 @@
     });
   }
   function fotosDaColecao(snap) { var mapa = {}; snap.forEach(function (d) { if (!ehPacote(d.id)) mapa[d.id] = d.data().dados; }); return mapa; }
+  /* a 2a e a 3a foto dos itens: vem quando o cliente abre o item (fotoPublica), nunca no mapa que a loja inteira baixa */
+  function fotosExtrasDe(loja) {
+    var ids = {};
+    ((loja && loja.produtos) || []).forEach(function (p) { (Array.isArray(p && p.fotosExtras) ? p.fotosExtras : []).forEach(function (id) { if (id) ids[id] = true; }); });
+    return ids;
+  }
+  function semExtras(mapa, loja) {
+    var extras = fotosExtrasDe(loja), saida = {};
+    Object.keys(mapa || {}).forEach(function (id) { if (!extras[id]) saida[id] = mapa[id]; });
+    return saida;
+  }
 
   FirebaseStore.prototype.listarFotos = function (lojaSlug, versao, loja) {
     var eu = this;
@@ -1992,7 +2004,7 @@
     if (cache && versao && cache.versao === versao && !!cache.pacote === pacote) return Promise.resolve(cache.mapa);
     return this._pronto.then(function () {
       var col = eu.db.collection('lojas').doc(lojaSlug).collection('fotos');
-      var ler = pacote ? eu._lerPacotes(col, loja, lojaSlug) : col.get().then(fotosDaColecao);
+      var ler = pacote ? eu._lerPacotes(col, loja, lojaSlug) : col.get().then(function (snap) { return semExtras(fotosDaColecao(snap), loja); });
       return ler.then(function (mapa) {
         var pacote = JSON.stringify({ versao: versao || '', pacote: eu._pacotes[lojaSlug], mapa: mapa });
         try { localStorage.setItem(chaveCache, pacote); } catch (_) {
@@ -2055,8 +2067,16 @@
     });
   };
 
-  FirebaseStore.prototype.salvarFoto = function (lojaSlug, id, dados) {
+  /* opcoes.extra: a 2a ou 3a foto de um item. Nao entra no pacote de miniaturas e nao muda a versao das fotos (o cliente
+     nao baixa o pacote de novo por causa dela); a lista fotosExtras do item, salva junto, e que a faz aparecer */
+  FirebaseStore.prototype.salvarFoto = function (lojaSlug, id, dados, opcoes) {
     var eu = this;
+    var extra = !!(opcoes && opcoes.extra);
+    if (extra) {
+      return this._pronto.then(function () {
+        return eu.db.collection('lojas').doc(lojaSlug).collection('fotos').doc(id).set({ dados: dados, criadoEm: agoraISO() });
+      }).then(function () { return id; });
+    }
     var comPacote = !!eu._pacotes[lojaSlug] && !ehCapa(id);
     return this._pronto.then(function () { return comPacote ? miniatura(dados) : null; }).then(function (mini) {
       var lojaRef = eu.db.collection('lojas').doc(lojaSlug);
@@ -2077,8 +2097,9 @@
     });
   };
 
-  FirebaseStore.prototype.excluirFoto = function (lojaSlug, id) {
+  FirebaseStore.prototype.excluirFoto = function (lojaSlug, id, opcoes) {
     var eu = this;
+    if (opcoes && opcoes.extra) return this._pronto.then(function () { return eu.db.collection('lojas').doc(lojaSlug).collection('fotos').doc(id).delete(); });
     return this._pronto.then(function () {
       var lojaRef = eu.db.collection('lojas').doc(lojaSlug);
       var lote = eu.db.batch();

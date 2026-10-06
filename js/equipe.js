@@ -21,8 +21,8 @@
 
   /* o numero do pedido no topo do cartao: "SENHA 12" na comida, "PEDIDO 12" no comercio */
   function numeroDoPedido(loja, p) {
-    var comida = R.catalogo(loja).comida;
-    return el('span', { class: 'senha', 'aria-label': R.catalogo(loja).senha + ' ' + p.senha }, [el('small', { text: comida ? 'Senha' : 'Pedido' }), el('b', { text: String(p.senha) })]);
+    var cat = R.catalogo(loja);
+    return UI.fichaDoNumero(cat.comida ? 'Senha' : 'Pedido', p.senha, cat.senha + ' ' + p.senha);
   }
 
   /* um pedido torto nunca apaga a tela da cozinha ou do entregador: vira um cartao curto e o resto aparece */
@@ -346,13 +346,7 @@
   /* Itens do pedido em letra grande, do jeito que a cozinha le. */
   function itensGrandes(p) {
     var caixa = el('div', { class: 'itens' });
-    (p.itens || []).forEach(function (it) {
-      var linha = el('div', {}, [el('b', { text: it.quantidade + 'x ' + it.nome + (it.tamanho && it.tamanho.nome ? ' ' + it.tamanho.nome : '') })]);
-      if (it.adicionais && it.adicionais.length) linha.appendChild(el('div', { class: 'com', text: '+ ' + it.adicionais.map(function (a) { return a.nome; }).join(', ') }));
-      if (it.removidos && it.removidos.length) linha.appendChild(el('div', { class: 'sem', text: 'SEM ' + it.removidos.join(', ') }));
-      if (it.observacao) linha.appendChild(el('div', { class: 'obs-item', text: 'obs: ' + it.observacao }));
-      caixa.appendChild(linha);
-    });
+    (p.itens || []).forEach(function (it) { caixa.appendChild(UI.linhaDoItem(it, true)); });
     if (p.observacao) caixa.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
     return caixa;
   }
@@ -428,7 +422,7 @@
         var proximo = R.proximoStatus(p);
         var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
         if (proximo) {
-          var btnAndar = el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', text: rotulo, onclick: function () {
+          var btnAndar = el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', onclick: function () {
             /* a tela redesenha na hora e a proxima ficha sobe para baixo do dedo: o toque duplo nao anda outro pedido */
             if (Date.now() < (estado.travaAte || 0)) return;
             estado.travaAte = Date.now() + 700;
@@ -439,7 +433,7 @@
               UI.soar('toque');
               avisarQueAndou(slug, p, proximo);
             }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e)); });
-          } });
+          } }, [UI.iconeLinha(p.status === R.STATUS.PAGO ? 'tocar' : 'check'), rotulo]);
           f.appendChild(btnAndar);
         }
         return f;
@@ -512,15 +506,15 @@
   }
 
   function oQueCobrar(p) {
-    function selo(texto, classe) { return el('span', { class: 'selo ' + (classe || ''), text: texto }); }
-    if (p.status === R.STATUS.AGUARDANDO) return [selo('Pix ainda não confirmado', 'fechado')];
-    if (p.formaPagamento === 'pix' || R.pixCombinado(p)) return [selo('Já pago no Pix, não cobrar')];
-    if (p.formaPagamento === 'cartao_online') return [selo('Já pago no cartão, não cobrar')];
-    if (p.formaPagamento === 'cartao_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
-    if (p.formaPagamento === 'dinheiro_entrega') return [selo('Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0
-      ? [selo('Paga com ' + dinheiro(p.trocoPara), 'laranja'), selo('Levar troco de ' + dinheiro(p.trocoPara - p.total), 'laranja')]
-      : [selo('Sem troco', 'laranja')]);
-    return [selo('Total ' + dinheiro(p.total), 'cinza')];
+    var selo = function (icone, texto, classe) { return UI.seloCom(icone, classe || '', texto); };
+    if (p.status === R.STATUS.AGUARDANDO) return [selo('ampulheta', 'Pix ainda não confirmado', 'fechado')];
+    if (p.formaPagamento === 'pix' || R.pixCombinado(p)) return [selo('check', 'Já pago no Pix, não cobrar')];
+    if (p.formaPagamento === 'cartao_online') return [selo('check', 'Já pago no cartão, não cobrar')];
+    if (p.formaPagamento === 'cartao_entrega') return [selo('maquininha', 'Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
+    if (p.formaPagamento === 'dinheiro_entrega') return [selo('dinheiro', 'Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0
+      ? [selo('dinheiro', 'Paga com ' + dinheiro(p.trocoPara), 'laranja'), selo('desfazer', 'Levar troco de ' + dinheiro(p.trocoPara - p.total), 'laranja')]
+      : [selo('check', 'Sem troco', 'laranja')]);
+    return [selo('carteira', 'Total ' + dinheiro(p.total), 'cinza')];
   }
 
   function abrirEntrega(raiz, slug) {
@@ -575,11 +569,13 @@
           UI.seloHorario(p.criadoEm),
           el('div', { class: 'cabeca-selos' }, cobrar),
         ]));
-        card.appendChild(el('div', { class: 'cliente' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : '']) /* telefone nunca parte no meio */);
-        var end = el('div', { class: 'endereco grande' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
-        if (e.referencia) end.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
-        card.appendChild(end);
-        card.appendChild(el('div', { class: 'itens' }, [el('span', { text: p.itens.map(function (it) { return it.quantidade + 'x ' + it.nome; }).join(', ') })]));
+        card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : ''])]) /* telefone nunca parte no meio */);
+        var endTexto = el('div', { class: 'endereco-texto' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
+        if (e.referencia) endTexto.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
+        card.appendChild(el('div', { class: 'endereco grande' }, [UI.iconeLinha('mapa'), endTexto]));
+        var itensE = el('div', { class: 'itens' });
+        p.itens.forEach(function (it) { itensE.appendChild(UI.linhaDoItem(it)); });
+        card.appendChild(itensE);
         var avisoValorE = avisoConferido(p);
         if (avisoValorE) card.appendChild(avisoValorE);
         var acoes = el('div', { class: 'acoes acoes-entrega' });

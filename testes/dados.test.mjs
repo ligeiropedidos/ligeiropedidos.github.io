@@ -307,6 +307,26 @@ console.log('Estoque na demonstracao e pelo mensageiro');
   ok(e403 && e403.message === 'Essa loja não é sua.', 'recusado: o motivo do mensageiro chega a tela');
 }
 
+console.log('Fotos extras do item na demonstracao');
+{
+  const rel = relogio();
+  const n = navegador({}, rel);
+  const store = n.janela.LigeiroDados.store;
+  const loja = { slug: 'galeria', nome: 'Galeria', tipo: 'Roupas', fotosVersao: 'v1', categorias: [{ id: 'c', nome: 'C' }],
+    produtos: [{ id: 'a', categoria: 'c', nome: 'A', preco: 100, foto: 'fa', fotosExtras: ['fx1', 'fx2'] }] };
+  n.janela.localStorage.setItem('ligeiro.demo.v3', JSON.stringify({ lojas: { galeria: loja }, pedidos: {}, contadores: {}, fotos: { galeria: { fa: 'data:image/jpeg;base64,AA', fx1: 'data:image/jpeg;base64,BB' } } }));
+  await store.salvarFoto('galeria', 'fx2', 'data:image/jpeg;base64,CC', { extra: true });
+  const depois = await store.obterLoja('galeria');
+  ok(depois.fotosVersao === 'v1', 'foto extra salva nao muda a versao das fotos (o cliente nao baixa o pacote de novo)');
+  const mapa = await store.listarFotos('galeria', 'v1', depois);
+  ok(Object.keys(mapa).join(',') === 'fa', 'o mapa da loja so leva a foto principal; as extras vem quando o item abre');
+  ok((await store.fotoPublica('galeria', 'fx2')) === 'data:image/jpeg;base64,CC', 'a extra abre pela fotoPublica, como a foto grande');
+  await store.excluirFoto('galeria', 'fx1', { extra: true });
+  ok((await store.obterLoja('galeria')).fotosVersao === 'v1' && (await store.fotoPublica('galeria', 'fx1')) === null, 'apagar a extra tambem nao mexe na versao');
+  await store.salvarFoto('galeria', 'fb', 'data:image/jpeg;base64,DD');
+  ok((await store.obterLoja('galeria')).fotosVersao !== 'v1', 'a foto principal continua mudando a versao (o pacote se refaz)');
+}
+
 console.log('Mercado Pago: leitura que falhou nunca apaga a conexao');
 {
   const gravados = [];

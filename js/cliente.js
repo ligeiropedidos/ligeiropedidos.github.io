@@ -188,7 +188,7 @@
     /* Itens do cardapio que batem com a busca (so ativos): "tem: Pizza Calabresa, Pizza 4 Queijos" */
     function itensQueBatem(l, termo) {
       if (!termo) return [];
-      return R.produtosAtivos(l).filter(function (p) { return normal(p.nome).indexOf(termo) >= 0; }).map(function (p) { return p.nome; });
+      return R.produtosAtivos(l, new Date()).filter(function (p) { return normal(p.nome).indexOf(termo) >= 0; }).map(function (p) { return p.nome; });
     }
 
     function desenharChips() {
@@ -892,18 +892,72 @@
       var cat = R.catalogo(l);
       var acompanhar = $('comoAcompanhar');
       if (acompanhar) { UI.limpar(acompanhar); acompanhar.appendChild(document.createTextNode('Acompanhe')); acompanhar.appendChild(el('br')); acompanhar.appendChild(document.createTextNode(cat.comida ? 'pela senha' : 'o pedido')); }
-      if ($('tituloDestaques')) $('tituloDestaques').textContent = cat.maisPedidos;
       if ($('textoPagouEntra')) $('textoPagouEntra').textContent = cat.pagouEntra;
       if ($('notaPrazoPix')) $('notaPrazoPix').textContent = 'O Pix vale por 30 minutos. Não precisa avisar ninguém: assim que cair, você recebe ' + (cat.comida ? 'a senha do pedido.' : 'o número do pedido.');
       if ($('rotuloSenha')) $('rotuloSenha').textContent = cat.suaSenha;
       if ($('campoObs')) $('campoObs').placeholder = cat.comida ? 'Ex: sem cebola em tudo, tocar a campainha…' : 'Ex: é para presente, tocar a campainha…';
     }
 
-    /* destaques: os dois primeiros produtos ativos que nao sao bebida (e, com estoque, que nao esgotaram) */
+    /* a hora que vale para as ofertas: a do aparelho acertada pela do servidor (a mesma conta do mensageiro) */
+    function agoraDaLoja() { return new Date(agoraCerto()); }
+    /* o preco do cartao: o menor (com "a partir de" quando muda com o tamanho) e, na oferta, o normal riscado em cima */
+    function precoDoCartao(p) {
+      var agora = agoraDaLoja();
+      var faixa = R.faixaDePreco(estado.loja, p, agora), oferta = R.ofertaAtiva(p, agora);
+      var normal = oferta && oferta.preco ? faixa.de + Math.round(Number(p.preco) || 0) - oferta.preco : 0;
+      var varia = faixa.ate > faixa.de;
+      return el('span', { class: 'preco-bloco' }, [
+        varia || normal ? el('span', { class: 'preco-de' }, [varia ? el('span', { text: 'a partir de' }) : null, normal ? el('s', { text: dinheiro(normal) }) : null]) : null,
+        el('span', { class: 'preco' + (normal ? ' em-oferta' : ''), text: dinheiro(faixa.de) }),
+      ]);
+    }
+    /* por tempo limitado: o foguinho com quanto falta (o relogio de 60 s atualiza; acabou, a grade se redesenha) */
+    function seloOferta(p, classe) {
+      var agora = agoraDaLoja(), oferta = R.ofertaAtiva(p, agora);
+      if (!oferta) return null;
+      return el('span', { class: 'selo-oferta' + (classe ? ' ' + classe : ''), dataset: { fim: String(oferta.fim) } }, [UI.iconeLinha('fogo'), el('span', { class: 'selo-oferta-texto', text: R.textoDoPrazo(oferta.fim, agora) })]);
+    }
+    function infoDoCartao(p) {
+      return el('span', { class: 'info' }, [
+        seloOferta(p),
+        el('span', { class: 'nome', text: p.nome }),
+        el('span', { class: 'desc', text: p.descricao || '' }),
+        el('span', { class: 'rodape-card' }, [precoDoCartao(p), el('span', { class: 'mais', text: 'PEDIR' })]),
+      ]);
+    }
+    /* a cada minuto: o "Acaba em" anda; a oferta que acabou tira o item (ou volta o preco) da grade e da vitrine */
+    function atualizarOfertas() {
+      if (!estado.loja) return;
+      var agora = agoraDaLoja(), acabou = false;
+      [].forEach.call(document.querySelectorAll('.selo-oferta[data-fim]'), function (x) {
+        var fim = Number(x.dataset.fim);
+        if (!(fim > agora.getTime())) { acabou = true; return; }
+        var texto = x.querySelector('.selo-oferta-texto');
+        if (texto) texto.textContent = R.textoDoPrazo(fim, agora);
+      });
+      if (!acabou) return;
+      var aba = raiz.querySelector('.aba.ativa');
+      montarAbas();
+      if (aba && $('grade') && $('grade').children.length) montarGrade(aba.dataset.categoria);
+      desenharDestaques(estado.loja, R.lojaAberta(estado.loja));
+    }
+
+    /* destaques: o que esta por tempo limitado (com o foguinho); sem oferta, os dois primeiros produtos ativos que nao
+       sao bebida (e, com estoque, que nao esgotaram) */
     function desenharDestaques(l, aberta) {
       var trilho = $('destaquesTrilho');
       UI.limpar(trilho);
-      var vitrine = R.produtosAtivos(l).filter(function (p) { var sit = situacaoNaTela(p); return !/bebida/i.test(p.categoria) && !(sit && sit.esgotado); }).slice(0, 2);
+      var agora = agoraDaLoja();
+      var podem = R.produtosAtivos(l, agora).filter(function (p) { var sit = situacaoNaTela(p); return !(sit && sit.esgotado); });
+      var ofertas = podem.filter(function (p) { return !!R.ofertaAtiva(p, agora); }).sort(function (a, b) { return R.ofertaAtiva(a, agora).fim - R.ofertaAtiva(b, agora).fim; });
+      var vitrine = (ofertas.length ? ofertas : podem.filter(function (p) { return !/bebida/i.test(p.categoria); })).slice(0, 2);
+      var titulo = $('tituloDestaques');
+      if (titulo) {
+        UI.limpar(titulo);
+        titulo.classList.toggle('titulo-ofertas', !!ofertas.length);
+        if (ofertas.length) { titulo.appendChild(UI.iconeLinha('fogo')); titulo.appendChild(document.createTextNode('Por tempo limitado')); }
+        else titulo.textContent = R.catalogo(l).maisPedidos;
+      }
       $('destaques').hidden = vitrine.length === 0 || balcao || !aberta;
       vitrine.forEach(function (p) {
         var card = el('button', { class: 'card-produto', dataset: { produto: p.id }, onclick: function () {
@@ -913,11 +967,7 @@
           if (!esgotouNaTela(p)) abrirPersonalizacao(p);
         } }, [
           el('span', { class: 'foto' }, fotoDoProduto(p)),
-          el('span', { class: 'info' }, [
-            el('span', { class: 'nome', text: p.nome }),
-            el('span', { class: 'desc', text: p.descricao || '' }),
-            el('span', { class: 'rodape-card' }, [el('span', { class: 'preco', text: dinheiro(p.preco) }), el('span', { class: 'mais', text: 'PEDIR' })]),
-          ]),
+          infoDoCartao(p),
         ]);
         trilho.appendChild(observarCartao(card));
       });
@@ -1062,13 +1112,15 @@
     }
 
     /* todo cartao com a altura da foto (css: .card-produto .info): se o texto nao couber, encolhe a descricao para 1 linha,
-       depois tira a descricao, e so por ultimo corta o nome em 1 linha. Confere de novo quando o cartao aparece, quando a
+       depois tira a descricao, e so por ultimo corta o nome em 1 linha (e, se nem assim, o cartao cresce). Confere de novo quando o cartao aparece, quando a
        largura muda e quando as letras terminam de chegar */
-    var PASSOS_CARTAO = [[], ['desc-1'], ['desc-0'], ['desc-0', 'nome-1']];
+    /* o ultimo passo so acontece no celular estreito com oferta e preco riscado (foguinho + nome + "de" + preco nao cabem
+       na altura da foto): o cartao cresce o que falta, a foto fica no meio e o PEDIR continua no mesmo lugar do pe */
+    var PASSOS_CARTAO = [[], ['desc-1'], ['desc-0'], ['desc-0', 'nome-1'], ['desc-0', 'nome-1', 'cresce']];
     function encaixarCartao(card) {
       var info = card && card.querySelector('.info');
       if (!info || !info.clientHeight) return;
-      card.classList.remove('desc-1', 'desc-0', 'nome-1');
+      card.classList.remove('desc-1', 'desc-0', 'nome-1', 'cresce');
       for (var i = 0; i < PASSOS_CARTAO.length; i++) {
         PASSOS_CARTAO[i].forEach(function (c) { card.classList.add(c); });
         if (info.scrollHeight <= info.clientHeight + 1) return;
@@ -1251,7 +1303,8 @@
     /* horario automatico: a tela inicial abre e fecha sozinha, sem precisar recarregar a pagina */
     estado.relogioAberta = setInterval(function () {
       if (!vivo || !estado.loja) return;
-      if (R.lojaAberta(estado.loja) !== estado.abertaNaTela) { montarInicio(); fechouNoMeio(); }
+      if (R.lojaAberta(estado.loja) !== estado.abertaNaTela) { montarInicio(); fechouNoMeio(); return; }
+      atualizarOfertas();
     }, 60000);
 
     $('btnComecar').addEventListener('click', comecarPedido);
@@ -1273,7 +1326,7 @@
       var abas = $('abas');
       UI.limpar(abas);
       (estado.loja.categorias || []).forEach(function (c) {
-        var temProduto = R.produtosAtivos(estado.loja).some(function (p) { return p.categoria === c.id; });
+        var temProduto = R.produtosAtivos(estado.loja, agoraDaLoja()).some(function (p) { return p.categoria === c.id; });
         if (!temProduto) return;
         abas.appendChild(el('button', { class: 'aba', dataset: { categoria: c.id }, text: (c.emoji ? c.emoji + ' ' : '') + c.nome, onclick: function () { montarGrade(c.id); } }));
       });
@@ -1285,7 +1338,7 @@
       raiz.querySelectorAll('.aba').forEach(function (a) { a.classList.toggle('ativa', a.dataset.categoria === categoriaId); });
       var grade = $('grade');
       UI.limpar(grade);
-      var lista = R.produtosAtivos(estado.loja).filter(function (p) { return p.categoria === categoriaId; });
+      var lista = R.produtosAtivos(estado.loja, agoraDaLoja()).filter(function (p) { return p.categoria === categoriaId; });
       if (lista.length === 0 && estado.loja.categorias.length) {
         var primeira = raiz.querySelector('.aba');
         if (primeira && primeira.dataset.categoria !== categoriaId) return montarGrade(primeira.dataset.categoria);
@@ -1297,11 +1350,7 @@
       lista.forEach(function (p) {
         grade.appendChild(observarCartao(el('button', { class: 'card-produto', dataset: { produto: p.id }, onclick: function () { if (!esgotouNaTela(p)) abrirPersonalizacao(p); } }, [
           el('span', { class: 'foto' }, fotoDoProduto(p)),
-          el('span', { class: 'info' }, [
-            el('span', { class: 'nome', text: p.nome }),
-            el('span', { class: 'desc', text: p.descricao || '' }),
-            el('span', { class: 'rodape-card' }, [el('span', { class: 'preco', text: dinheiro(p.preco) }), el('span', { class: 'mais', text: 'PEDIR' })]),
-          ]),
+          infoDoCartao(p),
         ])));
       });
       pintarSelos();
@@ -1310,7 +1359,7 @@
     /* ---------- personalizar o item ---------- */
 
     function abrirPersonalizacao(produto) {
-      var grupos = R.gruposDaCategoria(estado.loja, produto.categoria);
+      var grupos = R.gruposDoProduto(estado.loja, produto);
       var grupoTamanho = grupos.filter(function (g) { return g.tipo === 'unico'; })[0];
       var cat = R.catalogo(estado.loja);
       /* tamanho que acabou nao vem marcado. Comercio (roupa, calcado): o cliente escolhe o tamanho, nada vem marcado
@@ -1325,23 +1374,89 @@
       var corpo = el('div');
       var srcFoto = D.fotoSrc(produto, estado.fotos) || desenhoDoProduto(produto);
       var soDesenho = !D.fotoSrc(produto, estado.fotos) && !!srcFoto;
+      /* a 2a e a 3a foto do item: baixam so agora (pela borda, guardadas no celular), uma vez para as duas galerias */
+      var extras = Array.isArray(produto.fotosExtras) ? produto.fotosExtras.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 2) : [];
+      var cargas = {};
+      function carregarExtra(id) { return cargas[id] || (cargas[id] = store.fotoPublica ? store.fotoPublica(slug, id).catch(function () { return null; }) : Promise.resolve(null)); }
       /* foto que nao abre (link quebrado, arquivo apagado): some o quadro, igual item sem foto */
+      function semFoto(caixaFoto) { caixaFoto.remove(); var cx = $('modalCaixa'); if (cx && !cx.querySelector('.foto-modal')) { cx.classList.remove('com-lado'); cx.classList.remove('foto-no-topo'); var cab = cx.querySelector('.item-cabeca'); if (cab) cab.remove(); } } /* sem a foto: o nome e a descricao voltam para o topo */
       function montarFoto() {
-        var caixaFoto = el('div', { class: 'foto-modal' + (soDesenho ? ' foto-modal-desenho' : '') }, [el('img', { src: srcFoto, alt: soDesenho ? '' : produto.nome })]);
-        caixaFoto.firstChild.addEventListener('error', function () { caixaFoto.remove(); var cx = $('modalCaixa'), m = $('modal'); if (cx) { cx.classList.remove('com-lado'); cx.classList.remove('foto-no-topo'); var cab = cx.querySelector('.item-cabeca'); if (cab) cab.remove(); } }); /* sem a foto: o nome e a descricao voltam para o topo */
-        /* loja com miniaturas: mostra a miniatura na hora e troca pela foto grande quando ela chegar */
-        if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && caixaFoto.isConnected) caixaFoto.firstChild.src = cheia; }).catch(function () { /* fica a miniatura */ });
-        return caixaFoto;
+        if (!extras.length) {
+          var caixaFoto = el('div', { class: 'foto-modal' + (soDesenho ? ' foto-modal-desenho' : '') }, [el('img', { src: srcFoto, alt: soDesenho ? '' : produto.nome })]);
+          caixaFoto.firstChild.addEventListener('error', function () { semFoto(caixaFoto); });
+          /* loja com miniaturas: mostra a miniatura na hora e troca pela foto grande quando ela chegar */
+          if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && caixaFoto.isConnected) caixaFoto.firstChild.src = cheia; }).catch(function () { /* fica a miniatura */ });
+          return caixaFoto;
+        }
+        return montarGaleria();
       }
-      if (srcFoto) corpo.appendChild(montarFoto());
+      /* ate 3 fotos: desliza no celular, setas no PC, pontinhos embaixo. Foto que nao abre sai da galeria; sem nenhuma, o
+         quadro some como o de uma foto so */
+      function montarGaleria() {
+        var caixa = el('div', { class: 'foto-modal galeria' + (soDesenho && !extras.length ? ' foto-modal-desenho' : '') });
+        var trilho = el('div', { class: 'galeria-trilho', tabindex: '0', role: 'region', 'aria-label': 'Fotos de ' + produto.nome + '. Deslize para ver as outras.' });
+        var pontos = el('div', { class: 'galeria-pontos' });
+        var antes = el('button', { class: 'galeria-seta antes', type: 'button', 'aria-label': 'Foto anterior' }, [UI.iconeLinha('voltar')]);
+        var depois = el('button', { class: 'galeria-seta depois', type: 'button', 'aria-label': 'Próxima foto' }, [UI.iconeLinha('avancar')]);
+        caixa.appendChild(trilho); caixa.appendChild(antes); caixa.appendChild(depois); caixa.appendChild(pontos);
+        var calmo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        /* a foto da vez guardada aqui: montada fora da tela, a galeria tem largura zero e o navegador "gruda" no ultimo
+           quadro; quando ela aparece (e a cada mudanca de largura), volta para a foto certa */
+        var indice = 0, pronto = false;
+        function quadros() { return [].slice.call(trilho.children); }
+        function atual() { var w = trilho.clientWidth || 1; return Math.round(trilho.scrollLeft / w); }
+        function ir(i) { var q = quadros(); if (!q.length) return; indice = Math.max(0, Math.min(q.length - 1, i)); trilho.scrollTo({ left: indice * trilho.clientWidth, behavior: calmo ? 'auto' : 'smooth' }); pintar(); }
+        function pintar() {
+          var q = quadros();
+          indice = Math.max(0, Math.min(q.length - 1, indice));
+          var i = indice;
+          UI.limpar(pontos);
+          pontos.hidden = q.length < 2;
+          q.forEach(function (_, k) { pontos.appendChild(el('button', { type: 'button', class: 'galeria-ponto' + (k === i ? ' ativo' : ''), 'aria-label': 'Foto ' + (k + 1) + ' de ' + q.length, 'aria-current': k === i ? 'true' : null, onclick: function () { ir(k); } })); });
+          antes.hidden = q.length < 2 || i <= 0;
+          depois.hidden = q.length < 2 || i >= q.length - 1;
+        }
+        function tirar(q) { if (q.parentNode) q.parentNode.removeChild(q); if (!quadros().length) { semFoto(caixa); return; } pintar(); }
+        function quadro(src, alt) {
+          var img = el('img', { alt: alt || '' });
+          var q = el('div', { class: 'galeria-quadro' }, [img]);
+          img.addEventListener('error', function () { tirar(q); });
+          if (src) img.src = src;
+          trilho.appendChild(q);
+          return { q: q, img: img };
+        }
+        if (srcFoto) {
+          var principal = quadro(srcFoto, soDesenho ? '' : produto.nome);
+          if (store.fotoCheia && produto.foto) store.fotoCheia(slug, produto.foto).then(function (cheia) { if (cheia && principal.img.isConnected) principal.img.src = cheia; }).catch(function () { /* fica a miniatura */ });
+        }
+        extras.forEach(function (id, k) {
+          var x = quadro(null, produto.nome + ', foto ' + (k + (srcFoto ? 2 : 1)));
+          carregarExtra(id).then(function (src) { if (!x.q.isConnected && !trilho.contains(x.q)) return; if (src) x.img.src = src; else tirar(x.q); });
+        });
+        var quadroPedido = 0;
+        trilho.addEventListener('scroll', function () { if (!pronto || quadroPedido) return; quadroPedido = requestAnimationFrame(function () { quadroPedido = 0; indice = atual(); pintar(); }); }, { passive: true });
+        var acertar = function () { var w = trilho.clientWidth; if (!w) return; trilho.scrollLeft = indice * w; pronto = true; pintar(); };
+        if (window.ResizeObserver) new ResizeObserver(acertar).observe(trilho); else setTimeout(acertar, 0);
+        trilho.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { e.preventDefault(); ir(atual() + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); ir(atual() - 1); } });
+        antes.addEventListener('click', function () { ir(atual() - 1); });
+        depois.addEventListener('click', function () { ir(atual() + 1); });
+        pintar();
+        return caixa;
+      }
+      var temFoto = !!srcFoto || extras.length > 0;
+      if (temFoto) corpo.appendChild(montarFoto());
       /* celular, como no iFood e no totem do McDonalds: a foto primeiro (o X fica por cima dela), embaixo o nome, o que vem
          e o preco, depois as escolhas. No PC a foto fica na esquerda e o nome e a descricao no topo da direita, como sempre */
-      var fotoNoTopo = !!srcFoto;
+      var fotoNoTopo = temFoto;
+      /* o foguinho vem em cima do nome (como nas lojas grandes), o preco embaixo do que vem */
       if (fotoNoTopo) corpo.appendChild(el('div', { class: 'item-cabeca' }, [
+        seloOferta(produto, 'na-janela'),
         el('h2', { class: 'item-nome', text: produto.nome }),
         produto.descricao ? el('p', { class: 'item-desc', text: produto.descricao }) : null,
-        el('span', { class: 'item-preco', text: dinheiro(produto.preco) }),
+        precoDaJanela(produto),
       ]));
+      /* sem foto no topo (o nome e o que vem ficam no titulo da janela): o preco logo embaixo deles, como com foto */
+      else corpo.appendChild(el('div', { class: 'item-cabeca so-preco' }, [precoDaJanela(produto)]));
 
       /* tamanho e adicionais sao do produto: aparecem sempre. A chave da loja so tira o "Tirar alguma coisa?" e o recado
          (antes sumia tudo junto, e a pizzaria que so nao queria recado nao vendia a pizza grande) */
@@ -1403,12 +1518,16 @@
       UI.abrirModal({
         classe: 'modal-item' + (fotoNoTopo ? ' foto-no-topo' : ''),
         centro: true,
-        lado: srcFoto ? montarFoto() : null, /* no PC: foto quadrada na esquerda, escolhas na direita */
+        lado: temFoto ? montarFoto() : null, /* no PC: foto quadrada na esquerda, escolhas na direita */
         titulo: produto.nome,
         sub: produto.descricao || '',
         corpo: corpo,
         rodape: [el('div', { class: 'contador' }, [menos, numero, mais]), adicionar],
       });
+      /* o foguinho em cima do nome no titulo da janela (item sem foto no topo, e no PC com a foto do lado) */
+      var seloTopo = seloOferta(produto, 'na-janela no-topo');
+      var tituloJanela = seloTopo && $('modalCaixa') && $('modalCaixa').querySelector('.modal-topo .titulo');
+      if (tituloJanela) tituloJanela.parentNode.insertBefore(seloTopo, tituloJanela);
       /* rolou e a foto saiu de cima: aparece a barra com o nome e o X (como no iFood); voltou, some */
       if (fotoNoTopo) {
         var cx = $('modalCaixa'), rolagem = cx && cx.querySelector('.modal-corpo');
@@ -1507,16 +1626,27 @@
     function precoUnitarioModal() {
       var m = estado.modal;
       try {
-        var c = R.calcularItens(estado.loja, [{ produtoId: m.produto.id, quantidade: 1, tamanho: m.tamanho, adicionais: m.adicionais }]);
+        var c = R.calcularItens(estado.loja, [{ produtoId: m.produto.id, quantidade: 1, tamanho: m.tamanho, adicionais: m.adicionais }], { agora: agoraDaLoja() });
         return c.itens[0].precoUnitario;
-      } catch (_) { return m.produto.preco; }
+      } catch (_) { return R.precoDoProduto(m.produto, agoraDaLoja()); }
+    }
+    /* o preco na janela do item: "a partir de" quando muda com o tamanho e, na oferta, o normal riscado do lado */
+    function precoDaJanela(produto) {
+      var agora = agoraDaLoja();
+      var faixa = R.faixaDePreco(estado.loja, produto, agora), oferta = R.ofertaAtiva(produto, agora);
+      var normal = oferta && oferta.preco ? faixa.de + Math.round(Number(produto.preco) || 0) - oferta.preco : 0;
+      return el('span', { class: 'item-preco' + (normal ? ' em-oferta' : '') }, [
+        faixa.ate > faixa.de ? el('small', { text: 'a partir de' }) : null,
+        normal ? el('s', { text: dinheiro(normal) }) : null,
+        el('span', { text: dinheiro(faixa.de) }),
+      ]);
     }
 
     function adicionarAoCarrinho() {
       /* primeiro item: o programa do banco comeca a baixar agora, e ja esta pronto quando a pessoa for mandar o pedido */
       if (store.aquecer) store.aquecer();
       var m = estado.modal;
-      var grupos = R.gruposDaCategoria(estado.loja, m.produto.categoria);
+      var grupos = R.gruposDoProduto(estado.loja, m.produto);
       var gT = grupos.filter(function (g) { return g.tipo === 'unico'; })[0];
       var opcoesExtras = [];
       grupos.filter(function (g) { return g.tipo === 'varios'; }).forEach(function (g) { opcoesExtras = opcoesExtras.concat(g.opcoes || []); });
@@ -1551,7 +1681,7 @@
       if (estado.carrinho.length === 0) return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '' };
       try {
         /* a forma so pesa no fechamento (taxa do cartao repassada); no carrinho vale a conta sem ela */
-        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: $('tela-dados').classList.contains('ativa') ? formaEscolhida() : '' });
+        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: $('tela-dados').classList.contains('ativa') ? formaEscolhida() : '', agora: agoraDaLoja() });
       } catch (e) {
         /* um item saiu do cardapio no meio do pedido: a tela mostra o motivo em vez de "GRATIS" */
         return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '', erro: e && e.message ? e.message : 'Algo mudou no ' + R.catalogo(estado.loja).nome + '.' };
@@ -1724,7 +1854,7 @@
     }
     function aplicarCupomConferido(digitado, msg) {
       var orc;
-      try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado }); }
+      try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado, agora: agoraDaLoja() }); }
       catch (e) { msg.hidden = false; msg.textContent = e && e.message ? e.message : 'Algo mudou no ' + R.catalogo(estado.loja).nome + '. Confira o pedido.'; return; }
       if (orc.cupomErro) { UI.soar('erro'); msg.hidden = false; msg.textContent = orc.cupomErro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
       /* cupom com limite: quem conta os usos e o mensageiro, na hora de criar o pedido (o contador e fechado para o
@@ -1893,8 +2023,8 @@
       var l = estado.loja;
       if (!l || $('opcaoCartaoOnline').hidden || !estado.carrinho.length) return;
       try {
-        var semCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'pix' });
-        var comCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'cartao_online' });
+        var semCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'pix', agora: agoraDaLoja() });
+        var comCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'cartao_online', agora: agoraDaLoja() });
         var taxa = comCartao.acrescimoCartao || 0;
         $('detalheCartaoOnline').textContent = taxa > 0 ? 'À vista, + ' + dinheiro(taxa) + ' de taxa do cartão' : 'À vista, pago agora aqui no site';
         $('detalhePix').textContent = taxa > 0 && semCartao.total > 0 ? 'Sem taxa, direto para a loja' : 'Paga pelo celular, direto para a loja';
@@ -3186,9 +3316,10 @@
     }
     /* ate 3 lanches (sem bebida), os com foto primeiro: a foto so se ja estiver no celular */
     function produtosDoJogo() {
-      var lista = R.produtosAtivos(estado.loja).filter(function (p) { return p.preco > 0 && !/bebida/i.test(p.categoria || ''); });
+      var agora = agoraDaLoja();
+      var lista = R.produtosAtivos(estado.loja, agora).filter(function (p) { return p.preco > 0 && !/bebida/i.test(p.categoria || ''); });
       var comFoto = lista.filter(function (p) { return D.fotoSrc(p, estado.fotos); }), semFoto = lista.filter(function (p) { return !D.fotoSrc(p, estado.fotos); });
-      return comFoto.concat(semFoto).slice(0, 3).map(function (p) { return { id: p.id, nome: p.nome, preco: p.preco, emoji: p.emoji || '', foto: D.fotoSrc(p, estado.fotos) || '' }; });
+      return comFoto.concat(semFoto).slice(0, 3).map(function (p) { return { id: p.id, nome: p.nome, preco: R.faixaDePreco(estado.loja, p, agora).de, emoji: p.emoji || '', foto: D.fotoSrc(p, estado.fotos) || '' }; });
     }
     function carregarJogo(g) {
       if (window[g.global]) return Promise.resolve(window[g.global]);

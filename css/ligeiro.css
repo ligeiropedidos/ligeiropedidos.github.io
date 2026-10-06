@@ -426,10 +426,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .card-produto.desc-1 .desc { -webkit-line-clamp: 1; }
 .card-produto.desc-0 .desc { display: none; }
 .card-produto.nome-1 .nome { -webkit-line-clamp: 1; }
+.card-produto.cresce .info { height: auto; min-height: var(--foto-card); } /* ultimo recurso (oferta no celular estreito): cresce em vez de cortar */
 .card-produto .nome { font-family: var(--display); font-size: 18.5px; font-weight: 700; line-height: 1.2; } /* nome em duas linhas sem vao de paragrafo entre elas */
 .card-produto .desc { font-size: 14.5px; color: var(--muted); line-height: 1.35; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 2 linhas: a altura do cartao (e da foto) fica sob controle */
 .card-produto .nome { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-produto .rodape-card { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; } /* preco nunca encosta no PEDIR */
+.card-produto .rodape-card { margin-top: auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; padding-top: 8px; } /* preco nunca encosta no PEDIR */
+/* a linha de baixo e sempre a mesma (o preco no meio da altura do PEDIR, o PEDIR no mesmo lugar em todo cartao); o "a partir
+   de" e o preco riscado ficam numa linha em cima, sem mexer nela */
+.card-produto .preco-bloco { display: contents; }
+.card-produto .rodape-card .preco-de { grid-column: 1 / -1; grid-row: 1; }
+.card-produto .rodape-card .preco { grid-column: 1; grid-row: 2; }
+.card-produto .rodape-card .mais { grid-column: 2; grid-row: 2; }
 .card-produto .rodape-card .preco { white-space: nowrap; }
 .card-produto .preco { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--deep); white-space: nowrap; }
 .card-produto .mais { white-space: nowrap; }
@@ -484,6 +491,23 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* foto grande do item: quadrado exato (igual a lista), a imagem preenche tudo recortando pelo centro, nunca estica */
 .foto-modal { position: relative; width: 100%; margin: 4px 0 10px; border-radius: 16px; overflow: hidden; background: var(--lime-suave); aspect-ratio: 1 / 1; }
 .foto-modal img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
+/* galeria (ate 3 fotos por item): a foto inteira no quadro, desliza para o lado (ima em cada foto), pontinhos embaixo e
+   setas so onde tem mouse. As cores ficam fixas (em cima de foto, cor de tema some) */
+.galeria-trilho { position: absolute; inset: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; outline: none; }
+.galeria-trilho::-webkit-scrollbar { display: none; }
+.galeria-trilho:focus-visible { box-shadow: inset 0 0 0 3px var(--deep); }
+.galeria-quadro { position: relative; flex: 0 0 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.galeria-pontos { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 0; padding: 0 4px; border-radius: 999px; background: rgba(17, 24, 39, 0.45); }
+.galeria-pontos[hidden] { display: none; }
+.galeria-ponto { width: 24px; height: 24px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
+.galeria-ponto::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.galeria-ponto.ativo::after { background: #FFFFFF; }
+.galeria-seta { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.94); color: #0E1F14; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22); display: flex; align-items: center; justify-content: center; }
+.galeria-seta[hidden] { display: none; }
+.galeria-seta.antes { left: 12px; }
+.galeria-seta.depois { right: 12px; }
+.galeria-seta .ico-traco svg { width: 20px; height: 20px; }
+@media (hover: none) { .galeria-seta { display: none; } } /* no celular a galeria desliza com o dedo */
 /* item com foto no celular, como no iFood e no totem do McDonalds: foto no alto (16 da borda), o X flutuando no canto
    dela (12 para dentro), e embaixo nome, o que vem e o preco. Ritmo: 16 da foto ao nome, 8 entre nome, texto e preco,
    16 ate as escolhas. Alturas de linha inteiras em pixel */
@@ -530,7 +554,8 @@ a.selo-google:hover { background: var(--lime-suave); }
   .modal-item.com-lado.foto-no-topo .modal-topo .fechar { border-color: var(--line-forte); box-shadow: none; }
   .modal-item.com-lado.foto-no-topo .modal-corpo { padding-top: 0; }
   .com-lado .modal-corpo .item-cabeca { margin-top: -4px; } /* no PC fica so o preco, 8 abaixo da descricao (o topo tem 12 embaixo), como no celular */
-  .com-lado .item-cabeca .item-nome, .com-lado .item-cabeca .item-desc { display: none; }
+  .com-lado .item-cabeca .item-nome, .com-lado .item-cabeca .item-desc, .com-lado .item-cabeca .selo-oferta { display: none; }
+  .modal-item.com-lado.foto-no-topo .modal-topo .selo-oferta { display: inline-flex; } /* no PC o foguinho fica no titulo, em cima do nome */
   /* item sem foto: janela no meio, 560 de largura, a mesma moldura de 24 */
   .modal-caixa.modal-item:not(.com-lado) { --margem: 24px; max-width: 560px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
   .modal-item:not(.com-lado) .modal-topo { padding-top: 24px; }
@@ -545,6 +570,31 @@ a.selo-google:hover { background: var(--lime-suave); }
 .card-produto.esgotado .foto > img { opacity: 0.6; }
 .card-produto.esgotado .preco { color: var(--muted); }
 .card-produto.esgotado .mais { background: var(--line); color: var(--muted); }
+/* por tempo limitado: o foguinho (pilula laranja com o fogo e quanto falta) em cima do nome. Cores proprias (fundo claro,
+   letra escura): le igual nos temas claros e nos escuros (Burger House, Mak) */
+.selo-oferta { display: inline-flex; align-items: center; align-self: flex-start; gap: 4px; max-width: 100%; margin-bottom: 6px; padding: 3px 8px 3px 6px; border-radius: 999px; background: #FFE3CC; color: #9C3D0B; font-family: var(--corpo); font-size: 12.5px; font-weight: 800; line-height: 16px; white-space: nowrap; }
+.selo-oferta .ico-traco { flex: none; color: #E8590C; }
+.selo-oferta .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.2; }
+.selo-oferta-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.selo-oferta.na-janela { margin: 0; gap: 6px; padding: 4px 12px 4px 8px; font-size: 14px; line-height: 20px; }
+.selo-oferta.na-janela .ico-traco svg { width: 16px; height: 16px; }
+/* o preco do cartao: em cima, pequeno, "a partir de" e/ou o preco normal riscado; embaixo o que vale agora */
+.card-produto .preco-de { display: flex; align-items: baseline; gap: 4px; font-size: 12.5px; font-weight: 600; line-height: 15px; color: var(--muted); white-space: nowrap; }
+.card-produto .preco-de s, .item-preco s { text-decoration-thickness: 1.5px; }
+/* a janela do item: "a partir de", o normal riscado e o preco, na mesma linha de base; o foguinho embaixo */
+.item-preco { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.item-preco small, .item-preco s { font-family: var(--corpo); font-size: 14px; font-weight: 600; line-height: 20px; color: var(--muted); }
+/* sem foto no topo: so o preco, 8 abaixo do que vem no titulo (o topo tem 12 embaixo), como no PC */
+.item-cabeca.so-preco { margin-top: -4px; }
+/* o foguinho no titulo da janela: no meio da altura do X (28 de 44: 8 em cima) e o nome 8 abaixo dele */
+.modal-topo .selo-oferta.no-topo { margin: 8px 0; }
+.modal-topo .selo-oferta.no-topo + .titulo { padding-top: 0; }
+/* celular com a foto no topo: o foguinho vai na cabeca do item, em cima do nome (nao na barra que aparece ao rolar) */
+.modal-item.foto-no-topo .modal-topo .selo-oferta { display: none; }
+/* a vitrine com ofertas: "Por tempo limitado" com o fogo */
+#tituloDestaques.titulo-ofertas { display: inline-flex; align-items: center; gap: 6px; }
+#tituloDestaques.titulo-ofertas .ico-traco { flex: none; color: #E8590C; }
+#tituloDestaques.titulo-ofertas .ico-traco svg { width: 18px; height: 18px; }
 .btn-adicionar .add-rotulo, .btn-adicionar .add-valor { white-space: nowrap; }
 .btn-adicionar .add-valor { font-family: var(--display); }
 .grupo { margin-top: 16px; }
@@ -754,7 +804,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .secao { padding: 16px var(--margem) 30px; display: flex; flex-direction: column; gap: 12px; }
 .secao h2 { font-size: 20px; }
 .fila-titulo { display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--muted); margin-top: 12px; } /* 12 + 12 da pilha: 24 antes do titulo */
-.pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
+.pedido-card { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; container-type: inline-size; } /* 12 entre as partes, a regua do painel */
 .pedido-card.novo { border-color: var(--lime); box-shadow: 0 0 0 4px var(--lime-suave); animation: piscar 1s ease-in-out 3; }
 .pedido-card.atencao { border-color: var(--orange); }
 @keyframes piscar { 50% { box-shadow: 0 0 0 8px #D9F3B3; } }
@@ -767,20 +817,54 @@ a.selo-google:hover { background: var(--lime-suave); }
 .pedido-card .senha { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
 .pedido-card .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); } /* tira o espaco que sobra depois da ultima letra; a direita do numero e 13 porque o 2 ja tem 1px de folga propria: tinta 14 dos dois lados */
 .pedido-card .senha b { font-size: 28px; } /* numero com a largura dele: folga igual dos dois lados em qualquer senha */
+/* o recibo na frente do rotulo, na cor do rotulo (painel, cozinha e entregador) */
+.pedido-card .senha .ico-traco, .ficha-cozinha .senha .ico-traco { color: var(--lime); }
+.pedido-card .senha .ico-traco svg, .ficha-cozinha .senha .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.1; }
+.pedido-card .senha { padding-left: 12px; }
+/* botoes do cartao com icone (o certo, o x): o icone um pouco mais grosso, na altura da letra */
+.pedido-card .acoes .btn .ico-traco svg, .ficha-cozinha .btn .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.4; }
 /* horario do pedido: selo com relogio, hora e ha quanto tempo */
 .pedido-card .quando { justify-self: end; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pedido-card .quando-ico { display: inline-flex; width: 14px; height: 14px; flex: none; }
 .pedido-card .quando-ico svg { width: 100%; height: 100%; }
 .pedido-card .quando-hora { display: none; }
 @container (min-width: 420px) { .pedido-card .quando-hora { display: inline; } } /* hora do pedido so com folga de sobra; mesma decisao em todos os cartoes da lista */
-.pedido-card .cliente { font-weight: 700; }
-.pedido-card .endereco { font-size: 15px; color: var(--body); }
+/* cliente e endereco com o icone na frente (a pessoa, o alfinete), o texto alinhado depois dele */
+.pedido-card .cliente, .pedido-card .endereco { display: flex; align-items: flex-start; gap: 10px; }
+.pedido-card .cliente > .ico-traco, .pedido-card .endereco > .ico-traco { color: var(--deep2); }
+.pedido-card .cliente > .ico-traco svg, .pedido-card .endereco > .ico-traco svg { width: 20px; height: 20px; }
+/* a tinta do icone na mesma linha da borda dos selos, das pilulas e dos botoes (o desenho da pessoa comeca 3,33 px para
+   dentro da caixa dele, o do alfinete 3,75): puxa o icone e devolve no texto, que fica onde estava */
+.pedido-card .cliente > .ico-traco { margin-left: -3.33px; margin-right: 3.33px; }
+.pedido-card .endereco > .ico-traco { margin-left: -3.75px; margin-right: 3.75px; }
+.pedido-card .cliente-texto, .pedido-card .endereco-texto { min-width: 0; }
+.pedido-card .cliente { font-weight: 700; line-height: 20px; }
+.pedido-card .endereco { font-size: 15px; color: var(--body); line-height: 20px; }
 .pedido-card .endereco b { color: #B4501A; }
-.pedido-card .itens { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 15.5px; display: flex; flex-direction: column; gap: 4px; }
-.pedido-card .itens .sem { color: #B4501A; font-weight: 600; }
+/* os itens: uma linha por item, a quantidade numa pilula na cor da loja, o nome em negrito e o resto mais leve */
+.pedido-card .itens { border-top: 1px solid var(--line); padding-top: 12px; font-size: 15.5px; display: flex; flex-direction: column; gap: 8px; }
+.pedido-card .itens .sem, .item-linha .sem { color: #B4501A; font-weight: 600; }
+.item-linha { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: start; gap: 10px; }
+.item-linha .qtd { min-width: 36px; height: 26px; padding: 0 8px; border-radius: 8px; background: var(--lime); color: var(--texto-no-destaque); font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.item-linha .item-texto { min-width: 0; line-height: 1.35; padding-top: 2px; overflow-wrap: anywhere; }
+.item-linha .item-resto { color: var(--muted); }
+.item-linha.grande { gap: 12px; }
+.item-linha.grande .qtd { min-width: 44px; height: 32px; font-size: 19px; line-height: 32px; border-radius: 10px; }
+.item-linha.grande .item-texto { padding-top: 1px; display: flex; flex-direction: column; gap: 2px; }
 .pedido-card .obs { background: var(--lemon); color: #4A3A00; padding: 8px 10px; border-radius: 10px; font-weight: 600; font-size: 15px; }
-.pedido-card .total { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-size: 20px; font-weight: 700; }
-.pedido-card .total .forma { font-family: var(--corpo); font-size: 14px; font-weight: 600; color: var(--muted); }
+/* o total num bloco: a carteira num quadrado (no meio da altura do bloco), "Total" pequeno e o valor grande; do lado,
+   como o cliente recebe. 12 de respiro nos quatro lados */
+.pedido-card .total { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--bg); }
+.pedido-card .total-texto { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.pedido-card .total-ico { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--lime-suave); color: var(--deep2); display: inline-flex; align-items: center; justify-content: center; }
+.pedido-card .total-ico .ico-traco svg { width: 24px; height: 24px; }
+.pedido-card .total-valor { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.pedido-card .total-valor small { font-size: 13px; font-weight: 600; line-height: 1.2; color: var(--muted); }
+.pedido-card .total-valor b { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pedido-card .total .forma { display: inline-flex; align-items: center; gap: 6px; max-width: 55%; text-align: right; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+.pedido-card .total .forma .ico-traco svg { width: 18px; height: 18px; }
+/* cartao estreito (celular): como o cliente recebe desce para baixo do valor, na mesma linha da esquerda dele */
+@container (max-width: 400px) { .pedido-card .total-texto { flex-direction: column; align-items: flex-start; } .pedido-card .total .forma { max-width: none; text-align: left; } }
 .pedido-card .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
 .pedido-card .acoes .btn { flex: 1; min-height: 54px; font-size: 17px; }
 .pedido-card .acoes .btn-pequeno { flex: none; min-height: 54px; }
@@ -901,9 +985,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .aparencia-controles .estilo-linha .aba-painel { width: 100%; justify-content: center; min-height: 40px; padding: 6px 8px; font-size: 14px; border-radius: 0; }
 .aparencia-controles .estilo-linha .aba-painel:nth-of-type(1) { border-radius: 12px 0 0 12px; }
 .aparencia-controles .estilo-linha .aba-painel:nth-of-type(2) { border-radius: 0 12px 12px 0; margin-left: -1.5px; }
-.aparencia-controles .avancado { padding: 0 12px; }
-.aparencia-controles .avancado summary { min-height: 46px; font-size: 14.5px; }
-.aparencia-controles .campo-emoji > label { text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--ink); }
+.aparencia-controles .avancado, .aparencia-lado .avancado { padding: 0 12px; }
+.aparencia-controles .avancado summary, .aparencia-lado .avancado summary { min-height: 46px; font-size: 14.5px; }
+.aparencia-controles .campo-emoji > label, .aparencia-lado .campo-emoji > label { text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--ink); }
+/* a coluna da previa: o celular, os botoes de trocar e o emoji, 16 entre eles (como os controles do outro lado) */
+.aparencia-lado { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .aparencia .previa-bloco { align-items: center; }
 .aparencia .previa-bloco > label, .aparencia .previa-bloco > .ajuda { text-align: center; }
 .aparencia .previa-bloco > .ajuda { margin-bottom: 0; }
@@ -1036,6 +1122,20 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
 .linha-produto.desligado { opacity: 0.55; }
+/* comercio, tamanho: "Mesmo preco" ou "+ R$ 5,00", que abre a conta (no lugar do campo que parecia o preco do item) */
+.linha-produto .preco-tamanho { flex: none; width: 120px; min-height: 48px; padding: 8px 10px; border: 1.5px solid var(--line-forte); border-radius: 10px; background: var(--card); color: var(--ink); text-align: center; font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.linha-produto .preco-tamanho.igual { color: var(--muted); font-weight: 600; }
+@media (hover: hover) { .linha-produto .preco-tamanho:hover { border-color: var(--lime-escuro); } }
+.linha-produto .preco-por-tamanho { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 8px; }
+.linha-produto .preco-por-tamanho small { font-size: 11.5px; font-weight: 600; line-height: 1.2; color: var(--muted); }
+.linha-produto .preco-por-tamanho span { line-height: 1.25; }
+@media (max-width: 380px) { .linha-produto .preco-por-tamanho { width: 92px; } }
+.linha-produto .nome small.oferta-linha { display: flex; align-items: center; gap: 4px; color: #B4501A; font-weight: 700; }
+.linha-produto .nome small.oferta-linha.acabou { color: var(--muted); font-weight: 600; }
+.linha-produto .nome small.oferta-linha > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oferta-linha .ico-traco { flex: none; color: #E8590C; }
+.oferta-linha.acabou .ico-traco { color: var(--muted); }
+.oferta-linha .ico-traco svg { width: 14px; height: 14px; }
 /* estoque no painel: a linha embaixo do nome do item ("Estoque: P 2 · M 0"), o resumo do que acabou no topo do catalogo
    e o bloco do editor do item (uma caixa por tamanho, 8 entre elas, 12 do interruptor) */
 .linha-produto .nome small.estoque-linha { color: var(--deep); font-weight: 600; }
@@ -1043,10 +1143,79 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto .nome small.estoque-linha.zerado { color: var(--erro); }
 .campo-estoque { display: flex; flex-direction: column; gap: 12px; }
 .campo-estoque .estoque-qtds .ajuda { margin: 0 0 8px; }
-.grade-estoque { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
-.campo .estoque-qtd { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-.estoque-qtd-nome { font-size: 14px; line-height: 19px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.campo .estoque-qtd input { min-height: 48px; padding: 8px 10px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* uma linha por tamanho: o nome e como esta ("Últimas 2", como o cliente ve) e o contador do site para mudar, no desenho
+   das opcoes da janela do item (borda 1,5, cantos 14, 8 entre as linhas) */
+.estoque-lista { display: flex; flex-direction: column; gap: 8px; }
+.estoque-item { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 8px 8px 16px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--card); }
+.estoque-item-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.estoque-item-nome { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.estoque-item-situacao { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+.estoque-item-situacao.pouco { color: #9A5A06; }
+.estoque-item-situacao.zerado { color: var(--erro); }
+.contador-estoque { flex: none; }
+.contador-estoque button { width: 40px; height: 40px; font-size: 22px; }
+.campo .contador-estoque input { width: 56px; min-height: 0; height: 40px; padding: 0; border: 0; border-radius: 8px; background: transparent; text-align: center; font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.campo .contador-estoque input:focus { outline: none; background: var(--lime-suave); }
+@media (max-width: 340px) { .estoque-item { padding-left: 12px; gap: 8px; } .contador-estoque button { width: 36px; } .campo .contador-estoque input { width: 48px; } }
+/* comercio: os tamanhos que o item tem, um botao por tamanho (marcado: verde com o certo; desmarcado: riscado) */
+.tamanhos-item { display: flex; flex-wrap: wrap; gap: 8px; }
+.tamanho-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 64px; padding: 0 14px 0 10px; border: 1.5px solid var(--line-forte); border-radius: 12px; background: var(--card); color: var(--muted); font-weight: 700; font-size: 16px; justify-content: center; }
+.tamanho-chip span { text-decoration: line-through; }
+.tamanho-chip .ico-traco svg { width: 16px; height: 16px; }
+.tamanho-chip.marcado { border-color: var(--lime-escuro); background: var(--lime-suave); color: var(--ink); }
+.tamanho-chip.marcado span { text-decoration: none; }
+.tamanho-chip.marcado .ico-traco { color: var(--lime-escuro); }
+/* preco por tamanho (dentro do bloco do tamanho do item): a chave e uma caixa por tamanho, no desenho das caixas do
+   estoque (borda 1,5, cantos 14, 8 entre elas): o nome, o que o cliente ve ("+ R$ 10,00 no site") e o preco */
+.precos-tamanho-bloco { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.precos-tamanho { display: flex; flex-direction: column; gap: 8px; }
+.preco-tam-item { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 8px 8px 16px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--card); }
+.preco-tam-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.preco-tam-nome { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.preco-tam-dif { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+.preco-tam-dif.menor { color: var(--deep); }
+.preco-tam-dif.falta { color: var(--erro); }
+.campo .preco-tam-item input { flex: none; width: 148px; min-height: 0; height: 50px; padding: 0 12px; border-radius: 10px; text-align: center; font-family: var(--display); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 340px) { .preco-tam-item { padding-left: 12px; gap: 8px; } .campo .preco-tam-item input { width: 124px; font-size: 17px; } }
+/* o preco do item travado (com preco por tamanho ele acompanha o menor) */
+.campo input:disabled { background: var(--bg); color: var(--muted); -webkit-text-fill-color: var(--muted); opacity: 1; }
+/* por tempo limitado: a chave e, ligada, quando acaba (dia e hora lado a lado), como fica no site, o preco da oferta e
+   o que acontece no fim. 12 entre as partes, como o estoque */
+.campo-oferta { display: flex; flex-direction: column; gap: 12px; }
+.oferta-detalhes { display: flex; flex-direction: column; gap: 12px; }
+.oferta-quando { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.campo .oferta-quando input { -webkit-appearance: none; appearance: none; text-align: left; }
+.oferta-quando input::-webkit-date-and-time-value { text-align: left; }
+.oferta-previa { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; font-size: 14px; font-weight: 700; line-height: 19px; color: #B4501A; }
+.oferta-previa .ico-traco { flex: none; margin-top: 0.5px; color: #E8590C; } /* o fogo no meio da primeira linha (19 de altura) */
+.oferta-previa .ico-traco svg { width: 18px; height: 18px; }
+.oferta-previa.erro { color: var(--erro); font-weight: 600; }
+/* fotos do item: a principal grande (2 x 2) e as duas extras, uma em cima da outra, na largura toda (12 entre elas).
+   Vazio: tracejado com a camera; com foto: a foto inteira, o x de tirar no canto e, na principal, o selo "Principal" */
+.campo-fotos-item { container-type: inline-size; }
+.fotos-item-corpo { display: flex; flex-direction: column; gap: 8px; }
+.campo .fotos-item-corpo > .ajuda { margin: 0; }
+.fotos-item { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.foto-item-lugar { position: relative; min-width: 0; }
+.foto-item-lugar.principal { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+.foto-item { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden; background: var(--lime-suave); border: 1.5px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.principal .foto-item { border-radius: 20px; }
+.foto-item.vazio { border: 2px dashed var(--line-forte); }
+.foto-item.carregando { background: var(--line); }
+.foto-item img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-item-vazio { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.25; color: var(--deep2); }
+.foto-item-vazio .ico-traco svg { width: 28px; height: 28px; }
+.principal .foto-item-vazio { gap: 6px; font-size: 16px; }
+.principal .foto-item-vazio .ico-traco svg { width: 44px; height: 44px; }
+.principal .foto-item-vazio small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.foto-item-tirar { position: absolute; top: 6px; right: 6px; z-index: 1; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(17, 24, 39, 0.72); color: #FFFFFF; display: flex; align-items: center; justify-content: center; }
+.principal .foto-item-tirar { top: 8px; right: 8px; width: 36px; height: 36px; }
+.foto-item-tirar .ico-traco svg { width: 16px; height: 16px; }
+.foto-item-selo { position: absolute; left: 8px; bottom: 8px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: rgba(17, 24, 39, 0.72); color: #FFFFFF; font-size: 12.5px; font-weight: 700; line-height: 1.3; }
+.foto-item:focus-visible { outline: 3px solid var(--deep); outline-offset: 2px; }
+@media (hover: hover) { .foto-item:hover { border-color: var(--lime-escuro); } }
+/* tela larga (PC): as fotos com 360 de largura e a ajuda do lado, no meio da altura delas */
+@container (min-width: 600px) { .fotos-item-corpo { flex-direction: row; align-items: center; gap: 24px; } .fotos-item { flex: none; width: 360px; } .campo .fotos-item-corpo > .ajuda { flex: 1; } }
 .linha-produto .editar { min-width: 44px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; } /* na altura do campo de preco do lado (48) */
 .linha-produto .editar.apagar { border-color: #F3C9C2; background: #FFF6F4; }
 /* celular: item e opcao em duas linhas, em grade (nada quebra pra terceira linha, por mais estreita que a tela seja).
@@ -1061,6 +1230,9 @@ a.selo-google:hover { background: var(--lime-suave); }
   .linha-produto.item input.preco, .linha-produto.opcao input.preco { grid-row: 2; width: 100%; max-width: 140px; justify-self: start; margin: 0; font-size: 16px; padding: 8px 10px; text-align: center; }
   .linha-produto.item input.preco { grid-column: 1 / 3; max-width: none; } /* comeca embaixo da foto: cabe "R$ 118,00" mesmo com lixeira, lapis e chave do lado */
   .linha-produto.opcao input.preco { grid-column: 1; max-width: none; } /* o preco ocupa ate encostar no x: sem vao no meio da linha */
+  .linha-produto.opcao .preco-tamanho { grid-row: 2; grid-column: 1; width: 100%; justify-self: start; margin: 0; }
+  .linha-produto.item .preco-por-tamanho { grid-row: 2; grid-column: 1 / 3; width: 100%; justify-self: start; margin: 0; } /* no lugar do campo de preco, na mesma largura */
+  .linha-produto.item .preco-por-tamanho span { font-size: 16px; }
   .linha-produto.item .editar, .linha-produto.opcao .editar { grid-row: 2; width: 48px; min-height: 48px; padding: 0; }
   .linha-produto.item .editar { grid-column: 4; }
   .linha-produto.item .editar.apagar { grid-column: 3; }
@@ -2016,7 +2188,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cozinha { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 14px var(--margem) 30px; }
 @media (min-width: 760px) { .cozinha { grid-template-columns: 1fr 1fr; } }
 .cozinha .coluna { display: flex; flex-direction: column; gap: 12px; }
-.ficha-cozinha { background: var(--card); border: 2px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ficha-cozinha { background: var(--card); border: 2px solid var(--line); border-radius: var(--raio); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .ficha-cozinha.atrasado { border-color: var(--orange); background: var(--orange-suave); }
 .ficha-cozinha .cabeca { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px 12px; }
 .ficha-cozinha .cabeca .selo-tipo { grid-column: 1 / -1; justify-self: start; }
@@ -2025,7 +2197,8 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .ficha-cozinha .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); }
 .ficha-cozinha .senha b { font-size: 34px; }
 .ficha-cozinha .tempo { justify-self: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ficha-cozinha .itens { display: flex; flex-direction: column; gap: 8px; font-size: 19px; line-height: 1.3; }
+.ficha-cozinha .itens { display: flex; flex-direction: column; gap: 12px; font-size: 19px; line-height: 1.3; } /* item grande, 12 entre eles: se le de longe */
+.ficha-cozinha .senha { padding-left: 12px; }
 .ficha-cozinha .itens b { font-size: 21px; }
 .ficha-cozinha .com { color: var(--deep2); font-weight: 600; }
 .ficha-cozinha .sem { color: #B4501A; font-weight: 700; }
@@ -2735,6 +2908,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .hub-cidade-seletor .seta .ico-traco svg { width: 0.62em; height: 0.62em; stroke-width: 3; }
 .som-tocar .ico-traco svg { width: 16px; height: 16px; }
 .zap-status-fim .ico-traco svg { width: 18px; height: 18px; stroke-width: 2.4; }
+/* no cartao do pedido, o aviso do WhatsApp e o "cliente recebe os avisos" nas mesmas colunas do total: o icone no meio
+   dos 44 da carteira e o texto comecando onde comeca o "Total" (12 + 44 + 12) */
+.pedido-card .zap-status { padding: 8px 12px; }
+.pedido-card .zap-status .icone-zap { margin: 0 11px; }
+.pedido-card .cliente-avisado { gap: 12px; min-height: 48px; padding: 8px 12px; border: 1.5px solid transparent; }
+.pedido-card .cliente-avisado-ico { margin: 0 13px; }
 .video-denovo { display: inline-flex; align-items: center; gap: 6px; }
 .video-denovo .ico-traco svg { width: 18px; height: 18px; }
 .antes-depois .lado p { display: flex; align-items: flex-start; gap: 8px; }

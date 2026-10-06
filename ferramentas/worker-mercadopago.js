@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-06';
+const VERSAO_MENSAGEIRO = '2026-10-06c';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -450,8 +450,53 @@ const REGRAS = (function () {
     return true;
   }
 
-  function produtosAtivos(loja) {
-    return (loja.produtos || []).filter(function (p) { return p.ativo !== false && categoriaAtiva(loja, p.categoria); });
+  function produtosAtivos(loja, agora) {
+    return (loja.produtos || []).filter(function (p) { return p.ativo !== false && categoriaAtiva(loja, p.categoria) && !saiuPorTempo(p, agora); });
+  }
+
+  /* ---------- por tempo limitado (o foguinho) ----------
+     produto.oferta = { ate: ISO, preco: centavos (opcional, menor que o preco do item), some: true|false }. Ate a hora: o
+     selo de fogo, a contagem e, com preco, o preco da oferta. Depois: o item sai do site (some) ou volta ao normal.
+     agora: Date ou ISO (o pedido confere pela hora em que nasceu); sem nada, a hora de agora */
+  function instanteDe(agora) {
+    if (agora instanceof Date) return agora.getTime();
+    var t = Date.parse(agora || '');
+    return isNaN(t) ? Date.now() : t;
+  }
+  function fimDaOferta(produto) {
+    var o = produto && produto.oferta;
+    var fim = o && typeof o === 'object' ? Date.parse(o.ate || '') : NaN;
+    return isNaN(fim) ? null : fim;
+  }
+  function ofertaAtiva(produto, agora) {
+    var fim = fimDaOferta(produto);
+    if (fim == null || instanteDe(agora) >= fim) return null;
+    var normal = Math.round(Number(produto.preco) || 0);
+    var preco = Math.round(Number(produto.oferta.preco) || 0);
+    return { fim: fim, preco: preco > 0 && preco < normal ? preco : 0, some: produto.oferta.some !== false };
+  }
+  /* a oferta acabou e o item era "so ate la": sai do site e o pedido recusa */
+  function saiuPorTempo(produto, agora) {
+    var fim = fimDaOferta(produto);
+    return fim != null && instanteDe(agora) >= fim && produto.oferta.some !== false;
+  }
+  /* o preco que vale agora: o da oferta (no tempo dela) ou o do item */
+  function precoDoProduto(produto, agora) {
+    var o = ofertaAtiva(produto, agora);
+    return o && o.preco ? o.preco : centavosPositivos(produto && produto.preco);
+  }
+  /* quanto falta, para o cliente ler: "Acaba em 2h 15min", "Acaba em 12 min", "Até sáb., 22:00" (hora do aparelho) */
+  var DIAS_CURTOS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+  function textoDoPrazo(fim, agora) {
+    var ms = fim - instanteDe(agora);
+    if (ms <= 60 * 1000) return 'Últimos minutos';
+    var minutos = Math.ceil(ms / 60000);
+    if (minutos < 60) return 'Acaba em ' + minutos + ' min';
+    if (minutos < 24 * 60) { var h = Math.floor(minutos / 60), m = minutos % 60; return 'Acaba em ' + h + 'h' + (m ? ' ' + m + 'min' : ''); }
+    var d = new Date(fim);
+    var hora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (ms < 6 * 24 * 3600 * 1000) return 'Até ' + DIAS_CURTOS[d.getDay()] + ', ' + hora;
+    return 'Até ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ', ' + hora;
   }
 
   function buscarProduto(loja, id) {
@@ -483,8 +528,15 @@ const REGRAS = (function () {
    * opcoes.tolerante: so o painel, conferindo pedido ja feito. Tamanho ou adicional que saiu
    * depois cai no padrao / e ignorado, como antes. No pedido novo (tela do cliente), recusa.
    */
+  /* preco gravado no banco: centavos inteiros, nunca negativo (preco torto, texto ou negativo nao vira desconto) */
+  function centavosPositivos(v) {
+    var n = Math.round(Number(v) || 0);
+    return n > 0 && isFinite(n) ? n : 0;
+  }
   function calcularItens(loja, itensRecebidos, opcoes) {
     var tolerante = !!(opcoes && opcoes.tolerante);
+    /* a hora que vale para o preco da oferta (o pedido ja feito confere pela hora em que nasceu) */
+    var momento = opcoes && opcoes.agora;
     if (!Array.isArray(itensRecebidos) || itensRecebidos.length === 0) {
       throw ErroDoCliente('Seu carrinho está vazio.');
     }
@@ -501,14 +553,18 @@ const REGRAS = (function () {
       if (!produto) throw ErroDoCliente('Um dos itens do carrinho não existe mais no cardápio.');
       if (produto.ativo === false) throw ErroDoCliente('"' + produto.nome + '" acabou de sair do cardápio.');
       if (!categoriaAtiva(loja, produto.categoria)) throw ErroDoCliente('"' + produto.nome + '" não está disponível agora.');
+      if (!tolerante && saiuPorTempo(produto, momento)) throw ErroDoCliente('"' + produto.nome + '" era por tempo limitado e acabou.');
 
       var quantidade = Math.floor(Number(bruto.quantidade) || 0);
       if (quantidade < 1 || quantidade > 20) {
         throw ErroDoCliente('Quantidade inválida em "' + produto.nome + '".');
       }
 
-      var grupos = gruposDaCategoria(loja, produto.categoria);
-      var unitario = Number(produto.preco) || 0;
+      /* o tamanho do item (a categoria pode ter um que este item nao tem: escolher ele cai em "nao tem mais") */
+      var grupos = gruposDoProduto(loja, produto);
+      /* o preco que vale agora: o da oferta (no tempo dela) ou o do item */
+      var ofertaDoItem = ofertaAtiva(produto, momento);
+      var unitario = ofertaDoItem && ofertaDoItem.preco ? ofertaDoItem.preco : centavosPositivos(produto.preco);
 
       /* tamanho: escolha unica */
       var tamanho = null;
@@ -531,7 +587,7 @@ const REGRAS = (function () {
           }
         }
         if (!escolhido) escolhido = grupoTamanho.opcoes[0];
-        tamanho = { id: escolhido.id, nome: escolhido.nome, preco: Number(escolhido.preco) || 0 };
+        tamanho = { id: escolhido.id, nome: escolhido.nome, preco: centavosPositivos(escolhido.preco) };
         unitario += tamanho.preco;
       } else if (pediuTamanho && !tolerante) {
         /* o grupo de tamanho inteiro saiu (todas as opcoes desligadas) */
@@ -556,8 +612,8 @@ const REGRAS = (function () {
             if (!opcao) continue;
             vistos[idAd] = true;
             nesteGrupo += 1;
-            adicionais.push({ id: opcao.id, nome: opcao.nome, preco: Number(opcao.preco) || 0 });
-            unitario += Number(opcao.preco) || 0;
+            adicionais.push({ id: opcao.id, nome: opcao.nome, preco: centavosPositivos(opcao.preco) });
+            unitario += centavosPositivos(opcao.preco);
           }
           if (grupoAdicionais.max && nesteGrupo > grupoAdicionais.max) {
             throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'opções') + '" por item.');
@@ -584,7 +640,7 @@ const REGRAS = (function () {
       var totalItem = unitario * quantidade;
       subtotal += totalItem;
 
-      itens.push({
+      var item = {
         produtoId: produto.id,
         nome: produto.nome,
         categoria: produto.categoria,
@@ -597,7 +653,10 @@ const REGRAS = (function () {
         observacao: limparTexto(bruto.observacao, 140),
         precoUnitario: unitario,
         totalItem: totalItem,
-      });
+      };
+      /* saiu pelo preco da oferta: fica anotado no pedido (a conferencia do painel usa este, nao a oferta de hoje) */
+      if (ofertaDoItem && ofertaDoItem.preco) item.precoOferta = ofertaDoItem.preco;
+      itens.push(item);
     }
 
     return { itens: itens, subtotal: subtotal };
@@ -671,7 +730,7 @@ const REGRAS = (function () {
     return o;
   }
   function orcarBase(loja, dados) {
-    var conta = calcularItens(loja, dados.itens, { tolerante: !!dados.tolerante });
+    var conta = calcularItens(loja, dados.itens, { tolerante: !!dados.tolerante, agora: dados.agora });
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     var cupom = avaliarCupom(loja, dados.cupom, conta.subtotal);
     var cortesia = cupom.percentual === 100 && cupom.desconto > 0;
@@ -759,7 +818,7 @@ const REGRAS = (function () {
        (tela antiga) segue como antes: Pix, ou a primeira que a loja aceita */
     if (pediu && !(formas.hasOwnProperty(pediu) && formas[pediu])) throw ErroDoCliente('Essa forma de pagamento não está disponível agora. Escolha outra.');
     var formaPagamento = pediu || primeira;
-    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento });
+    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora });
     if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
     /* pagar na porta: maquininha ou dinheiro. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
     var naPorta = formaPagamento === 'cartao_entrega' || formaPagamento === 'dinheiro_entrega';
@@ -842,8 +901,16 @@ const REGRAS = (function () {
   /* O painel refaz a conta e compara com o total gravado. */
   function conferirTotal(loja, pedido) {
     try {
+      /* a oferta que valeu no pedido (o mensageiro anota o preco no item) e nenhuma outra: oferta criada, mudada ou tirada
+         depois do pedido nao acende "nao confere" nele. Quem grava pedido e so o mensageiro (as regras do banco barram o
+         resto), entao o anotado e de confianca */
+      var ofertas = Object.create(null);
+      (pedido.itens || []).forEach(function (it) { var v = Math.round(Number(it && it.precoOferta) || 0); if (v > 0 && v <= 10000000) ofertas[String(it.produtoId)] = v; });
+      var comoNoPedido = Object.assign({}, loja, { produtos: (loja.produtos || []).map(function (p) {
+        return Object.assign({}, p, { oferta: ofertas[String(p.id)] ? { ate: '9999-12-31T00:00:00.000Z', preco: ofertas[String(p.id)], some: false } : null });
+      }) });
       /* tolerante: opcao desligada depois do pedido nao derruba a conferencia (conta como antes, pelo padrao) */
-      var o = orcar(loja, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true });
+      var o = orcar(comoNoPedido, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true, agora: pedido.criadoEm });
       /* Cupom ja usado conta como valido aqui: o limite pode ter sido atingido por este mesmo pedido. */
       var desconto = pedido.desconto || 0;
       /* cortesia (cupom de 100%) zera a entrega tambem, mesmo que o cupom ja tenha esgotado por este pedido */
@@ -1104,7 +1171,12 @@ const REGRAS = (function () {
       var itens = ativos.filter(function (p) { return p.categoria === c.id; });
       if (!itens.length) return;
       linhas.push('*' + (c.emoji ? c.emoji + ' ' : '') + c.nome.toUpperCase() + '*');
-      itens.forEach(function (p) { linhas.push('• ' + p.nome + ': ' + dinheiro(p.preco)); });
+      itens.forEach(function (p) {
+        /* "a partir de" quando o preco muda com o tamanho; oferta: o preco normal riscado e o fogo */
+        var faixa = faixaDePreco(loja, p), oferta = ofertaAtiva(p);
+        var normal = oferta && oferta.preco ? faixa.de + Math.round(Number(p.preco) || 0) - oferta.preco : 0;
+        linhas.push('• ' + p.nome + ': ' + (faixa.ate > faixa.de ? 'a partir de ' : '') + (normal ? '~' + dinheiro(normal) + '~ ' : '') + dinheiro(faixa.de) + (oferta ? ' 🔥 por tempo limitado' : ''));
+      });
       linhas.push('');
     });
     if (loja.aceitaEntrega !== false) {
@@ -1383,9 +1455,58 @@ const REGRAS = (function () {
     return { tem: tem, esgotado: tem <= 0, pouco: tem > 0 && tem <= ESTOQUE_POUCO };
   }
 
-  /* o tamanho (grupo de escolha unica) da categoria do produto, se tiver */
+  /* tamanhos que o item NAO tem (o dono desmarca no item): ids das opcoes do tamanho da categoria */
+  function tamanhosFora(produto) {
+    return produto && Array.isArray(produto.tamanhosFora) ? produto.tamanhosFora.map(function (x) { return String(x); }) : [];
+  }
+  /* o preco do item em cada tamanho (o dono liga "Preço diferente por tamanho" no item): produto.precosTamanho =
+     { idDoTamanho: centavos }, o preco cheio daquele tamanho. O item guarda em "preco" o menor deles (o "a partir de")
+     e a diferenca vira o acrescimo do tamanho so neste item. Tamanho sem preco proprio segue o acrescimo da categoria */
+  function precosDoTamanho(produto) {
+    var bruto = produto && produto.precosTamanho;
+    if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return null;
+    var saida = Object.create(null), algum = false;
+    Object.keys(bruto).forEach(function (id) {
+      var v = Math.round(Number(bruto[id]));
+      if (v > 0 && v <= 10000000) { saida[String(id)] = v; algum = true; }
+    });
+    return algum ? saida : null;
+  }
+  /* o tamanho (grupo de escolha unica) do item: o da categoria, sem os tamanhos que o item nao tem e com o preco de cada
+     tamanho deste item. Nenhum sobrando: o item nao tem tamanho (tamanho unico) e nada e pedido ao cliente */
   function grupoTamanho(loja, produto) {
-    return produto ? gruposDaCategoria(loja, produto.categoria).filter(function (g) { return g.tipo === 'unico'; })[0] || null : null;
+    if (!produto) return null;
+    var g = gruposDaCategoria(loja, produto.categoria).filter(function (x) { return x.tipo === 'unico'; })[0] || null;
+    var fora = tamanhosFora(produto), precos = precosDoTamanho(produto);
+    if (!g || (!fora.length && !precos)) return g;
+    var base = centavosPositivos(produto.preco);
+    var opcoes = g.opcoes.filter(function (o) { return fora.indexOf(String(o.id)) < 0; }).map(function (o) {
+      var proprio = precos && precos[String(o.id)];
+      /* nunca abaixo do preco do item (o painel guarda no item o menor; dado torto nao vira desconto) */
+      return proprio ? Object.assign({}, o, { preco: Math.max(0, proprio - base) }) : o;
+    });
+    return opcoes.length ? Object.assign({}, g, { opcoes: opcoes }) : null;
+  }
+  /* os grupos de opcoes do item: os da categoria, com o tamanho do item no lugar do tamanho da categoria */
+  function gruposDoProduto(loja, produto) {
+    var tam = grupoTamanho(loja, produto), lista = [];
+    gruposDaCategoria(loja, produto.categoria).forEach(function (g) {
+      if (g.tipo !== 'unico') lista.push(g);
+      else if (tam) lista.push(tam);
+    });
+    return lista;
+  }
+  /* o menor e o maior preco do item com a escolha obrigatoria (o tamanho), na hora "agora" (com a oferta): o site mostra
+     "a partir de" quando variam. { de, ate } em centavos */
+  function faixaDePreco(loja, produto, agora) {
+    var base = precoDoProduto(produto, agora), de = base, ate = base;
+    gruposDoProduto(loja, produto).forEach(function (g) {
+      if (g.tipo !== 'unico' || !g.opcoes || !g.opcoes.length) return;
+      var precos = g.opcoes.map(function (o) { return Math.max(0, Math.round(Number(o.preco) || 0)); });
+      de += Math.min.apply(null, precos);
+      ate += Math.max.apply(null, precos);
+    });
+    return { de: de, ate: ate };
   }
   /* o produto inteiro no site (cartao da grade): com tamanho, soma os tamanhos. { tem, esgotado, pouco } ou null */
   function situacaoDoProduto(loja, produto, q) {
@@ -1755,9 +1876,17 @@ const REGRAS = (function () {
     fraseFaltaEstoque: fraseFaltaEstoque,
     situacaoEstoque: situacaoEstoque,
     situacaoDoProduto: situacaoDoProduto,
+    ofertaAtiva: ofertaAtiva,
+    saiuPorTempo: saiuPorTempo,
+    precoDoProduto: precoDoProduto,
+    textoDoPrazo: textoDoPrazo,
     chaveDoItem: chaveDoItem,
     ajustarAoEstoque: ajustarAoEstoque,
     grupoTamanho: grupoTamanho,
+    gruposDoProduto: gruposDoProduto,
+    precosDoTamanho: precosDoTamanho,
+    faixaDePreco: faixaDePreco,
+    tamanhosFora: tamanhosFora,
     DIAS_GRATIS: ASSINATURA.diasGratis,
     frasePagamento: frasePagamento,
     cartaoPeloSite: cartaoPeloSite,
@@ -2039,7 +2168,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -3134,7 +3263,7 @@ async function servirFotos(env, ctx, slug, versaoPedida, pronto, json) {
   /* versao nova: monta uma vez so (varios clientes ao mesmo tempo esperam a mesma montagem) */
   const chave = 'fotos:' + slug + ':' + atual;
   if (!MEM.montando[chave]) {
-    MEM.montando[chave] = montarFotos(env, slug, loja.meta).then(async (corpo) => {
+    MEM.montando[chave] = montarFotos(env, slug, loja.meta, fotosExtrasDaLoja(loja)).then(async (corpo) => {
       await gravarKv(env, 'fotos:' + slug, corpo, { versao: atual });
       return corpo;
     }).finally(() => { delete MEM.montando[chave]; });
@@ -3142,7 +3271,17 @@ async function servirFotos(env, ctx, slug, versaoPedida, pronto, json) {
   return pronto(await MEM.montando[chave], guardar);
 }
 
-async function montarFotos(env, slug, meta) {
+/* a 2a e a 3a foto dos itens: vem quando o cliente abre o item (pela /foto), nunca no pacote que todo visitante baixa */
+function fotosExtrasDaLoja(item) {
+  const ids = {};
+  try {
+    const l = JSON.parse(item.corpo).loja || {};
+    (l.produtos || []).forEach((p) => { (Array.isArray(p && p.fotosExtras) ? p.fotosExtras : []).forEach((id) => { if (typeof id === 'string' && id) ids[id] = true; }); });
+  } catch (_) { /* sem a lista: nada fica de fora */ }
+  return ids;
+}
+
+async function montarFotos(env, slug, meta, extras) {
   const fb = await firebase(env);
   const pasta = 'lojas/' + slug + '/fotos';
   const docs = [];
@@ -3156,10 +3295,18 @@ async function montarFotos(env, slug, meta) {
   } else {
     /* loja sem pacote (poucas fotos): a pasta inteira, de 50 em 50 */
     let pagina = '';
+    const tirar = extras && Object.keys(extras).length ? extras : null;
     for (let i = 0; i < 20; i++) {
       const t = await fb.listarTexto(pasta, 50, pagina);
       if (!t) break;
-      docs.push(t);
+      let texto = t;
+      if (tirar) {
+        try {
+          const j = JSON.parse(t);
+          if (Array.isArray(j.documents)) { j.documents = j.documents.filter((d) => !tirar[String((d && d.name) || '').split('/').pop()]); texto = JSON.stringify(j); }
+        } catch (_) { /* pagina que nao abriu: vai inteira */ }
+      }
+      docs.push(texto);
       const prox = /"nextPageToken"\s*:\s*"([^"]+)"/.exec(t.slice(-400));
       if (!prox) break;
       pagina = prox[1];
@@ -3189,7 +3336,9 @@ async function servirFoto(env, ctx, slug, id) {
     if (!usadas) {
       try {
         const l = JSON.parse(loja.corpo).loja || {};
-        usadas = [l.capa].concat((l.produtos || []).map((p) => p && p.foto)).filter(Boolean);
+        usadas = [l.capa];
+        (l.produtos || []).forEach((p) => { if (!p) return; usadas.push(p.foto); if (Array.isArray(p.fotosExtras)) usadas = usadas.concat(p.fotosExtras.slice(0, 2)); });
+        usadas = usadas.filter((x) => typeof x === 'string' && x);
       } catch (_) { usadas = []; }
       loja.fotos = usadas;
     }
@@ -3414,9 +3563,9 @@ function chavesDeEstoque(loja) {
   const validas = {};
   (loja.produtos || []).forEach((pr) => {
     if (!pr || pr.controlaEstoque !== true || !pr.id) return;
-    const grupos = ((loja.gruposPorCategoria || {})[pr.categoria] || []).map((g) => (loja.grupos || {})[g]).filter(Boolean);
-    const tam = grupos.filter((g) => g.tipo === 'unico')[0];
-    if (tam && Array.isArray(tam.opcoes) && tam.opcoes.length) tam.opcoes.forEach((o) => { if (o && o.id) validas[pr.id + '|' + o.id] = true; });
+    /* o tamanho do item (as mesmas regras do site): tamanho que ele nao tem nao ganha quantidade; sem tamanho, uma so */
+    const tam = REGRAS.grupoTamanho(loja, pr);
+    if (tam && tam.opcoes.length) tam.opcoes.forEach((o) => { if (o && o.id) validas[pr.id + '|' + o.id] = true; });
     else validas[pr.id] = true;
   });
   return validas;

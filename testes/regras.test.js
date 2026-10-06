@@ -370,6 +370,162 @@ test('estoque no site: o cartao soma os tamanhos e o carrinho se ajusta ao que t
   assert.deepEqual(R.catalogo(lojaDeTeste()).iconePreparo, 'fogo');
 });
 
+test('preco por tamanho: cada tamanho com o preco dele, o item no menor ("a partir de"), a oferta junto', () => {
+  const loja = lojaDeTeste();
+  const x = loja.produtos[0];
+  /* sem preco por tamanho: vale o acrescimo da categoria (G +7,00) */
+  assert.equal(R.precosDoTamanho(x), null);
+  assert.deepEqual(R.faixaDePreco(loja, x), { de: 1800, ate: 2500 });
+  /* com: P 18,00 e G 29,90 (o painel guarda no item o menor) */
+  x.precosTamanho = { p: 1800, g: 2990 };
+  assert.deepEqual(Object.assign({}, R.precosDoTamanho(x)), { p: 1800, g: 2990 });
+  /* chave estranha no banco nao acha nada herdado */
+  assert.equal(R.precosDoTamanho({ precosTamanho: { constructor: 5 } }).toString, undefined);
+  assert.deepEqual(R.grupoTamanho(loja, x).opcoes.map((o) => [o.id, o.preco]), [['p', 0], ['g', 1190]]);
+  assert.deepEqual(R.faixaDePreco(loja, x), { de: 1800, ate: 2990 });
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]).subtotal, 2990);
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 2, tamanho: 'p' }]).subtotal, 3600);
+  /* a categoria do outro item nao muda (o acrescimo dela continua 7,00) */
+  assert.equal(loja.grupos.tamanho.opcoes[1].preco, 700);
+  /* tamanho sem preco proprio (entrou depois na categoria) segue o acrescimo da categoria */
+  loja.grupos.tamanho.opcoes.push({ id: 'gg', nome: 'GG', preco: 1500 });
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'gg' }]).subtotal, 3300);
+  loja.grupos.tamanho.opcoes.pop();
+  /* com os tamanhos que o item nao tem */
+  x.tamanhosFora = ['g'];
+  assert.deepEqual(R.grupoTamanho(loja, x).opcoes.map((o) => o.id), ['p']);
+  assert.deepEqual(R.faixaDePreco(loja, x), { de: 1800, ate: 1800 });
+  x.tamanhosFora = [];
+  /* oferta: o menor cai para o preco da oferta e o G sobe junto (a diferenca do tamanho fica) */
+  const agora = new Date('2026-10-06T15:00:00Z');
+  x.oferta = { ate: new Date(agora.getTime() + 3600 * 1000).toISOString(), preco: 1500, some: false };
+  assert.deepEqual(R.faixaDePreco(loja, x, agora), { de: 1500, ate: 2690 });
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }], { agora }).subtotal, 2690);
+  /* preco torto (texto, zero, negativo) nao conta; preco menor que o do item nunca vira desconto */
+  x.oferta = null;
+  x.precosTamanho = { p: 'abc', g: 0 };
+  assert.equal(R.precosDoTamanho(x), null);
+  x.precosTamanho = { p: 1000, g: 2990 };
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'p' }]).subtotal, 1800);
+  x.precosTamanho = ['p', 1000];
+  assert.equal(R.precosDoTamanho(x), null);
+});
+
+test('oferta x conferencia do painel: o pedido guarda o preco da oferta; oferta criada, mudada ou tirada depois nao acende aviso', () => {
+  const loja = lojaDeTeste();
+  const agora = new Date('2026-10-06T15:00:00Z');
+  const dados = { nome: 'Ana', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'refri', quantidade: 2 }] };
+  /* pedido de antes da oferta: depois o dono cria a oferta (sem hora de comeco) e o pedido continua conferindo */
+  const antes = R.montarPedido(loja, dados, agora, agora);
+  assert.equal(antes.total, 1200);
+  assert.equal(antes.itens[0].precoOferta, undefined);
+  loja.produtos[2].oferta = { ate: new Date(agora.getTime() + 3600 * 1000).toISOString(), preco: 450, some: false };
+  assert.equal(R.conferirTotal(loja, antes).ok, true);
+  /* pedido na oferta: o item anota 4,50 */
+  const durante = R.montarPedido(loja, dados, agora, agora);
+  assert.equal(durante.total, 900);
+  assert.equal(durante.itens[0].precoOferta, 450);
+  assert.equal(R.conferirTotal(loja, durante).ok, true);
+  /* o dono muda a oferta para 5,00 ou tira: o pedido de 4,50 continua conferindo */
+  loja.produtos[2].oferta = { ate: new Date(agora.getTime() + 3600 * 1000).toISOString(), preco: 500, some: false };
+  assert.equal(R.conferirTotal(loja, durante).ok, true);
+  loja.produtos[2].oferta = null;
+  assert.equal(R.conferirTotal(loja, durante).ok, true);
+  assert.equal(R.conferirTotal(loja, antes).ok, true);
+  /* e o total mexido continua acendendo */
+  assert.equal(R.conferirTotal(loja, Object.assign({}, durante, { total: 100 })).ok, false);
+});
+
+test('cardapio em texto: "a partir de", oferta riscada com o fogo e item que saiu por tempo some', () => {
+  const loja = lojaDeTeste();
+  const agora = Date.now();
+  loja.produtos[0].precosTamanho = { p: 1800, g: 2990 };
+  loja.produtos[2].oferta = { ate: new Date(agora + 3600 * 1000).toISOString(), preco: 450, some: false };
+  const texto = R.cardapioEmTexto(loja, 'https://ligeiropedidos.com.br/teste');
+  assert.match(texto, /• X-Burguer: a partir de R\$ 18,00/);
+  assert.match(texto, /• Refri: ~R\$ 6,00~ R\$ 4,50 🔥 por tempo limitado/);
+  /* acabou e era "so ate la": sai da lista */
+  loja.produtos[2].oferta = { ate: new Date(agora - 60 * 1000).toISOString(), some: true };
+  assert.doesNotMatch(R.cardapioEmTexto(loja, ''), /Refri/);
+});
+
+test('tamanhos do item: o item tira o que nao tem; sem nenhum, vira tamanho unico', () => {
+  const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
+  const x = loja.produtos[0];
+  x.tamanhosFora = ['g'];
+  assert.deepEqual(R.grupoTamanho(loja, x).opcoes.map((o) => o.id), ['p']);
+  assert.deepEqual(R.gruposDoProduto(loja, x).map((g) => g.tipo + ':' + g.opcoes.map((o) => o.id).join(',')), ['unico:p', 'varios:bacon,ovo']);
+  /* a categoria continua com os dois (os outros itens nao mudam) */
+  assert.deepEqual(R.gruposDaCategoria(loja, 'lanche')[0].opcoes.map((o) => o.id), ['p', 'g']);
+  /* pedir o tamanho que o item nao tem: recusa dizendo qual */
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]), /Não tem mais "G" em "X-Burguer"/);
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'p' }]).itens[0].tamanho.id, 'p');
+  /* o painel conferindo pedido antigo nao trava */
+  assert.doesNotThrow(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }], { tolerante: true }));
+  /* tira todos: o item fica sem tamanho, e o comercio nao pede tamanho nenhum */
+  x.tamanhosFora = ['p', 'g'];
+  assert.equal(R.grupoTamanho(loja, x), null);
+  assert.deepEqual(R.gruposDoProduto(loja, x).map((g) => g.tipo), ['varios']);
+  const unico = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }]);
+  assert.equal(unico.itens[0].tamanho, null);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'p' }]), /Não tem mais "P"/);
+  /* estoque do item sem tamanho: uma quantidade so */
+  x.controlaEstoque = true;
+  assert.equal(R.chaveDoItem(loja, { produtoId: 'x', tamanho: 'p' }), 'x');
+  assert.deepEqual(R.situacaoDoProduto(loja, x, { x: 2 }), { tem: 2, esgotado: false, pouco: true });
+  /* comida: o padrao que o item nao tem cai no primeiro que ele tem */
+  const comida = lojaDeTeste();
+  comida.produtos[0].tamanhosFora = ['p'];
+  assert.equal(R.calcularItens(comida, [{ produtoId: 'x', quantidade: 1 }]).itens[0].tamanho.id, 'g');
+  /* o cartao soma so os tamanhos que o item tem */
+  const l2 = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
+  l2.produtos[0].controlaEstoque = true; l2.produtos[0].tamanhosFora = ['p'];
+  assert.deepEqual(R.situacaoDoProduto(l2, l2.produtos[0], { 'x|p': 9, 'x|g': 0 }), { tem: 0, esgotado: true, pouco: false });
+  /* lista torta (texto, numero) nao derruba nada */
+  l2.produtos[0].tamanhosFora = 'g';
+  assert.deepEqual(R.grupoTamanho(l2, l2.produtos[0]).opcoes.map((o) => o.id), ['p', 'g']);
+});
+
+test('por tempo limitado: preco da oferta ate a hora, depois some ou volta ao normal; o pedido confere pela hora dele', () => {
+  const loja = lojaDeTeste();
+  const agora = new Date('2026-10-06T15:00:00Z');
+  const fim = new Date(agora.getTime() + 2 * 3600 * 1000).toISOString();
+  loja.produtos[2].oferta = { ate: fim, preco: 450, some: false }; /* Refri: de 6,00 por 4,50 ate daqui a 2 h, depois volta */
+  loja.produtos[0].oferta = { ate: fim, some: true };              /* X-Burguer: so ate daqui a 2 h (sem preco: so o selo) */
+  assert.deepEqual(R.ofertaAtiva(loja.produtos[2], agora), { fim: Date.parse(fim), preco: 450, some: false });
+  assert.equal(R.precoDoProduto(loja.produtos[2], agora), 450);
+  assert.equal(R.precoDoProduto(loja.produtos[0], agora), 1800);
+  /* durante: o pedido cobra o preco da oferta */
+  const durante = R.calcularItens(loja, [{ produtoId: 'refri', quantidade: 2 }], { agora });
+  assert.equal(durante.subtotal, 900);
+  /* depois: o refri volta ao normal e o X-Burguer sai (o pedido recusa, a lista nao mostra) */
+  const depois = new Date(agora.getTime() + 3 * 3600 * 1000);
+  assert.equal(R.calcularItens(loja, [{ produtoId: 'refri', quantidade: 2 }], { agora: depois }).subtotal, 1200);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }], { agora: depois }), /era por tempo limitado e acabou/);
+  assert.ok(R.produtosAtivos(loja, agora).some((p) => p.id === 'x'));
+  assert.ok(!R.produtosAtivos(loja, depois).some((p) => p.id === 'x'));
+  assert.ok(R.produtosAtivos(loja, depois).some((p) => p.id === 'refri'));
+  /* o pedido feito durante a oferta confere pela hora dele (o painel nao acende "valor nao confere" depois) */
+  const pedido = R.montarPedido(loja, { nome: 'Ana', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'refri', quantidade: 2 }] }, agora, agora);
+  assert.equal(pedido.subtotal, 900);
+  assert.equal(R.conferirTotal(loja, pedido).ok, true);
+  /* preco da oferta maior ou igual ao do item nao vale (nada de "oferta" mais cara) */
+  loja.produtos[2].oferta = { ate: fim, preco: 600 };
+  assert.equal(R.precoDoProduto(loja.produtos[2], agora), 600);
+  assert.equal(R.ofertaAtiva(loja.produtos[2], agora).preco, 0);
+  /* oferta torta (sem data, texto) nao muda nada */
+  loja.produtos[2].oferta = { ate: 'amanha' };
+  assert.equal(R.ofertaAtiva(loja.produtos[2], agora), null);
+  assert.equal(R.saiuPorTempo(loja.produtos[2], depois), false);
+  /* o prazo para o cliente ler */
+  assert.equal(R.textoDoPrazo(agora.getTime() + 30 * 1000, agora), 'Últimos minutos');
+  assert.equal(R.textoDoPrazo(agora.getTime() + 12 * 60 * 1000, agora), 'Acaba em 12 min');
+  assert.equal(R.textoDoPrazo(agora.getTime() + (2 * 60 + 15) * 60 * 1000, agora), 'Acaba em 2h 15min');
+  assert.equal(R.textoDoPrazo(agora.getTime() + 3 * 60 * 60 * 1000, agora), 'Acaba em 3h');
+  assert.match(R.textoDoPrazo(agora.getTime() + 3 * 24 * 3600 * 1000, agora), /^Até (dom|seg|ter|qua|qui|sex|sáb)\., \d\d:\d\d$/);
+  assert.match(R.textoDoPrazo(agora.getTime() + 9 * 24 * 3600 * 1000, agora), /^Até \d\d\/\d\d, \d\d:\d\d$/);
+});
+
 test('tipo visivel: "Outra comida" e "Outro comercio" mostram o nome livre', () => {
   assert.equal(R.tipoVisivel({ tipo: 'Outro comércio', tipoNome: 'Papelaria' }), 'Papelaria');
   assert.equal(R.tipoVisivel({ tipo: 'Outra comida', tipoNome: '  Tapiocaria ' }), 'Tapiocaria');
@@ -415,7 +571,9 @@ test('cardápio em texto lista só itens ativos, por categoria, com link no fim'
   const texto = R.cardapioEmTexto(loja, 'https://exemplo.com/#/juquia/teste');
   assert.match(texto, /^\*Loja Teste\*/);
   assert.match(texto, /\*LANCHES\*/);
-  assert.match(texto, /• X-Burguer: R\$ 18,00/);
+  /* o X-Burguer tem o tamanho G (+7,00): o preco muda com o tamanho, vai "a partir de"; o Refri tem preco unico */
+  assert.match(texto, /• X-Burguer: a partir de R\$ 18,00/);
+  assert.match(texto, /• Refri: R\$ 6,00/);
   assert.doesNotMatch(texto, /Sumido/);
   assert.match(texto, /Entrega: R\$ 5,00, grátis a partir de R\$ 60,00/);
   assert.match(R.cardapioEmTexto(Object.assign({}, loja, { freteGratis: true }), ''), /Entrega grátis/);

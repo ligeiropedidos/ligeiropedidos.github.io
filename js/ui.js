@@ -1001,6 +1001,9 @@
     fechar: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
     mais: '<path d="M12 5.5v13"/><path d="M5.5 12h13"/>',
     fogo: '<path d="M12 21a6 6 0 0 0 6-6c0-3.6-2.4-5.4-3.6-8.2-.7 1.8-1.8 2.9-2.9 3.4C11.3 7.6 10.4 5.3 11.6 3 7.9 4.6 6 8.6 6 12.4V15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 1-2.5-2.5c0-1.6 1.3-2.4 2.5-4 1.2 1.6 2.5 2.4 2.5 4A2.5 2.5 0 0 1 12 21z"/>',
+    /* cartao do pedido: a pessoa (o cliente) e a carteira (o total); do alto (4,5) ao pe (19,5), o meio no 12 */
+    pessoa: '<circle cx="12" cy="8" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/>',
+    carteira: '<path d="M4.5 8.5V7A2.5 2.5 0 0 1 7 4.5h10.5V8"/><rect x="3.5" y="8" width="17" height="11.5" rx="2.5"/><path d="M15.5 13.75h2"/>',
     /* comercio: a caixa (separando o pedido) e a sacola (o catalogo); do alto (3,5 e 4) ao pe (20,5 e 20), o meio no 12 */
     caixa: '<path d="M12 3.5 20 7.5v9l-8 4-8-4v-9z"/><path d="m4 7.5 8 4 8-4"/><path d="M12 11.5v9"/><path d="m8 5.5 8 4"/>',
     sacola: '<path d="M5.5 8h13l-.9 10.6A1.5 1.5 0 0 1 16.1 20H7.9a1.5 1.5 0 0 1-1.5-1.4z"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/>',
@@ -1032,6 +1035,41 @@
   /* o mesmo icone de traco dentro de botao ou selo (o tamanho vem do lugar) */
   function iconeLinha(nome) { return el('span', { class: 'ico-traco ico-' + nome, 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
   /* selo do tipo do pedido (painel, cozinha): Entrega, Retirada ou Balcao, com icone de traco */
+  /* ---------- o cartao do pedido (painel, cozinha ou separacao, entregador): as mesmas pecas em todo lugar ---------- */
+  /* o numero no topo: o icone do recibo, "Senha" ou "Pedido" e o numero grande */
+  function fichaDoNumero(rotulo, numero, aria) {
+    return el('span', { class: 'senha', 'aria-label': aria || (rotulo + ' ' + numero) }, [iconeLinha('recibo'), el('small', { text: rotulo }), el('b', { text: String(numero) })]);
+  }
+  /* selo com icone de traco (pagamento, troco, cancelado): o mesmo jeito em todo cartao */
+  function seloCom(icone, classe, texto) {
+    return el('span', { class: 'selo' + (classe ? ' ' + classe : '') }, [iconeLinha(icone), el('span', { text: texto })]);
+  }
+  /* o icone da forma de pagamento */
+  function iconeDoPagamento(p) {
+    return { pix: 'celular', pix_combinado: 'telefone', cartao_online: 'cartao', cartao_entrega: 'maquininha', dinheiro_entrega: 'dinheiro' }[p && p.formaPagamento] || 'dinheiro';
+  }
+  /* um item do pedido: a quantidade numa pilula e o nome com o resto. grande (cozinha e separacao): o resto em linhas,
+     letra grande, para ler de longe */
+  function linhaDoItem(it, grande) {
+    var tamanho = it.tamanho && it.tamanho.nome ? it.tamanho.nome : '';
+    var adicionais = it.adicionais && it.adicionais.length ? it.adicionais.map(function (a) { return a.nome; }).join(', ') : '';
+    var removidos = it.removidos && it.removidos.length ? it.removidos.join(', ') : '';
+    var texto = el('div', { class: 'item-texto' });
+    if (grande) {
+      texto.appendChild(el('b', { text: it.nome + (tamanho ? ' ' + tamanho : '') }));
+      if (adicionais) texto.appendChild(el('div', { class: 'com', text: '+ ' + adicionais }));
+      if (removidos) texto.appendChild(el('div', { class: 'sem', text: 'SEM ' + removidos }));
+      if (it.observacao) texto.appendChild(el('div', { class: 'obs-item', text: 'obs: ' + it.observacao }));
+    } else {
+      texto.appendChild(el('b', { text: it.nome }));
+      var resto = [tamanho, adicionais ? 'com ' + adicionais : ''].filter(Boolean);
+      if (resto.length) texto.appendChild(el('span', { class: 'item-resto', text: ' · ' + resto.join(' · ') }));
+      if (removidos) texto.appendChild(el('span', { class: 'sem', text: ' · SEM ' + removidos }));
+      if (it.observacao) texto.appendChild(el('span', { class: 'item-resto', text: ' · obs: ' + it.observacao }));
+    }
+    return el('div', { class: 'item-linha' + (grande ? ' grande' : '') }, [el('span', { class: 'qtd', text: (Number(it.quantidade) || 1) + 'x' }), texto]);
+  }
+
   function seloTipo(p) {
     var tipo = p.tipoEntrega === 'entrega' ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada');
     return el('span', { class: 'selo cinza selo-tipo' }, [iconeLinha(tipo), { entrega: 'Entrega', balcao: 'Balcão', retirada: 'Retirada' }[tipo]]);
@@ -1123,6 +1161,7 @@
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
     baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, instagramDe: instagramDe, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,
+    fichaDoNumero: fichaDoNumero, seloCom: seloCom, iconeDoPagamento: iconeDoPagamento, linhaDoItem: linhaDoItem,
     lerImagem: lerImagem, campoFoto: campoFoto,
     PALETA: PALETA, ESTILOS: ESTILOS, corValida: corValida, corDeTexto: corDeTexto, aplicarTema: aplicarTema, aplicarTemaEm: aplicarTemaEm, varsDoTema: varsDoTema, limparTema: limparTema,
     dinheiro: R.dinheiro,

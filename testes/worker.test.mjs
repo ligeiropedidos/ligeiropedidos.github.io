@@ -655,6 +655,7 @@ console.log('Pedido criado pelo servidor');
   ok(r.status === 200 && comb && comb.formaPagamento === 'pix_combinado' && comb.status === 'aguardando_pagamento' && comb.pagamentoStatus === 'a_combinar' && !comb.pagoEm, 'Pix combinado ligado: nasce esperando a loja confirmar');
   r = await chamar(w, '/recursos'); j = await r.json();
   ok(r.status === 200 && j.borda === 1 && (j.recursos || []).indexOf('pix-combinado') >= 0, '/recursos diz que este mensageiro aceita o Pix combinado (o painel so oferece com ele)');
+  ok(['ofertas', 'preco-tamanho'].every((x) => (j.recursos || []).indexOf(x) >= 0), '/recursos diz que este mensageiro cobra a oferta e o preco por tamanho (o painel so oferece com ele)');
   ok(j.email === false && JSON.stringify(j).indexOf('script.google.com') < 0, '/recursos mostra so se o aviso por e-mail esta ligado (sim ou nao), nunca o endereco nem a senha');
   delete loja.aceitaPixCombinado; await recarregar();
   loja.aberta = false; await recarregar();
@@ -1870,6 +1871,118 @@ console.log('Estoque das lojas de comercio');
   await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: ordemP2, external_reference: 'roupas-teste__' + P2 } }, headers: { Origin: '' } });
   const p2 = db.get('lojas/roupas-teste/pedidos/' + P2);
   ok(ok2 && r.status === 200 && p2.status === 'pago' && p2.estoqueFaltou === true && db.get(EST).q.meia === 0, 'pagou depois e a meia ja foi vendida para outro: o pedido entra com o aviso "estoque faltou" e o estoque nao fica negativo');
+}
+
+console.log('Tamanhos do item e fotos extras');
+{
+  const DONO = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura';
+  db.set('lojas/roupas-dois', {
+    slug: 'roupas-dois', nome: 'Roupas Dois', tipo: 'Roupas', donoEmail: 'dono@x.com', aberta: true, ativa: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true, fotosVersao: 'g1',
+    categorias: [{ id: 'cam', nome: 'Camisetas' }],
+    produtos: [
+      /* a camiseta lisa nao tem GG; o lenco esta na categoria com tamanho, mas e tamanho unico (tirou todos) */
+      { id: 'lisa', categoria: 'cam', nome: 'Camiseta lisa', preco: 4000, tamanhosFora: ['gg'], foto: 'fa1', fotosExtras: ['fx2', 'fx3'] },
+      { id: 'lenco', categoria: 'cam', nome: 'Lenço', preco: 2500, tamanhosFora: ['p', 'gg'], controlaEstoque: true },
+    ],
+    grupos: { tam: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0 }, { id: 'gg', nome: 'GG', preco: 500 }] } },
+    gruposPorCategoria: { cam: ['tam'] },
+  });
+  db.set('lojas/roupas-dois/privado/mercadopago', { token: 'TOKEN-LOJA' });
+  db.set('lojas/roupas-dois/fotos/fa1', { dados: FOTO });
+  db.set('lojas/roupas-dois/fotos/fx2', { dados: FOTO });
+  db.set('lojas/roupas-dois/fotos/fx3', { dados: FOTO });
+  db.set('vitrine/roupas-dois', { slug: 'roupas-dois', nome: 'Roupas Dois', cidadeSlug: 'juquia' });
+  let w = await workerNovo();
+  const pedir2 = (itens) => chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'roupas-dois', dados: { nome: 'Bia Lima', telefone: '13988887777', tipoEntrega: 'retirada', itens: itens, formaPagamento: 'pix' } }, headers: { 'CF-Connecting-IP': '203.0.113.' + (60 + Math.floor(Math.random() * 120)) } });
+  let r = await pedir2([{ produtoId: 'lisa', quantidade: 1, tamanho: 'gg' }]); let j = await r.json();
+  ok(r.status === 422 && /Não tem mais "GG" em "Camiseta lisa"/.test(j.erro), 'tamanho que o item nao tem: o pedido nao nasce e o cliente le qual');
+  r = await pedir2([{ produtoId: 'lisa', quantidade: 1, tamanho: 'p' }, { produtoId: 'lenco', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 409 && /Lenço esgotou/.test(j.erro), 'item de tamanho unico com estoque: uma quantidade so, sem tamanho (e sem quantidade, esgotado)');
+  r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-dois', q: { lenco: 3, 'lenco|p': 9 } }, headers: { Authorization: DONO } }); j = await r.json();
+  ok(r.status === 200 && JSON.stringify(j.q) === JSON.stringify({ lenco: 3 }), 'o dono acerta o lenco sem tamanho (a chave do tamanho que ele nao tem fica de fora)');
+  r = await pedir2([{ produtoId: 'lisa', quantidade: 1, tamanho: 'p' }, { produtoId: 'lenco', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 200 && db.get('lojas/roupas-dois/contadores/estoque').q.lenco === 2, 'com quantidade, o pedido nasce e o lenco baixa para 2');
+  /* fotos: o pacote da loja sem pacote nao leva a 2a e a 3a foto; a /foto entrega as tres */
+  r = await chamar(w, '/fotos/roupas-dois?v=g1'); j = await r.json();
+  const ids = [];
+  j.docs.forEach((pag) => (pag.documents || []).forEach((d) => ids.push(d.name.split('/').pop())));
+  ok(j.pacote === false && ids.join(',') === 'fa1', 'as fotos extras ficam fora do que todo visitante baixa');
+  r = await chamar(w, '/foto/roupas-dois/fx2');
+  ok(r.status === 200 && r.headers.get('Content-Type') === 'image/jpeg', 'a 2a foto vem pela borda quando o cliente abre o item');
+  r = await chamar(w, '/foto/roupas-dois/fx3');
+  ok(r.status === 200, 'a 3a tambem');
+  zerar();
+  r = await chamar(w, '/foto/roupas-dois/fx9');
+  ok(r.status === 404 && conta.leituras === 0, 'foto que nenhum item usa: 404 sem ler o banco');
+}
+console.log('Preco por tamanho e por tempo limitado');
+{
+  const agora = Date.now();
+  db.set('lojas/promo-tres', {
+    slug: 'promo-tres', nome: 'Promo Tres', tipo: 'Lanchonete', donoEmail: 'dono@x.com', aberta: true, ativa: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true,
+    categorias: [{ id: 'lan', nome: 'Lanches' }],
+    produtos: [
+      /* o G deste item custa 29,90 (o da categoria seria +7,00); o combo esta por 24,90 ate daqui a 2 h; o de Natal acabou */
+      { id: 'x', categoria: 'lan', nome: 'X-Burguer', preco: 1800, precosTamanho: { p: 1800, g: 2990 } },
+      { id: 'combo', categoria: 'lan', nome: 'Combo', preco: 3000, tamanhosFora: ['p', 'g'], oferta: { ate: new Date(agora + 2 * 3600 * 1000).toISOString(), preco: 2490, some: false } },
+      { id: 'natal', categoria: 'lan', nome: 'Lanche de Natal', preco: 2000, tamanhosFora: ['p', 'g'], oferta: { ate: new Date(agora - 60 * 1000).toISOString(), some: true } },
+    ],
+    grupos: { tam: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0, padrao: true }, { id: 'g', nome: 'G', preco: 700 }] } },
+    gruposPorCategoria: { lan: ['tam'] },
+  });
+  db.set('lojas/promo-tres/privado/mercadopago', { token: 'TOKEN-LOJA' });
+  db.set('vitrine/promo-tres', { slug: 'promo-tres', nome: 'Promo Tres', cidadeSlug: 'juquia' });
+  const w = await workerNovo();
+  const pedir3 = (itens) => chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'promo-tres', dados: { nome: 'Caio Prado', telefone: '13977776666', tipoEntrega: 'retirada', itens: itens, formaPagamento: 'pix' } }, headers: { 'CF-Connecting-IP': '198.51.100.' + (10 + Math.floor(Math.random() * 200)) } });
+  let r = await pedir3([{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]); let j = await r.json();
+  ok(r.status === 200 && j.pedido && j.pedido.total === 2990 && j.pedido.itens[0].tamanho.preco === 1190, 'preco por tamanho: o G sai pelo preco do item (29,90), nao pelo acrescimo da categoria');
+  r = await pedir3([{ produtoId: 'x', quantidade: 2, tamanho: 'p' }]); j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 3600, 'o P sai pelo menor (18,00)');
+  r = await pedir3([{ produtoId: 'combo', quantidade: 2 }]); j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 4980, 'na oferta: o mensageiro cobra o preco da oferta (24,90), pela hora dele');
+  r = await pedir3([{ produtoId: 'natal', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 422 && /era por tempo limitado e acabou/.test(j.erro), 'oferta que acabou e era "so ate la": o pedido nao nasce e o cliente le o motivo');
+  r = await pedir3([{ produtoId: 'combo', quantidade: 1, preco: 1 }]); j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 2490, 'preco inventado pelo aparelho nao vale: so o da oferta do cardapio');
+}
+console.log('Pentest 06/10: oferta e preco por tamanho pelo lado do cliente');
+{
+  const agora = Date.now();
+  db.set('lojas/promo-quatro', {
+    slug: 'promo-quatro', nome: 'Promo Quatro', tipo: 'Lanchonete', donoEmail: 'dono@x.com', aberta: true, ativa: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true,
+    categorias: [{ id: 'lan', nome: 'Lanches' }],
+    produtos: [
+      { id: 'x', categoria: 'lan', nome: 'X-Burguer', preco: 1800, precosTamanho: { p: 1800, g: 2990 } },
+      { id: 'velha', categoria: 'lan', nome: 'Oferta velha', preco: 3000, tamanhosFora: ['p', 'g'], oferta: { ate: new Date(agora - 3600 * 1000).toISOString(), preco: 100, some: false } },
+      { id: 'natal', categoria: 'lan', nome: 'Lanche de Natal', preco: 2000, tamanhosFora: ['p', 'g'], oferta: { ate: new Date(agora - 60 * 1000).toISOString(), some: true } },
+    ],
+    grupos: { tam: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0, padrao: true }, { id: 'g', nome: 'G', preco: 700 }] } },
+    gruposPorCategoria: { lan: ['tam'] },
+  });
+  db.set('lojas/promo-quatro/privado/mercadopago', { token: 'TOKEN-LOJA' });
+  db.set('vitrine/promo-quatro', { slug: 'promo-quatro', nome: 'Promo Quatro', cidadeSlug: 'juquia' });
+  const w = await workerNovo();
+  const pedir4 = (itens, extra) => chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'promo-quatro', dados: Object.assign({ nome: 'Eva Souza', telefone: '1396666' + String(1000 + Math.floor(Math.random() * 8999)), tipoEntrega: 'retirada', itens: itens, formaPagamento: 'pix' }, extra || {}) }, headers: { 'CF-Connecting-IP': '192.0.2.' + (10 + Math.floor(Math.random() * 200)) } });
+  /* a hora do aparelho nao vale: a oferta que ja acabou nao volta com "agora" de ontem */
+  let r = await pedir4([{ produtoId: 'velha', quantidade: 1 }], { agora: new Date(agora - 24 * 3600 * 1000).toISOString(), instante: '2000-01-01T00:00:00Z' }); let j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 3000 && !j.pedido.itens[0].precoOferta, 'pentest: "agora" de ontem no pedido nao traz a oferta que acabou (vale a hora do mensageiro)');
+  /* "tolerante" e "precoOferta" mandados pelo aparelho nao passam */
+  r = await pedir4([{ produtoId: 'natal', quantidade: 1, precoOferta: 1 }], { tolerante: true }); j = await r.json();
+  ok(r.status === 422 && /era por tempo limitado e acabou/.test(j.erro), 'pentest: "tolerante" do aparelho nao deixa pedir o item que saiu por tempo');
+  r = await pedir4([{ produtoId: 'x', quantidade: 1, tamanho: 'g', precoOferta: 1, precoUnitario: 1, totalItem: 1, tamanhoPreco: -2990 }]); j = await r.json();
+  ok(r.status === 200 && j.pedido.total === 2990 && !j.pedido.itens[0].precoOferta, 'pentest: preco, oferta e total inventados no item nao valem (G pelo preco do item)');
+  /* tamanho e item com nome de coisa do sistema */
+  r = await pedir4([{ produtoId: 'x', quantidade: 1, tamanho: '__proto__' }]); j = await r.json();
+  ok(r.status === 422, 'pentest: tamanho "__proto__" nao existe (o pedido nao nasce)');
+  r = await pedir4([{ produtoId: '__proto__', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 422, 'pentest: item "__proto__" nao existe');
+  r = await pedir4([{ produtoId: 'constructor', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 422, 'pentest: item "constructor" nao existe');
+  /* quantidade fora do normal */
+  r = await pedir4([{ produtoId: 'x', quantidade: 1e9, tamanho: 'p' }]); j = await r.json();
+  ok(r.status === 422, 'pentest: quantidade absurda nao vira pedido');
+  r = await pedir4([{ produtoId: 'x', quantidade: -3, tamanho: 'p' }]); j = await r.json();
+  ok(r.status === 422 || (r.status === 200 && j.pedido.total > 0), 'pentest: quantidade negativa nao vira desconto');
 }
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

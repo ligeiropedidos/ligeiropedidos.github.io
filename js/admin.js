@@ -1312,8 +1312,10 @@
         ids[p.id] = true;
         var item = { id: p.id, categoria: p.categoria, nome: p.nome.trim(), descricao: typeof p.descricao === 'string' ? p.descricao.trim().slice(0, 300) : '', preco: p.preco,
           emoji: typeof p.emoji === 'string' ? p.emoji.slice(0, 8) : '', ingredientes: Array.isArray(p.ingredientes) ? p.ingredientes.filter(function (s) { return txt(s, 40); }).slice(0, 20) : [], ativo: true, ordem: i };
-        /* comercio: o item ja pode vir com o estoque ligado (as quantidades o dono acerta no painel) */
+        /* comercio: o item ja pode vir com o estoque ligado (as quantidades o dono acerta no painel) e sem os tamanhos que
+           ele nao tem (conferidos com o tamanho da categoria la embaixo) */
         if (p.controlaEstoque === true) item.controlaEstoque = true;
+        if (Array.isArray(p.tamanhosFora)) item.tamanhosFora = p.tamanhosFora.filter(function (x) { return typeof x === 'string' && ID.test(x); }).slice(0, 30);
         return item;
       });
       var grupos = {}, gx = x.grupos && typeof x.grupos === 'object' ? x.grupos : {};
@@ -1340,6 +1342,14 @@
            primeira e o item nao fechava no pedido) */
         if (lista.filter(function (g) { return grupos[g].tipo === 'unico'; }).length > 1) throw new Error('A categoria ' + c.nome + ' tem mais de um grupo "Escolhe só um". Deixe um só e troque os outros para "Pode escolher vários" com máximo 1.');
         porCategoria[c.id] = lista.slice();
+      });
+      /* tamanho que o item "nao tem" tem que existir no tamanho da categoria dele; sobrou nada, sai o campo */
+      produtos.forEach(function (it) {
+        if (!it.tamanhosFora) return;
+        var g = (porCategoria[it.categoria] || []).map(function (k) { return grupos[k]; }).filter(function (x) { return x && x.tipo === 'unico'; })[0];
+        var ids = g ? g.opcoes.map(function (o) { return o.id; }) : [];
+        it.tamanhosFora = it.tamanhosFora.filter(function (x) { return ids.indexOf(x) >= 0; });
+        if (!it.tamanhosFora.length) delete it.tamanhosFora;
       });
       return { categorias: categorias, produtos: produtos, grupos: grupos, gruposPorCategoria: porCategoria };
     }
