@@ -40,7 +40,7 @@
   --bg: #0C0907; --card: #1B1511; --ink: #F6EBDD; --body: #D8C7B1; --muted: #A8957F;
   --line: rgba(246, 235, 221, 0.10); --line-forte: rgba(246, 235, 221, 0.22);
   --deep: #F2B233; --deep2: #FFD36B; --lime: #F2B233; --lime-escuro: #C98A12; --lime-suave: #2B2016; --lime2: #FFD36B;
-  --orange: #FF8A1F; --orange-suave: #2B1A0E; --erro: #FF8B7B; --erro-suave: rgba(255, 90, 74, 0.13);
+  --orange: #FF8A1F; --orange-suave: #2B1A0E; --erro: #FF8B7B; --erro-suave: rgba(255, 90, 74, 0.13); --laranja-texto: #FFB07A;
   --texto-no-destaque: #1A0E07; --anel: rgba(242, 178, 51, 0.5); --sombra: 0 10px 30px rgba(0, 0, 0, 0.5);
   --display: var(--mk-display);
   color: var(--ink);

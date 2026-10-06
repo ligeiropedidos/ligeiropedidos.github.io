@@ -1050,22 +1050,37 @@
   }
   /* um item do pedido: a quantidade numa pilula e o nome com o resto. grande (cozinha e separacao): o resto em linhas,
      letra grande, para ler de longe */
-  function linhaDoItem(it, grande) {
-    var tamanho = it.tamanho && it.tamanho.nome ? it.tamanho.nome : '';
+  /* o endereco de entrega em linhas, igual em todo lugar (painel, entregador, resumo do cliente): a rua e o numero (com
+     o complemento), o bairro embaixo e a referencia por ultimo, destacada. Sem "·" pendurado no fim da linha */
+  function enderecoEmLinhas(e) {
+    e = e || {};
+    var rua = [e.rua, e.numero].filter(Boolean).join(', ') + (e.complemento ? ', ' + e.complemento : '');
+    return el('div', { class: 'endereco-texto' }, [
+      el('span', { class: 'endereco-rua', text: rua }),
+      e.bairro ? el('span', { class: 'endereco-bairro', text: e.bairro }) : null,
+      e.referencia ? el('span', { class: 'endereco-ref', text: 'Referência: ' + e.referencia }) : null,
+    ]);
+  }
+  /* loja (opcional): para dar nome ao tamanho ("Tamanho: P", "Numeração: 38"), igual ao carrinho do cliente */
+  function linhaDoItem(it, grande, loja) {
+    var tamanho = it.tamanho && it.tamanho.nome ? (R && R.tituloDoTamanho ? R.tituloDoTamanho(loja, it) : 'Tamanho') + ': ' + it.tamanho.nome : '';
     var adicionais = it.adicionais && it.adicionais.length ? it.adicionais.map(function (a) { return a.nome; }).join(', ') : '';
     var removidos = it.removidos && it.removidos.length ? it.removidos.join(', ') : '';
     var texto = el('div', { class: 'item-texto' });
     if (grande) {
-      texto.appendChild(el('b', { text: it.nome + (tamanho ? ' ' + tamanho : '') }));
+      texto.appendChild(el('b', { text: it.nome }));
+      if (tamanho) texto.appendChild(el('div', { class: 'tam', text: tamanho }));
       if (adicionais) texto.appendChild(el('div', { class: 'com', text: '+ ' + adicionais }));
       if (removidos) texto.appendChild(el('div', { class: 'sem', text: 'SEM ' + removidos }));
       if (it.observacao) texto.appendChild(el('div', { class: 'obs-item', text: 'obs: ' + it.observacao }));
     } else {
+      /* o tamanho e os adicionais colados no nome (o "·" com espaco que nao quebra: nunca fica sozinho no fim da linha);
+         o "SEM" e o recado em linhas proprias, como na separacao */
       texto.appendChild(el('b', { text: it.nome }));
       var resto = [tamanho, adicionais ? 'com ' + adicionais : ''].filter(Boolean);
-      if (resto.length) texto.appendChild(el('span', { class: 'item-resto', text: ' · ' + resto.join(' · ') }));
-      if (removidos) texto.appendChild(el('span', { class: 'sem', text: ' · SEM ' + removidos }));
-      if (it.observacao) texto.appendChild(el('span', { class: 'item-resto', text: ' · obs: ' + it.observacao }));
+      if (resto.length) texto.appendChild(el('span', { class: 'item-resto', text: ' \u00b7\u00a0' + resto.join(' \u00b7\u00a0') }));
+      if (removidos) texto.appendChild(el('div', { class: 'sem', text: 'SEM ' + removidos }));
+      if (it.observacao) texto.appendChild(el('div', { class: 'item-obs', text: 'obs: ' + it.observacao }));
     }
     return el('div', { class: 'item-linha' + (grande ? ' grande' : '') }, [el('span', { class: 'qtd', text: (Number(it.quantidade) || 1) + 'x' }), texto]);
   }
@@ -1161,7 +1176,7 @@
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
     baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, instagramDe: instagramDe, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,
-    fichaDoNumero: fichaDoNumero, seloCom: seloCom, iconeDoPagamento: iconeDoPagamento, linhaDoItem: linhaDoItem,
+    fichaDoNumero: fichaDoNumero, seloCom: seloCom, iconeDoPagamento: iconeDoPagamento, linhaDoItem: linhaDoItem, enderecoEmLinhas: enderecoEmLinhas,
     lerImagem: lerImagem, campoFoto: campoFoto,
     PALETA: PALETA, ESTILOS: ESTILOS, corValida: corValida, corDeTexto: corDeTexto, aplicarTema: aplicarTema, aplicarTemaEm: aplicarTemaEm, varsDoTema: varsDoTema, limparTema: limparTema,
     dinheiro: R.dinheiro,

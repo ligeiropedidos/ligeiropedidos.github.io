@@ -524,6 +524,14 @@ test('por tempo limitado: preco da oferta ate a hora, depois some ou volta ao no
   assert.equal(R.textoDoPrazo(agora.getTime() + 3 * 60 * 60 * 1000, agora), 'Acaba em 3h');
   assert.match(R.textoDoPrazo(agora.getTime() + 3 * 24 * 3600 * 1000, agora), /^Até (dom|seg|ter|qua|qui|sex|sáb)\., \d\d:\d\d$/);
   assert.match(R.textoDoPrazo(agora.getTime() + 9 * 24 * 3600 * 1000, agora), /^Até \d\d\/\d\d, \d\d:\d\d$/);
+  /* o curto (selo do cartao no celular estreito): o mesmo prazo, sem a hora e sem os minutos */
+  var manha = new Date(2026, 9, 6, 9, 0, 0);
+  assert.equal(R.textoDoPrazo(manha.getTime() + 30 * 1000, manha, true), 'Últimos minutos');
+  assert.equal(R.textoDoPrazo(manha.getTime() + 12 * 60 * 1000, manha, true), 'Faltam 12 min');
+  assert.equal(R.textoDoPrazo(new Date(2026, 9, 6, 23, 59).getTime(), manha, true), 'Acaba hoje');
+  assert.equal(R.textoDoPrazo(new Date(2026, 9, 7, 8, 0).getTime(), manha, true), 'Acaba amanhã');
+  assert.match(R.textoDoPrazo(manha.getTime() + 3 * 24 * 3600 * 1000, manha, true), /^Até (dom|seg|ter|qua|qui|sex|sáb)\.$/);
+  assert.equal(R.textoDoPrazo(new Date(2026, 9, 20, 18, 0).getTime(), manha, true), 'Até 20/10');
 });
 
 test('tipo visivel: "Outra comida" e "Outro comercio" mostram o nome livre', () => {
@@ -580,12 +588,15 @@ test('cardápio em texto lista só itens ativos, por categoria, com link no fim'
   assert.match(texto, /https:\/\/exemplo\.com\/#\/juquia\/teste$/);
 });
 
-test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro fixo', () => {
+test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro fixo mais o Pix do Mercado Pago', () => {
   const c = R.compararCustos(500000, 200);
   assert.equal(c.ifoodBasico, 76000 + 11000);
   assert.equal(c.ifoodEntrega, 131000 + 15000); // 26,2% (23% + 3,2% do pagamento online)
   assert.equal(c.anotaAi, 19999);
-  assert.equal(c.ligeiro, 8900); // sem config, o preco normal do plano unico (R$ 89)
+  assert.equal(c.ligeiroMensal, 8900); // sem config, o preco normal do plano unico (R$ 89)
+  assert.equal(c.ligeiroPix, 4950); // 0,99% de R$ 5.000 (o Pix do Mercado Pago, pago direto a ele)
+  assert.equal(c.ligeiro, 8900 + 4950);
+  assert.equal(R.compararCustos(0, 0).ligeiro, 8900);
   const pequena = R.compararCustos(150000, 40);
   assert.equal(pequena.ifoodBasico, 22800);
   assert.equal(pequena.ifoodMensalidade, false);

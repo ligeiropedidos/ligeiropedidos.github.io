@@ -487,16 +487,22 @@ const REGRAS = (function () {
   }
   /* quanto falta, para o cliente ler: "Acaba em 2h 15min", "Acaba em 12 min", "Até sáb., 22:00" (hora do aparelho) */
   var DIAS_CURTOS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
-  function textoDoPrazo(fim, agora) {
+  /* curto: o mesmo prazo em menos letras, para o selo do cartao no celular estreito quando o inteiro nao cabe
+     ("Acaba hoje" no lugar de "Acaba em 16h 48min", "Até sáb." no lugar de "Até sáb., 23:59"), sem reticencias */
+  function textoDoPrazo(fim, agora, curto) {
     var ms = fim - instanteDe(agora);
     if (ms <= 60 * 1000) return 'Últimos minutos';
     var minutos = Math.ceil(ms / 60000);
-    if (minutos < 60) return 'Acaba em ' + minutos + ' min';
-    if (minutos < 24 * 60) { var h = Math.floor(minutos / 60), m = minutos % 60; return 'Acaba em ' + h + 'h' + (m ? ' ' + m + 'min' : ''); }
+    if (minutos < 60) return (curto ? 'Faltam ' : 'Acaba em ') + minutos + ' min';
     var d = new Date(fim);
-    var hora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-    if (ms < 6 * 24 * 3600 * 1000) return 'Até ' + DIAS_CURTOS[d.getDay()] + ', ' + hora;
-    return 'Até ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ', ' + hora;
+    if (minutos < 24 * 60) {
+      if (curto) return d.toDateString() === new Date(instanteDe(agora)).toDateString() ? 'Acaba hoje' : 'Acaba amanhã';
+      var h = Math.floor(minutos / 60), m = minutos % 60;
+      return 'Acaba em ' + h + 'h' + (m ? ' ' + m + 'min' : '');
+    }
+    var hora = curto ? '' : ', ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (ms < 6 * 24 * 3600 * 1000) return 'Até ' + DIAS_CURTOS[d.getDay()] + hora;
+    return 'Até ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + hora;
   }
 
   function buscarProduto(loja, id) {
@@ -1033,9 +1039,17 @@ const REGRAS = (function () {
     } catch (_) { return ''; }
   }
 
-  function descreverItem(item) {
+  /* o nome do grupo do tamanho do item ("Tamanho", "Numeração", "Tamanho do cone"): o "P" sozinho nao diz o que e. Sem a
+     loja (ou o item saiu do catalogo), "Tamanho" */
+  function tituloDoTamanho(loja, item) {
+    var produto = loja && item ? buscarProduto(loja, String(item.produtoId)) : null;
+    var g = produto ? grupoTamanho(loja, produto) : null;
+    return g && g.titulo ? String(g.titulo) : 'Tamanho';
+  }
+
+  function descreverItem(item, loja) {
     var linhas = [item.quantidade + 'x ' + umaLinha(item.nome) + '  ' + dinheiro(item.totalItem)];
-    if (item.tamanho && item.tamanho.nome) linhas.push('   • ' + umaLinha(item.tamanho.nome));
+    if (item.tamanho && item.tamanho.nome) linhas.push('   • ' + umaLinha(tituloDoTamanho(loja, item)) + ': ' + umaLinha(item.tamanho.nome));
     if (item.adicionais && item.adicionais.length) {
       linhas.push('   • Com: ' + item.adicionais.map(function (a) { return umaLinha(a.nome); }).join(', '));
     }
@@ -1130,7 +1144,7 @@ const REGRAS = (function () {
     }
     l.push('');
     l.push('*ITENS*');
-    for (var i = 0; i < pedido.itens.length; i++) l.push(descreverItem(pedido.itens[i]));
+    for (var i = 0; i < pedido.itens.length; i++) l.push(descreverItem(pedido.itens[i], loja));
     if (pedido.observacao) { l.push(''); l.push('*Observação:* ' + umaLinha(pedido.observacao)); }
     l.push('');
     l.push('Subtotal: ' + dinheiro(pedido.subtotal));
@@ -1193,7 +1207,7 @@ const REGRAS = (function () {
   function pedidoParaWhatsapp(loja, p) {
     var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro', pix_combinado: 'Pix (combinar com a loja)' };
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
-    (p.itens || []).forEach(function (it) { l.push(descreverItem(it)); });
+    (p.itens || []).forEach(function (it) { l.push(descreverItem(it, loja)); });
     l.push('');
     if (p.taxaEntrega) l.push('Entrega: ' + dinheiro(p.taxaEntrega));
     if (p.desconto) l.push('Desconto: -' + dinheiro(p.desconto));
@@ -1697,6 +1711,9 @@ const REGRAS = (function () {
     return e === 'bloqueada' || e === 'cancelada' || e === 'pausada';
   }
 
+  /* o Pix online do Mercado Pago: 0,99% por venda (tabela publica de 2026). A loja paga direto a ele, nao ao Ligeiro; entra
+     na conta para a comparacao ser justa, porque os 15,2% e 26,2% do iFood ja incluem o pagamento online */
+  var TAXA_PIX_MP = 0.0099;
   function compararCustos(vendasMes, pedidosMes) {
     var v = Math.max(0, Math.round(Number(vendasMes) || 0));
     var n = Math.max(0, Math.round(Number(pedidosMes) || 0));
@@ -1709,7 +1726,10 @@ const REGRAS = (function () {
       ifoodMensalidade: mensalidade,
       anotaAi: anota,
       anotaFaixa: faixa,
-      ligeiro: precoDoPlano('uma', 'mensal'),
+      ligeiroMensal: precoDoPlano('uma', 'mensal'),
+      ligeiroPix: Math.round(v * TAXA_PIX_MP),
+      ligeiro: precoDoPlano('uma', 'mensal') + Math.round(v * TAXA_PIX_MP),
+      taxaPix: TAXA_PIX_MP,
     };
   }
 
@@ -1883,6 +1903,7 @@ const REGRAS = (function () {
     chaveDoItem: chaveDoItem,
     ajustarAoEstoque: ajustarAoEstoque,
     grupoTamanho: grupoTamanho,
+    tituloDoTamanho: tituloDoTamanho,
     gruposDoProduto: gruposDoProduto,
     precosDoTamanho: precosDoTamanho,
     faixaDePreco: faixaDePreco,

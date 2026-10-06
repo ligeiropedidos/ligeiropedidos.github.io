@@ -344,9 +344,9 @@
   }
 
   /* Itens do pedido em letra grande, do jeito que a cozinha le. */
-  function itensGrandes(p) {
+  function itensGrandes(p, loja) {
     var caixa = el('div', { class: 'itens' });
-    (p.itens || []).forEach(function (it) { caixa.appendChild(UI.linhaDoItem(it, true)); });
+    (p.itens || []).forEach(function (it) { caixa.appendChild(UI.linhaDoItem(it, true, loja)); });
     if (p.observacao) caixa.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
     return caixa;
   }
@@ -416,11 +416,11 @@
           el('span', { class: 'selo tempo ' + (min >= limite ? 'laranja' : 'cinza'), title: 'Desde que entrou na fila' }, [UI.iconeLinha('relogio'), tempoNaFila(min)]),
           UI.seloTipo(p),
         ]));
-        f.appendChild(itensGrandes(p));
+        f.appendChild(itensGrandes(p, estado.loja));
         var avisoValor = avisoConferido(p);
         if (avisoValor) f.appendChild(avisoValor);
         var proximo = R.proximoStatus(p);
-        var rotulo = p.status === R.STATUS.PAGO ? 'COMEÇAR' : (p.tipoEntrega === 'entrega' ? 'PRONTO, PODE SAIR' : 'PRONTO');
+        var rotulo = p.status === R.STATUS.PAGO ? (cat().comida ? 'Começar a fazer' : 'Começar a separar') : (p.tipoEntrega === 'entrega' ? 'Pronto, pode sair' : 'Pronto para retirar');
         if (proximo) {
           var btnAndar = el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', onclick: function () {
             /* a tela redesenha na hora e a proxima ficha sobe para baixo do dedo: o toque duplo nao anda outro pedido */
@@ -569,12 +569,10 @@
           UI.seloHorario(p.criadoEm),
           el('div', { class: 'cabeca-selos' }, cobrar),
         ]));
-        card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : ''])]) /* telefone nunca parte no meio */);
-        var endTexto = el('div', { class: 'endereco-texto' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
-        if (e.referencia) endTexto.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
-        card.appendChild(el('div', { class: 'endereco grande' }, [UI.iconeLinha('mapa'), endTexto]));
+        card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [el('span', { class: 'cliente-nome', text: p.cliente.nome }), p.cliente.telefone ? el('span', { class: 'cliente-fone', text: R.formatarTelefone(p.cliente.telefone) }) : null])]) /* o nome e, embaixo, o telefone inteiro (sem "·" pendurado no fim da linha) */);
+        card.appendChild(el('div', { class: 'endereco grande' }, [UI.iconeLinha('mapa'), UI.enderecoEmLinhas(e)]));
         var itensE = el('div', { class: 'itens' });
-        p.itens.forEach(function (it) { itensE.appendChild(UI.linhaDoItem(it)); });
+        p.itens.forEach(function (it) { itensE.appendChild(UI.linhaDoItem(it, false, estado.loja)); });
         card.appendChild(itensE);
         var avisoValorE = avisoConferido(p);
         if (avisoValorE) card.appendChild(avisoValorE);

@@ -1,7 +1,7 @@
 {
   "name": "Ligeiro",
   "short_name": "Ligeiro",
-  "description": "Pedido ligeiro, sem comissão: cardápio num link, Pix e cartão pelo site.",
+  "description": "Pedido ligeiro, sem comissão: cardápio ou catálogo num link, Pix e cartão pelo site.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

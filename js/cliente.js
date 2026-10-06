@@ -623,6 +623,8 @@
       if (idTela !== 'tela-cartao' && estado.montandoCartao) desmontarCartao();
       $(idTela).classList.add('ativa');
       window.scrollTo(0, 0);
+      /* os cartoes da tela que aparece se ajustam ja (escondidos, eles nao tinham altura para medir) */
+      setTimeout(function () { [].forEach.call($(idTela).querySelectorAll('.card-produto'), encaixarCartao); }, 0);
       /* o carrinho sempre redesenha ao entrar: nunca mostra lista velha, venha de onde vier */
       if (idTela === 'tela-carrinho') montarCarrinho();
       if (idTela !== 'tela-carrinho') estado.avisoEstoque = '';
@@ -917,6 +919,14 @@
       if (!oferta) return null;
       return el('span', { class: 'selo-oferta' + (classe ? ' ' + classe : ''), dataset: { fim: String(oferta.fim) } }, [UI.iconeLinha('fogo'), el('span', { class: 'selo-oferta-texto', text: R.textoDoPrazo(oferta.fim, agora) })]);
     }
+    /* o prazo inteiro quando cabe; se nao cabe (cartao no celular estreito), o curto: nunca "Acaba em 16h 4..." */
+    function textoDoSelo(selo, agora) {
+      var texto = selo.querySelector('.selo-oferta-texto'), fim = Number(selo.dataset.fim);
+      if (!texto || !(fim > 0)) return;
+      agora = agora || agoraDaLoja();
+      texto.textContent = R.textoDoPrazo(fim, agora);
+      if (texto.clientWidth && texto.scrollWidth > texto.clientWidth + 0.5) texto.textContent = R.textoDoPrazo(fim, agora, true);
+    }
     function infoDoCartao(p) {
       return el('span', { class: 'info' }, [
         seloOferta(p),
@@ -932,8 +942,7 @@
       [].forEach.call(document.querySelectorAll('.selo-oferta[data-fim]'), function (x) {
         var fim = Number(x.dataset.fim);
         if (!(fim > agora.getTime())) { acabou = true; return; }
-        var texto = x.querySelector('.selo-oferta-texto');
-        if (texto) texto.textContent = R.textoDoPrazo(fim, agora);
+        textoDoSelo(x, agora);
       });
       if (!acabou) return;
       var aba = raiz.querySelector('.aba.ativa');
@@ -1079,7 +1088,7 @@
       var enderecoJaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
       var endLoja = $('enderecoLoja');
       UI.limpar(endLoja);
-      if (l.endereco) { endLoja.appendChild(UI.iconeLinha('mapa')); endLoja.appendChild(document.createTextNode(l.endereco + (l.cidade && !enderecoJaTemCidade ? '\u00a0· ' + l.cidade : ''))); }
+      if (l.endereco) { endLoja.appendChild(UI.iconeLinha('mapa')); endLoja.appendChild(document.createTextNode(l.endereco + (l.cidade && !enderecoJaTemCidade ? ', ' + l.cidade : ''))); } /* virgula antes da cidade (o "·" ficava pendurado no fim da linha) */
       /* confianca no rodape: loja verificada (com o selo) e o CNPJ, se o lojista informou */
       var legal = $('legalLoja');
       if (legal) {
@@ -1120,6 +1129,8 @@
     function encaixarCartao(card) {
       var info = card && card.querySelector('.info');
       if (!info || !info.clientHeight) return;
+      var selo = info.querySelector('.selo-oferta[data-fim]');
+      if (selo) textoDoSelo(selo);
       card.classList.remove('desc-1', 'desc-0', 'nome-1', 'cresce');
       for (var i = 0; i < PASSOS_CARTAO.length; i++) {
         PASSOS_CARTAO[i].forEach(function (c) { card.classList.add(c); });
@@ -1132,7 +1143,8 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { [].forEach.call(raiz.querySelectorAll('.card-produto'), encaixarCartao); });
     function observarCartao(card) {
       if (vigiaCartoes) vigiaCartoes.observe(card.querySelector('.info'));
-      else setTimeout(function () { encaixarCartao(card); }, 0);
+      /* tambem logo depois de montar: o vigia so roda quando a tela e desenhada (aba em segundo plano, celular lento) */
+      setTimeout(function () { encaixarCartao(card); }, 0);
       return card;
     }
 
@@ -1209,7 +1221,9 @@
         var foto = card.querySelector('.foto'), selo = card.querySelector('.selo-estoque'), mais = card.querySelector('.mais');
         var texto = !sit ? '' : sit.esgotado ? 'Esgotado' : sit.pouco ? (sit.tem === 1 ? 'Só resta 1' : 'Últimas ' + sit.tem) : '';
         card.classList.toggle('esgotado', !!(sit && sit.esgotado));
-        if (mais) mais.textContent = sit && sit.esgotado ? 'ESGOTADO' : 'PEDIR';
+        /* o botao e sempre o mesmo "PEDIR", do mesmo tamanho e no mesmo lugar; esgotado, ele fica apagado e quem avisa e o
+           selo da foto (como no iFood e na Shopee) */
+        if (sit && sit.esgotado) card.setAttribute('aria-disabled', 'true'); else card.removeAttribute('aria-disabled');
         if (!texto) { if (selo) selo.remove(); return; }
         if (!selo && foto) { selo = el('span', { class: 'selo-estoque' }); foto.appendChild(selo); }
         if (selo) { selo.textContent = texto; selo.classList.toggle('esgotado', sit.esgotado); }
@@ -1571,11 +1585,15 @@
         var acabou = sobra <= 0, poucos = sobra > 0 && sobra <= R.ESTOQUE_POUCO;
         if (acabou) campo.disabled = true;
         var preco = opcao.preco > 0 ? '+ ' + dinheiro(opcao.preco) : (obrigatorio ? '' : 'grátis');
+        /* a situacao do estoque fica na direita da linha, sempre no mesmo lugar (como na Zara e na Renner): "Esgotado"
+           sozinho, ou o preco a mais com "Só resta 1" / "Últimas 3" embaixo */
+        var situacao = acabou ? el('span', { class: 'valor-estoque esgotado', text: 'Esgotado' })
+          : poucos ? el('span', { class: 'valor-estoque pouco', text: sobra === 1 ? 'Só resta 1' : 'Últimas ' + sobra }) : null;
         var linha = el('label', { class: 'opcao' + (marcada ? ' marcada' : '') + (acabou ? ' esgotada' : '') }, [
           campo,
           el('span', { class: 'marcador ' + (grupo.tipo === 'unico' ? 'redondo' : 'quadrado') }, [UI.iconeLinha('check')]),
-          el('span', { class: 'rotulo' }, [opcao.nome, opcao.descricao ? el('small', { text: opcao.descricao }) : null, poucos ? el('small', { class: 'pouco', text: sobra === 1 ? 'Só resta 1' : 'Últimas ' + sobra }) : null]),
-          el('span', { class: 'valor' + (acabou ? ' esgotado' : opcao.preco > 0 ? '' : ' gratis'), text: acabou ? 'Esgotado' : preco }),
+          el('span', { class: 'rotulo' }, [opcao.nome, opcao.descricao ? el('small', { text: opcao.descricao }) : null]),
+          el('span', { class: 'valor' + (opcao.preco > 0 ? '' : ' gratis') }, [!acabou && preco ? el('span', { class: 'valor-preco', text: preco }) : null, situacao]),
         ]);
         campo.addEventListener('change', function () {
           if (grupo.tipo === 'unico') {
@@ -1650,7 +1668,15 @@
       var gT = grupos.filter(function (g) { return g.tipo === 'unico'; })[0];
       var opcoesExtras = [];
       grupos.filter(function (g) { return g.tipo === 'varios'; }).forEach(function (g) { opcoesExtras = opcoesExtras.concat(g.opcoes || []); });
-      estado.carrinho.push({
+      /* o mesmo item, igualzinho (tamanho, adicionais, sem e recado), soma na linha que ja existe: "2x", nao duas linhas
+         iguais (como no iFood). Passando de 20 numa linha so (o limite do pedido), vira outra linha */
+      var mesmaLista = function (a, b) { return (a || []).slice().sort().join('|') === (b || []).slice().sort().join('|'); };
+      var igual = estado.carrinho.filter(function (it) {
+        return it.produtoId === m.produto.id && String(it.tamanho || '') === String(m.tamanho || '') && mesmaLista(it.adicionais, m.adicionais) &&
+          mesmaLista(it.removidos, m.removidos) && (it.observacao || '') === (m.observacao || '') && (Number(it.quantidade) || 0) + m.quantidade <= 20;
+      })[0];
+      if (igual) igual.quantidade = (Number(igual.quantidade) || 0) + m.quantidade;
+      else estado.carrinho.push({
         idLocal: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         produtoId: m.produto.id,
         nome: m.produto.nome,
@@ -1723,6 +1749,30 @@
       UI.medirBarras();
     }
 
+    /* a quantidade no proprio carrinho, como no iFood e no Mercado Livre: o mesmo contador da janela do item, menor. Com 1,
+       o menos vira a lixeira (tira o item); o mais respeita o limite de 20 e o que sobrou no estoque */
+    function contadorDoItem(item, nomeDoItem, produto) {
+      var qtd = Number(item.quantidade) || 1;
+      var mexer = function (botao, nova) {
+        estado.focoCarrinho = { id: item.idLocal, botao: botao };
+        if (nova <= 0) {
+          estado.carrinho = estado.carrinho.filter(function (i) { return i.idLocal !== item.idLocal; });
+          UI.soar('remover');
+        } else item.quantidade = nova;
+        montarCarrinho();
+        atualizarBarraCarrinho();
+      };
+      var menos = el('button', { class: 'contador-menos' + (qtd <= 1 ? ' contador-lixeira' : ''), type: 'button', 'aria-label': qtd <= 1 ? 'Tirar ' + nomeDoItem + ' do pedido' : 'Um a menos de ' + nomeDoItem, onclick: function () { mexer('contador-menos', qtd - 1); } }, qtd <= 1 ? [UI.iconeLinha('lixeira')] : [document.createTextNode('\u2212')]);
+      var mais = el('button', { class: 'contador-mais', type: 'button', text: '+', 'aria-label': 'Um a mais de ' + nomeDoItem, onclick: function () {
+        var sobra = produto ? sobraDoTamanho(produto, item.tamanho) : 99;
+        if (qtd >= 20) { UI.avisar('Até 20 de cada item por pedido.'); return; }
+        if (sobra <= 0) { UI.avisar(qtd === 1 ? 'Só tem esta unidade.' : 'Só tem estas ' + qtd + ' unidades.'); return; }
+        UI.soar('adicionar');
+        mexer('contador-mais', qtd + 1);
+      } });
+      return el('div', { class: 'contador contador-mini', role: 'group', 'aria-label': 'Quantidade' }, [menos, el('span', { class: 'numero', text: String(qtd) }), mais]);
+    }
+
     function montarCarrinho() {
       var lista = $('listaCarrinho');
       UI.limpar(lista);
@@ -1754,31 +1804,33 @@
         var nomeTamanho = conta ? (conta.tamanho && conta.tamanho.nome) : item.tamanhoNome;
         var nomesAdicionais = conta ? conta.adicionais.map(function (a) { return a.nome; }) : (item.adicionaisNomes || []);
         var removidos = conta ? conta.removidos : (item.removidos || []);
+        var produtoDoItem = (estado.loja.produtos || []).filter(function (x) { return x.id === item.produtoId; })[0];
+        /* o tamanho com o nome do grupo ("Tamanho: P", "Numeração: 38"): o "P" sozinho embaixo do nome nao dizia o que era */
         var detalhes = [];
-        if (nomeTamanho) detalhes.push(nomeTamanho);
+        if (nomeTamanho) detalhes.push(R.tituloDoTamanho(estado.loja, item) + ': ' + nomeTamanho);
         if (nomesAdicionais.length) detalhes.push('Com ' + nomesAdicionais.join(', '));
         if (item.observacao) detalhes.push('Obs: ' + item.observacao);
-        var det = el('div', { class: 'detalhes', text: detalhes.join('\u00a0· ') });
-        if (removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
-        var produtoDoItem = (estado.loja.produtos || []).filter(function (x) { return x.id === item.produtoId; })[0];
+        var det = detalhes.length || removidos.length ? el('div', { class: 'detalhes', text: detalhes.join('\u00a0· ') }) : null;
+        if (det && removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
         var srcItem = D.fotoSrc(produtoDoItem, estado.fotos) || desenhoDoProduto(produtoDoItem);
-        lista.appendChild(el('div', { class: 'item-carrinho' }, [
-          el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? imagemOuEmoji(srcItem, item.emoji) : (item.emoji || R.catalogo(estado.loja).vazio)),
-          el('div', { class: 'corpo' }, [
-            el('div', { class: 'nome', text: item.quantidade + 'x ' + (conta ? conta.nome : item.nome) }),
-            det,
-            el('div', { class: 'linha-preco' }, [
-              el('span', { class: 'preco', text: dinheiro(conta ? conta.totalItem : item.precoUnitario * item.quantidade) }),
-              el('button', { class: 'remover-item', type: 'button', text: 'Remover', onclick: function () {
-                estado.carrinho = estado.carrinho.filter(function (i) { return i.idLocal !== item.idLocal; });
-                UI.soar('remover');
-                montarCarrinho();
-                atualizarBarraCarrinho();
-              } }),
-            ]),
+        var nomeDoItem = conta ? conta.nome : item.nome;
+        lista.appendChild(el('div', { class: 'item-carrinho', dataset: { item: item.idLocal } }, [
+          el('div', { class: 'item-carrinho-topo' }, [
+            el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? imagemOuEmoji(srcItem, item.emoji) : (item.emoji || R.catalogo(estado.loja).vazio)),
+            el('div', { class: 'corpo' }, [el('div', { class: 'nome', text: nomeDoItem }), det]),
+          ]),
+          el('div', { class: 'item-carrinho-pe' }, [
+            contadorDoItem(item, nomeDoItem, produtoDoItem),
+            el('span', { class: 'preco', text: dinheiro(conta ? conta.totalItem : item.precoUnitario * item.quantidade) }),
           ]),
         ]));
       });
+      if (estado.focoCarrinho) {
+        /* o toque refaz a lista: o foco volta para o mesmo botao da mesma linha (ou, se a linha saiu, para a lista) */
+        var foco = lista.querySelector('[data-item="' + estado.focoCarrinho.id + '"] .' + estado.focoCarrinho.botao);
+        estado.focoCarrinho = null;
+        if (foco) foco.focus({ preventScroll: true });
+      }
 
       var orc = orcamento();
       UI.limpar(totais);
@@ -3131,11 +3183,18 @@
       if (texto) { aviso.appendChild(UI.iconeLinha(ico)); aviso.appendChild(el('span', { text: texto })); }
     }
 
-    function rotuloConfirmado(icone, texto) {
+    function rotuloConfirmado(icone, texto, pedido) {
       var c = $('confirmado');
       UI.limpar(c);
       c.appendChild(UI.iconeLinha(icone));
       c.appendChild(document.createTextNode(texto));
+      /* a cor conta a situacao: verde confirmado, ambar esperando o pagamento, vermelho cancelado (e o numero apaga,
+         para nao parecer pedido valendo) */
+      var cancelado = !!pedido && pedido.status === R.STATUS.CANCELADO;
+      c.classList.toggle('cancelado', cancelado);
+      c.classList.toggle('esperando', !!pedido && pedido.status === R.STATUS.AGUARDANDO);
+      var painel = $('senhaNumero') && $('senhaNumero').parentNode;
+      if (painel) painel.classList.toggle('cancelado', cancelado);
     }
 
     function mostrarSenha(pedido) {
@@ -3144,7 +3203,7 @@
       $('senhaNumero').textContent = pedido.senha;
       /* o Pix confirma sozinho (Mercado Pago): ninguem da loja precisa conferir. Dinheiro devolvido nunca vira "confirmado" */
       var rotulo = rotuloDaSenha(pedido);
-      rotuloConfirmado(rotulo.icone, rotulo.texto);
+      rotuloConfirmado(rotulo.icone, rotulo.texto, pedido);
       $('senhaInstrucao').textContent = R.textoDoEstagio(pedido, estado.loja);
 
       desenharACobrar(pedido);
@@ -3153,6 +3212,7 @@
 
       /* pedido aberto por link de outro aparelho: sem o WhatsApp com o nome de quem pediu e sem voltar pro Pix */
       var deFora = estado.pedidoDeFora === pedido.id;
+      desenharResumo(pedido, deFora);
       var whats = $('btnWhatsCliente');
       if (estado.loja.whatsapp && !balcao && !deFora) { whats.href = R.linkWhatsapp(estado.loja.whatsapp, R.mensagemDoCliente(estado.loja, pedido)); whats.hidden = false; }
       else whats.hidden = true;
@@ -3356,7 +3416,8 @@
         caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto', text: 'Vamos te avisar neste celular quando o pedido andar.' }));
         return;
       }
-      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer saber quando sair?' }), el('span', { text: 'Avisamos no celular, mesmo com a tela apagada.' })]));
+      /* entrega: quando sair; retirada: quando ficar pronto (antes dizia "sair" ate para quem ia buscar) */
+      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer um aviso?' }), el('span', { text: (pedido.tipoEntrega === 'entrega' ? 'Quando sair' : 'Quando ficar pronto') + ', mesmo com a tela apagada.' })]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Avisar', onclick: function () {
         if (demo) {
           pedido.aviso = { demo: true };
@@ -3379,6 +3440,62 @@
         });
       } });
       caixa.appendChild(btn);
+    }
+
+    /* o que a pessoa pediu, depois de pagar (como nos apps grandes): os itens no desenho do painel, a entrega, o cupom, o
+       total e como pagou; e onde: retirada, o endereco da loja com o mapa; entrega, o endereco com a referencia. Aberto
+       pelo link em outro aparelho, o endereco de quem pediu nao aparece */
+    function textoDoPagamentoFinal(pedido) {
+      var retira = pedido.tipoEntrega !== 'entrega';
+      if (foiDevolvido(pedido)) return ['dinheiro', 'Dinheiro devolvido'];
+      if (pedido.total === 0) return ['cupom', 'Cortesia da loja'];
+      if (pedido.formaPagamento === 'dinheiro_entrega') return ['dinheiro', 'Dinheiro, ' + (retira ? 'na retirada' : 'na entrega')];
+      if (pedido.formaPagamento === 'cartao_entrega') return ['maquininha', 'Cartão na maquininha, ' + (retira ? 'na retirada' : 'na entrega')];
+      if (R.pixCombinado(pedido)) return ['celular', pedido.status === R.STATUS.AGUARDANDO ? 'Pix a combinar com a loja' : 'Pix combinado com a loja'];
+      if (pedido.status === R.STATUS.AGUARDANDO) return ['ampulheta', pedido.formaPagamento === 'cartao_online' ? 'Cartão, esperando o pagamento' : 'Pix, esperando o pagamento'];
+      if (pedido.status === R.STATUS.CANCELADO) return null;
+      return ['check', pedido.formaPagamento === 'cartao_online' ? 'Pago no cartão' : 'Pago no Pix'];
+    }
+    function desenharResumo(pedido, deFora) {
+      var caixa = $('resumoPedido');
+      UI.limpar(caixa);
+      if (!pedido || !(pedido.itens || []).length) return;
+      var itens = el('div', { class: 'resumo-itens' });
+      pedido.itens.forEach(function (it) { itens.appendChild(el('div', { class: 'resumo-item' }, [UI.linhaDoItem(it, false, estado.loja), el('span', { class: 'resumo-item-valor', text: dinheiro(it.totalItem || 0) })])); });
+      /* as contas com as mesmas linhas e a mesma letra do fechamento do pedido (.totais): Itens, Entrega, Cupom, Total */
+      var contas = el('div', { class: 'totais totais-embutido' });
+      var conta = function (rotulo, valor, classe, classeValor) { contas.appendChild(el('div', { class: 'linha' + (classe ? ' ' + classe : '') }, [el('span', { text: rotulo }), el('span', { class: classeValor || null, text: valor })])); };
+      conta('Itens', dinheiro(pedido.subtotal || 0));
+      if (pedido.tipoEntrega === 'entrega') conta('Entrega', pedido.taxaEntrega > 0 ? dinheiro(pedido.taxaEntrega) : 'Grátis', '', pedido.taxaEntrega > 0 ? '' : 'gratis');
+      if (pedido.desconto > 0) conta('Cupom ' + (pedido.cupom || '') + (pedido.cupomPercentual ? ' (' + pedido.cupomPercentual + '%)' : ''), '- ' + dinheiro(pedido.desconto), 'desconto');
+      if (pedido.acrescimoCartao > 0) conta('Taxa do cartão', dinheiro(pedido.acrescimoCartao));
+      conta('Total', pedido.total === 0 ? 'GRÁTIS' : dinheiro(pedido.total), 'total');
+      var pag = textoDoPagamentoFinal(pedido);
+      if (pag) contas.appendChild(el('div', { class: 'resumo-pagamento' }, [UI.iconeLinha(pag[0]), el('span', { text: pag[1] })]));
+      caixa.appendChild(el('div', { class: 'resumo-titulo', text: 'Resumo do pedido' }));
+      caixa.appendChild(itens);
+      caixa.appendChild(contas);
+      /* onde: buscar na loja ou receber em casa */
+      var l = estado.loja || {};
+      if (pedido.tipoEntrega === 'entrega') {
+        if (!deFora && pedido.endereco && pedido.endereco.rua) {
+          caixa.appendChild(el('div', { class: 'resumo-onde' }, [
+            UI.iconeLinha('mapa'),
+            el('div', { class: 'resumo-onde-texto' }, [el('b', { text: 'Entregar em' }), UI.enderecoEmLinhas(pedido.endereco)]),
+          ]));
+        }
+      } else if (pedido.status !== R.STATUS.CANCELADO) {
+        var jaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
+        var endLoja = l.endereco ? l.endereco + (l.cidade && !jaTemCidade ? ', ' + l.cidade : '') : '';
+        caixa.appendChild(el('div', { class: 'resumo-onde' }, [
+          UI.iconeLinha('retirada'),
+          el('div', { class: 'resumo-onde-texto' }, [
+            el('b', { text: 'Retirar ' + R.catalogo(l).retirada }),
+            endLoja ? el('span', { text: endLoja }) : el('span', { text: l.nome || '' }),
+            endLoja ? el('a', { class: 'resumo-mapa', href: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(endLoja), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Abrir no mapa']) : null,
+          ]),
+        ]));
+      }
     }
 
     function montarLinhaDoTempo(pedido) {
@@ -3420,7 +3537,7 @@
       /* desistindo: o QR nao volta por cima do "Cancelando o pedido…" (se nao cancelar, a tela volta ja com ele) */
       if (codigoNovo && !mudou && !estado.cancelando && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
       /* a loja devolveu o dinheiro de um pedido ja cancelado (o status nao muda): o rotulo muda na hora */
-      if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto); montarLinhaDoTempo(novo); return; }
+      if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto, novo); montarLinhaDoTempo(novo); return; }
       /* cartao ainda esperando: a analise do banco comecou ou acabou sem aprovar (o X some ou volta) */
       if (!mudou && novo.status === R.STATUS.AGUARDANDO && $('tela-cartao').classList.contains('ativa')) { travaDoCartao(novo); return; }
       if (!mudou) return;
@@ -3436,7 +3553,8 @@
         desenharAvaliarGoogle(novo, balcao || deFora);
         desenharConviteJogo(novo, balcao);
         desenharACobrar(novo);
-        if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo); rotuloConfirmado(rotuloN.icone, rotuloN.texto); }
+        desenharResumo(novo, deFora);
+        if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo); rotuloConfirmado(rotuloN.icone, rotuloN.texto, novo); }
         $('btnVoltarPix').hidden = true;
         UI.avisar(R.rotuloStatusCliente(novo));
         UI.vibrar([120]);
@@ -3805,6 +3923,7 @@
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
         '<a class="btn btn-whats btn-largo" id="btnCombinarPix" style="max-width:420px" href="#" target="_blank" rel="noopener" hidden><span class="icone-zap" aria-hidden="true"></span>Combinar o Pix no WhatsApp</a>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
+        '<div class="resumo-pedido" id="resumoPedido"></div>' +
         '<div class="avaliar-google" id="avaliarGoogle" hidden></div>' +
         '<div class="aviso-cel-pedido" id="avisoCelPedido" hidden></div>' +
         '<div class="aviso-cel-pedido jogo-convite" id="jogoConvite" hidden></div>' +

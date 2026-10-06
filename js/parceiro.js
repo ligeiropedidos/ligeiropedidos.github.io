@@ -243,13 +243,13 @@
        sem # dava "arquivo nao encontrado") */
     var linkLojaDemo = UI.linkDoSite(lojaDemo);
     var pr = precos();
-    document.title = 'Cardápio digital com pedido e Pix, sem comissão | Ligeiro';
+    document.title = 'Cardápio e catálogo digital com Pix, sem comissão | Ligeiro';
 
     function botoesChamada(grande, garantia) {
       /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/comecar', text: 'Começar grátis' })];
       /* o que mais tira o medo de comecar fica colado no botao, sem precisar rolar */
-      if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Sem cartão de crédito e sem fidelidade.']));
+      if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Loja pronta em 3 minutos, sem cartão de crédito e sem fidelidade.']));
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '51 s' }),
@@ -341,6 +341,29 @@
 
     raiz.appendChild(barraTopo());
 
+    /* o que o dono manda no WhatsApp se reveza no titulo: cardapio (comida) e catalogo (comercio). Todas as palavras no
+       mesmo lugar da grade (a mais larga reserva o espaco: a linha nao pula) e a troca e so opacidade e deslize (anima
+       tambem com "Reduzir movimento", como o resto do site). O leitor de tela ouve "cardapio ou catalogo" */
+    var trocaTitulo = 0;
+    function palavraQueTroca(palavras) {
+      /* a palavra vem do CSS (data-p): para o Google, para quem copia e para o leitor de tela o titulo e um so, "Chega de
+         mandar cardapio ou catalogo no WhatsApp." */
+      var itens = palavras.map(function (p, i) { return el('span', { class: 'troca-item' + (i ? '' : ' ativa'), dataset: { p: p } }); });
+      var caixa = el('span', { class: 'dor-destaque troca-palavra', 'aria-hidden': 'true' }, itens);
+      var i = 0;
+      trocaTitulo = setInterval(function () {
+        if (!caixa.isConnected) { clearInterval(trocaTitulo); return; }
+        var saiu = itens[i];
+        saiu.classList.remove('ativa');
+        saiu.classList.add('saindo');
+        /* ja invisivel, volta para baixo sem aparecer (fica pronta para a proxima entrada) */
+        setTimeout(function () { saiu.classList.remove('saindo'); }, 260);
+        i = (i + 1) % itens.length;
+        itens[i].classList.add('ativa');
+      }, 2600);
+      return [el('span', { class: 'oculto-visual', text: palavras.join(' ou ') }), caixa];
+    }
+
     /* ---------- heroi ---------- */
     var porCardapio = window.LigeiroVariante === 'cardapio';
     var seloLojas = el('span', { class: 'selo', hidden: true });
@@ -351,14 +374,14 @@
         /* dois titulos (app.js decide: LigeiroVariante). Anuncio do Meta: o cardapio que recebe pedido e Pix sozinho, que e a dor de quem
            vende pelo WhatsApp (no Vale o iFood pesa pouco). O resto: a comissao */
         porCardapio
-          ? el('div', { class: 'kicker', text: 'Cardápio digital com pedido e Pix automáticos' })
+          ? el('div', { class: 'kicker', text: 'Cardápio e catálogo digital, com pedido e Pix automáticos' })
           : el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para delivery de cidade pequena']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
         porCardapio
-          ? el('h1', { class: 'vender-titulo' }, ['Chega de mandar ', el('span', { class: 'dor-destaque', text: 'cardápio' }), ' no WhatsApp.'])
+          ? el('h1', { class: 'vender-titulo' }, ['Chega de mandar '].concat(palavraQueTroca(['cardápio', 'catálogo']), [' no WhatsApp.']))
           : el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
+        el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio ou catálogo, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
         botoesChamada(true, true),
         el('div', { class: 'vender-selos' }, [
           /* quem nao quer fazer sozinho chama no WhatsApp com a mensagem pronta (e o caminho que mais converte para dono de loja) */
@@ -380,6 +403,18 @@
     var corpo = el('div', { class: 'conteudo vender' });
     raiz.appendChild(corpo);
 
+    /* ---------- para quem e: comida e comercio, com os tipos do cadastro ---------- */
+    var semOutro = function (lista) { return lista.map(function (x) { return x[0]; }).filter(function (n) { return !/^outr[oa] /i.test(n); }); };
+    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+      el('div', { class: 'kicker', text: 'Para quem é' }),
+      el('h2', { text: 'Comida ou comércio, a loja fala a sua língua' }),
+      el('p', { class: 'muted segmentos-intro', text: 'Você escolhe o tipo no cadastro e o site se ajusta sozinho: cardápio com senha na lanchonete, catálogo com tamanho e estoque na loja de roupa.' }),
+      el('div', { class: 'segmentos' }, [
+        segmento('cardapio', 'Comida', 'Cardápio com foto, adicionais e "tirar ingrediente", senha do pedido e tela da cozinha.', semOutro(R.TIPOS_DE_LOJA)),
+        segmento('sacola', 'Comércio', 'Catálogo com até 3 fotos por peça, tamanho com preço próprio, estoque que esgota sozinho e tela de separação.', semOutro(R.TIPOS_DE_COMERCIO)),
+      ]),
+    ]));
+
     /* ---------- calculadora ---------- */
     var vendas = el('input', { type: 'text', inputmode: 'numeric', value: dinheiro(500000), 'aria-label': 'Vendas por mês no delivery' });
     UI.mascaraDinheiro(vendas);
@@ -396,9 +431,11 @@
         ['iFood, plano Entrega', c.ifoodEntrega, 'comissão de 26,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['iFood, plano Básico', c.ifoodBasico, 'comissão de 15,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['Anota AI', c.anotaAi, c.anotaFaixa],
-        ['Ligeiro', c.ligeiro, 'fixo, em qualquer volume'],
+        /* as barras: o que cada sistema cobra (no iFood o pagamento online ja vem na comissao; nos de mensalidade, a taxa
+           do pagamento fica a parte, e a do Ligeiro entra na frase e na nota de baixo) */
+        ['Ligeiro', c.ligeiroMensal, 'fixo, em qualquer volume'],
       ].forEach(function (linha, i) {
-        var maior = Math.max(c.ifoodEntrega, c.ifoodBasico, c.anotaAi, c.ligeiro, 1);
+        var maior = Math.max(c.ifoodEntrega, c.ifoodBasico, c.anotaAi, c.ligeiroMensal, 1);
         resultado.appendChild(el('div', { class: 'calc-linha' + (i === 3 ? ' ligeiro' : '') }, [
           el('div', { class: 'calc-cabeca' }, [el('b', { text: linha[0] }), el('span', { class: 'calc-valor', text: dinheiro(linha[1]) + '/mês' })]),
           el('div', { class: 'calc-trilho' }, el('span', { style: { width: Math.max(2, Math.round(linha[1] / maior * 100)) + '%' } })),
@@ -409,11 +446,16 @@
       var economia = c.ifoodBasico - c.ligeiro;
       UI.limpar(frase);
       if (economia > 0) {
-        frase.appendChild(document.createTextNode('Pelo iFood, no plano Básico, iriam ' + dinheiro(c.ifoodBasico) + ' por mês. No Ligeiro, ' + dinheiro(c.ligeiro) + '. '));
+        frase.appendChild(document.createTextNode('Pelo iFood, no plano Básico, iriam ' + dinheiro(c.ifoodBasico) + ' por mês. No Ligeiro, ' + dinheiro(c.ligeiroMensal) + ' de mensalidade e ' + dinheiro(c.ligeiroPix) + ' de taxa do Pix no Mercado Pago. '));
         frase.appendChild(el('b', { text: 'Ficam ' + dinheiro(economia) + ' por mês com você, ' + dinheiro(economia * 12) + ' em um ano.' }));
-      } else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o iFood. A diferença é que ele continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
-      else frase.textContent = 'Com esse volume, a comissão do iFood ainda sai mais barata que ' + dinheiro(pr.mensal) + '. A conta vira a seu favor a partir de uns ' + dinheiro(Math.ceil(pr.mensal / 0.152 / 10000) * 10000) + ' por mês de vendas.';
+      } else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o iFood. A diferença é que a mensalidade continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
+      else frase.textContent = 'Com esse volume, a comissão do iFood ainda sai mais barata que o Ligeiro. A conta vira a seu favor a partir de uns ' + dinheiro(Math.ceil(pr.mensal / (0.152 - c.taxaPix) / 10000) * 10000) + ' por mês de vendas.';
+      /* o botao leva o numero da conta (o que a pessoa acabou de ver que fica com ela) */
+      UI.limpar(ctaCalc);
+      ctaCalc.appendChild(el('span', { text: 'Começar grátis' }));
+      if (economia > 0) ctaCalc.appendChild(el('span', { class: 'sub', text: 'e ficar com ' + reais(Math.round(economia / 100) * 100) + ' por mês' }));
     }
+    var ctaCalc = el('a', { class: 'btn btn-principal btn-calc', href: '#/comecar' });
     vendas.addEventListener('input', calcular);
     pedidos.addEventListener('input', calcular);
     calcular();
@@ -428,7 +470,7 @@
           el('div', { class: 'campo' }, [el('label', { text: 'Pedidos' }), pedidos]),
         ]),
       ]),
-      el('div', { class: 'calc-resultado' }, [resultado, frase, el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Começar grátis' })]),
+      el('div', { class: 'calc-resultado' }, [resultado, frase, ctaCalc, el('p', { class: 'calc-fonte', text: 'Preços públicos do iFood e do Anota AI em setembro de 2026. No iFood, o pagamento online já está na comissão; no Ligeiro, o Pix tem a taxa do Mercado Pago (0,99% por venda), paga direto a ele e já descontada na conta acima.' })]),
     ]));
 
     /* ---------- antes e depois ---------- */
@@ -436,8 +478,8 @@
       el('div', { class: 'kicker', text: 'Antes e depois' }),
       el('h2', { text: 'Sem Ligeiro vs com Ligeiro' }),
       el('div', { class: 'antes-depois' }, [
-        el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['Comissão comendo a margem', 'Comprovante de Pix falso passando', 'WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente pergunta "e o meu pedido?"', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', {}, [UI.iconeLinha('fechar'), t]); }))),
-        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['0% de comissão: a margem fica com você', 'Pix e cartão confirmados pelo Mercado Pago: print falso não passa', 'Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com senha e endereço', 'Cliente acompanha pela senha, sem perguntar', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', {}, [UI.iconeLinha('check'), t]); }))),
+        el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['Comissão comendo a margem', 'Comprovante de Pix falso passando', 'WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente perguntando "tem no M?" e "e o meu pedido?"', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', {}, [UI.iconeLinha('fechar'), t]); }))),
+        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['0% de comissão: a margem fica com você', 'Pix e cartão confirmados pelo Mercado Pago: print falso não passa', 'Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com número e endereço', 'Tamanho, estoque e andamento do pedido na tela do cliente', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', {}, [UI.iconeLinha('check'), t]); }))),
       ]),
     ]));
 
@@ -446,9 +488,9 @@
       el('div', { class: 'kicker', text: 'Como funciona' }),
       el('h2', { text: 'Três passos, e o pedido cai' }),
       el('div', { class: 'passos-venda' }, [
-        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio já vem montado para o seu tipo de loja; você só ajusta preços. Se preferir, a gente monta o cardápio para você, com as fotos que você já tem.'),
+        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio ou o catálogo já vem montado para o seu tipo de loja; você só ajusta os preços. Se preferir, a gente monta para você, com as fotos que você já tem.'),
         passo('2', 'Você espalha o link', 'Bio do Instagram, status e saudação automática do WhatsApp, QR no balcão. Quem pede uma vez, pede de novo pelo link.'),
-        passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com senha, itens, endereço com referência e o pagamento já conferido para você.'),
+        passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com número, itens, endereço com referência e o pagamento já conferido para você.'),
       ]),
     ]));
 
@@ -475,12 +517,15 @@
     /* ---------- o que vem ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'O que o Ligeiro faz por você' }),
-      el('h2', { text: 'Atende, vende e organiza' }),
+      el('h2', { text: 'Do pedido ao Pix, sem você digitar nada' }),
       el('div', { class: 'vender-grade' }, [
         item('link', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'),
-        item('dinheiro', 'Pix e cartão automáticos', 'Pelo Mercado Pago: o cliente paga no Pix ou no cartão de crédito e o pedido já cai pago na cozinha. Sem conferir comprovante.'),
+        item('dinheiro', 'Pix e cartão automáticos', 'Pelo Mercado Pago: o cliente paga no Pix ou no cartão de crédito e o pedido já cai pago no painel. Sem conferir comprovante.'),
         item('sino', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'),
-        item('chef', 'Cozinha e entregador', 'Uma tela para cozinha e outra para o motoboy, com mapa e o que cobrar.'),
+        item('camera', 'Até 3 fotos por item', 'A principal na lista e mais duas (costas, detalhe, o prato servido): o cliente desliza para ver.'),
+        item('fogo', 'Oferta por tempo limitado', 'Um foguinho com quanto falta e o preço antigo riscado. Na hora marcada, o preço volta sozinho.'),
+        item('caixa', 'Estoque e tamanhos', 'Cada tamanho com o seu preço e a sua quantidade. Esgotou, o site avisa e ninguém consegue pedir.'),
+        item('chef', 'Cozinha, separação e entregador', 'Uma tela para quem prepara e outra para o motoboy, com mapa e o que cobrar.'),
         item('imprimir', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
         item('vendas', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'),
       ]),
@@ -491,12 +536,13 @@
     corpo.appendChild(el('section', { class: 'teste-banner' }, [
       el('div', { class: 'teste-texto' }, [
         el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Teste grátis por ' + pr.diasGratis + ' dias']),
-        el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', com o cardápio do seu tipo.']),
+        el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', já montada para o que você vende.']),
         el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Todos os recursos'].map(function (t) { return el('li', { text: t }); })),
       ]),
       el('div', { class: 'teste-botoes' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('teste-montar'); } }),
+        el('p', { class: 'teste-montar-dica', text: 'Você manda as fotos e os preços pelo WhatsApp; a gente cadastra tudo e devolve a loja pronta.' }),
       ]),
     ]));
 
@@ -504,7 +550,7 @@
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
       el('div', { class: 'kicker', text: 'Preço' }),
       el('h2', { text: 'Um plano só. Tudo incluso.' }),
-      el('p', { class: 'muted', text: 'Pedidos ilimitados, cardápio, painel, cozinha, entregador, Pix e cartão automáticos. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.' }),
+      el('p', { class: 'muted', text: 'Pedidos ilimitados, cardápio ou catálogo, estoque, ofertas, painel, cozinha e entregador, Pix e cartão automáticos. Sem comissão, sem fidelidade, no cartão, boleto ou Pix.' }),
       (function () {
         var t = 'mensal';
         var caixa = el('div', { class: 'pilha planos-venda' });
@@ -538,20 +584,20 @@
         duvida('Eu não entendo de internet. Vou conseguir?', 'Vai. Se preferir, a gente monta a loja para você e tira dúvidas pelo WhatsApp. Depois, mudar preço ou pausar um item é um toque no celular.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro para quem já é cliente, sem comissão. Cada pedido pelo seu link é margem que fica com você.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, toque em "Encerrar assinatura" em Minha conta: a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e seus dados ficam guardados por 90 dias, caso volte.'),
-        duvida('Como eu recebo o dinheiro do Pix?', 'Direto na sua conta do Mercado Pago, que você conecta no painel com um toque; o Ligeiro nunca encosta no dinheiro. O Mercado Pago confirma na hora e o pedido já entra pago na cozinha (taxa deles, cerca de 1% por Pix).'),
+        duvida('Como eu recebo o dinheiro do Pix?', 'Direto na sua conta do Mercado Pago, que você conecta no painel com um toque; o Ligeiro nunca encosta no dinheiro. O Mercado Pago confirma na hora e o pedido já entra pago no painel (taxa deles: 0,99% por Pix).'),
         duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, pela autorização oficial deles: o Ligeiro recebe só uma permissão limitada para criar os pagamentos da sua loja, nunca a sua senha. O dinheiro cai direto na sua conta, e você desconecta quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão: o cliente digita o cartão no formulário seguro do Mercado Pago e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, e você pode repassar ao cliente.'),
-        duvida('Serve para loja de roupa ou outro comércio?', 'Serve. No cadastro você escolhe o tipo (roupas, calçados, presentes, pet shop e outros) e o site vira um catálogo: o cliente escolhe o tamanho, vê quando restam poucas peças e não consegue comprar o que esgotou.'),
-        duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio com foto: toca no lanche, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
+        duvida('Serve para loja de roupa ou outro comércio?', 'Serve. No cadastro você escolhe o tipo (roupas, calçados, presentes, pet shop e outros) e o site vira um catálogo: até 3 fotos por peça, tamanho com preço próprio (o GG pode custar mais), estoque que avisa quando restam poucas e tira do site o que esgotou, e uma tela de separação no lugar da cozinha.'),
+        duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: toca no item, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
         duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que olhamos em setembro de 2026 costumam limitar os pedidos por mês (de 30 a 65, em vários) e cobrar por pedido a mais ou parar de receber. No Ligeiro o pedido é ilimitado e o Pix cai confirmado sozinho. Você testa ' + pr.diasGratis + ' dias com tudo liberado, sem cartão, e só paga se compensar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'O Ligeiro não pede CNPJ para criar a loja. O dinheiro do Pix e do cartão cai na sua conta do Mercado Pago, que tem as próprias regras para abrir a conta.'),
-        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha e impressora são opcionais.'),
+        duvida('Preciso de computador ou de algum aparelho?', 'Não. O painel roda no celular que você já tem. Tela na cozinha (ou na separação) e impressora são opcionais.'),
         duvida('Como eu pago a mensalidade?', 'Do jeito que preferir, em "Minha conta": cartão de crédito (cai sozinho todo mês, sem lembrar de pagar), boleto ou Pix na hora. Sem comissão e sem taxa escondida: é ' + reais(pr.mensal) + ' e pronto.'),
-        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Sem ligar para ninguém.'),
-        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha pela senha. Funciona em qualquer celular.'),
+        duvida('E se acabar um item ou eu quiser mudar o preço?', 'No painel, um interruptor tira o item do site na hora e o preço muda direto na lista. Com o estoque ligado, nem isso: quando a quantidade zera, o site mostra "Esgotado" sozinho.'),
+        duvida('Dá para fazer promoção?', 'Dá. No lápis do item, ligue "Por tempo limitado" e escolha até quando: o site mostra um foguinho com quanto falta, o preço antigo riscado e uma vitrine de ofertas no topo. Na hora marcada o preço volta sozinho, ou o item sai do site, como você escolher. Também tem cupom de desconto.'),
+        duvida('Meu cliente precisa instalar alguma coisa?', 'Não. Ele abre o link, escolhe, paga e acompanha o pedido pelo mesmo link. Funciona em qualquer celular.'),
         duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem atendimento automático no WhatsApp e cardápio digital, com planos de R$ 99,99 (até 150 pedidos por mês), R$ 199,99 (até 250) e R$ 299,99 (acima disso), valores públicos de setembro de 2026. Ele pertence ao iFood desde 2022. No Ligeiro é ' + reais(pr.mensal) + ' fixo por mês, sem limite de pedidos e sem robô no meio: o cliente pede sozinho pelo link e o Pix e o cartão são confirmados pelo Mercado Pago.'),
         duvida('Minha loja pode ter a cara da minha marca?', 'Pode. No painel você escolhe cor, logo e capa. Se quiser algo feito sob medida, dentro do painel tem a Loja do Ligeiro, com logo, fotos, vídeo e design exclusivo, pagos uma vez só.'),
-        duvida('Por que é mais barato que os outros?', 'Porque não tem escritório, não tem robô pago e não tem intermediário no Pix. O sistema é enxuto, e o preço acompanha.'),
       ]),
     ]));
 
@@ -563,6 +609,7 @@
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
       el('p', { class: 'muted', text: 'Comece grátis agora ou peça para a gente montar: cadastramos tudo e os primeiros dias são por nossa conta.' }),
+      el('p', { class: 'final-origem' }, [UI.iconeLinha('mapa'), 'Feito em Juquiá/SP, por quem também tem loja.']),
       /* dois caminhos so: comecar sozinho ou pedir para a gente montar */
       el('div', { class: 'pilha chamada' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
@@ -609,7 +656,7 @@
     window.addEventListener('resize', conferirBarra);
     conferirBarra();
 
-    return function () { clearTimeout(conferirBarra.depois); window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
+    return function () { clearInterval(trocaTitulo); clearTimeout(conferirBarra.depois); window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   /* Mensal e anual lado a lado (1 loja por conta), com o que vem incluso uma vez so, embaixo: da para comparar sem tocar
@@ -858,19 +905,19 @@
     var e = cfg().empresa || {};
     var quem = e.nome ? e.nome + (e.cnpj ? ' (CNPJ ' + e.cnpj + ')' : '') : 'o Ligeiro';
     return paginaLegal(raiz, 'Termos de uso', [
-      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos para lanchonetes, pizzarias, marmitarias e parecidos: cardápio num link, painel de pedidos, telas de cozinha e entrega, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
+      ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos para lojas de comida (lanchonete, pizzaria, marmitaria e parecidos) e de comércio (roupa, calçado, presente, pet shop e outros): cardápio ou catálogo num link, painel de pedidos, telas de cozinha ou separação e de entrega, estoque, ofertas, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
       ['Quem pode usar', ['Qualquer estabelecimento que venda comida, bebida ou outros produtos (roupa, calçado, presente e outros) e tenha um responsável maior de 18 anos. Ao criar a loja, você confirma que tem direito de vender o que cadastra e que as informações (nome, endereço, WhatsApp) são suas ou da sua empresa.']],
       ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(normal.mensal) + ' por mês' + (normal.anual > 0 ? ' e o anual ' + dinheiro(normal.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Cada conta tem uma loja: outra loja ganha a própria conta, com a própria assinatura.' + (vagas > 0 && fund.mensal ? ' Preço de fundador: as ' + ((cfg().fundador || {}).vagas || 5) + ' primeiras lojas que pagarem pagam ' + dinheiro(fund.mensal) + ' por mês' + (fund.anual > 0 ? ' (' + dinheiro(fund.anual) + ' por ano)' : '') + ', travado enquanto não cancelarem. Se as vagas acabarem antes do seu primeiro pagamento, vale o preço normal.' : '') + ' Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago nem para o preço de fundador travado.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
       ['Aceite', ['Você aceita estes termos ao marcar "Li e aceito" no cadastro da loja ou no painel. O Ligeiro guarda qual versão foi aceita e quando. Quando o texto muda de um jeito que importa, o painel pede um novo aceite antes de continuar.']],
       ['Cancelamento', ['Não tem fidelidade. Para cancelar, toque em Encerrar assinatura, em Minha conta, ou peça no WhatsApp: a cobrança automática do cartão para na hora. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],
       ['O dinheiro do cliente', ['O Pix e o cartão de crédito do cliente vão para a conta Mercado Pago da loja, que confirma o pagamento e libera o pedido. O Ligeiro não recebe, não guarda e não repassa dinheiro de pedido. Valem as regras e taxas do Mercado Pago. Os números do cartão são digitados no formulário do próprio Mercado Pago e não passam pelo Ligeiro nem pela loja.', 'Quando a loja cancela um pedido pago pelo site, o valor volta ao cliente pelo Mercado Pago. Maquininha e dinheiro são cobrados pela própria loja na entrega ou no balcão.']],
-      ['Responsabilidades da loja', ['Cardápio, preços, prazos, entrega, qualidade e segurança dos alimentos, licenças (inclusive da vigilância sanitária), notas fiscais e tributos são da loja. O Ligeiro é a ferramenta de pedido; quem vende é você. Bebida alcoólica e outros produtos com idade mínima só podem ser entregues a maiores de 18 anos, e conferir isso é da loja.', 'A loja também é responsável por usar os dados dos clientes só para atender e avisar sobre pedidos e promoções da própria loja, conforme a Política de privacidade. Pela LGPD, a loja é a controladora dos dados dos clientes dela e o Ligeiro é o operador, que só guarda e leva esses dados para o pedido acontecer.']],
+      ['Responsabilidades da loja', ['Cardápio ou catálogo, preços, ofertas, estoque, prazos, entrega, qualidade dos produtos (e segurança dos alimentos), trocas e devoluções, licenças (inclusive da vigilância sanitária), notas fiscais e tributos são da loja. O Ligeiro é a ferramenta de pedido; quem vende é você. Bebida alcoólica e outros produtos com idade mínima só podem ser entregues a maiores de 18 anos, e conferir isso é da loja.', 'A loja também é responsável por usar os dados dos clientes só para atender e avisar sobre pedidos e promoções da própria loja, conforme a Política de privacidade. Pela LGPD, a loja é a controladora dos dados dos clientes dela e o Ligeiro é o operador, que só guarda e leva esses dados para o pedido acontecer.']],
       ['Pagamentos, estornos e contestações', ['O pagamento pelo site é feito entre o cliente e a conta Mercado Pago da loja. Estornos, contestações (chargeback) e devoluções seguem as regras do Mercado Pago e são resolvidos entre a loja, o cliente e o Mercado Pago. O Ligeiro não é parte desse pagamento e não responde por valores retidos, contestados ou devolvidos.', 'Se a loja escolher cobrar a taxa do cartão do cliente, o site mostra o valor antes do pagamento, como a Lei 13.455/2017 pede. A decisão de cobrar e o valor são da loja.']],
       ['Dados pessoais (LGPD)', ['Com os dados de quem pede na loja (nome, WhatsApp, endereço), a loja é a controladora: é ela quem decide para que usa. O Ligeiro é o operador: guarda e processa esses dados em nome da loja, só para o pedido funcionar, seguindo a Lei Geral de Proteção de Dados (Lei 13.709/2018) e a política de privacidade.', 'A loja usa esses dados só para atender o pedido e falar com o cliente sobre ele, e responde aos pedidos dos clientes dela sobre os próprios dados. O Ligeiro ajuda: acha, entrega ou apaga os dados de uma pessoa a pedido, e avisa a loja se acontecer um incidente de segurança que envolva os clientes dela.']],
       ['Conteúdo da loja', ['Nome, fotos, logo, textos e marcas que a loja envia precisam ser dela ou ter autorização de uso. A loja autoriza o Ligeiro a mostrar esse conteúdo no site dela, nas páginas da cidade e na divulgação do próprio Ligeiro. O Ligeiro pode tirar do ar conteúdo falso, ilegal, ofensivo ou que use marca de outra pessoa.']],
       ['Acesso e senhas', ['A loja cuida da conta do Google que abre o painel e da senha da equipe. O que for feito com esses acessos é de responsabilidade da loja. Suspeitou de acesso indevido, troque a senha da equipe e avise o Ligeiro.']],
       ['Disponibilidade', ['O sistema roda em serviços de nuvem de grandes fornecedores (Google, Cloudflare, GitHub, Mercado Pago) e é mantido para ficar no ar o tempo todo, mas pode haver falhas, limites de uso ou manutenções, inclusive desses fornecedores. Nesses casos, a loja segue atendendo pelo WhatsApp e o Ligeiro avisa pelo painel ou pelo WhatsApp da loja.']],
-      ['Limite de responsabilidade', ['O Ligeiro não responde por lucro cessante, pedidos perdidos por falta de internet, falhas de fornecedores, erros no cardápio cadastrado pela loja ou problemas na entrega. Em qualquer caso, a responsabilidade do Ligeiro fica limitada ao valor que a loja pagou nos últimos 3 meses.']],
+      ['Limite de responsabilidade', ['O Ligeiro não responde por lucro cessante, pedidos perdidos por falta de internet, falhas de fornecedores, erros no cardápio ou catálogo cadastrado pela loja (preços, estoque e ofertas inclusive) ou problemas na entrega. Em qualquer caso, a responsabilidade do Ligeiro fica limitada ao valor que a loja pagou nos últimos 3 meses.']],
       ['Uso indevido e suspensão', ['É proibido cadastrar loja falsa, vender produto ilegal, usar o sistema para enviar spam, fraudar pagamentos ou tentar acessar dados de outras lojas. Nesses casos, ou por ordem da justiça, a loja pode ser suspensa ou desligada sem devolução.']],
       ['Para quem pede', ['Quem faz um pedido compra da loja, não do Ligeiro. Dúvidas, trocas e reclamações sobre o pedido são com a loja, pelo WhatsApp dela. O Ligeiro ajuda a loja a resolver quando for problema do sistema.']],
       ['Mudanças nestes termos', ['Se os termos mudarem de um jeito que importa, o painel pede um novo aceite antes de continuar. Versão de ' + R.TERMOS_VERSAO.slice(0, 10).split('-').reverse().join('/') + '.']],
@@ -886,11 +933,11 @@
       ['Resumo', ['O Ligeiro guarda só o necessário para um pedido chegar na loja e para a loja usar o sistema. Ninguém vende, aluga ou repassa esses dados, e nada é usado para anúncio. Esta política segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018).']],
       ['Quem é o responsável', ['Pelos dados de quem pede numa loja, a responsável (controladora) é a loja: é ela quem decide para que usa. O Ligeiro é o operador, que guarda e processa esses dados em nome dela, só para o pedido funcionar.', 'Pelos dados das lojas e dos donos (cadastro, login e assinatura) e pelos contatos do "Fale com a gente", o responsável é ' + quem + '.']],
       ['Dados de quem pede, e para quê', ['Nome e WhatsApp: para a loja saber de quem é o pedido e falar com você sobre ele. Endereço e referência (só na entrega): para entregar. Itens, observações e forma de pagamento: para preparar e cobrar o pedido.', 'No cartão pelo site, o CPF e o e-mail vão direto para o Mercado Pago, para a cobrança, e não ficam guardados no Ligeiro. Se você ligar os avisos no celular, o endereço técnico do aviso fica no próprio pedido, só para avisar sobre ele.', 'A base legal é a execução do pedido que você fez (art. 7º, V, da LGPD).']],
-      ['Dados das lojas e dos donos', ['Nome, tipo, cidade, endereço, WhatsApp, e-mail de login (conta do Google), cardápio, fotos, pedidos e relatórios de vendas. Servem para a loja funcionar e para a cobrança da assinatura (execução do contrato). A conexão com o Mercado Pago fica numa parte privada, que só a loja e o Ligeiro acessam.']],
+      ['Dados das lojas e dos donos', ['Nome, tipo, cidade, endereço, WhatsApp, e-mail de login (conta do Google), cardápio ou catálogo, estoque, fotos, pedidos e relatórios de vendas. Servem para a loja funcionar e para a cobrança da assinatura (execução do contrato). A conexão com o Mercado Pago fica numa parte privada, que só a loja e o Ligeiro acessam.']],
       ['Contato do "Fale com a gente"', ['Nome, WhatsApp, cidade e nome da loja, só para a gente responder. Apagamos quando você pedir ou quando o contato não tiver mais uso.']],
       ['Com quem os dados são compartilhados', ['Só com os serviços que fazem o Ligeiro funcionar:',
         'Google (Firebase): banco de dados e login com o Google. Pode guardar dados fora do Brasil, como nos Estados Unidos.',
-        'Cloudflare: o mensageiro do Ligeiro (pedidos, pagamentos e avisos) e uma cópia do cardápio, que já é público, para o site abrir rápido. Rede no mundo todo, com sede nos Estados Unidos.',
+        'Cloudflare: o mensageiro do Ligeiro (pedidos, pagamentos, estoque e avisos) e uma cópia do cardápio ou catálogo, que já é público, para o site abrir rápido. Rede no mundo todo, com sede nos Estados Unidos.',
         'GitHub: guarda os arquivos do site. Estados Unidos.',
         'Mercado Pago: Pix e cartão do pedido, direto na conta da loja. Brasil.',
         'Asaas: cobrança da assinatura das lojas (cartão, boleto e Pix). Brasil.',
@@ -909,6 +956,14 @@
   /* ---------- pecas ---------- */
   function passo(n, titulo, texto) {
     return el('div', { class: 'passo-venda' }, [el('span', { class: 'n', text: n }), el('div', {}, [el('b', { text: titulo }), el('p', { text: texto })])]);
+  }
+  /* para quem e: o icone e o titulo numa linha, o texto e os tipos de loja embaixo, na largura toda */
+  function segmento(icone, titulo, texto, tipos) {
+    return el('div', { class: 'cartao segmento' }, [
+      el('div', { class: 'segmento-cabeca' }, [el('span', { class: 'icone' }, [UI.iconeLinha(icone)]), el('b', { text: titulo })]),
+      el('p', { text: texto }),
+      el('ul', { class: 'segmento-tipos', 'aria-label': 'Tipos de loja de ' + titulo.toLowerCase() }, tipos.map(function (x) { return el('li', { text: x }); }).concat([el('li', { class: 'e-outros', text: 'e outros' })])),
+    ]);
   }
   function item(icone, titulo, texto) {
     return el('div', { class: 'cartao item-venda' }, [el('span', { class: 'icone' }, [UI.iconeLinha(icone)]), el('b', { text: titulo }), el('p', { text: texto })]);
@@ -930,7 +985,7 @@
           return el('tr', { class: l[3] ? 'destaque' : '' }, [el('td', {}, el('b', { text: l[0] })), el('td', { text: l[1] }), el('td', { text: l[2] })]);
         })),
       ])),
-      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos. O Anota AI pertence ao iFood desde 2022. iFood, Anota AI e os outros nomes são marcas dos seus donos; o Ligeiro não tem ligação com eles.' }),
+      el('p', { class: 'muted pequeno', text: 'Valores públicos em setembro de 2026, conferidos nos sites e blogs do setor. Cada um pode mudar a tabela; o Ligeiro é ' + reais(pr.mensal) + ' e não sobe com os pedidos (o Mercado Pago cobra a taxa dele no Pix e no cartão, direto da loja). O Anota AI pertence ao iFood desde 2022. iFood, Anota AI e os outros nomes são marcas dos seus donos; o Ligeiro não tem ligação com eles.' }),
     ]);
   }
 

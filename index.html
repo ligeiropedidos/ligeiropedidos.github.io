@@ -9,8 +9,8 @@
   <script>if (self === top) { var q = document.getElementById('antiQuadro'); q.parentNode.removeChild(q); } else { try { top.location = self.location.href; } catch (_) { /* segue escondida */ } }</script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0F3D2E">
-  <title>Cardápio digital com pedido e Pix, sem comissão | Ligeiro</title>
-  <meta name="description" content="Cardápio digital para lanchonete, pizzaria e marmitaria: o cliente pede pelo link, paga no Pix e o pedido chega no seu celular. 0% de comissão e 7 dias grátis, sem cartão.">
+  <title>Cardápio e catálogo digital com Pix, sem comissão | Ligeiro</title>
+  <meta name="description" content="Cardápio ou catálogo digital para lanchonete, pizzaria, loja de roupa e outros comércios: o cliente pede pelo link, paga no Pix e o pedido chega no seu celular. 0% de comissão e 7 dias grátis, sem cartão.">
   <meta name="application-name" content="Ligeiro">
   <meta name="apple-mobile-web-app-title" content="Ligeiro">
   <link rel="canonical" href="https://ligeiropedidos.com.br/">
@@ -19,7 +19,7 @@
   <meta property="og:locale" content="pt_BR">
   <meta property="og:url" content="https://ligeiropedidos.com.br/">
   <meta property="og:title" content="Ligeiro: faça seu pedido pelo celular">
-  <meta property="og:description" content="Cardápio da loja, Pix ou cartão pelo site e o pedido acompanhado pela senha. Sem baixar app e sem cadastro.">
+  <meta property="og:description" content="Cardápio ou catálogo da loja, Pix ou cartão pelo site e o pedido acompanhado pelo link. Sem baixar app e sem cadastro.">
   <meta property="og:image" content="https://ligeiropedidos.com.br/img/previa-link.jpg">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
@@ -37,8 +37,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <script>/* o codigo da tela do endereco comeca a baixar ja, junto com o css, e nao so depois dos outros scripts rodarem (era assim que a pagina
      de venda e a loja esperavam uns 2 s na internet de celular). A conta do endereco e a mesma do fim da pagina. */
-  (function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0], n = ['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0 ? ['cidades', 'parceiro'] : (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0 ? ['cliente'] : []); n.forEach(function (x) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = 'js/m/' + x + '.js?v=20261006b'; document.head.appendChild(l); }); })();</script>
-  <link rel="stylesheet" href="css/m/ligeiro.css?v=20261006b">
+  (function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0], n = ['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0 ? ['cidades', 'parceiro'] : (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0 ? ['cliente'] : []); n.forEach(function (x) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = 'js/m/' + x + '.js?v=20261006c'; document.head.appendChild(l); }); })();</script>
+  <link rel="stylesheet" href="css/m/ligeiro.css?v=20261006c">
 </head>
 <body>
 
@@ -51,19 +51,19 @@
 <div class="torrada" id="torrada" role="status" aria-live="polite"></div>
 <div class="ficha-impressao" id="fichaImpressao"></div>
 
-<script src="js/m/config.js?v=20261006b"></script>
+<script src="js/m/config.js?v=20261006c"></script>
 <script>/* painel de demonstracao (link "Ver o painel" da faixa AMOSTRA, com ?demo=painel): banco desligado e tudo guardado
    neste aparelho com o prefixo demo:, longe dos dados de verdade. Os dados de exemplo entram antes do dados.js */
-(function () { if (!/[?&]demo=painel(&|$)/.test(location.search)) return; var c = window.LIGEIRO_CONFIG || {}; c.firebase = null; var S = Storage.prototype, o = { getItem: S.getItem, setItem: S.setItem, removeItem: S.removeItem }; window.LIGEIRO_DEMO_PAINEL = { original: function (k) { try { return o.getItem.call(sessionStorage, k); } catch (_) { return null; } } }; ['getItem', 'setItem', 'removeItem'].forEach(function (m) { S[m] = function (k) { var a = [].slice.call(arguments); a[0] = 'demo:' + k; return o[m].apply(this, a); }; }); document.write('<script src="js/m/seed.js?v=20261006b"><\/script>'); })();</script>
-<script src="js/m/regras.js?v=20261006b"></script>
-<script src="js/m/pix.js?v=20261006b"></script>
-<script src="js/m/dados.js?v=20261006b"></script>
-<script src="js/m/ui.js?v=20261006b"></script>
-<script src="js/m/avisos.js?v=20261006b"></script>
-<script>if (window.LIGEIRO_DEMO_PAINEL) document.write('<script src="js/m/demo-painel.js?v=20261006b"><\/script>');</script>
+(function () { if (!/[?&]demo=painel(&|$)/.test(location.search)) return; var c = window.LIGEIRO_CONFIG || {}; c.firebase = null; var S = Storage.prototype, o = { getItem: S.getItem, setItem: S.setItem, removeItem: S.removeItem }; window.LIGEIRO_DEMO_PAINEL = { original: function (k) { try { return o.getItem.call(sessionStorage, k); } catch (_) { return null; } } }; ['getItem', 'setItem', 'removeItem'].forEach(function (m) { S[m] = function (k) { var a = [].slice.call(arguments); a[0] = 'demo:' + k; return o[m].apply(this, a); }; }); document.write('<script src="js/m/seed.js?v=20261006c"><\/script>'); })();</script>
+<script src="js/m/regras.js?v=20261006c"></script>
+<script src="js/m/pix.js?v=20261006c"></script>
+<script src="js/m/dados.js?v=20261006c"></script>
+<script src="js/m/ui.js?v=20261006c"></script>
+<script src="js/m/avisos.js?v=20261006c"></script>
+<script>if (window.LIGEIRO_DEMO_PAINEL) document.write('<script src="js/m/demo-painel.js?v=20261006c"><\/script>');</script>
 <script>/* telas de venda (#/, #/lojas, #/entrar...): o codigo delas vem junto, na ordem. A loja do cliente (e a cidade)
    traz o dela; as telas de quem trabalha na loja nao usam nenhum dos dois (o app.js baixa o que faltar) */
-(function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/m/cidades.js?v=20261006b"><\/script><script src="js/m/parceiro.js?v=20261006b"><\/script>'); else if (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0) document.write('<script src="js/m/cliente.js?v=20261006b"><\/script>'); })();</script>
-<script src="js/m/app.js?v=20261006b"></script>
+(function () { var p = (location.hash.indexOf('#/') === 0 ? location.hash.slice(2) : location.pathname.replace(/^\/+/, '').replace(/^index\.html$/, '')).split('/')[0]; if (['', 'lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'conta', 'comecar'].indexOf(p) >= 0) document.write('<script src="js/m/cidades.js?v=20261006c"><\/script><script src="js/m/parceiro.js?v=20261006c"><\/script>'); else if (['painel', 'cozinha', 'entrega', 'servicos', 'admin'].indexOf(p) < 0) document.write('<script src="js/m/cliente.js?v=20261006c"><\/script>'); })();</script>
+<script src="js/m/app.js?v=20261006c"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@
   --cz-ouro-claro: #f7c948;
   --cz-tinta: #241708;
   --cz-tinta-suave: #6b543a;
+  --muted: var(--cz-tinta-suave); /* o cinza do site (#627066) no creme dava 4,2:1; este da 5,8:1 */
   --cz-verde: #2e7d32;
   --cz-verde-claro: #e8f5e9;
   --cz-branco: #fffdf7;
@@ -130,7 +131,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .btn-fantasma:active { transform: none; }
 .tema-conizza .btn-whats { background: var(--cz-verde); color: #fff; }
 /* marca de fora fica com a cor dela (como o WhatsApp verde): o cliente reconhece o Mercado Pago pelo azul */
-.tema-conizza .btn-mp { background: #009EE3; color: #fff; }
+.tema-conizza .btn-mp { background: #0077B6; color: #fff; }
 /* recado da loja no topo: cartao da casa (borda grossa, sombra dura), no ouro claro */
 .tema-conizza .aviso-topo { background: var(--cz-ouro-claro); border: 3px solid var(--cz-tinta); color: var(--cz-tinta); border-radius: 18px; box-shadow: 0 4px 0 rgba(36, 23, 8, 0.16); font-weight: 700; }
 .tema-conizza .aviso-topo .ico-traco { background: var(--cz-branco); color: var(--cz-tinta); }
@@ -156,13 +157,13 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* o cartao do video com a moldura de todo cartao da casa: traco de 3 e a sombra chapada de 4 */
 .tema-conizza .video-loja-capa { border: 3px solid var(--cz-tinta); box-shadow: 0 4px 0 var(--cz-tinta); margin-bottom: 4px; --raio-fundo-video: 15px; } /* 18 de canto menos os 3 da borda */
 .tema-conizza .video-loja-capa:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
-.tema-conizza .cupom-abrir { color: var(--cz-vermelho); font-family: var(--cz-display); font-weight: 800; }
+.tema-conizza .cupom-abrir { color: var(--cz-vermelho-escuro); font-family: var(--cz-display); font-weight: 800; } /* o vermelho tijolo no creme dava 4,4:1; o escuro, 7:1 */
 
 /* ---------- cabecalho das telas internas ---------- */
 .tema-conizza .topo { background: var(--cz-vermelho); border-bottom: 4px solid var(--cz-tinta); color: var(--cz-creme); }
 .tema-conizza .topo .voltar { width: 48px; height: 48px; border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-creme); color: var(--cz-tinta); font-weight: 800; }
 .tema-conizza .topo-titulo { font-family: var(--cz-display); font-weight: 800; color: var(--cz-creme); }
-.tema-conizza .topo-passo { color: var(--cz-creme); opacity: 0.85; }
+.tema-conizza .topo-passo { color: var(--cz-creme); } /* sem opacidade: a 85% no vermelho dava 3,9:1; inteiro, 4,8:1 */
 .tema-conizza .faixa-acompanhar .faixa-qtd { background: var(--cz-ouro-claro); color: var(--cz-tinta); font-family: var(--cz-display); }
 .tema-conizza .faixa-acompanhar { background: var(--cz-verde); border-bottom: 4px solid var(--cz-tinta); font-family: var(--cz-display); font-weight: 800; font-size: 17px; }
 
@@ -189,6 +190,8 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .opcao.marcada { background: var(--cz-verde-claro); border-color: var(--cz-verde); }
 /* contador de quantidade (item e carrinho): borda e sombra de desenho, na altura do "Adicionar" do lado */
 .tema-conizza .contador { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); }
+/* no carrinho, o contador fica no pe do cartao: a sombra (4) ganha o mesmo tanto embaixo, e o vao que se ve fica 12, como em cima */
+.tema-conizza .item-carrinho .item-carrinho-pe { padding-bottom: 4px; }
 .tema-conizza .campo input, .tema-conizza .campo select, .tema-conizza .campo textarea { border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-branco); font-family: var(--cz-corpo); }
 .tema-conizza .campo select { background-image: var(--seta-select); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; } /* o fundo do tema (acima) apagava a seta */
 .tema-conizza .campo input:focus-visible, .tema-conizza .btn:focus-visible { outline: 4px solid var(--cz-ouro); outline-offset: 2px; }
@@ -240,7 +243,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .pix-pagar .codigo-pix { margin-top: 4px; }
 .tema-conizza .barra-carrinho { background: var(--cz-branco); border-top: 4px solid var(--cz-tinta); }
 .tema-conizza .rodape { color: var(--cz-tinta-suave); font-weight: 600; }
-.tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); opacity: 0.8; }
+.tema-conizza .rodape .ligeiro { color: var(--cz-tinta-suave); } /* sem opacidade: a 80% ficava abaixo de 4,5:1 */
 
 /* ---------- fim da primeira tela ---------- */
 .tema-conizza .confianca { color: var(--cz-tinta-suave); font-weight: 700; }

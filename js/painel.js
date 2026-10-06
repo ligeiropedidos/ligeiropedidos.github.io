@@ -240,6 +240,8 @@
         impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>',
         sair: '<path d="M10 4H5.5v16H10"/><path d="M14.5 8 18.5 12l-4 4"/><path d="M18.5 12H9"/>',
         site: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18"/><path d="M12.5 3a17 17 0 0 1 0 18"/>',
+        /* "Ver loja": o olho (o site da loja do jeito que o cliente ve), com o meio no 12,12 */
+        olho: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
       };
       function rotuloTopo(botao, icone, longo, curto) {
         UI.limpar(botao);
@@ -286,10 +288,12 @@
         el('img', { class: 'logo-mini', src: (UI.lojaOficial(slug) && UI.lojaOficial(slug).logo) || 'img/mascote-192.webp', alt: '', width: '40', height: '40' }),
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
-          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre o site da loja em outra aba, do jeito que o cliente vê' }), 'site', 'Ver site', 'Site'),
+          rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a sua loja em outra aba, do jeito que o cliente vê' }), 'olho', 'Ver loja', 'Ver loja'),
           estado.equipe ? null : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Sua loja e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
-          rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair'),
+          /* "Sair" so para a equipe (que nao tem Minha conta). O dono sai em Minha conta: no topo, um toque sem querer
+             deslogava o celular e o apito dos pedidos parava */
+          estado.equipe ? rotuloTopo(el('button', { class: 'btn btn-pequeno', onclick: sairDoPainel }), 'sair', 'Sair', 'Sair') : null,
         ]),
       ]));
 
@@ -1125,25 +1129,26 @@
               UI.avisar('Não deu para concluir agora. Confira a internet e tente de novo.');
             });
           });
-        } }, [UI.iconeLinha('check'), 'Concluir todos']);
+        } }, [UI.iconeLinha('check'), velhos.length === 1 ? 'Concluir pedido' : 'Concluir todos']);
         if (estado.concluindoVelhos) UI.ocupar(btnConcluir, 'Concluindo…');
-        caixa.appendChild(el('div', { class: 'aviso aviso-falta de-outros-dias' }, [
-          UI.iconeLinha('relogio'),
-          el('div', { class: 'aviso-app-texto' }, [
-            el('b', { text: velhos.length === 1 ? 'Um pedido ficou aberto de outro dia' : velhos.length + ' pedidos ficaram abertos de outros dias' }),
-            el('span', { text: (catLoja().comida ? (senhas.length === 1 ? 'Senha ' : 'Senhas ') : (senhas.length === 1 ? 'Pedido nº ' : 'Pedidos nº ')) + (senhas.length > 1 ? senhas.slice(0, -1).join(', ') + ' e ' + senhas[senhas.length - 1] : senhas[0]) + '. Se já foram entregues, conclua todos de uma vez: somem ' + (catLoja().comida ? 'da cozinha' : 'da separação') + ' e do entregador.' }),
-            /* um embaixo do outro, largura toda (lado a lado, "Concluir todos" nao cabia no celular); a acao em cima */
-            el('div', { class: 'botoes-empilhados' }, [
-              btnConcluir,
-              /* ver antes de concluir: abre a lista "De outros dias", com cada pedido */
-              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
-                estado.gruposAbertos = estado.gruposAbertos || {};
-                estado.gruposAbertos['De outros dias'] = true;
-                desenharPedidos();
-                var alvo = $('grupoOutrosDias');
-                if (alvo) alvo.scrollIntoView({ block: 'start' });
-              } }, [UI.iconeLinha('olho'), 'Ver pedidos']),
-            ]),
+        var um = velhos.length === 1;
+        var onde = catLoja().comida ? 'da cozinha' : 'da separação';
+        var numeros = (catLoja().comida ? (um ? 'Senha ' : 'Senhas ') : (um ? 'Pedido nº ' : 'Pedidos nº ')) + (senhas.length > 1 ? senhas.slice(0, -1).join(', ') + ' e ' + senhas[senhas.length - 1] : senhas[0]);
+        /* o icone num circulo e o titulo na mesma linha, o texto embaixo na largura toda e os dois botoes lado a lado (um
+           embaixo do outro no 320): o desenho dos outros avisos do painel */
+        caixa.appendChild(el('div', { class: 'aviso aviso-falta aviso-bloco de-outros-dias' }, [
+          el('div', { class: 'aviso-cabeca' }, [el('span', { class: 'aviso-ico' }, [UI.iconeLinha('relogio')]), el('b', { text: um ? 'Um pedido ficou aberto de outro dia' : velhos.length + ' pedidos ficaram abertos de outros dias' })]),
+          el('p', { class: 'aviso-corpo', text: numeros + '. ' + (um ? 'Se ele já foi entregue, conclua: ele sai ' + onde + ' e do entregador.' : 'Se já foram entregues, conclua todos de uma vez: eles saem ' + onde + ' e do entregador.') }),
+          el('div', { class: 'aviso-botoes' }, [
+            btnConcluir,
+            /* ver antes de concluir: abre a lista "De outros dias", com cada pedido */
+            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+              estado.gruposAbertos = estado.gruposAbertos || {};
+              estado.gruposAbertos['De outros dias'] = true;
+              desenharPedidos();
+              var alvo = $('grupoOutrosDias');
+              if (alvo) alvo.scrollIntoView({ block: 'start' });
+            } }, [UI.iconeLinha('olho'), um ? 'Ver pedido' : 'Ver pedidos']),
           ]),
         ]));
       }
@@ -1265,16 +1270,14 @@
         el('div', { class: 'cabeca-selos' }, selos),
         el('div', { class: 'cabeca-selos' }, extras), /* extras numa linha propria: a de cima fica igual em todo cartao */
       ]));
-      card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [p.cliente.nome, p.cliente.telefone ? ' · ' : '', p.cliente.telefone ? el('span', { class: 'sem-quebra', text: R.formatarTelefone(p.cliente.telefone) }) : ''])]) /* telefone nunca parte no meio */);
+      card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [el('span', { class: 'cliente-nome', text: p.cliente.nome }), p.cliente.telefone ? el('span', { class: 'cliente-fone', text: R.formatarTelefone(p.cliente.telefone) }) : null])]) /* o nome e, embaixo, o telefone inteiro (sem "·" pendurado no fim da linha) */);
       if (entrega) {
         var e = p.endereco || {};
-        var endTexto = el('div', { class: 'endereco-texto' }, [e.rua + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' · ' + e.complemento : '') + ' · ' + e.bairro]);
-        if (e.referencia) endTexto.appendChild(el('div', {}, [el('b', { text: 'Referência: ' + e.referencia })]));
-        card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha('mapa'), endTexto]));
+        card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha('mapa'), UI.enderecoEmLinhas(e)]));
       }
       /* os itens: a quantidade numa pilula, o nome em negrito e o resto (tamanho, adicionais) mais leve */
       var itens = el('div', { class: 'itens' });
-      p.itens.forEach(function (it) { itens.appendChild(UI.linhaDoItem(it)); });
+      p.itens.forEach(function (it) { itens.appendChild(UI.linhaDoItem(it, false, estado.loja)); });
       card.appendChild(itens);
       if (p.observacao) card.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
       var conferencia = R.conferirTotal(loja, p);
@@ -1606,7 +1609,7 @@
       linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', onclick: function () { if (cabeMais('categorias')) editarCategoria(null); } }, [UI.iconeLinha('mais'), 'Categoria']));
       s.appendChild(el('h2', { text: R.catalogo(estado.loja).Nome }));
       /* loja com estoque: o que acabou e o que esta acabando, logo no topo (preenchido quando as quantidades chegam) */
-      if ((l.produtos || []).some(R.controlaEstoque)) s.appendChild(el('div', { class: 'aviso aviso-falta resumo-estoque', id: 'resumoEstoque', hidden: true }));
+      if ((l.produtos || []).some(R.controlaEstoque)) s.appendChild(el('div', { class: 'aviso aviso-falta aviso-bloco resumo-estoque', id: 'resumoEstoque', hidden: true }));
 
       /* com muitos itens, achar pelo nome em vez de rolar categoria por categoria */
       var busca = null;
@@ -1680,7 +1683,7 @@
       if (!sit || sit.esgotado) return 'Esgotado';
       var tam = R.grupoTamanho(estado.loja, p);
       if (!tam) return 'Estoque: ' + sit.tem;
-      return 'Estoque: ' + tam.opcoes.map(function (o) { return o.nome + '\u00a0' + R.situacaoEstoque(p, q, o.id).tem; }).join(' · ');
+      return 'Estoque: ' + tam.opcoes.map(function (o) { return o.nome + '\u00a0' + R.situacaoEstoque(p, q, o.id).tem; }).join(' \u00b7\u00a0'); /* o "·" vai junto do tamanho seguinte: nunca fica no fim da linha */
     }
     function pintarEstoquePainel() {
       var q = estado.estoquePainel ? estado.estoquePainel.q : null;
@@ -1697,34 +1700,60 @@
       });
       var resumo = $('resumoEstoque');
       if (!resumo) return;
-      var acabou = [], acabando = [];
+      /* um item por linha: o nome e, embaixo, os tamanhos em etiquetas ("P", "M · 3"); um toque abre o item para repor.
+         Antes era um paragrafo corrido com tudo junto */
+      var esgotados = [], acabando = [];
       if (q) R.produtosAtivos(estado.loja).filter(R.controlaEstoque).forEach(function (p) {
         var tam = R.grupoTamanho(estado.loja, p);
         if (!tam) {
           var n = R.situacaoEstoque(p, q).tem;
-          if (n <= 0) acabou.push(p.nome); else if (n <= R.ESTOQUE_POUCO) acabando.push(p.nome + ' (' + n + ')');
+          if (n <= 0) esgotados.push({ p: p, etiquetas: ['Acabou'] });
+          else if (n <= R.ESTOQUE_POUCO) acabando.push({ p: p, etiquetas: [n === 1 ? 'Só 1' : 'Restam ' + n] });
           return;
         }
-        /* com tamanho: o item inteiro esgotado sai so com o nome; senao, os tamanhos entre parenteses */
         var zerados = [], poucos = [];
         tam.opcoes.forEach(function (o) {
           var m = R.situacaoEstoque(p, q, o.id).tem;
-          if (m <= 0) zerados.push(o.nome); else if (m <= R.ESTOQUE_POUCO) poucos.push(o.nome + ': ' + m);
+          if (m <= 0) zerados.push(o.nome); else if (m <= R.ESTOQUE_POUCO) poucos.push(o.nome + ' \u00b7 ' + m);
         });
-        if (zerados.length === tam.opcoes.length) acabou.push(p.nome);
-        else if (zerados.length) acabou.push(p.nome + ' (' + zerados.join(', ') + ')');
-        if (poucos.length) acabando.push(p.nome + ' (' + poucos.join(', ') + ')');
+        if (zerados.length) esgotados.push({ p: p, etiquetas: zerados.length === tam.opcoes.length ? ['Todos os ' + String(tam.titulo || 'tamanho').toLowerCase().replace(/o$/, 'os').replace(/a$/, 'as')] : zerados });
+        if (poucos.length) acabando.push({ p: p, etiquetas: poucos });
       });
-      var corte = function (lista) { return lista.slice(0, 5).join('; ') + (lista.length > 5 ? '; e mais ' + (lista.length - 5) : ''); };
       UI.limpar(resumo);
-      resumo.hidden = !acabou.length && !acabando.length;
+      resumo.hidden = !esgotados.length && !acabando.length;
       if (resumo.hidden) return;
-      resumo.appendChild(UI.iconeLinha('alerta'));
-      resumo.appendChild(el('div', { class: 'aviso-app-texto' }, [
-        acabou.length ? el('span', {}, [el('b', { text: 'Esgotado: ' }), corte(acabou) + '.']) : null,
-        acabando.length ? el('span', {}, [el('b', { text: 'Acabando: ' }), corte(acabando) + '.']) : null,
-        el('span', { class: 'muted pequeno', text: 'Para repor, toque no lápis do item e mude a quantidade.' }),
-      ]));
+      var unicos = {};
+      esgotados.concat(acabando).forEach(function (x) { unicos[x.p.id] = true; });
+      var nItens = Object.keys(unicos).length;
+      /* comeca fechado (so a linha de cima, sem poluir o catalogo); a seta abre e fecha, e o painel lembra como ficou */
+      var chaveAberto = 'ligeiro:estoque-aberto:' + slug;
+      var aberto = UI.lerLocal(chaveAberto) === true;
+      var corpoEstoque = el('div', { class: 'aviso-bloco-corpo', id: 'estoqueRepor', hidden: !aberto });
+      var titulo = nItens === 1 ? 'Um item para repor' : nItens + ' itens para repor';
+      var cabeca = el('button', { class: 'aviso-cabeca aviso-abre', type: 'button', 'aria-expanded': aberto ? 'true' : 'false', 'aria-controls': 'estoqueRepor', onclick: function () {
+        aberto = !aberto;
+        UI.guardarLocal(chaveAberto, aberto);
+        corpoEstoque.hidden = !aberto;
+        cabeca.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+      } }, [el('span', { class: 'aviso-ico' }, [UI.iconeLinha('alerta')]), el('b', { text: titulo }), el('span', { class: 'aviso-seta', 'aria-hidden': 'true' }, [UI.iconeLinha('descer')])]);
+      resumo.appendChild(cabeca);
+      resumo.appendChild(corpoEstoque);
+      function secao(titulo, lista, classe) {
+        var linhas = lista.slice(0, 6).map(function (x) {
+          return el('button', { class: 'estoque-linha-item', type: 'button', 'aria-label': 'Repor ' + x.p.nome, onclick: function () { editarProduto(x.p, x.p.categoria); } }, [
+            el('span', { class: 'estoque-linha-texto' }, [
+              el('span', { class: 'estoque-linha-nome', text: x.p.nome }),
+              el('span', { class: 'estoque-etiquetas' }, x.etiquetas.map(function (e) { return el('span', { class: 'estoque-etiqueta ' + classe, text: e }); })),
+            ]),
+            UI.iconeLinha('avancar'),
+          ]);
+        });
+        if (lista.length > 6) linhas.push(el('span', { class: 'estoque-mais', text: 'e mais ' + (lista.length - 6) + (lista.length - 6 === 1 ? ' item' : ' itens') }));
+        return el('div', { class: 'estoque-secao' }, [el('div', { class: 'estoque-secao-titulo', text: titulo }), el('div', { class: 'estoque-linhas' }, linhas)]);
+      }
+      if (esgotados.length) corpoEstoque.appendChild(secao('Esgotado', esgotados, 'zerado'));
+      if (acabando.length) corpoEstoque.appendChild(secao('Acabando', acabando, 'pouco'));
+      corpoEstoque.appendChild(el('p', { class: 'aviso-corpo', text: 'Toque no item para mudar a quantidade.' }));
     }
 
     function linhaProduto(p) {
@@ -2001,7 +2030,7 @@
         var frase = f.descricao ? f.descricao.input.value.trim() : String(l.descricao || '').trim();
         var doForm = tipoDoForm(f, l);
         var tipo = doForm.tipo ? R.tipoVisivel(doForm) : '';
-        var titulo = nome + (lugar ? ' · ' + lugar : '');
+        var titulo = nome + (lugar ? ' \u00b7\u00a0' + lugar : ''); /* o "·" vai junto com a cidade: nunca fica sozinho no fim da linha */
         var texto = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o ' + R.catalogo(doForm).nome + ' e peça pelo celular: Pix, cartão ou na entrega.';
         var pv = f.logo.querySelector('.foto-previa img');
         var src = pv && !pv.hidden && pv.getAttribute('src');
@@ -2497,8 +2526,8 @@
         var mesmos = estado.loja.produtos.filter(function (x) { return x.categoria === p.categoria; }).map(function (x) { return x.id; });
         var posP = mesmos.indexOf(p.id);
         if (mesmos.length > 1) {
-          var subir = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { moverProduto(p, -1, subir, descer); } }, [UI.iconeLinha('subir'), 'Subir na lista']);
-          var descer = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { moverProduto(p, 1, descer, subir); } }, [UI.iconeLinha('descer'), 'Descer na lista']);
+          var subir = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', 'aria-label': 'Subir na lista', onclick: function () { moverProduto(p, -1, subir, descer); } }, [UI.iconeLinha('subir'), 'Subir']); /* "Subir na lista" quebrava em duas linhas no celular; o titulo do campo ja diz que e a lista */
+          var descer = el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', 'aria-label': 'Descer na lista', onclick: function () { moverProduto(p, 1, descer, subir); } }, [UI.iconeLinha('descer'), 'Descer']);
           subir.disabled = posP <= 0;
           descer.disabled = posP >= mesmos.length - 1;
           corpo.appendChild(el('div', { class: 'campo' }, [el('label', { text: 'Posição na lista: ' + (posP + 1) + ' de ' + mesmos.length }), el('div', { class: 'linha-botoes' }, [subir, descer])]));
@@ -3046,12 +3075,20 @@
             conteudo.appendChild(el('div', { class: 'grafico-vazio' }, [el('div', { class: 'icone' }, [UI.iconeLinha('vendas')]), el('p', { text: 'Nenhuma venda nesse período ainda. Assim que entrar pedido, o gráfico aparece aqui.' })]));
           } else {
             var poucos = dias <= 7;
+            /* o valor em cima da barra, curto como nos graficos de banco: em reais inteiros ("2.662"), e "11 mil" daí para
+               cima. "2.661,90" passava da largura da barra no celular */
+            var valorDaBarra = function (centavos) {
+              var reais = Math.round(centavos / 100);
+              if (reais < 10000) return reais.toLocaleString('pt-BR');
+              if (reais < 1000000) return Math.round(reais / 1000) + '\u00a0mil';
+              return (Math.round(reais / 100000) / 10).toLocaleString('pt-BR') + '\u00a0mi';
+            };
             var barras = el('div', { class: 'barras' + (poucos ? ' poucos' : '') });
             diasLista.forEach(function (d, i) {
               var alt = Math.max(2, Math.round((d.v / maximo) * 100));
               barras.appendChild(el('div', { class: 'b' + (d.hoje ? ' hoje' : '') + (d.v ? '' : ' zero'), title: d.rotulo + ': ' + dinheiro(d.v) }, [
                 el('div', { class: 'area' }, [
-                  poucos && d.v ? el('div', { class: 'val', text: dinheiro(d.v).replace('R$', '').replace(/,00$/, '').trim() }) : null,
+                  poucos && d.v ? el('div', { class: 'val', text: valorDaBarra(d.v) }) : null,
                   el('div', { class: 'col', style: { height: alt + '%' } }),
                 ]),
                 el('div', { class: 'lab', text: poucos ? (d.hoje ? 'hoje' : d.semana) : ((i % 5 === 0 || d.hoje) ? d.rotulo : '') }),
