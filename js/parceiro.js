@@ -612,7 +612,6 @@
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
       el('p', { class: 'muted', text: 'Comece grátis agora ou peça para a gente montar: cadastramos tudo e os primeiros dias são por nossa conta.' }),
-      el('p', { class: 'final-origem' }, [UI.iconeLinha('mapa'), 'Feito em Juquiá/SP, por quem também tem loja.']),
       /* dois caminhos so: comecar sozinho ou pedir para a gente montar */
       el('div', { class: 'pilha chamada' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),

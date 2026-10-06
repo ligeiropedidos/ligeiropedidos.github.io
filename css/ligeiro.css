@@ -1916,8 +1916,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 380px) { .teste-botoes .btn { font-size: 17px; } }
 @media (max-width: 360px) { .teste-botoes .btn-contorno { font-size: 16px; padding-left: 10px; padding-right: 10px; } } /* "Quero que montem para mim" numa linha so com a letra do iPhone */
 @media (max-width: 340px) { .teste-botoes .btn.btn-contorno { font-size: 14.5px; padding-left: 8px; padding-right: 8px; } } /* vence a regra de 340 logo abaixo (15 px e 12 de lado nao cabia com a letra do iPhone) */
-.final-origem { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); }
-.final-origem .ico-traco svg { width: 16px; height: 16px; }
 @media (max-width: 340px) { .teste-banner { padding-left: 12px; padding-right: 12px; } .teste-botoes .btn { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
 /* o mesmo par de botoes no fechamento da pagina: "Quero que montem para mim" numa linha so ate 320 */
 @media (max-width: 380px) { .vender-final .btn-fantasma { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
