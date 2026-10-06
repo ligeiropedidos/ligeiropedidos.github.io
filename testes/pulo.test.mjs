@@ -427,6 +427,20 @@ T.comecar();
 }
 LP.fechar();
 
+/* loja de comercio: o jogo fala de produto */
+LP.abrir({ cidade: 'Registro', nomeLoja: 'Moda da Bia', comercio: true, produtos: [{ id: 'camiseta', nome: 'Camiseta preta', preco: 3990 }], podePedir: () => true, aoVerProduto: () => {} });
+await new Promise((r) => setTimeout(r, 20));
+ok(/Os produtos da Moda da Bia viram poderes/.test(textoDe(J().painel)), 'comercio: a tela de inicio fala dos produtos da loja');
+T.comecar();
+{
+  const j = J(); limparCena(j);
+  j.cam = 3000; j.y = 2900; j.vy = -800; j.topo = 20;
+  rodar(2.5);
+  const fome = acha(j.painel, 'pulo-fome');
+  ok(fome && /Gostou deste\?/.test(textoDe(fome)) && /Ver no catálogo/.test(textoDe(fome)) && !/fome|cardápio/i.test(textoDe(fome)) && /🛍️/.test(textoDe(fome)), 'comercio: no fim, "Gostou deste?" e "Ver no catálogo"');
+}
+LP.fechar();
+
 /* um jogo novo (sem desenhos ainda, como na primeira vez), com a foto que demora a carregar, o som de mentira e os
    eventos da janela guardados para disparar na hora que o teste quiser */
 function puloNovo(atrasoFoto) {

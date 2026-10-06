@@ -56,11 +56,19 @@
   var FORMAS = ['pix', 'cartao_entrega', 'pix', 'dinheiro_entrega'];
   var ativos = (loja.produtos || []).filter(function (p) { return p && p.ativo !== false; });
   var conta = 0;
+  /* loja de comercio (amostra de roupa, calcado...): o pedido de exemplo vem com tamanho e com a marca do comercio */
+  var comercio = R.segmento(loja) === 'comercio';
+  function itemDeExemplo(p, qtd, n) {
+    var tam = R.grupoTamanho ? R.grupoTamanho(loja, p) : null;
+    var it = { produtoId: p.id, quantidade: qtd };
+    if (tam && tam.opcoes.length) it.tamanho = tam.opcoes[n % tam.opcoes.length].id;
+    return it;
+  }
   function montarPedido(n, status, quando) {
     for (var tenta = 0; tenta < ativos.length; tenta++) {
       var a = ativos[(n + tenta) % ativos.length], b = ativos[(n + tenta + 3) % ativos.length];
-      var itens = [{ produtoId: a.id, quantidade: 1 + (n % 2) }];
-      if (b && b.id !== a.id && n % 3 !== 0) itens.push({ produtoId: b.id, quantidade: 1 });
+      var itens = [itemDeExemplo(a, 1 + (n % 2), n)];
+      if (b && b.id !== a.id && n % 3 !== 0) itens.push(itemDeExemplo(b, 1, n + 1));
       var tipo = n % 4 === 3 ? 'retirada' : 'entrega';
       var o = null;
       try { o = R.orcar(loja, { itens: itens, tipoEntrega: tipo, tolerante: true }); } catch (_) { o = null; }
@@ -75,10 +83,11 @@
         tipoEntrega: o.tipoEntrega,
         cliente: { nome: NOMES[n % NOMES.length], telefone: '1399' + String(9000000 + n * 7351).slice(-7) },
         endereco: o.tipoEntrega === 'entrega' ? { rua: 'Rua ' + (n % 9 + 1), numero: String(10 + n * 7), bairro: BAIRROS[n % BAIRROS.length], complemento: '', referencia: REFERENCIAS[n % REFERENCIAS.length], cidade: loja.cidade || 'Juquiá' } : {},
-        itens: o.itens, observacao: n % 5 === 2 ? 'Sem cebola, por favor' : '',
+        itens: o.itens, observacao: n % 5 === 2 ? (comercio ? 'É para presente' : 'Sem cebola, por favor') : '',
         subtotal: o.subtotal, taxaEntrega: o.taxaEntrega, cupom: '', cupomPercentual: 0, desconto: 0, total: o.total,
         clientePagou: forma === 'pix', criadoEm: quando.toISOString(), atualizadoEm: quando.toISOString(),
         pagoEm: forma === 'pix' ? quando.toISOString() : null, origem: 'link',
+        segmento: comercio ? 'comercio' : undefined,
       };
     }
     return null;

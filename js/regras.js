@@ -347,6 +347,10 @@
         }
         /* o tamanho escolhido acabou (o dono desligou): avisa, em vez de trocar pelo padrao calado */
         if (!escolhido && pediuTamanho && !tolerante) throw opcaoQueAcabou(loja, produto, bruto.tamanho);
+        /* no comercio o tamanho e escolha do cliente (roupa nao tem "tamanho padrao") */
+        if (!escolhido && !pediuTamanho && !tolerante && segmento(loja) === 'comercio') {
+          throw ErroDoCliente('Escolha o ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".');
+        }
         if (!escolhido) {
           for (var d = 0; d < grupoTamanho.opcoes.length; d++) {
             if (grupoTamanho.opcoes[d].padrao) escolhido = grupoTamanho.opcoes[d];
@@ -382,7 +386,7 @@
             unitario += Number(opcao.preco) || 0;
           }
           if (grupoAdicionais.max && nesteGrupo > grupoAdicionais.max) {
-            throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'adicionais') + '" por item.');
+            throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'opções') + '" por item.');
           }
         }
         /* adicional escolhido que acabou (desligado ou apagado): avisa, em vez de sumir do pedido calado */
@@ -530,14 +534,15 @@
     }
 
     var noBalcao = dados.origem === 'balcao';
+    var retiraOnde = catalogo(loja).retirada;
     if (lojaBloqueada(loja, instante || agora)) throw ErroDoCliente('Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.');
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     if (tipoEntrega === 'entrega' && loja.aceitaEntrega === false) {
-      throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar no balcão.');
+      throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar ' + retiraOnde + '.');
     }
     /* No tablet do balcao a pessoa esta na loja: retirada vale mesmo com "so entrega" ligado. */
     if (tipoEntrega === 'retirada' && loja.aceitaRetirada === false && !noBalcao) {
-      throw ErroDoCliente('A retirada no balcão está indisponível agora.');
+      throw ErroDoCliente('A retirada ' + retiraOnde + ' está indisponível agora.');
     }
 
     var nome = limparTexto(dados.nome, 80);
@@ -587,7 +592,7 @@
     /* "Quem retira pode pagar no balcao": sem o campo gravado vale ligado, como o painel mostra (so false desliga) */
     if (naPorta && tipoEntrega !== 'entrega' && loja.aceitaPagarNoBalcao === false && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
-      throw ErroDoCliente('Para retirar no balcão, pague no Pix.');
+      throw ErroDoCliente('Para retirar ' + retiraOnde + ', pague no Pix.');
     }
 
     var trocoPara = 0;
@@ -641,6 +646,8 @@
     };
     /* so aparece quando existe: o pedido comum continua com os mesmos campos de sempre */
     if (orcamento.acrescimoCartao > 0) pedido.acrescimoCartao = orcamento.acrescimoCartao;
+    /* loja de comercio: o pedido leva a marca, e os textos que so tem o pedido (WhatsApp, aviso, ficha, equipe) falam de separar, nao de cozinha */
+    if (segmento(loja) === 'comercio') pedido.segmento = 'comercio';
     return pedido;
   }
 
@@ -695,12 +702,18 @@
      antes, devolvidoEm com o pagamentoStatus ainda 'pago' */
   function dinheiroDevolvido(pedido) { return !!pedido && (pedido.pagamentoStatus === 'devolvido' || !!pedido.devolvidoEm); }
 
+  /* pedido de loja de comercio (o pedido nasce marcado; sem a marca, vale a loja, quando vier) */
+  function pedidoDeComercio(pedido, loja) { return !!(pedido && pedido.segmento === 'comercio') || (!!loja && segmento(loja) === 'comercio'); }
+  /* "senha 12" na comida, "pedido nº 12" no comercio */
+  function refPedido(pedido, loja) { return (pedidoDeComercio(pedido, loja) ? 'pedido nº ' : 'senha ') + pedido.senha; }
+
   function rotuloStatus(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
+    var com = pedidoDeComercio(pedido);
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : pixCombinado(pedido) ? 'Pix a combinar' : 'Aguardando ' + nomeDoPagamento(pedido);
-      case STATUS.PAGO: return 'Novo, preparar';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PAGO: return com ? 'Novo, separar' : 'Novo, preparar';
+      case STATUS.PRODUCAO: return com ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
@@ -714,7 +727,7 @@
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : pixCombinado(pedido) ? 'Combinando o Pix' : 'Esperando o Pix';
       case STATUS.PAGO: return 'Na fila da loja';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
@@ -724,6 +737,7 @@
 
   function textoDoEstagio(pedido, loja) {
     var entrega = pedido.tipoEntrega === 'entrega';
+    var com = pedidoDeComercio(pedido, loja);
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
@@ -735,13 +749,13 @@
       case STATUS.PAGO:
         return entrega
           ? 'Pedido na fila! Chega em cerca de ' + tempo + ' minutos.'
-          : 'Mostre esta senha no balcão. Fica pronto em cerca de ' + tempo + ' minutos.';
+          : (com ? 'Mostre o número do pedido na loja. Fica separado em cerca de ' : 'Mostre esta senha no balcão. Fica pronto em cerca de ') + tempo + ' minutos.';
       case STATUS.PRODUCAO:
-        return 'Estão preparando o seu pedido agora.';
+        return com ? 'A loja está separando o seu pedido agora.' : 'Estão preparando o seu pedido agora.';
       case STATUS.PRONTO:
         return entrega ? 'Saiu para entrega! Já está a caminho.' : 'Está pronto! Pode vir buscar.';
       case STATUS.FINALIZADO:
-        return entrega ? 'Entregue. Bom apetite!' : 'Retirado. Bom apetite!';
+        return com ? (entrega ? 'Entregue. Obrigado pela compra!' : 'Retirado. Obrigado pela compra!') : (entrega ? 'Entregue. Bom apetite!' : 'Retirado. Bom apetite!');
       case STATUS.CANCELADO:
         return 'Este pedido foi cancelado. Fale com a loja pelo WhatsApp se tiver dúvida.';
       default:
@@ -755,7 +769,7 @@
     switch (pedido.status) {
       /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento") */
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
-      case STATUS.PAGO: return 'Começar a fazer';
+      case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
       default: return '';
@@ -804,25 +818,26 @@
     var entrega = pedido.tipoEntrega === 'entrega';
     var oi = 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. ';
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
+    var com = pedidoDeComercio(pedido, loja), ref = refPedido(pedido, loja);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
-        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
+        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (' + ref + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
+        return oi + 'Recebemos seu pedido (' + ref + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
-        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + ') e ele já está na fila. ' +
-          (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : 'Fica pronto em cerca de ' + tempo + ' minutos.');
+        return oi + 'Recebemos seu pedido (' + ref + ') e ele já está na fila. ' +
+          (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : (com ? 'Fica separado em cerca de ' : 'Fica pronto em cerca de ') + tempo + ' minutos.');
       case STATUS.PRODUCAO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') já está sendo preparado. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
+        return oi + 'Seu pedido (' + ref + ') já está sendo ' + (com ? 'separado. ' : 'preparado. ') + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
       case STATUS.PRONTO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
+        return oi + 'Seu pedido (' + ref + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
       case STATUS.FINALIZADO:
         /* com o link do Google: o agradecimento ja pede a avaliacao (e o que faz a loja subir no Maps) */
         var avaliar = linkGoogleAvaliar(loja.googleUrl);
-        return oi + 'Obrigado pelo pedido! Bom apetite.' + (avaliar ? ' Se gostou, deixe sua avaliação no Google, ajuda muito a gente: ' + avaliar : ' Qualquer coisa, é só chamar aqui.');
+        return oi + (com ? 'Obrigado pela compra!' : 'Obrigado pelo pedido! Bom apetite.') + (avaliar ? ' Se gostou, deixe sua avaliação no Google, ajuda muito a gente: ' + avaliar : ' Qualquer coisa, é só chamar aqui.');
       case STATUS.CANCELADO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
+        return oi + 'Seu pedido (' + ref + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
       default:
-        return oi + 'É sobre o seu pedido de senha ' + pedido.senha + '.';
+        return oi + 'É sobre o seu pedido (' + ref + ').';
     }
   }
   /* O que o botao do WhatsApp do pedido manda agora (curto: cabe no botao do celular). */
@@ -831,7 +846,7 @@
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) ? 'Combinar o Pix' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return 'Agradecer';
       case STATUS.CANCELADO: return 'Pedido cancelado';
@@ -849,14 +864,15 @@
         : pixCombinado(pedido)
           ? (pedido.status === STATUS.AGUARDANDO ? 'Quero pagar no Pix: pode me mandar a chave?' : 'Já paguei no Pix.')
           : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
-    return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *senha ' + pedido.senha + '* pelo site da ' +
+    return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *' + (pedidoDeComercio(pedido, loja) ? 'nº ' : 'senha ') + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
   }
 
   /* Ficha completa do pedido em texto, para a loja copiar ou imprimir. */
   function fichaDoPedido(loja, pedido) {
     var l = [];
-    l.push('*' + loja.nome.toUpperCase() + ' · SENHA ' + pedido.senha + '*');
+    var com = pedidoDeComercio(pedido, loja);
+    l.push('*' + loja.nome.toUpperCase() + (com ? ' · PEDIDO Nº ' : ' · SENHA ') + pedido.senha + '*');
     l.push(rotuloStatus(pedido) + ' • ' + horaCurta(pedido.criadoEm));
     l.push('');
     l.push('*Cliente:* ' + umaLinha(pedido.cliente.nome));
@@ -869,7 +885,7 @@
       l.push('Bairro: ' + umaLinha(e.bairro));
       if (e.referencia) l.push('Referência: ' + umaLinha(e.referencia));
     } else {
-      l.push('*RETIRADA NO BALCÃO*');
+      l.push(com ? '*RETIRADA NA LOJA*' : '*RETIRADA NO BALCÃO*');
     }
     l.push('');
     l.push('*ITENS*');
@@ -1106,18 +1122,140 @@
     return planoPorId(conta && conta.plano ? planoQueVale(conta) : 'uma').lojas;
   }
 
-  /* Como a loja chama a lista do que vende: comida fala "cardapio"; o resto (roupa, presente, servico) fala "catalogo". */
-  var TIPOS_DE_COMIDA = ['lanchonete', 'pizzaria', 'pizza cone', 'marmitaria', 'restaurante', 'sorveteria', 'açaí', 'acai', 'padaria', 'espetinho', 'sushi', 'hamburgueria', 'pastelaria', 'doceria', 'cafeteria', 'bar'];
-  function catalogo(loja) {
+  /* Segmento da loja. Comida (lanchonete, pizzaria...) e comercio (roupa, calcado, presente, mercado...) mudam o
+     vocabulario do site, do painel e da equipe ("catalogo" no lugar de "cardapio", "separando" no lugar de
+     "preparando"), o tamanho obrigatorio e o estoque. Tipo vazio ou desconhecido e comida, como sempre foi; o "Outro"
+     antigo do cadastro (o do garfo e faca, entre as comidas) tambem continua comida */
+  var TIPOS_DE_COMIDA = ['lanchonete', 'pizzaria', 'pizza cone', 'marmitaria', 'restaurante', 'sorveteria', 'açaí', 'acai', 'padaria', 'espetinho', 'sushi', 'hamburgueria', 'pastelaria', 'doceria', 'cafeteria', 'bar', 'outro', 'outra comida'];
+  var TIPOS_DE_COMERCIO_NOMES = ['roupas', 'calçados', 'calcados', 'acessórios', 'acessorios', 'cosméticos', 'cosmeticos', 'presentes', 'eletrônicos', 'eletronicos', 'pet shop', 'mercado', 'outro comércio', 'outro comercio'];
+  function segmento(loja) {
     var tipo = String((loja && loja.tipo) || '').trim().toLowerCase();
-    var comida = !tipo || TIPOS_DE_COMIDA.indexOf(tipo) >= 0;
-    return comida ? { comida: true, nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️' } : { comida: false, nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️' };
+    return tipo && TIPOS_DE_COMERCIO_NOMES.indexOf(tipo) >= 0 ? 'comercio' : 'comida';
+  }
+  /* Como a loja chama as coisas. Os campos de sempre (comida, nome, Nome, icone, vazio) seguem iguais */
+  function catalogo(loja) {
+    if (segmento(loja) === 'comida') {
+      return {
+        comida: true, segmento: 'comida', nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️',
+        preparando: 'Preparando', preparandoFrase: 'Estão preparando o seu pedido agora.',
+        tela: 'Cozinha', naTela: 'na cozinha', aTela: 'a cozinha',
+        tempoRotulo: 'Tempo de preparo', prontoEm: 'Fica pronto em', maisPedidos: 'Os mais pedidos',
+        observacaoEx: 'Ex.: sem cebola, bem passado', itemEx: 'Ex.: X-Burguer', categoriaEx: 'Ex.: Lanches',
+        pagouEntra: 'Pagou, confirmou: esta tela muda sozinha e o pedido já entra na cozinha.',
+        senha: 'Senha', suaSenha: 'Sua senha', pelaSenha: 'pela senha', aSenha: 'a senha',
+        iconePreparo: 'fogo', iconeTela: 'chef', iconeCatalogo: 'cardapio',
+        novos: 'Novos, para começar', paraFazer: 'Para fazer', fazendo: 'Fazendo agora', nadaFazendo: 'Nada no fogo ainda.', retirada: 'no balcão',
+      };
+    }
+    return {
+      comida: false, segmento: 'comercio', nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️',
+      preparando: 'Separando', preparandoFrase: 'A loja está separando o seu pedido agora.',
+      tela: 'Separação', naTela: 'na separação', aTela: 'a separação',
+      tempoRotulo: 'Tempo para separar', prontoEm: 'Fica separado em', maisPedidos: 'Os mais vendidos',
+      observacaoEx: 'Ex.: é para presente', itemEx: 'Ex.: Camiseta básica preta', categoriaEx: 'Ex.: Camisetas',
+      pagouEntra: 'Pagou, confirmou: esta tela muda sozinha e a loja já recebe o pedido.',
+      senha: 'Pedido nº', suaSenha: 'Seu pedido nº', pelaSenha: 'pelo número do pedido', aSenha: 'o número do pedido',
+      iconePreparo: 'caixa', iconeTela: 'caixa', iconeCatalogo: 'sacola',
+      novos: 'Novos, para separar', paraFazer: 'Para separar', fazendo: 'Separando agora', nadaFazendo: 'Nada sendo separado ainda.', retirada: 'na loja',
+    };
+  }
+
+  /* ------------------------------------------------------------
+   * Estoque (so nos produtos com "Controlar estoque" ligado)
+   * Quantidades no documento lojas/{slug}/contadores/estoque, campo q: { "<produto>": n } ou, quando a categoria tem
+   * tamanho, { "<produto>|<tamanho>": n }. O mensageiro desconta no mesmo lote em que o pedido nasce.
+   * ---------------------------------------------------------- */
+  var ESTOQUE_POUCO = 3;
+  function chaveEstoque(produtoId, tamanhoId) {
+    return tamanhoId ? String(produtoId) + '|' + String(tamanhoId) : String(produtoId);
+  }
+  function controlaEstoque(produto) { return !!(produto && produto.controlaEstoque === true); }
+  /* quanto o pedido tira de cada chave: { chave: quantidade }, so dos produtos que controlam estoque */
+  function estoqueDoPedido(loja, itens) {
+    var tira = {};
+    (itens || []).forEach(function (it) {
+      var produto = buscarProduto(loja, String(it.produtoId));
+      if (!controlaEstoque(produto)) return;
+      var k = chaveEstoque(produto.id, it.tamanho && it.tamanho.id);
+      tira[k] = (tira[k] || 0) + (Math.floor(Number(it.quantidade)) || 0);
+    });
+    return tira;
+  }
+  /* o que falta: [{ chave, nome, tamanho, pediu, tem }] (tem = 0 quando a chave nem existe: produto controlado sem quantidade) */
+  function faltaNoEstoque(loja, itens, q) {
+    var tira = estoqueDoPedido(loja, itens), falta = [];
+    q = q || {};
+    Object.keys(tira).forEach(function (k) {
+      var tem = Math.max(0, Math.floor(Number(q[k])) || 0);
+      if (tira[k] > tem) {
+        var partes = k.split('|'), produto = buscarProduto(loja, partes[0]) || {}, tamanho = '';
+        if (partes[1]) (itens || []).forEach(function (it) { if (it.tamanho && it.tamanho.id === partes[1]) tamanho = it.tamanho.nome; });
+        falta.push({ chave: k, nome: produto.nome || '', tamanho: tamanho, pediu: tira[k], tem: tem });
+      }
+    });
+    return falta;
+  }
+  /* a frase para o cliente: "Só tem 2 de Camiseta preta (M)." / "Camiseta preta (M) esgotou." */
+  function fraseFaltaEstoque(falta) {
+    return (falta || []).map(function (f) {
+      var nome = f.nome + (f.tamanho ? ' (' + f.tamanho + ')' : '');
+      return f.tem > 0 ? 'Só tem ' + f.tem + ' de ' + nome + '.' : nome + ' esgotou.';
+    }).join(' ');
+  }
+  /* o que mostrar no site para uma chave: { esgotado, pouco, tem } (null = sem controle) */
+  function situacaoEstoque(produto, q, tamanhoId) {
+    if (!controlaEstoque(produto)) return null;
+    var tem = Math.max(0, Math.floor(Number((q || {})[chaveEstoque(produto.id, tamanhoId)])) || 0);
+    return { tem: tem, esgotado: tem <= 0, pouco: tem > 0 && tem <= ESTOQUE_POUCO };
+  }
+
+  /* o tamanho (grupo de escolha unica) da categoria do produto, se tiver */
+  function grupoTamanho(loja, produto) {
+    return produto ? gruposDaCategoria(loja, produto.categoria).filter(function (g) { return g.tipo === 'unico'; })[0] || null : null;
+  }
+  /* o produto inteiro no site (cartao da grade): com tamanho, soma os tamanhos. { tem, esgotado, pouco } ou null */
+  function situacaoDoProduto(loja, produto, q) {
+    if (!controlaEstoque(produto)) return null;
+    var tam = grupoTamanho(loja, produto);
+    if (!tam) return situacaoEstoque(produto, q);
+    var soma = 0;
+    tam.opcoes.forEach(function (o) { soma += situacaoEstoque(produto, q, o.id).tem; });
+    return { tem: soma, esgotado: soma <= 0, pouco: soma > 0 && soma <= ESTOQUE_POUCO };
+  }
+  /* a chave de estoque de um item do carrinho ('' quando o produto nao controla estoque) */
+  function chaveDoItem(loja, item) {
+    var produto = item && buscarProduto(loja, String(item.produtoId));
+    if (!controlaEstoque(produto)) return '';
+    var tamanho = item.tamanho && typeof item.tamanho === 'object' ? item.tamanho.id : item.tamanho;
+    return chaveEstoque(produto.id, grupoTamanho(loja, produto) ? tamanho : '');
+  }
+  /* o carrinho dentro do estoque: o que esgotou sai, o que passou baixa para o que tem. { itens, avisos } (itens novos,
+     o carrinho de quem chamou fica como estava) */
+  function ajustarAoEstoque(loja, itens, q) {
+    var usado = {}, avisos = [], saida = [];
+    (itens || []).forEach(function (it) {
+      var k = chaveDoItem(loja, it);
+      if (!k) { saida.push(it); return; }
+      var produto = buscarProduto(loja, String(it.produtoId)) || {};
+      var partes = k.split('|'), tam = grupoTamanho(loja, produto), opcao = null;
+      if (partes[1] && tam) opcao = tam.opcoes.filter(function (o) { return o.id === partes[1]; })[0] || null;
+      var nome = produto.nome + (opcao ? ' (' + opcao.nome + ')' : '');
+      var tem = Math.max(0, (Math.floor(Number((q || {})[k])) || 0) - (usado[k] || 0));
+      if (tem <= 0) { avisos.push(nome + ' esgotou e saiu do pedido.'); return; }
+      var qtd = Math.floor(Number(it.quantidade)) || 0;
+      if (qtd > tem) { avisos.push('Só tinha ' + tem + ' de ' + nome + ', então ficou ' + tem + '.'); it = Object.assign({}, it, { quantidade: tem }); qtd = tem; }
+      usado[k] = (usado[k] || 0) + qtd;
+      saida.push(it);
+    });
+    return { itens: saida, avisos: avisos };
   }
 
   /* Tipo da loja pra mostrar ao cliente: "Outro" nao diz nada, vira "Loja". */
   function tipoVisivel(loja) {
     var t = String((loja && loja.tipo) || '').trim();
-    return !t || t.toLowerCase() === 'outro' ? 'Loja' : t;
+    var outro = !t || ['outro', 'outra comida', 'outro comércio', 'outro comercio'].indexOf(t.toLowerCase()) >= 0;
+    var livre = umaLinha((loja && loja.tipoNome) || '').trim().slice(0, 24);
+    return outro ? (livre || 'Loja') : t;
   }
 
   /* Pedido esperando Pix que ja passou do prazo (30 min do codigo; 35 min se o codigo nem chegou a ser gerado). */
@@ -1425,10 +1563,27 @@
 
   /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central.
      O emoji vira o da loja: sempre de comida (o "Outro" era uma moto, que nao e comida) */
-  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🍴']];
+  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outra comida', '🍴']];
+  /* comercio: o emoji e o do produto da loja (como o das comidas acima) */
+  var TIPOS_DE_COMERCIO = [['Roupas', '👕'], ['Calçados', '👟'], ['Acessórios', '👜'], ['Cosméticos', '💄'], ['Presentes', '🎁'], ['Eletrônicos', '📱'], ['Pet shop', '🐾'], ['Mercado', '🛒'], ['Outro comércio', '🛍️']];
 
   return {
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
+    TIPOS_DE_COMERCIO: TIPOS_DE_COMERCIO,
+    segmento: segmento,
+    pedidoDeComercio: pedidoDeComercio,
+    refPedido: refPedido,
+    ESTOQUE_POUCO: ESTOQUE_POUCO,
+    chaveEstoque: chaveEstoque,
+    controlaEstoque: controlaEstoque,
+    estoqueDoPedido: estoqueDoPedido,
+    faltaNoEstoque: faltaNoEstoque,
+    fraseFaltaEstoque: fraseFaltaEstoque,
+    situacaoEstoque: situacaoEstoque,
+    situacaoDoProduto: situacaoDoProduto,
+    chaveDoItem: chaveDoItem,
+    ajustarAoEstoque: ajustarAoEstoque,
+    grupoTamanho: grupoTamanho,
     DIAS_GRATIS: ASSINATURA.diasGratis,
     frasePagamento: frasePagamento,
     cartaoPeloSite: cartaoPeloSite,

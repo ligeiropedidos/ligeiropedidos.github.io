@@ -56,6 +56,19 @@ console.log('== robo de previa (WhatsApp) ==');
   const h = await r.text();
   ok(meta(h, 'property', 'og:title') === 'Dom Conizza · Juquiá/SP', 'titulo da previa com a cidade');
   ok(/^Pizzaria em Juquiá\/SP\. Veja o cardápio/.test(meta(h, 'property', 'og:description')), 'descricao pelo tipo e cidade quando a loja nao escreveu uma');
+  /* comercio: catalogo, e o nome livre do "Outro comércio" no lugar do tipo */
+  {
+    const base = '<meta name="description" content="x"><meta property="og:description" content="x">';
+    const loja = (extra) => Object.assign({ nome: 'Loja', cidade: 'Juquiá', uf: 'SP', ativa: true }, extra);
+    const desc = (l) => meta(_teste.comPreviaDaLoja(base, l, { cidade: 'juquia', slug: 'loja' }), 'property', 'og:description');
+    ok(desc(loja({ tipo: 'Roupas' })) === 'Roupas em Juquiá/SP. Veja o catálogo e peça pelo celular: Pix, cartão ou na entrega.', 'loja de roupa: "Veja o catálogo"');
+    ok(desc(loja({ tipo: 'Outro comércio', tipoNome: 'Papelaria' })) === 'Papelaria em Juquiá/SP. Veja o catálogo e peça pelo celular: Pix, cartão ou na entrega.', 'outro comercio com nome: o nome no lugar do tipo');
+    ok(desc(loja({ tipo: 'Outro' })) === 'Loja em Juquiá/SP. Veja o cardápio e peça pelo celular: Pix, cartão ou na entrega.', '"Outro" antigo segue comida e nao aparece escrito');
+    const R = (await import('node:module')).createRequire(import.meta.url)(path.resolve('js/regras.js'));
+    const daRegra = R.TIPOS_DE_COMERCIO.map((x) => x[0].toLowerCase());
+    ok(daRegra.every((x) => _teste.TIPOS_DE_COMERCIO.indexOf(x) >= 0) && _teste.TIPOS_DE_COMERCIO.every((x) => R.segmento({ tipo: x }) === 'comercio'), 'a lista do comercio do site e a mesma das regras');
+    ok(['Roupas', 'Outro comércio', 'Outra comida', 'Outro', ''].every((tp) => _teste.tipoVisivel({ tipo: tp, tipoNome: 'Banca' }) === R.tipoVisivel({ tipo: tp, tipoNome: 'Banca' })), 'o tipo que o cliente le e o mesmo das regras');
+  }
   ok(meta(h, 'property', 'og:image') === 'https://ligeiropedidos.com.br/_logo/dom-conizza?v=2026-09-25T04%3A09%3A57.774Z', 'imagem: a logo da loja (versao muda quando a loja muda)');
   ok(meta(h, 'property', 'og:url') === 'https://ligeiropedidos.com.br/juquia/dom-conizza', 'og:url no endereco limpo');
   ok(h.includes('<link rel="canonical" href="https://ligeiropedidos.com.br/juquia/dom-conizza">'), 'canonical da loja');

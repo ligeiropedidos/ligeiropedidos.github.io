@@ -130,6 +130,8 @@
   var TIPOS_PODER = ['turbo', 'ima', 'escudo'];
   var COR_PODER = { ima: '#E53935', turbo: '#FFB300', escudo: '#1E88E5' };
   var FAZ_PODER = { ima: 'vira ímã', turbo: 'dá turbo', escudo: 'vira capacete' };
+  /* loja de comercio (roupa, calcado...): o jogo fala de produto, nao de lanche */
+  function emojiPadrao() { return J && J.comercio ? '🛍️' : '🍔'; }
   function nomeCurto(n) { n = String(n || ''); return n.length > 16 ? n.slice(0, 15).trim() + '…' : n; }
   function precoEmReais(c) { var R = window.LigeiroRegras; return R && R.dinheiro ? R.dinheiro(c) : 'R$ ' + (c / 100).toFixed(2).replace('.', ','); }
 
@@ -151,7 +153,7 @@
           try { x.drawImage(p.img, 32 - w / 2, 32 - h / 2, w, h); } catch (_) { /* sem foto */ }
         } else {
           x.font = '28px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-          x.fillText(p.emoji || '🍔', 32, 34);
+          x.fillText(p.emoji || emojiPadrao(), 32, 34);
         }
         x.restore();
         x.drawImage(desenho, 40, 40, 24, 24);
@@ -1261,7 +1263,7 @@
     painel(el('div', { class: 'pulo-cartao' }, [
       el('img', { class: 'pulo-mascote', src: 'img/mascote-192.webp', alt: '', width: 192, height: 192 }),
       el('h2', { text: 'Pulo do Ligeiro' }),
-      el('p', { class: 'pulo-texto', text: PRODUTOS.length && J.nomeLoja ? 'Suba o mais alto que der. Os lanches da ' + J.nomeLoja + ' viram poderes!' : 'Suba o mais alto que der e pegue as moedas no caminho.' }),
+      el('p', { class: 'pulo-texto', text: PRODUTOS.length && J.nomeLoja ? 'Suba o mais alto que der. ' + (J.comercio ? 'Os produtos da ' : 'Os lanches da ') + J.nomeLoja + ' viram poderes!' : 'Suba o mais alto que der e pegue as moedas no caminho.' }),
       dicas,
       poderes,
       chaveMusica(),
@@ -1325,12 +1327,12 @@
     if (!PRODUTOS.length || !J.aoVerProduto || (J.podePedir && !J.podePedir())) return null;
     var fav = PRODUTOS.slice().sort(function (a, b) { return (J.pegos[b.id] || 0) - (J.pegos[a.id] || 0); })[0];
     var foto = el('span', { class: 'pulo-fome-foto', 'aria-hidden': 'true' });
-    if (fav.foto) { var im = el('img', { src: fav.foto, alt: '' }); im.onerror = function () { foto.textContent = fav.emoji || '🍔'; }; foto.appendChild(im); }
-    else foto.textContent = fav.emoji || '🍔';
+    if (fav.foto) { var im = el('img', { src: fav.foto, alt: '' }); im.onerror = function () { foto.textContent = fav.emoji || emojiPadrao(); }; foto.appendChild(im); }
+    else foto.textContent = fav.emoji || emojiPadrao();
     return el('div', { class: 'pulo-fome' }, [
       foto,
-      el('div', { class: 'pulo-fome-texto' }, [el('b', { text: 'Bateu fome?' }), el('span', { text: fav.nome + ' por ' + precoEmReais(fav.preco) })]),
-      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { var ir = J.aoVerProduto, id = fav.id; fecharEDepois(function () { ir(id); }); } }, 'Ver no cardápio'),
+      el('div', { class: 'pulo-fome-texto' }, [el('b', { text: J.comercio ? 'Gostou deste?' : 'Bateu fome?' }), el('span', { text: fav.nome + ' por ' + precoEmReais(fav.preco) })]),
+      el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { var ir = J.aoVerProduto, id = fav.id; fecharEDepois(function () { ir(id); }); } }, J.comercio ? 'Ver no catálogo' : 'Ver no cardápio'),
     ]);
   }
 
@@ -1438,6 +1440,7 @@
     op = op || {};
     estilos();
     J = {
+      comercio: op.comercio === true,
       vivo: true, fase: 'inicio', som: ler(CHAVE_SOM, '1') !== '0', comMusica: ler(CHAVE_MUSICA, '1') !== '0', recorde: Number(ler(CHAVE_RECORDE, 0)) || 0, musica: null,
       aoFechar: op.aoFechar, aoVerProduto: typeof op.aoVerProduto === 'function' ? op.aoVerProduto : null, podePedir: typeof op.podePedir === 'function' ? op.podePedir : null, nomeLoja: String(op.nomeLoja || '').slice(0, 40),
       raf: 0, ult: 0, pontosVistos: -1, moedasVistas: -1, jaJogou: Number(ler(CHAVE_RECORDE, 0)) > 0, baixoSeguro: 0,

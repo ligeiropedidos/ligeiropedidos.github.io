@@ -291,6 +291,94 @@ test('WhatsApp do pedido: a mensagem e o botao mudam com o status', () => {
   });
 });
 
+test('comercio: o pedido nasce marcado e todo texto do pedido fala de separar, sem cozinha nem comida', () => {
+  const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas', aceitaPagarNoBalcao: true });
+  const p = R.montarPedido(loja, { nome: 'Bia Lima', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'dinheiro_entrega', itens: [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }] });
+  assert.equal(p.segmento, 'comercio');
+  p.senha = 31;
+  const com = (status, tipo) => Object.assign({}, p, { status, tipoEntrega: tipo || 'retirada' });
+  /* so com o pedido (equipe, aviso, push) */
+  assert.equal(R.rotuloStatus(com('pago')), 'Novo, separar');
+  assert.equal(R.rotuloStatus(com('producao')), 'Separando');
+  assert.equal(R.rotuloStatusCliente(com('producao')), 'Separando');
+  assert.equal(R.rotuloProximoPasso(com('pago')), 'Começar a separar');
+  assert.equal(R.rotuloAvisoWhats(com('producao')), 'Separando');
+  assert.equal(R.refPedido(com('pago')), 'pedido nº 31');
+  /* tela do cliente */
+  assert.match(R.textoDoEstagio(com('pago'), loja), /^Mostre o número do pedido na loja\. Fica separado em cerca de 20 minutos\.$/);
+  assert.equal(R.textoDoEstagio(com('producao'), loja), 'A loja está separando o seu pedido agora.');
+  assert.equal(R.textoDoEstagio(com('finalizado'), loja), 'Retirado. Obrigado pela compra!');
+  assert.equal(R.textoDoEstagio(com('finalizado', 'entrega'), loja), 'Entregue. Obrigado pela compra!');
+  /* WhatsApp e ficha */
+  assert.match(R.mensagemParaCliente(loja, com('pago')), /Recebemos seu pedido \(pedido nº 31\) e ele já está na fila\. Fica separado em cerca de 20 minutos\./);
+  assert.match(R.mensagemParaCliente(loja, com('producao')), /já está sendo separado\. Logo fica pronto para retirar\./);
+  assert.match(R.mensagemParaCliente(loja, com('finalizado')), /Obrigado pela compra!/);
+  assert.match(R.mensagemDoCliente(loja, p), /\*nº 31\*/);
+  const ficha = R.fichaDoPedido(loja, p);
+  assert.match(ficha, /PEDIDO Nº 31/);
+  assert.match(ficha, /RETIRADA NA LOJA/);
+  /* nada de comida em nenhum texto do pedido */
+  const todos = ['aguardando_pagamento', 'pago', 'producao', 'pronto', 'finalizado', 'cancelado'].map((s) => [
+    R.mensagemParaCliente(loja, com(s)), R.mensagemParaCliente(loja, com(s, 'entrega')), R.textoDoEstagio(com(s), loja), R.textoDoEstagio(com(s, 'entrega'), loja),
+    R.rotuloStatus(com(s)), R.rotuloStatusCliente(com(s)), R.rotuloProximoPasso(com(s)), R.rotuloAvisoWhats(com(s)),
+  ].join(' ')).join(' ') + ' ' + ficha + ' ' + R.mensagemDoCliente(loja, p);
+  ['senha', 'cozinha', 'preparando', 'preparado', 'apetite', 'balcão', 'cardápio'].forEach((w) => assert.ok(todos.toLowerCase().indexOf(w) < 0, w));
+  /* a loja sem marca no pedido (pedido antigo) ainda acerta pela loja */
+  const antigo = Object.assign({}, p); delete antigo.segmento;
+  assert.match(R.mensagemParaCliente(loja, Object.assign(antigo, { status: 'pago' })), /pedido nº 31/);
+  /* retirada desligada: o aviso fala da loja */
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { aceitaRetirada: false }), { nome: 'Bia', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }] }), /A retirada na loja está indisponível agora\./);
+});
+
+test('comida: o pedido segue sem marca e com os textos de sempre', () => {
+  const loja = lojaDeTeste();
+  const p = R.montarPedido(loja, { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'x', quantidade: 1 }] });
+  assert.equal('segmento' in p, false);
+  p.senha = 5;
+  assert.equal(R.rotuloStatus(Object.assign({}, p, { status: 'pago' })), 'Novo, preparar');
+  assert.equal(R.refPedido(p), 'senha 5');
+  assert.match(R.fichaDoPedido(loja, p), /SENHA 5[\s\S]*RETIRADA NO BALCÃO/);
+  assert.equal(R.textoDoEstagio(Object.assign({}, p, { status: 'finalizado' }), loja), 'Retirado. Bom apetite!');
+});
+
+test('estoque no site: o cartao soma os tamanhos e o carrinho se ajusta ao que tem', () => {
+  const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
+  loja.produtos[0].controlaEstoque = true; /* X-Burguer com tamanho P e G */
+  loja.produtos[2].controlaEstoque = true; /* Refri sem tamanho */
+  const x = loja.produtos[0], refri = loja.produtos[2];
+  assert.deepEqual(R.situacaoDoProduto(loja, x, { 'x|p': 1, 'x|g': 1 }), { tem: 2, esgotado: false, pouco: true });
+  assert.deepEqual(R.situacaoDoProduto(loja, x, { 'x|p': 0 }), { tem: 0, esgotado: true, pouco: false });
+  assert.deepEqual(R.situacaoDoProduto(loja, x, { 'x|p': 10, 'x|g': 2 }), { tem: 12, esgotado: false, pouco: false });
+  assert.deepEqual(R.situacaoDoProduto(loja, refri, { refri: 3 }), { tem: 3, esgotado: false, pouco: true });
+  assert.equal(R.situacaoDoProduto(loja, loja.produtos[1], {}), null);
+  assert.equal(R.chaveDoItem(loja, { produtoId: 'x', tamanho: 'g' }), 'x|g');
+  assert.equal(R.chaveDoItem(loja, { produtoId: 'x', tamanho: { id: 'p', nome: 'P' } }), 'x|p');
+  assert.equal(R.chaveDoItem(loja, { produtoId: 'refri', tamanho: 'qualquer' }), 'refri');
+  assert.equal(R.chaveDoItem(lojaDeTeste(), { produtoId: 'x', tamanho: 'g' }), '');
+  const carrinho = [
+    { idLocal: 'a', produtoId: 'x', tamanho: 'g', quantidade: 2 },
+    { idLocal: 'b', produtoId: 'x', tamanho: 'g', quantidade: 1 },
+    { idLocal: 'c', produtoId: 'x', tamanho: 'p', quantidade: 1 },
+    { idLocal: 'd', produtoId: 'refri', quantidade: 5 },
+  ];
+  const r = R.ajustarAoEstoque(loja, carrinho, { 'x|g': 2, refri: 3 });
+  assert.deepEqual(r.itens.map((i) => [i.idLocal, i.quantidade]), [['a', 2], ['d', 3]]);
+  assert.deepEqual(r.avisos, ['X-Burguer (G) esgotou e saiu do pedido.', 'X-Burguer (P) esgotou e saiu do pedido.', 'Só tinha 3 de Refri, então ficou 3.']);
+  assert.equal(carrinho[3].quantidade, 5, 'o carrinho de quem chamou nao muda');
+  assert.deepEqual(R.ajustarAoEstoque(loja, carrinho, { 'x|g': 9, 'x|p': 9, refri: 9 }).avisos, []);
+  assert.deepEqual(R.catalogo(loja).iconePreparo, 'caixa');
+  assert.deepEqual(R.catalogo(lojaDeTeste()).iconePreparo, 'fogo');
+});
+
+test('tipo visivel: "Outra comida" e "Outro comercio" mostram o nome livre', () => {
+  assert.equal(R.tipoVisivel({ tipo: 'Outro comércio', tipoNome: 'Papelaria' }), 'Papelaria');
+  assert.equal(R.tipoVisivel({ tipo: 'Outra comida', tipoNome: '  Tapiocaria ' }), 'Tapiocaria');
+  assert.equal(R.tipoVisivel({ tipo: 'Outro comércio' }), 'Loja');
+  assert.equal(R.tipoVisivel({ tipo: 'Outro' }), 'Loja');
+  assert.equal(R.tipoVisivel({ tipo: 'Roupas', tipoNome: 'Ignorado' }), 'Roupas');
+  assert.equal(R.tipoVisivel({ tipo: '' }), 'Loja');
+});
+
 test('Google: o selo mostra o perfil e o convite abre a tela de avaliar', () => {
   assert.equal(R.linkGooglePerfil('https://g.page/r/CabcDEF123/review'), 'https://g.page/r/CabcDEF123');
   assert.equal(R.linkGoogleAvaliar('g.page/r/CabcDEF123'), 'https://g.page/r/CabcDEF123/review');
@@ -418,8 +506,59 @@ test('catalogo: comida fala cardapio, o resto fala catalogo', () => {
   assert.equal(R.catalogo({ tipo: 'Pizzaria' }).nome, 'cardápio');
   assert.equal(R.catalogo({ tipo: 'Pizza cone' }).nome, 'cardápio');
   assert.equal(R.catalogo({}).nome, 'cardápio');
-  assert.equal(R.catalogo({ tipo: 'Outro' }).nome, 'catálogo');
+  /* o "Outro" antigo do cadastro ficava entre as comidas (garfo e faca): continua comida */
+  assert.equal(R.catalogo({ tipo: 'Outro' }).nome, 'cardápio');
   assert.equal(R.catalogo({ tipo: 'Roupas' }).Nome, 'Catálogo');
+  assert.equal(R.catalogo({ tipo: 'Outro comércio' }).nome, 'catálogo');
+});
+
+test('segmento: comida e comercio, com o vocabulario de cada um', () => {
+  ['Lanchonete', 'Pizzaria', 'Outra comida', 'Outro', '', 'Qualquer coisa'].forEach((tipo) => assert.equal(R.segmento({ tipo }), 'comida', tipo));
+  R.TIPOS_DE_COMERCIO.forEach((t) => assert.equal(R.segmento({ tipo: t[0] }), 'comercio', t[0]));
+  assert.equal(R.segmento({ tipo: '  roupas ' }), 'comercio');
+  const c = R.catalogo({ tipo: 'Calçados' }), f = R.catalogo({ tipo: 'Pizzaria' });
+  assert.equal(c.preparando, 'Separando'); assert.equal(f.preparando, 'Preparando');
+  assert.equal(c.tela, 'Separação'); assert.equal(f.tela, 'Cozinha');
+  assert.equal(c.maisPedidos, 'Os mais vendidos');
+  /* nenhum texto do comercio fala de comida */
+  const textos = Object.keys(c).map((k) => String(c[k])).join(' ').toLowerCase();
+  ['cozinha', 'cardápio', 'preparo', 'fome', 'lanche', 'cebola'].forEach((w) => assert.ok(textos.indexOf(w) < 0, w));
+});
+
+test('comercio: o tamanho e escolha do cliente (sem tamanho padrao); comida segue com o padrao', () => {
+  const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }]), /Escolha o tamanho de "X-Burguer"/);
+  const ok = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]);
+  assert.equal(ok.itens[0].tamanho.id, 'g');
+  /* o painel conferindo pedido ja feito (tolerante) nao trava */
+  assert.doesNotThrow(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }], { tolerante: true }));
+  const comida = R.calcularItens(lojaDeTeste(), [{ produtoId: 'x', quantidade: 1 }]);
+  assert.equal(comida.itens[0].tamanho.id, 'p');
+  /* categoria sem tamanho: nada a escolher */
+  assert.doesNotThrow(() => R.calcularItens(loja, [{ produtoId: 'refri', quantidade: 1 }]));
+});
+
+test('estoque: chaves por produto e por tamanho, o que o pedido tira e o que falta', () => {
+  const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
+  loja.produtos[0].controlaEstoque = true; /* X-Burguer: tem tamanho, entao o estoque e por tamanho */
+  loja.produtos[2].controlaEstoque = true; /* Refri: sem tamanho, estoque do produto */
+  const { itens } = R.calcularItens(loja, [
+    { produtoId: 'x', quantidade: 2, tamanho: 'g' }, { produtoId: 'x', quantidade: 1, tamanho: 'g' }, { produtoId: 'x', quantidade: 1, tamanho: 'p' }, { produtoId: 'refri', quantidade: 3 },
+  ]);
+  assert.deepEqual(R.estoqueDoPedido(loja, itens), { 'x|g': 3, 'x|p': 1, refri: 3 });
+  assert.deepEqual(R.faltaNoEstoque(loja, itens, { 'x|g': 3, 'x|p': 1, refri: 3 }), []);
+  const falta = R.faltaNoEstoque(loja, itens, { 'x|g': 2, refri: 5 });
+  assert.deepEqual(falta.map((f) => [f.chave, f.pediu, f.tem]), [['x|g', 3, 2], ['x|p', 1, 0]]);
+  assert.equal(R.fraseFaltaEstoque(falta), 'Só tem 2 de X-Burguer (G). X-Burguer (P) esgotou.');
+  /* produto sem controle nao entra na conta */
+  loja.produtos[2].controlaEstoque = false;
+  assert.equal(R.estoqueDoPedido(loja, itens).refri, undefined);
+  /* o que o site mostra */
+  assert.equal(R.situacaoEstoque({ id: 'a' }, { a: 0 }), null);
+  assert.deepEqual(R.situacaoEstoque({ id: 'a', controlaEstoque: true }, { a: 0 }), { tem: 0, esgotado: true, pouco: false });
+  assert.deepEqual(R.situacaoEstoque({ id: 'a', controlaEstoque: true }, { 'a|m': 2 }, 'm'), { tem: 2, esgotado: false, pouco: true });
+  assert.deepEqual(R.situacaoEstoque({ id: 'a', controlaEstoque: true }, { a: 9 }), { tem: 9, esgotado: false, pouco: false });
+  assert.deepEqual(R.situacaoEstoque({ id: 'a', controlaEstoque: true }, {}), { tem: 0, esgotado: true, pouco: false });
 });
 
 test('pixVencido: 30 min do codigo, 35 min sem codigo, so pedido esperando Pix', () => {
@@ -691,7 +830,9 @@ test('divulgação: a frase de pagamento segue o que a loja aceita (sem prometer
 test('tipos de loja: a lista mora nas regras (o cadastro não baixa a Central)', () => {
   assert.ok(Array.isArray(R.TIPOS_DE_LOJA) && R.TIPOS_DE_LOJA.length >= 10);
   assert.deepEqual(R.TIPOS_DE_LOJA[0], ['Lanchonete', '🍔']);
-  assert.equal(R.TIPOS_DE_LOJA[R.TIPOS_DE_LOJA.length - 1][0], 'Outro');
+  assert.equal(R.TIPOS_DE_LOJA[R.TIPOS_DE_LOJA.length - 1][0], 'Outra comida');
+  assert.ok(Array.isArray(R.TIPOS_DE_COMERCIO) && R.TIPOS_DE_COMERCIO.length >= 8);
+  assert.equal(R.TIPOS_DE_COMERCIO[R.TIPOS_DE_COMERCIO.length - 1][0], 'Outro comércio');
 });
 
 test('conferência: item que não existe no cardápio não passa como "ok" (pedido adulterado acende o aviso)', () => {
@@ -928,9 +1069,9 @@ test('dinheiro devolvido: a mensagem do cliente e a ficha dizem devolvido, nao p
   assert.equal(R.dinheiroDevolvido(pago), false);
 });
 
-test('tipo "Outro": emoji de comida (vira o emoji da loja)', () => {
-  const outro = R.TIPOS_DE_LOJA.filter((t) => t[0] === 'Outro')[0];
-  assert.deepEqual(outro, ['Outro', '🍴']);
+test('tipo "Outra comida": emoji de comida (vira o emoji da loja)', () => {
+  const outro = R.TIPOS_DE_LOJA.filter((t) => t[0] === 'Outra comida')[0];
+  assert.deepEqual(outro, ['Outra comida', '🍴']);
   assert.ok(R.TIPOS_DE_LOJA.every((t) => t[1] !== '🛵'));
 });
 

@@ -19,6 +19,24 @@
   function agoraISO() { return new Date().toISOString(); }
   function clonar(x) { return JSON.parse(JSON.stringify(x)); }
   var SEM_ESPACO = 'O aparelho está sem espaço para guardar. Apague fotos antigas ou zere a demonstração.';
+  /* estoque acabou no meio do pedido: o mesmo erro do mensageiro (409, com o que falta) */
+  function erroDeEstoque(frase) {
+    var e = new Error(frase + ' Ajuste o carrinho e tente de novo.');
+    e.publico = true; e.status = 409;
+    return e;
+  }
+  /* as chaves de estoque que valem numa loja: produto com "Controlar estoque" e, se a categoria tem tamanho, uma por tamanho
+     (a mesma regra do mensageiro) */
+  function chavesDeEstoqueDaLoja(loja) {
+    var validas = {};
+    ((loja && loja.produtos) || []).forEach(function (p) {
+      if (!R.controlaEstoque(p)) return;
+      var tam = R.gruposDaCategoria(loja, p.categoria).filter(function (g) { return g.tipo === 'unico'; })[0];
+      if (tam) (tam.opcoes || []).forEach(function (o) { validas[R.chaveEstoque(p.id, o.id)] = true; });
+      else validas[R.chaveEstoque(p.id)] = true;
+    });
+    return validas;
+  }
 
   /*
    * Firestore nao aceita array dentro de array: na nuvem as faixas de horario
@@ -46,7 +64,7 @@
           .filter(function (f) { return Array.isArray(f) && f.length === 2 && typeof f[0] === 'string' && typeof f[1] === 'string'; });
       });
     } else if ('horarios' in dados) dados.horarios = {};
-    ['nome', 'descricao', 'cidade', 'cidadeSlug', 'tipo', 'emoji', 'uf', 'avisoTopo'].forEach(function (k) {
+    ['nome', 'descricao', 'cidade', 'cidadeSlug', 'tipo', 'tipoNome', 'emoji', 'uf', 'avisoTopo'].forEach(function (k) {
       if (k in dados && dados[k] != null && typeof dados[k] !== 'string') dados[k] = String(dados[k]);
     });
     if (dados.cidadeSlug && !/^[a-z0-9-]{1,60}$/.test(dados.cidadeSlug)) dados.cidadeSlug = '';
@@ -94,7 +112,7 @@
   function resumoDaLoja(l) {
     var ativos = (l.produtos || []).filter(function (p) { return p.ativo !== false; });
     return {
-      slug: l.slug, nome: l.nome || '', tipo: l.tipo || '', emoji: l.emoji || '', descricao: (l.descricao || '').slice(0, 120),
+      slug: l.slug, nome: l.nome || '', tipo: l.tipo || '', tipoNome: String(l.tipoNome || '').slice(0, 24), emoji: l.emoji || '', descricao: (l.descricao || '').slice(0, 120),
       cidade: l.cidade || '', cidadeSlug: l.cidadeSlug || '', uf: l.uf || '',
       logoDados: l.logoDados || '', logoUrl: l.logoUrl || '', capa: l.capa || '', capaUrl: l.capaUrl || '', cor: l.cor || '',
       aberta: l.aberta !== false, usarHorarios: !!l.usarHorarios, horarios: l.horarios || {},
@@ -787,10 +805,23 @@
   DemoStore.prototype.criarPedido = function (lojaSlug, pedido) {
     var db = this._ler();
     if (!db.lojas[lojaSlug]) return Promise.reject(new Error('Loja não encontrada.'));
+    /* estoque: a mesma conta do mensageiro (acabou: recusa com o que falta; tem: reserva junto com o pedido) */
+    var tira = R.estoqueDoPedido(db.lojas[lojaSlug], pedido.itens || []);
+    var comEstoque = Object.keys(tira).length > 0;
+    var est = estoqueDemo(db, lojaSlug);
+    if (comEstoque) {
+      var falta = R.faltaNoEstoque(db.lojas[lojaSlug], pedido.itens || [], est.q);
+      if (falta.length) return Promise.reject(erroDeEstoque(R.fraseFaltaEstoque(falta)));
+    }
     var contador = R.proximaSenha(db.contadores[lojaSlug]);
     db.contadores[lojaSlug] = contador;
     var id = idAleatorio(20);
     var completo = Object.assign({}, clonar(pedido), { id: id, senha: contador.ultima });
+    if (comEstoque) {
+      completo.estoque = tira;
+      Object.keys(tira).forEach(function (k) { est.q[k] = (est.q[k] || 0) - tira[k]; });
+      est.baixas[id] = { i: tira, em: agoraISO() };
+    }
     if (!db.pedidos[lojaSlug]) db.pedidos[lojaSlug] = {};
     db.pedidos[lojaSlug][id] = completo;
     if (completo.cupom) {
@@ -840,7 +871,48 @@
     if (!p || p.status !== R.STATUS.AGUARDANDO || p.pagoEm) return Promise.resolve(false);
     Object.assign(p, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido', atualizadoEm: agoraISO() });
     if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
-    return Promise.resolve(true);
+    /* o que o pedido reservou volta para o estoque */
+    return (p.estoque ? this.devolverEstoque(lojaSlug, id).catch(function () { return null; }) : Promise.resolve()).then(function () { return true; });
+  };
+
+  /* ---------- estoque (lojas que vendem quantidade limitada) ---------- */
+  /* o estoque da loja na demonstracao: { q: {chave: quantidade}, baixas: {pedido: {i, em}} } */
+  function estoqueDemo(db, slug) {
+    db.estoque = db.estoque || {};
+    var e = db.estoque[slug] = db.estoque[slug] || {};
+    e.q = e.q || {}; e.baixas = e.baixas || {};
+    return e;
+  }
+  DemoStore.prototype.lerEstoque = function (lojaSlug) {
+    return Promise.resolve(clonar(estoqueDemo(this._ler(), lojaSlug).q));
+  };
+  DemoStore.prototype.salvarEstoque = function (lojaSlug, q) {
+    var db = this._ler();
+    var loja = db.lojas[lojaSlug];
+    if (!loja) return Promise.reject(new Error('Loja não encontrada.'));
+    var validas = chavesDeEstoqueDaLoja(loja);
+    var e = estoqueDemo(db, lojaSlug);
+    var mudou = 0;
+    Object.keys(q || {}).forEach(function (k) { var n = Math.floor(Number(q[k])); if (validas[k] && n >= 0 && n <= 99999) { e.q[k] = n; mudou++; } });
+    if (!mudou) return Promise.reject(new Error('Nada para salvar: ligue "Controlar estoque" no item e salve o item antes.'));
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve(clonar(e.q));
+  };
+  DemoStore.prototype.devolverEstoque = function (lojaSlug, id) {
+    var db = this._ler();
+    var p = db.pedidos[lojaSlug] && db.pedidos[lojaSlug][id];
+    if (!p || p.status !== R.STATUS.CANCELADO) return Promise.resolve({ ok: false });
+    var e = estoqueDemo(db, lojaSlug);
+    var b = e.baixas[id];
+    if (!b) {
+      if (p.estoque && p.estoqueDevolvido !== true) { p.estoqueDevolvido = true; this._gravar(db); }
+      return Promise.resolve({ ok: true, ja: true });
+    }
+    Object.keys(b.i || {}).forEach(function (k) { e.q[k] = Math.min(99999, (e.q[k] || 0) + (Number(b.i[k]) || 0)); });
+    delete e.baixas[id];
+    p.estoqueDevolvido = true;
+    if (!this._gravar(db)) return Promise.reject(new Error(SEM_ESPACO));
+    return Promise.resolve({ ok: true, devolvido: b.i });
   };
 
   DemoStore.prototype.entrarPainel = function (lojaSlug, senha) {
@@ -2266,18 +2338,64 @@
   /* Pix vencido: transacao que rele o pedido e so cancela se ainda espera o pagamento e nao tem pagoEm
      (o mensageiro pode ter gravado o "pago" nesse meio tempo). Devolve true se cancelou. */
   FirebaseStore.prototype.cancelarPixVencido = function (lojaSlug, id) {
-    var eu = this;
+    var eu = this, reservou = false;
     return this._pronto.then(function () {
       var ref = eu.db.collection('lojas').doc(lojaSlug).collection('pedidos').doc(id);
       return eu.db.runTransaction(function (tx) {
         return tx.get(ref).then(function (d) {
           var p = d.exists ? d.data() : null;
           if (!p || p.status !== R.STATUS.AGUARDANDO || p.pagoEm) return false;
+          reservou = !!p.estoque;
           tx.update(ref, { status: R.STATUS.CANCELADO, canceladoPor: 'pix-vencido', atualizadoEm: agoraISO() });
           return true;
         });
       });
+    }).then(function (cancelou) {
+      /* o que o pedido reservou volta para o estoque (se falhar, o painel devolve quando abrir) */
+      if (cancelou && reservou) eu.devolverEstoque(lojaSlug, id).catch(function () { /* o painel devolve depois */ });
+      return cancelou;
     });
+  };
+
+  /* ---------- estoque (pelo mensageiro: o banco nao deixa o celular mexer na quantidade) ---------- */
+  function enderecoMensageiro() {
+    var c = window.LIGEIRO_CONFIG || {};
+    return c.proxyMercadoPago ? String(c.proxyMercadoPago).replace(/\/$/, '') : '';
+  }
+  /* as quantidades de agora (guardadas 30 s na borda). Nao mexe na marca "borda fora": mensageiro antigo, sem esta rota,
+     so deixa o site sem os selos de estoque, e o resto da visita segue pela borda */
+  FirebaseStore.prototype.lerEstoque = function (lojaSlug, fresco) {
+    var base = enderecoMensageiro();
+    if (!base || typeof fetch !== 'function') return Promise.reject(new Error('sem mensageiro'));
+    /* fresco (o pedido acabou de ser recusado por falta): sem o guardado do navegador */
+    return fetch(base + '/estoque/' + encodeURIComponent(lojaSlug), fresco ? { cache: 'no-store' } : {}).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 200 && j && j.borda === 1 && j.q && typeof j.q === 'object') return j.q;
+        throw new Error('estoque indisponível');
+      });
+    });
+  };
+  /* o dono (ou a equipe) acerta as quantidades: so as chaves que mudaram */
+  FirebaseStore.prototype.salvarEstoque = function (lojaSlug, q) {
+    var base = enderecoMensageiro();
+    if (!base) return Promise.reject(new Error('O estoque precisa do mensageiro ligado.'));
+    return this.obterIdToken().then(function (t) {
+      return fetch(base + '/estoque', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ loja: lojaSlug, q: q }) });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.ok && j && j.ok) return j.q || {};
+        var e = new Error((j && j.erro) || 'Não deu para salvar o estoque agora. Tente de novo.');
+        e.publico = true; e.status = r.status;
+        throw e;
+      });
+    });
+  };
+  /* pedido cancelado: o que ele reservou volta (o mensageiro confere que esta cancelado e so devolve uma vez) */
+  FirebaseStore.prototype.devolverEstoque = function (lojaSlug, id) {
+    var base = enderecoMensageiro();
+    if (!base || typeof fetch !== 'function') return Promise.resolve({ ok: false });
+    return fetch(base + '/estoque/devolver', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loja: lojaSlug, pedido: id }) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
   };
 
   /* No modo de verdade, o painel entra com e-mail do dono + senha (Firebase Auth). */

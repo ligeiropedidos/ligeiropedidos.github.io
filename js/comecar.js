@@ -18,15 +18,8 @@
   /* as lojas no ar (a mesma lista que conta as vagas): o passo da cidade confere se ja tem loja com o mesmo nome ali */
   var vitrineDoCadastro = null;
 
-  /* Que cardapio-modelo combina com cada tipo de loja. */
-  function modeloDoTipo(tipo) {
-    var t = R.semAcento(tipo || '').toLowerCase();
-    if (/pizza/.test(t)) return 'dom-conizza';
-    if (/marmit|restaur|self/.test(t)) return 'marmitaria-da-cida';
-    if (/sorvet|acai|gelad/.test(t)) return 'sorveteria-da-lu';
-    if (/lanch|burg|hamb|espet|padar|sushi|pastel/.test(t)) return 'lanchonete-do-ze';
-    return 'vazio';
-  }
+  /* Que cardapio-modelo combina com cada tipo de loja (o mesmo da Central: mora no seed, junto dos modelos). */
+  function modeloDoTipo(tipo) { return window.LigeiroSeed && window.LigeiroSeed.modeloDoTipo ? window.LigeiroSeed.modeloDoTipo(tipo) : 'vazio'; }
 
   /* Loja so nasce dentro de uma conta: sem login, vai pra #/entrar e volta pra ca depois. */
   function abrir(raiz, opcoes) {
@@ -154,10 +147,13 @@
     function precoPlanoAgora() { return R.precoDoPlano(planoId, planoTipo); }
     var planoNome = R.planoPorId(planoId).nome;
     var TIPOS = R.TIPOS_DE_LOJA;
+    var TIPOS_COMERCIO = R.TIPOS_DE_COMERCIO;
+    /* "Outra comida" e "Outro comércio": pedem o nome que o cliente le na lista da cidade (opcional) */
+    function ehOutro(tipo) { return /^outr[oa] (comida|comércio|comercio)$/i.test(String(tipo || '')); }
     document.title = 'Crie sua loja no Ligeiro';
 
     /* respostas guardadas: voltar um passo nunca apaga o que ja foi digitado */
-    var st = { nome: '', tipo: '', emoji: '', cidade: null, whatsapp: '', frete: '', taxa: '', senhaDemo: '' };
+    var st = { nome: '', tipo: '', tipoNome: '', emoji: '', cidade: null, whatsapp: '', frete: '', taxa: '', senhaDemo: '' };
     var contaLogada = usuario || null;
     /* ultimo passo: na demonstracao, a senha do painel; sem conta, entrar com o Google; com conta, nada (cria direto) */
     var PASSOS = ['nome', 'tipo', 'cidade', 'whatsapp', 'frete'];
@@ -241,7 +237,7 @@
       var ultimo = atual === PASSOS.length - 1;
 
       if (passo === 'nome') {
-        var iNome = entrada({ rotulo: 'Nome da loja', placeholder: 'Ex: Lanchonete do Zé', valor: st.nome, autocomplete: 'organization' });
+        var iNome = entrada({ rotulo: 'Nome da loja', placeholder: 'Ex: Casa do Zé', valor: st.nome, autocomplete: 'organization' });
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('Como se chama sua loja?', 'É o nome que o cliente vê quando abre o seu link.').concat([iNome, erro, botaoContinuar(function () {
           st.nome = iNome.value.trim();
           if (st.nome.length < 2) { falhar('Digite o nome da loja.'); return false; }
@@ -251,16 +247,43 @@
       }
 
       if (passo === 'tipo') {
-        var grade = el('div', { class: 'escolhas-grade' }, TIPOS.map(function (t) {
-          return el('button', { class: 'escolha-grande escolha-tile' + (st.tipo === t[0] ? ' marcada' : ''), type: 'button', onclick: function (e) {
+        /* "Outra comida" e "Outro comércio": o nome livre e o Continuar aparecem embaixo (os outros tipos seguem num toque) */
+        var nomeLivre = entrada({ rotulo: 'Qual é o tipo da loja?', placeholder: 'Ex.: Papelaria', valor: st.tipoNome, max: 24 });
+        var caixaLivre = el('div', { class: 'cadastro-caixa cadastro-livre', hidden: !ehOutro(st.tipo) }, [
+          el('label', { class: 'cadastro-rotulo', text: 'Qual é o tipo? (opcional)' }),
+          el('p', { class: 'muted pequeno cadastro-livre-ajuda', text: 'É o que o cliente lê na lista da cidade. Sem nome, aparece "Loja".' }),
+          nomeLivre,
+          botaoContinuar(function () { st.tipoNome = nomeLivre.value.replace(/\s+/g, ' ').trim().slice(0, 24); return true; }),
+        ]);
+        var tiles = [];
+        var tile = function (t) {
+          var b = el('button', { class: 'escolha-grande escolha-tile' + (st.tipo === t[0] ? ' marcada' : ''), type: 'button', onclick: function (e) {
             st.tipo = t[0]; st.emoji = t[1];
-            [].forEach.call(grade.children, function (b) { b.classList.toggle('marcada', b === e.currentTarget); });
+            tiles.forEach(function (x) { x.classList.toggle('marcada', x === e.currentTarget); });
+            if (ehOutro(t[0])) {
+              nomeLivre.placeholder = R.segmento({ tipo: t[0] }) === 'comercio' ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
+              caixaLivre.hidden = false;
+              caixaLivre.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              focar(nomeLivre);
+              return;
+            }
+            caixaLivre.hidden = true;
+            st.tipoNome = '';
             /* um toque so: marca e ja segue. Toque duplo (ou em dois tipos) nao anda dois passos: pulava a cidade */
             var passoDoToque = atual;
             setTimeout(function () { if (atual === passoDoToque) avancar(); }, 180);
           } }, [el('span', { class: 'icone', 'aria-hidden': 'true', text: t[1] }), el('span', { class: 'rotulo', text: t[0] })]);
-        }));
-        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('O que você vende?', 'Sua loja já nasce com um cardápio de exemplo desse tipo. Depois você só ajusta nomes e preços.').concat([grade, erro])));
+          tiles.push(b);
+          return b;
+        };
+        var grade = el('div', { class: 'escolhas-grade' }, TIPOS.map(tile));
+        var gradeComercio = el('div', { class: 'escolhas-grade' }, TIPOS_COMERCIO.map(tile));
+        corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('O que você vende?', 'Sua loja já nasce com um exemplo desse tipo. Depois você só ajusta nomes e preços.').concat([
+          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Comida' }), grade,
+          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Outros comércios' }), gradeComercio,
+          caixaLivre, erro,
+        ])));
+        if (!caixaLivre.hidden) nomeLivre.placeholder = R.segmento({ tipo: st.tipo }) === 'comercio' ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
       }
 
       if (passo === 'cidade') {
@@ -351,7 +374,7 @@
             if (!exigirAceite()) return;
             var cid = st.cidade || {};
             var taxa = st.frete === 'gratis' ? 'entrega grátis' : (st.taxa ? 'taxa de entrega R$ ' + st.taxa : 'taxa de entrega a combinar');
-            var msg = 'Oi! Quero criar a minha loja no Ligeiro.' + '\nLoja: ' + st.nome + '\nTipo: ' + (st.tipo || 'não informado') + '\nCidade: ' + (cid.nome || '') + (cid.uf ? ' (' + cid.uf + ')' : '') + '\nMeu WhatsApp: ' + st.whatsapp + '\nEntrega: ' + taxa;
+            var msg = 'Oi! Quero criar a minha loja no Ligeiro.' + '\nLoja: ' + st.nome + '\nTipo: ' + (st.tipo ? (ehOutro(st.tipo) && st.tipoNome ? st.tipoNome + ' (' + st.tipo + ')' : st.tipo) : 'não informado') + '\nCidade: ' + (cid.nome || '') + (cid.uf ? ' (' + cid.uf + ')' : '') + '\nMeu WhatsApp: ' + st.whatsapp + '\nEntrega: ' + taxa;
             /* abre o WhatsApp no toque (o app do Instagram bloqueia janela aberta depois de uma espera) e grava o contato ao lado */
             window.open(R.linkWhatsapp(cfgApp.whatsappLigeiro || '', msg), '_blank', 'noopener');
             try { store.salvarLead({ nome: st.nome, whatsapp: st.whatsapp, loja: st.nome, cidade: cid.nome || '', uf: cid.uf || '', origem: 'cadastro-instagram', pagina: '#/comecar [' + (window.LigeiroVariante || 'ifood') + ']' }).catch(function () { /* a mensagem ja leva tudo */ }); } catch (_) { /* idem */ }
@@ -388,11 +411,11 @@
       var falta = !st.nome ? 'nome' : !st.cidade ? 'cidade' : !st.whatsapp ? 'whatsapp' : '';
       if (falta && PASSOS.indexOf(falta) >= 0) { atual = PASSOS.indexOf(falta); desenhar(); falhar('Falta responder este passo.'); return; }
       if (botao) { botao.disabled = true; botao.textContent = 'Criando…'; }
-      var tipo = st.tipo || 'Outro';
-      var emoji = st.emoji || '🍽️';
+      var tipo = st.tipo || 'Outra comida';
+      var emoji = st.emoji || R.catalogo({ tipo: tipo }).icone;
       var taxaEntrega = st.frete === 'gratis' ? 0 : UI.centavosDoCampo(st.taxa);
       var dados = {
-        nome: st.nome, tipo: tipo, emoji: emoji, cidade: st.cidade.nome, uf: st.cidade.uf,
+        nome: st.nome, tipo: tipo, tipoNome: ehOutro(tipo) ? st.tipoNome : '', emoji: emoji, cidade: st.cidade.nome, uf: st.cidade.uf,
         whatsapp: st.whatsapp.replace(/\D/g, ''),
         pix: { chave: '', nome: '', cidade: '' },
         aceitaPix: false, mpAtivo: false, aceitaCartaoEntrega: true, aceitaDinheiroEntrega: true, aceitaPagarNoBalcao: true,
@@ -407,7 +430,7 @@
       if (D.modoDemo) dados.senhaPainel = st.senhaDemo;
       var modelo = modeloDoTipo(tipo);
       if (modelo !== 'vazio' && window.LigeiroSeed) {
-        var base = window.LigeiroSeed().lojas[modelo];
+        var base = window.LigeiroSeed.modelo ? window.LigeiroSeed.modelo(modelo) : window.LigeiroSeed().lojas[modelo];
         if (base) {
           dados.categorias = D.clonar(base.categorias);
           dados.produtos = D.clonar(base.produtos);
@@ -470,7 +493,7 @@
       UI.limpar(corpo);
       rotuloPasso.textContent = 'Quase lá';
       barra.firstChild.style.width = '100%';
-      var linhas = ['Cardápio de exemplo do seu tipo', 'Seu link para os clientes', 'Seu painel de pedidos'].map(function (t) {
+      var linhas = [R.catalogo({ tipo: st.tipo }).Nome + ' de exemplo do seu tipo', 'Seu link para os clientes', 'Seu painel de pedidos'].map(function (t) {
         return el('li', { class: 'montando-linha' }, [el('span', { class: 'montando-marca', 'aria-hidden': 'true' }), el('span', { text: t })]);
       });
       corpo.appendChild(el('div', { class: 'cadastro-caixa centro' }, [

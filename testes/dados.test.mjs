@@ -254,6 +254,59 @@ console.log('Falta devolver na demonstracao');
   ok(lista.length === 1 && lista[0].id === 'a', 'so o cancelado pago que ainda nao foi devolvido');
 }
 
+console.log('Estoque na demonstracao e pelo mensageiro');
+{
+  const rel = relogio();
+  const n = navegador({}, rel);
+  const store = n.janela.LigeiroDados.store;
+  const loja = {
+    slug: 'moda', nome: 'Moda', tipo: 'Roupas', aberta: true, aceitaRetirada: true, aceitaPix: true, mpAtivo: true,
+    categorias: [{ id: 'cam', nome: 'Camisetas' }, { id: 'ace', nome: 'Acessórios' }],
+    produtos: [{ id: 'camiseta', categoria: 'cam', nome: 'Camiseta', preco: 4000, controlaEstoque: true, ativo: true }, { id: 'bone', categoria: 'ace', nome: 'Boné', preco: 3000, ativo: true }],
+    grupos: { tam: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0 }, { id: 'm', nome: 'M', preco: 0 }] } },
+    gruposPorCategoria: { cam: ['tam'], ace: [] },
+  };
+  n.janela.localStorage.setItem('ligeiro.demo.v3', JSON.stringify({ lojas: { moda: loja }, pedidos: {}, contadores: {} }));
+  let erro = null;
+  await store.salvarEstoque('moda', { bone: 3 }).catch((e) => { erro = e; });
+  ok(erro && /Controlar estoque/.test(erro.message), 'demonstracao: item sem controle de estoque nao ganha quantidade');
+  const q = await store.salvarEstoque('moda', { 'camiseta|m': 1, 'camiseta|xx': 9 });
+  ok(q['camiseta|m'] === 1 && !('camiseta|xx' in q), 'demonstracao: o dono acerta so o tamanho que existe');
+  const pedido = R.montarPedido(loja, { nome: 'Bia', telefone: '13999990001', tipoEntrega: 'retirada', formaPagamento: 'pix', itens: [{ produtoId: 'camiseta', quantidade: 1, tamanho: 'm' }] });
+  const feito = await store.criarPedido('moda', pedido);
+  ok(feito.estoque && feito.estoque['camiseta|m'] === 1 && (await store.lerEstoque('moda'))['camiseta|m'] === 0, 'demonstracao: o pedido reserva a camiseta M');
+  erro = null;
+  await store.criarPedido('moda', pedido).catch((e) => { erro = e; });
+  ok(erro && erro.status === 409 && /Camiseta \(M\) esgotou/.test(erro.message), 'demonstracao: acabou, o segundo pedido e recusado com o que falta (409)');
+  await store.atualizarPedido('moda', feito.id, { status: 'cancelado', canceladoPor: 'cliente' });
+  const volta = await store.devolverEstoque('moda', feito.id);
+  const volta2 = await store.devolverEstoque('moda', feito.id);
+  ok(volta.ok && volta2.ja && (await store.lerEstoque('moda'))['camiseta|m'] === 1, 'demonstracao: cancelou, a camiseta volta uma vez so');
+}
+{
+  /* pelo mensageiro: a leitura do estoque nao derruba a visita para o banco quando o mensageiro e antigo */
+  const rel = relogio();
+  const n = navegador(NUVEM, rel);
+  const store = n.janela.LigeiroDados.store;
+  n.respostas.push({ status: 404, corpo: { erro: 'rota' } });
+  let falhou = false;
+  await store.lerEstoque('moda').catch(() => { falhou = true; });
+  ok(falhou && n.janela.sessionStorage.getItem('ligeiro:borda-fora') === null, 'mensageiro antigo sem estoque: so sem selos, a borda continua valendo');
+  n.respostas.push({ status: 200, corpo: { borda: 1, q: { 'camiseta|m': 2 } } });
+  const q = await store.lerEstoque('moda', true);
+  const ultima = n.chamadas[n.chamadas.length - 1];
+  ok(q['camiseta|m'] === 2 && ultima.endereco === 'https://borda.teste/estoque/moda' && ultima.opcoes.cache === 'no-store', 'le o estoque na borda (fresco: sem o guardado do navegador)');
+  store.obterIdToken = () => Promise.resolve('tok-dono');
+  n.respostas.push({ status: 200, corpo: { ok: true, q: { 'camiseta|m': 5 } } });
+  const salvo = await store.salvarEstoque('moda', { 'camiseta|m': 5 });
+  const post = n.chamadas[n.chamadas.length - 1];
+  ok(salvo['camiseta|m'] === 5 && post.endereco === 'https://borda.teste/estoque' && post.opcoes.headers.Authorization === 'Bearer tok-dono', 'salva pelo mensageiro, com o login do dono');
+  n.respostas.push({ status: 403, corpo: { ok: false, erro: 'Essa loja não é sua.' } });
+  let e403 = null;
+  await store.salvarEstoque('moda', { 'camiseta|m': 5 }).catch((e) => { e403 = e; });
+  ok(e403 && e403.message === 'Essa loja não é sua.', 'recusado: o motivo do mensageiro chega a tela');
+}
+
 console.log('Mercado Pago: leitura que falhou nunca apaga a conexao');
 {
   const gravados = [];

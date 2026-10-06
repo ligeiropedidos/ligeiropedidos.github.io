@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-05';
+const VERSAO_MENSAGEIRO = '2026-10-06';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -111,7 +111,7 @@ async function avisarNovoContato(env, lead) {
   }
   const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const primeiro = String(lead.nome || '').split(' ')[0].slice(0, 30);
-  const resposta = 'Oi, ' + primeiro + '! Aqui é do Ligeiro. Vi o seu contato e já posso montar a sua loja. Me manda o nome da loja e uma foto do seu cardápio?';
+  const resposta = 'Oi, ' + primeiro + '! Aqui é do Ligeiro. Vi o seu contato e já posso montar a sua loja. Me manda o nome da loja e uma foto do cardápio ou dos produtos?';
   const zap = 'https://wa.me/55' + lead.whatsapp + '?text=' + encodeURIComponent(resposta);
   const onde = [lead.loja, lead.cidade && (lead.cidade + (lead.uf ? '/' + lead.uf : ''))].filter(Boolean).join(' · ');
   const texto = 'Novo contato no Ligeiro: ' + lead.nome + (onde ? ' (' + onde + ')' : '') + '. WhatsApp ' + lead.whatsapp + '. Veio de: ' + (lead.origem || 'site') + ' ' + (lead.pagina || '') + '. Responder agora: ' + zap;
@@ -521,6 +521,10 @@ const REGRAS = (function () {
         }
         /* o tamanho escolhido acabou (o dono desligou): avisa, em vez de trocar pelo padrao calado */
         if (!escolhido && pediuTamanho && !tolerante) throw opcaoQueAcabou(loja, produto, bruto.tamanho);
+        /* no comercio o tamanho e escolha do cliente (roupa nao tem "tamanho padrao") */
+        if (!escolhido && !pediuTamanho && !tolerante && segmento(loja) === 'comercio') {
+          throw ErroDoCliente('Escolha o ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".');
+        }
         if (!escolhido) {
           for (var d = 0; d < grupoTamanho.opcoes.length; d++) {
             if (grupoTamanho.opcoes[d].padrao) escolhido = grupoTamanho.opcoes[d];
@@ -556,7 +560,7 @@ const REGRAS = (function () {
             unitario += Number(opcao.preco) || 0;
           }
           if (grupoAdicionais.max && nesteGrupo > grupoAdicionais.max) {
-            throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'adicionais') + '" por item.');
+            throw ErroDoCliente('Máximo de ' + grupoAdicionais.max + ' em "' + (grupoAdicionais.titulo || 'opções') + '" por item.');
           }
         }
         /* adicional escolhido que acabou (desligado ou apagado): avisa, em vez de sumir do pedido calado */
@@ -704,14 +708,15 @@ const REGRAS = (function () {
     }
 
     var noBalcao = dados.origem === 'balcao';
+    var retiraOnde = catalogo(loja).retirada;
     if (lojaBloqueada(loja, instante || agora)) throw ErroDoCliente('Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.');
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     if (tipoEntrega === 'entrega' && loja.aceitaEntrega === false) {
-      throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar no balcão.');
+      throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar ' + retiraOnde + '.');
     }
     /* No tablet do balcao a pessoa esta na loja: retirada vale mesmo com "so entrega" ligado. */
     if (tipoEntrega === 'retirada' && loja.aceitaRetirada === false && !noBalcao) {
-      throw ErroDoCliente('A retirada no balcão está indisponível agora.');
+      throw ErroDoCliente('A retirada ' + retiraOnde + ' está indisponível agora.');
     }
 
     var nome = limparTexto(dados.nome, 80);
@@ -761,7 +766,7 @@ const REGRAS = (function () {
     /* "Quem retira pode pagar no balcao": sem o campo gravado vale ligado, como o painel mostra (so false desliga) */
     if (naPorta && tipoEntrega !== 'entrega' && loja.aceitaPagarNoBalcao === false && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
-      throw ErroDoCliente('Para retirar no balcão, pague no Pix.');
+      throw ErroDoCliente('Para retirar ' + retiraOnde + ', pague no Pix.');
     }
 
     var trocoPara = 0;
@@ -815,6 +820,8 @@ const REGRAS = (function () {
     };
     /* so aparece quando existe: o pedido comum continua com os mesmos campos de sempre */
     if (orcamento.acrescimoCartao > 0) pedido.acrescimoCartao = orcamento.acrescimoCartao;
+    /* loja de comercio: o pedido leva a marca, e os textos que so tem o pedido (WhatsApp, aviso, ficha, equipe) falam de separar, nao de cozinha */
+    if (segmento(loja) === 'comercio') pedido.segmento = 'comercio';
     return pedido;
   }
 
@@ -869,12 +876,18 @@ const REGRAS = (function () {
      antes, devolvidoEm com o pagamentoStatus ainda 'pago' */
   function dinheiroDevolvido(pedido) { return !!pedido && (pedido.pagamentoStatus === 'devolvido' || !!pedido.devolvidoEm); }
 
+  /* pedido de loja de comercio (o pedido nasce marcado; sem a marca, vale a loja, quando vier) */
+  function pedidoDeComercio(pedido, loja) { return !!(pedido && pedido.segmento === 'comercio') || (!!loja && segmento(loja) === 'comercio'); }
+  /* "senha 12" na comida, "pedido nº 12" no comercio */
+  function refPedido(pedido, loja) { return (pedidoDeComercio(pedido, loja) ? 'pedido nº ' : 'senha ') + pedido.senha; }
+
   function rotuloStatus(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
+    var com = pedidoDeComercio(pedido);
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : pixCombinado(pedido) ? 'Pix a combinar' : 'Aguardando ' + nomeDoPagamento(pedido);
-      case STATUS.PAGO: return 'Novo, preparar';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PAGO: return com ? 'Novo, separar' : 'Novo, preparar';
+      case STATUS.PRODUCAO: return com ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
@@ -888,7 +901,7 @@ const REGRAS = (function () {
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : pixCombinado(pedido) ? 'Combinando o Pix' : 'Esperando o Pix';
       case STATUS.PAGO: return 'Na fila da loja';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
@@ -898,6 +911,7 @@ const REGRAS = (function () {
 
   function textoDoEstagio(pedido, loja) {
     var entrega = pedido.tipoEntrega === 'entrega';
+    var com = pedidoDeComercio(pedido, loja);
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
@@ -909,13 +923,13 @@ const REGRAS = (function () {
       case STATUS.PAGO:
         return entrega
           ? 'Pedido na fila! Chega em cerca de ' + tempo + ' minutos.'
-          : 'Mostre esta senha no balcão. Fica pronto em cerca de ' + tempo + ' minutos.';
+          : (com ? 'Mostre o número do pedido na loja. Fica separado em cerca de ' : 'Mostre esta senha no balcão. Fica pronto em cerca de ') + tempo + ' minutos.';
       case STATUS.PRODUCAO:
-        return 'Estão preparando o seu pedido agora.';
+        return com ? 'A loja está separando o seu pedido agora.' : 'Estão preparando o seu pedido agora.';
       case STATUS.PRONTO:
         return entrega ? 'Saiu para entrega! Já está a caminho.' : 'Está pronto! Pode vir buscar.';
       case STATUS.FINALIZADO:
-        return entrega ? 'Entregue. Bom apetite!' : 'Retirado. Bom apetite!';
+        return com ? (entrega ? 'Entregue. Obrigado pela compra!' : 'Retirado. Obrigado pela compra!') : (entrega ? 'Entregue. Bom apetite!' : 'Retirado. Bom apetite!');
       case STATUS.CANCELADO:
         return 'Este pedido foi cancelado. Fale com a loja pelo WhatsApp se tiver dúvida.';
       default:
@@ -929,7 +943,7 @@ const REGRAS = (function () {
     switch (pedido.status) {
       /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento") */
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
-      case STATUS.PAGO: return 'Começar a fazer';
+      case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
       default: return '';
@@ -978,25 +992,26 @@ const REGRAS = (function () {
     var entrega = pedido.tipoEntrega === 'entrega';
     var oi = 'Oi, ' + primeiro + '! Aqui é da ' + loja.nome + '. ';
     var tempo = entrega ? (loja.tempoEntrega || 40) : (loja.tempoPreparo || 20);
+    var com = pedidoDeComercio(pedido, loja), ref = refPedido(pedido, loja);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
-        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
+        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (' + ref + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
+        return oi + 'Recebemos seu pedido (' + ref + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
-        return oi + 'Recebemos seu pedido (senha ' + pedido.senha + ') e ele já está na fila. ' +
-          (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : 'Fica pronto em cerca de ' + tempo + ' minutos.');
+        return oi + 'Recebemos seu pedido (' + ref + ') e ele já está na fila. ' +
+          (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : (com ? 'Fica separado em cerca de ' : 'Fica pronto em cerca de ') + tempo + ' minutos.');
       case STATUS.PRODUCAO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') já está sendo preparado. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
+        return oi + 'Seu pedido (' + ref + ') já está sendo ' + (com ? 'separado. ' : 'preparado. ') + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
       case STATUS.PRONTO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
+        return oi + 'Seu pedido (' + ref + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
       case STATUS.FINALIZADO:
         /* com o link do Google: o agradecimento ja pede a avaliacao (e o que faz a loja subir no Maps) */
         var avaliar = linkGoogleAvaliar(loja.googleUrl);
-        return oi + 'Obrigado pelo pedido! Bom apetite.' + (avaliar ? ' Se gostou, deixe sua avaliação no Google, ajuda muito a gente: ' + avaliar : ' Qualquer coisa, é só chamar aqui.');
+        return oi + (com ? 'Obrigado pela compra!' : 'Obrigado pelo pedido! Bom apetite.') + (avaliar ? ' Se gostou, deixe sua avaliação no Google, ajuda muito a gente: ' + avaliar : ' Qualquer coisa, é só chamar aqui.');
       case STATUS.CANCELADO:
-        return oi + 'Seu pedido (senha ' + pedido.senha + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
+        return oi + 'Seu pedido (' + ref + ') foi cancelado. Se tiver dúvida, é só responder aqui.';
       default:
-        return oi + 'É sobre o seu pedido de senha ' + pedido.senha + '.';
+        return oi + 'É sobre o seu pedido (' + ref + ').';
     }
   }
   /* O que o botao do WhatsApp do pedido manda agora (curto: cabe no botao do celular). */
@@ -1005,7 +1020,7 @@ const REGRAS = (function () {
     switch (pedido.status) {
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) ? 'Combinar o Pix' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
-      case STATUS.PRODUCAO: return 'Preparando';
+      case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return 'Agradecer';
       case STATUS.CANCELADO: return 'Pedido cancelado';
@@ -1023,14 +1038,15 @@ const REGRAS = (function () {
         : pixCombinado(pedido)
           ? (pedido.status === STATUS.AGUARDANDO ? 'Quero pagar no Pix: pode me mandar a chave?' : 'Já paguei no Pix.')
           : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
-    return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *senha ' + pedido.senha + '* pelo site da ' +
+    return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *' + (pedidoDeComercio(pedido, loja) ? 'nº ' : 'senha ') + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
   }
 
   /* Ficha completa do pedido em texto, para a loja copiar ou imprimir. */
   function fichaDoPedido(loja, pedido) {
     var l = [];
-    l.push('*' + loja.nome.toUpperCase() + ' · SENHA ' + pedido.senha + '*');
+    var com = pedidoDeComercio(pedido, loja);
+    l.push('*' + loja.nome.toUpperCase() + (com ? ' · PEDIDO Nº ' : ' · SENHA ') + pedido.senha + '*');
     l.push(rotuloStatus(pedido) + ' • ' + horaCurta(pedido.criadoEm));
     l.push('');
     l.push('*Cliente:* ' + umaLinha(pedido.cliente.nome));
@@ -1043,7 +1059,7 @@ const REGRAS = (function () {
       l.push('Bairro: ' + umaLinha(e.bairro));
       if (e.referencia) l.push('Referência: ' + umaLinha(e.referencia));
     } else {
-      l.push('*RETIRADA NO BALCÃO*');
+      l.push(com ? '*RETIRADA NA LOJA*' : '*RETIRADA NO BALCÃO*');
     }
     l.push('');
     l.push('*ITENS*');
@@ -1280,18 +1296,140 @@ const REGRAS = (function () {
     return planoPorId(conta && conta.plano ? planoQueVale(conta) : 'uma').lojas;
   }
 
-  /* Como a loja chama a lista do que vende: comida fala "cardapio"; o resto (roupa, presente, servico) fala "catalogo". */
-  var TIPOS_DE_COMIDA = ['lanchonete', 'pizzaria', 'pizza cone', 'marmitaria', 'restaurante', 'sorveteria', 'açaí', 'acai', 'padaria', 'espetinho', 'sushi', 'hamburgueria', 'pastelaria', 'doceria', 'cafeteria', 'bar'];
-  function catalogo(loja) {
+  /* Segmento da loja. Comida (lanchonete, pizzaria...) e comercio (roupa, calcado, presente, mercado...) mudam o
+     vocabulario do site, do painel e da equipe ("catalogo" no lugar de "cardapio", "separando" no lugar de
+     "preparando"), o tamanho obrigatorio e o estoque. Tipo vazio ou desconhecido e comida, como sempre foi; o "Outro"
+     antigo do cadastro (o do garfo e faca, entre as comidas) tambem continua comida */
+  var TIPOS_DE_COMIDA = ['lanchonete', 'pizzaria', 'pizza cone', 'marmitaria', 'restaurante', 'sorveteria', 'açaí', 'acai', 'padaria', 'espetinho', 'sushi', 'hamburgueria', 'pastelaria', 'doceria', 'cafeteria', 'bar', 'outro', 'outra comida'];
+  var TIPOS_DE_COMERCIO_NOMES = ['roupas', 'calçados', 'calcados', 'acessórios', 'acessorios', 'cosméticos', 'cosmeticos', 'presentes', 'eletrônicos', 'eletronicos', 'pet shop', 'mercado', 'outro comércio', 'outro comercio'];
+  function segmento(loja) {
     var tipo = String((loja && loja.tipo) || '').trim().toLowerCase();
-    var comida = !tipo || TIPOS_DE_COMIDA.indexOf(tipo) >= 0;
-    return comida ? { comida: true, nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️' } : { comida: false, nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️' };
+    return tipo && TIPOS_DE_COMERCIO_NOMES.indexOf(tipo) >= 0 ? 'comercio' : 'comida';
+  }
+  /* Como a loja chama as coisas. Os campos de sempre (comida, nome, Nome, icone, vazio) seguem iguais */
+  function catalogo(loja) {
+    if (segmento(loja) === 'comida') {
+      return {
+        comida: true, segmento: 'comida', nome: 'cardápio', Nome: 'Cardápio', icone: '🍔', vazio: '🍽️',
+        preparando: 'Preparando', preparandoFrase: 'Estão preparando o seu pedido agora.',
+        tela: 'Cozinha', naTela: 'na cozinha', aTela: 'a cozinha',
+        tempoRotulo: 'Tempo de preparo', prontoEm: 'Fica pronto em', maisPedidos: 'Os mais pedidos',
+        observacaoEx: 'Ex.: sem cebola, bem passado', itemEx: 'Ex.: X-Burguer', categoriaEx: 'Ex.: Lanches',
+        pagouEntra: 'Pagou, confirmou: esta tela muda sozinha e o pedido já entra na cozinha.',
+        senha: 'Senha', suaSenha: 'Sua senha', pelaSenha: 'pela senha', aSenha: 'a senha',
+        iconePreparo: 'fogo', iconeTela: 'chef', iconeCatalogo: 'cardapio',
+        novos: 'Novos, para começar', paraFazer: 'Para fazer', fazendo: 'Fazendo agora', nadaFazendo: 'Nada no fogo ainda.', retirada: 'no balcão',
+      };
+    }
+    return {
+      comida: false, segmento: 'comercio', nome: 'catálogo', Nome: 'Catálogo', icone: '🛍️', vazio: '🛍️',
+      preparando: 'Separando', preparandoFrase: 'A loja está separando o seu pedido agora.',
+      tela: 'Separação', naTela: 'na separação', aTela: 'a separação',
+      tempoRotulo: 'Tempo para separar', prontoEm: 'Fica separado em', maisPedidos: 'Os mais vendidos',
+      observacaoEx: 'Ex.: é para presente', itemEx: 'Ex.: Camiseta básica preta', categoriaEx: 'Ex.: Camisetas',
+      pagouEntra: 'Pagou, confirmou: esta tela muda sozinha e a loja já recebe o pedido.',
+      senha: 'Pedido nº', suaSenha: 'Seu pedido nº', pelaSenha: 'pelo número do pedido', aSenha: 'o número do pedido',
+      iconePreparo: 'caixa', iconeTela: 'caixa', iconeCatalogo: 'sacola',
+      novos: 'Novos, para separar', paraFazer: 'Para separar', fazendo: 'Separando agora', nadaFazendo: 'Nada sendo separado ainda.', retirada: 'na loja',
+    };
+  }
+
+  /* ------------------------------------------------------------
+   * Estoque (so nos produtos com "Controlar estoque" ligado)
+   * Quantidades no documento lojas/{slug}/contadores/estoque, campo q: { "<produto>": n } ou, quando a categoria tem
+   * tamanho, { "<produto>|<tamanho>": n }. O mensageiro desconta no mesmo lote em que o pedido nasce.
+   * ---------------------------------------------------------- */
+  var ESTOQUE_POUCO = 3;
+  function chaveEstoque(produtoId, tamanhoId) {
+    return tamanhoId ? String(produtoId) + '|' + String(tamanhoId) : String(produtoId);
+  }
+  function controlaEstoque(produto) { return !!(produto && produto.controlaEstoque === true); }
+  /* quanto o pedido tira de cada chave: { chave: quantidade }, so dos produtos que controlam estoque */
+  function estoqueDoPedido(loja, itens) {
+    var tira = {};
+    (itens || []).forEach(function (it) {
+      var produto = buscarProduto(loja, String(it.produtoId));
+      if (!controlaEstoque(produto)) return;
+      var k = chaveEstoque(produto.id, it.tamanho && it.tamanho.id);
+      tira[k] = (tira[k] || 0) + (Math.floor(Number(it.quantidade)) || 0);
+    });
+    return tira;
+  }
+  /* o que falta: [{ chave, nome, tamanho, pediu, tem }] (tem = 0 quando a chave nem existe: produto controlado sem quantidade) */
+  function faltaNoEstoque(loja, itens, q) {
+    var tira = estoqueDoPedido(loja, itens), falta = [];
+    q = q || {};
+    Object.keys(tira).forEach(function (k) {
+      var tem = Math.max(0, Math.floor(Number(q[k])) || 0);
+      if (tira[k] > tem) {
+        var partes = k.split('|'), produto = buscarProduto(loja, partes[0]) || {}, tamanho = '';
+        if (partes[1]) (itens || []).forEach(function (it) { if (it.tamanho && it.tamanho.id === partes[1]) tamanho = it.tamanho.nome; });
+        falta.push({ chave: k, nome: produto.nome || '', tamanho: tamanho, pediu: tira[k], tem: tem });
+      }
+    });
+    return falta;
+  }
+  /* a frase para o cliente: "Só tem 2 de Camiseta preta (M)." / "Camiseta preta (M) esgotou." */
+  function fraseFaltaEstoque(falta) {
+    return (falta || []).map(function (f) {
+      var nome = f.nome + (f.tamanho ? ' (' + f.tamanho + ')' : '');
+      return f.tem > 0 ? 'Só tem ' + f.tem + ' de ' + nome + '.' : nome + ' esgotou.';
+    }).join(' ');
+  }
+  /* o que mostrar no site para uma chave: { esgotado, pouco, tem } (null = sem controle) */
+  function situacaoEstoque(produto, q, tamanhoId) {
+    if (!controlaEstoque(produto)) return null;
+    var tem = Math.max(0, Math.floor(Number((q || {})[chaveEstoque(produto.id, tamanhoId)])) || 0);
+    return { tem: tem, esgotado: tem <= 0, pouco: tem > 0 && tem <= ESTOQUE_POUCO };
+  }
+
+  /* o tamanho (grupo de escolha unica) da categoria do produto, se tiver */
+  function grupoTamanho(loja, produto) {
+    return produto ? gruposDaCategoria(loja, produto.categoria).filter(function (g) { return g.tipo === 'unico'; })[0] || null : null;
+  }
+  /* o produto inteiro no site (cartao da grade): com tamanho, soma os tamanhos. { tem, esgotado, pouco } ou null */
+  function situacaoDoProduto(loja, produto, q) {
+    if (!controlaEstoque(produto)) return null;
+    var tam = grupoTamanho(loja, produto);
+    if (!tam) return situacaoEstoque(produto, q);
+    var soma = 0;
+    tam.opcoes.forEach(function (o) { soma += situacaoEstoque(produto, q, o.id).tem; });
+    return { tem: soma, esgotado: soma <= 0, pouco: soma > 0 && soma <= ESTOQUE_POUCO };
+  }
+  /* a chave de estoque de um item do carrinho ('' quando o produto nao controla estoque) */
+  function chaveDoItem(loja, item) {
+    var produto = item && buscarProduto(loja, String(item.produtoId));
+    if (!controlaEstoque(produto)) return '';
+    var tamanho = item.tamanho && typeof item.tamanho === 'object' ? item.tamanho.id : item.tamanho;
+    return chaveEstoque(produto.id, grupoTamanho(loja, produto) ? tamanho : '');
+  }
+  /* o carrinho dentro do estoque: o que esgotou sai, o que passou baixa para o que tem. { itens, avisos } (itens novos,
+     o carrinho de quem chamou fica como estava) */
+  function ajustarAoEstoque(loja, itens, q) {
+    var usado = {}, avisos = [], saida = [];
+    (itens || []).forEach(function (it) {
+      var k = chaveDoItem(loja, it);
+      if (!k) { saida.push(it); return; }
+      var produto = buscarProduto(loja, String(it.produtoId)) || {};
+      var partes = k.split('|'), tam = grupoTamanho(loja, produto), opcao = null;
+      if (partes[1] && tam) opcao = tam.opcoes.filter(function (o) { return o.id === partes[1]; })[0] || null;
+      var nome = produto.nome + (opcao ? ' (' + opcao.nome + ')' : '');
+      var tem = Math.max(0, (Math.floor(Number((q || {})[k])) || 0) - (usado[k] || 0));
+      if (tem <= 0) { avisos.push(nome + ' esgotou e saiu do pedido.'); return; }
+      var qtd = Math.floor(Number(it.quantidade)) || 0;
+      if (qtd > tem) { avisos.push('Só tinha ' + tem + ' de ' + nome + ', então ficou ' + tem + '.'); it = Object.assign({}, it, { quantidade: tem }); qtd = tem; }
+      usado[k] = (usado[k] || 0) + qtd;
+      saida.push(it);
+    });
+    return { itens: saida, avisos: avisos };
   }
 
   /* Tipo da loja pra mostrar ao cliente: "Outro" nao diz nada, vira "Loja". */
   function tipoVisivel(loja) {
     var t = String((loja && loja.tipo) || '').trim();
-    return !t || t.toLowerCase() === 'outro' ? 'Loja' : t;
+    var outro = !t || ['outro', 'outra comida', 'outro comércio', 'outro comercio'].indexOf(t.toLowerCase()) >= 0;
+    var livre = umaLinha((loja && loja.tipoNome) || '').trim().slice(0, 24);
+    return outro ? (livre || 'Loja') : t;
   }
 
   /* Pedido esperando Pix que ja passou do prazo (30 min do codigo; 35 min se o codigo nem chegou a ser gerado). */
@@ -1599,10 +1737,27 @@ const REGRAS = (function () {
 
   /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central.
      O emoji vira o da loja: sempre de comida (o "Outro" era uma moto, que nao e comida) */
-  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outro', '🍴']];
+  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outra comida', '🍴']];
+  /* comercio: o emoji e o do produto da loja (como o das comidas acima) */
+  var TIPOS_DE_COMERCIO = [['Roupas', '👕'], ['Calçados', '👟'], ['Acessórios', '👜'], ['Cosméticos', '💄'], ['Presentes', '🎁'], ['Eletrônicos', '📱'], ['Pet shop', '🐾'], ['Mercado', '🛒'], ['Outro comércio', '🛍️']];
 
   return {
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
+    TIPOS_DE_COMERCIO: TIPOS_DE_COMERCIO,
+    segmento: segmento,
+    pedidoDeComercio: pedidoDeComercio,
+    refPedido: refPedido,
+    ESTOQUE_POUCO: ESTOQUE_POUCO,
+    chaveEstoque: chaveEstoque,
+    controlaEstoque: controlaEstoque,
+    estoqueDoPedido: estoqueDoPedido,
+    faltaNoEstoque: faltaNoEstoque,
+    fraseFaltaEstoque: fraseFaltaEstoque,
+    situacaoEstoque: situacaoEstoque,
+    situacaoDoProduto: situacaoDoProduto,
+    chaveDoItem: chaveDoItem,
+    ajustarAoEstoque: ajustarAoEstoque,
+    grupoTamanho: grupoTamanho,
     DIAS_GRATIS: ASSINATURA.diasGratis,
     frasePagamento: frasePagamento,
     cartaoPeloSite: cartaoPeloSite,
@@ -1854,6 +2009,26 @@ export default {
           contarSeNaoExiste(m[1]);
           return resposta;
         }
+        /* estoque das lojas de comercio: so as quantidades (nunca quem reservou), guardadas 30 s na borda (cache do
+           Cloudflare, de graca). O pedido confere de novo no banco na hora: o numero daqui so mostra "ultimas" e "esgotado" */
+        m = /^\/estoque\/([a-z0-9-]{1,60})$/.exec(caminho);
+        if (m) {
+          if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
+          if (fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          const chaveCache = new Request('https://borda.ligeiropedidos.com.br/estoque/' + m[1]);
+          const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+          const guardada = cache ? await cache.match(chaveCache).catch(() => null) : null;
+          if (guardada) return pronto(await guardada.text(), 'public, max-age=20');
+          const item = await lerLoja(env, ctx, m[1]);
+          if (!item.existe) { contarFalta(ipF); return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' }); }
+          let lj = null;
+          try { lj = JSON.parse(item.corpo).loja; } catch (_) { lj = null; }
+          const controla = !!lj && Array.isArray(lj.produtos) && lj.produtos.some((x) => x && x.controlaEstoque === true);
+          const fbE = controla ? await firebase(env) : null;
+          const corpo = JSON.stringify({ borda: 1, q: controla ? estoqueLimpo(await fbE.get(caminhoEstoque(m[1]))).q : {} });
+          if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chaveCache, new Response(corpo, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' } })).catch(() => {}));
+          return pronto(corpo, 'public, max-age=20');
+        }
         if (caminho === '/vitrine') {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
@@ -1864,7 +2039,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -1881,6 +2056,52 @@ export default {
           if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chaveCache, new Response(corpo, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } })).catch(() => {}));
           return pronto(corpo, 'public, max-age=60');
         }
+      }
+
+      /* ---- estoque das lojas de comercio ---- */
+      if (caminho === '/estoque' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        if (!SLUG.test(c.loja || '') || !c.q || typeof c.q !== 'object') return json({ ok: false, erro: 'faltou a loja ou as quantidades' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
+        const quem = await quemChamou(env, request);
+        if (!quem) return json({ ok: false, erro: 'Entre na sua conta de novo.' }, 401);
+        if (demais('estoque:' + c.loja, 120, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas mudanças seguidas no estoque. Espere alguns minutos.' }, 429);
+        if (!(await ehDaLoja(env, c.loja, quem))) return json({ ok: false, erro: 'Essa loja não é sua.' }, 403);
+        const fb = await firebase(env);
+        /* so chaves de produto que existe e controla estoque (e do tamanho da categoria dele) */
+        let lj = null;
+        if (env.CARDAPIO) { const item = await lerLoja(env, ctx, c.loja); if (item.existe) { try { lj = JSON.parse(item.corpo).loja; } catch (_) { lj = null; } } }
+        let validas = lj ? chavesDeEstoque(lj) : {};
+        /* o dono acabou de ligar "Controlar estoque" e a copia da borda ainda nao chegou: confere no banco (1 leitura) */
+        if (!lj || Object.keys(c.q).slice(0, 2000).some((k) => !validas[k])) {
+          const doBanco = await fb.get('lojas/' + c.loja);
+          if (!doBanco && !lj) return json({ ok: false, erro: 'Essa loja não existe mais.' }, 404);
+          if (doBanco) validas = chavesDeEstoque(doBanco);
+        }
+        const mudar = {};
+        for (const k of Object.keys(c.q).slice(0, 2000)) {
+          const n = Math.floor(Number(c.q[k]));
+          if (validas[k] && n >= 0 && n <= 99999) mudar[k] = n;
+        }
+        if (!Object.keys(mudar).length) return json({ ok: false, erro: 'Nada para salvar: ligue "Controlar estoque" no item e salve o item antes.' }, 422);
+        for (let v = 0; v < 4; v++) {
+          const est = await fb.get(caminhoEstoque(c.loja), true);
+          const atual = estoqueLimpo(est);
+          const q = Object.assign({}, atual.q, mudar);
+          const agora = new Date().toISOString();
+          if (await fb.gravarJuntos([{ caminho: caminhoEstoque(c.loja), dados: { q: q, baixas: atual.baixas, atualizadoEm: agora }, trava: est ? { updateTime: est._atualizadoNoBanco } : { exists: false } }])) {
+            esquecerEstoque(c.loja);
+            return json({ ok: true, q: q });
+          }
+        }
+        return json({ ok: false, erro: 'Muitos pedidos entrando agora. Tente salvar de novo.' }, 503);
+      }
+      if (caminho === '/estoque/devolver' && request.method === 'POST') {
+        const c = await request.json().catch(() => ({}));
+        const loja = String(c.loja || ''), pid = String(c.pedido || '');
+        if (!SLUG.test(loja) || !PEDIDO_ID.test(pid)) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000) || demais('estoque-volta:' + loja, 300, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
+        return json(await devolverEstoque(await firebase(env), loja, pid));
       }
 
       /* ---- avisos no celular ---- */
@@ -1937,7 +2158,7 @@ export default {
         const gravado = await (await firebase(env)).get('lojas/' + c.loja + '/pedidos/' + c.pedido);
         if (!gravado) return json({ ok: false, erro: 'pedido não existe' }, 404);
         if (gravado.status !== 'pago') return json({ ok: true, enviados: 0 });
-        const p = { id: c.pedido, senha: String(gravado.senha == null ? '' : gravado.senha).replace(/\D/g, '').slice(0, 6), total: Math.max(0, Math.round(Number(gravado.total) || 0)), tipoEntrega: gravado.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: gravado.origem === 'balcao' ? 'balcao' : '' };
+        const p = { id: c.pedido, senha: String(gravado.senha == null ? '' : gravado.senha).replace(/\D/g, '').slice(0, 6), total: Math.max(0, Math.round(Number(gravado.total) || 0)), tipoEntrega: gravado.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: gravado.origem === 'balcao' ? 'balcao' : '', segmento: gravado.segmento === 'comercio' ? 'comercio' : '' };
         const enviados = await avisarAparelhos(env, c.loja, aparelhos, (a) => avisoDaLoja(p, c.loja, temPapel(a, 'painel') ? 'painel' : 'cozinha', false));
         return json({ ok: true, enviados: enviados });
       }
@@ -2123,7 +2344,7 @@ export default {
         const nome = typeof l.nome === 'string' ? l.nome.trim().slice(0, 80) : '';
         if (!nome) return json({ ok: false, erro: 'Falta o nome da loja.' }, 400);
         if ((Array.isArray(l.categorias) && l.categorias.length > 20) || (Array.isArray(l.produtos) && l.produtos.length > 300)
-          || ('grupos' in l && (!ehMapa(l.grupos) || Object.keys(l.grupos).length > 30))) return json({ ok: false, erro: 'O cardápio passou do limite (20 categorias, 300 itens, 30 grupos de opções).' }, 400);
+          || ('grupos' in l && (!ehMapa(l.grupos) || Object.keys(l.grupos).length > 30))) return json({ ok: false, erro: (REGRAS.segmento(l) === 'comercio' ? 'O catálogo' : 'O cardápio') + ' passou do limite (20 categorias, 300 itens, 30 grupos de opções).' }, 400);
         const doc = Object.assign({}, l);
         ['email', 'verificada', 'senhaEquipeEm', 'cupons', 'plano', 'donoEmail', 'ativa', 'slug', 'cidadeSlug', 'criadoEm', 'atualizadoEm', 'senhaPainel'].forEach((k) => { delete doc[k]; });
         /* "amostra" tira a loja da conta das vagas: so a conta do Ligeiro decide */
@@ -2344,6 +2565,10 @@ export default {
         /* senha do dia, uso do cupom e o pedido: um lote so, com trava (dois pedidos juntos nunca pegam a mesma senha) */
         const codigo = pedido.desconto > 0 && pedido.cupom ? String(pedido.cupom) : '';
         const regraCupom = codigo ? ((l.cupons || []).filter((x) => x.codigo === codigo)[0] || null) : null;
+        /* estoque (lojas de comercio): o que este pedido tira de cada produto/tamanho. Vai junto no pedido (a devolucao sabe o que voltar) */
+        const tiraEstoque = REGRAS.estoqueDoPedido(l, pedido.itens);
+        const comEstoque = Object.keys(tiraEstoque).length > 0;
+        if (comEstoque) pedido.estoque = tiraEstoque;
         let id = chave || idAleatorio(20);
         let completo = null;
         for (let tentativa = 0; tentativa < 5 && !completo; tentativa++) {
@@ -2374,6 +2599,18 @@ export default {
             if (regraCupom && regraCupom.limite > 0 && usos >= regraCupom.limite) return json({ erro: 'Esse código já foi todo usado.' }, 422);
             escritas.push({ caminho: lojaDoc + '/contadores/cupom-' + codigo, dados: { usos: usos + 1, pedidos: (quem || []).concat(id).slice(-200), atualizadoEm: quando }, trava: uso ? { updateTime: uso._atualizadoNoBanco } : { exists: false } });
           }
+          if (comEstoque) {
+            /* a conta do estoque e a do banco agora, com trava: dois clientes nunca levam a ultima peca */
+            const est = await fb.get(caminhoEstoque(loja), true);
+            const atual = estoqueLimpo(est);
+            const falta = REGRAS.faltaNoEstoque(l, pedido.itens, atual.q);
+            if (falta.length) return json({ erro: REGRAS.fraseFaltaEstoque(falta) + ' Ajuste o carrinho e tente de novo.', estoque: falta.map((f) => ({ chave: f.chave, tem: f.tem })) }, 409);
+            const q = Object.assign({}, atual.q);
+            Object.keys(tiraEstoque).forEach((k) => { q[k] = q[k] - tiraEstoque[k]; });
+            const baixas = baixasRecentes(atual.baixas, Date.now());
+            baixas[id] = { i: tiraEstoque, em: quando };
+            escritas.push({ caminho: caminhoEstoque(loja), dados: { q: q, baixas: baixas, atualizadoEm: quando }, trava: est ? { updateTime: est._atualizadoNoBanco } : { exists: false } });
+          }
           const doc = Object.assign({}, pedido, { id: id, senha: senha.ultima });
           escritas.push({ caminho: lojaDoc + '/pedidos/' + id, dados: doc, trava: { exists: false } });
           if (await fb.gravarJuntos(escritas)) { completo = doc; break; }
@@ -2386,6 +2623,7 @@ export default {
           }
         }
         if (!completo) return json({ erro: 'Muita gente pedindo agora. Toque em enviar de novo.' }, 503);
+        if (comEstoque) esquecerEstoque(loja);
         /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo. Pix combinado com a
            loja: so o painel (a loja precisa combinar e confirmar; a cozinha so ve depois de pago) */
         const combinado = completo.formaPagamento === 'pix_combinado' && completo.status === 'aguardando_pagamento';
@@ -2417,7 +2655,7 @@ export default {
            banco (o criadoEm e o relogio do aparelho) */
         if (Date.now() - nasceuEm(p) > 40 * 60 * 1000) return json({ erro: 'esse pedido passou do prazo do Pix' }, 409);
         /* o valor tem que ser o do cardapio: pedido gravado direto no banco com total inventado nao vira Pix */
-        if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'O cardápio mudou ou o valor do pedido não confere. Monte o pedido de novo.' }, 409);
+        if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'A loja mudou algum item ou preço, e o valor do pedido não confere. Monte o pedido de novo.' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
         /* nome da loja (sobrenome de quem pediu com um nome so): da copia da borda, sem ler o banco */
@@ -2511,7 +2749,7 @@ export default {
           return json({ status: 'recusado', motivo: p.cobrancaIncerta ? 'Ainda estamos confirmando o pagamento anterior com o banco. Espere alguns minutos: se ele passar, o pedido entra sozinho.' : 'Um pagamento deste pedido já está em andamento. Espere um instante.' });
         }
         /* o valor tem que ser o do cardapio: pedido gravado direto no banco com total inventado nao e cobrado */
-        if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'O cardápio mudou ou o valor do pedido não confere. Monte o pedido de novo.' }, 409);
+        if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'A loja mudou algum item ou preço, e o valor do pedido não confere. Monte o pedido de novo.' }, 409);
         const token = await tokenDaLoja(fb, loja, env);
         if (!token) return json({ erro: 'a loja não ligou o cartão' }, 409);
         /* a cobranca anterior deste pedido pode ter passado depois (analise do banco, resposta que nao chegou): pergunta
@@ -2973,7 +3211,7 @@ async function servirFoto(env, ctx, slug, id) {
 function camposDaVitrine(texto) {
   try {
     const x = JSON.parse(texto).loja || {};
-    return JSON.stringify([x.aberta, x.usarHorarios, x.horarios, x.nome, x.tipo, x.emoji, x.descricao, x.logoDados, x.logoUrl, x.capa, x.capaUrl, x.cor,
+    return JSON.stringify([x.aberta, x.usarHorarios, x.horarios, x.nome, x.tipo, x.tipoNome, x.emoji, x.descricao, x.logoDados, x.logoUrl, x.capa, x.capaUrl, x.cor,
       x.tempoEntrega, x.tempoPreparo, x.aceitaEntrega, x.aceitaRetirada, x.freteGratis, x.taxaEntrega, x.entregaGratisAcima, x.ativa, x.cidadeSlug, x.plano]);
   } catch (_) { return ''; }
 }
@@ -3153,6 +3391,94 @@ async function quemChamou(env, request) {
   MEM.quem[idToken] = quem;
   return quem;
 }
+/* ---------- estoque das lojas de comercio: lojas/{slug}/contadores/estoque { q, baixas, atualizadoEm } ----------
+   q: quantidade por chave ("<produto>" ou "<produto>|<tamanho>"); baixas: o que cada pedido reservou ({ i: {chave: n}, em }),
+   para a devolucao saber o que voltar e nunca devolver duas vezes. So o mensageiro grava (regras do banco: contadores) */
+const CHAVE_ESTOQUE = /^[A-Za-z0-9_-]{1,60}(\|[A-Za-z0-9_-]{1,60})?$/;
+function caminhoEstoque(slug) { return 'lojas/' + slug + '/contadores/estoque'; }
+function estoqueLimpo(doc) {
+  const q = {}, baixas = {};
+  const d = doc || {};
+  Object.keys(d.q || {}).forEach((k) => { const n = Math.floor(Number(d.q[k])); if (CHAVE_ESTOQUE.test(k) && n >= 0 && n <= 99999) q[k] = n; });
+  Object.keys(d.baixas || {}).forEach((pid) => { const b = d.baixas[pid]; if (PEDIDO_ID.test(pid) && b && typeof b === 'object' && b.i && typeof b.i === 'object') baixas[pid] = { i: b.i, em: String(b.em || '') }; });
+  return { q: q, baixas: baixas };
+}
+/* reserva de mais de 7 dias sai da lista: pedido entregue faz tempo nao volta sozinho para o estoque (o dono acerta a mao) */
+function baixasRecentes(baixas, agoraMs) {
+  const fica = {};
+  Object.keys(baixas || {}).forEach((pid) => { const em = Date.parse(baixas[pid].em || ''); if (!isNaN(em) && agoraMs - em < 7 * 864e5) fica[pid] = baixas[pid]; });
+  return fica;
+}
+/* as chaves que a loja pode ter: produto que controla estoque, e por tamanho quando a categoria dele tem tamanho */
+function chavesDeEstoque(loja) {
+  const validas = {};
+  (loja.produtos || []).forEach((pr) => {
+    if (!pr || pr.controlaEstoque !== true || !pr.id) return;
+    const grupos = ((loja.gruposPorCategoria || {})[pr.categoria] || []).map((g) => (loja.grupos || {})[g]).filter(Boolean);
+    const tam = grupos.filter((g) => g.tipo === 'unico')[0];
+    if (tam && Array.isArray(tam.opcoes) && tam.opcoes.length) tam.opcoes.forEach((o) => { if (o && o.id) validas[pr.id + '|' + o.id] = true; });
+    else validas[pr.id] = true;
+  });
+  return validas;
+}
+function esquecerEstoque(slug) {
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  if (cache) cache.delete(new Request('https://borda.ligeiropedidos.com.br/estoque/' + slug)).catch(() => {});
+}
+/* pedido cancelado: o que ele reservou volta para o estoque, uma vez so (a reserva sai da lista no mesmo lote) */
+async function devolverEstoque(fb, loja, pid) {
+  const caminhoP = 'lojas/' + loja + '/pedidos/' + pid;
+  for (let v = 0; v < 4; v++) {
+    const ped = await fb.get(caminhoP, true);
+    if (!ped) return { ok: false, erro: 'pedido não encontrado' };
+    if (ped.status !== 'cancelado') return { ok: false, erro: 'o pedido não está cancelado' };
+    const est = await fb.get(caminhoEstoque(loja), true);
+    const atual = estoqueLimpo(est);
+    const b = atual.baixas[pid];
+    if (!est || !b) {
+      if (ped.estoque && ped.estoqueDevolvido !== true) await fb.gravarJuntos([{ caminho: caminhoP, dados: { estoqueDevolvido: true }, mascara: ['estoqueDevolvido'], trava: { updateTime: ped._atualizadoNoBanco } }]).catch(() => false);
+      return { ok: true, ja: true };
+    }
+    const q = Object.assign({}, atual.q);
+    Object.keys(b.i).forEach((k) => { if (CHAVE_ESTOQUE.test(k)) q[k] = Math.min(99999, (q[k] || 0) + Math.max(0, Math.floor(Number(b.i[k])) || 0)); });
+    const baixas = Object.assign({}, atual.baixas);
+    delete baixas[pid];
+    const agora = new Date().toISOString();
+    const gravou = await fb.gravarJuntos([
+      { caminho: caminhoEstoque(loja), dados: { q: q, baixas: baixas, atualizadoEm: agora }, trava: { updateTime: est._atualizadoNoBanco } },
+      { caminho: caminhoP, dados: { estoqueDevolvido: true }, mascara: ['estoqueDevolvido'], trava: { updateTime: ped._atualizadoNoBanco } },
+    ]);
+    if (gravou) { esquecerEstoque(loja); return { ok: true, devolvido: b.i }; }
+  }
+  return { ok: false, erro: 'Muitos pedidos mexendo no estoque agora. Tente de novo.' };
+}
+/* pagou depois de cancelar: reserva de novo o que o pedido tinha (se a reserva ainda estava de pe, nada muda).
+   Sem estoque: o pedido fica marcado estoqueFaltou e o painel avisa a loja (o dinheiro ja entrou) */
+async function reservarDeNovo(fb, loja, pid, tira) {
+  const caminhoP = 'lojas/' + loja + '/pedidos/' + pid;
+  for (let v = 0; v < 4; v++) {
+    const est = await fb.get(caminhoEstoque(loja), true);
+    const atual = estoqueLimpo(est);
+    if (atual.baixas[pid]) return true;
+    const q = Object.assign({}, atual.q);
+    const chaves = Object.keys(tira).filter((k) => CHAVE_ESTOQUE.test(k));
+    const cabe = chaves.every((k) => (q[k] || 0) >= (Math.floor(Number(tira[k])) || 0));
+    const agora = new Date().toISOString();
+    if (!cabe) {
+      await fb.gravarJuntos([{ caminho: caminhoP, dados: { estoqueFaltou: true }, mascara: ['estoqueFaltou'] }]);
+      return false;
+    }
+    chaves.forEach((k) => { q[k] = (q[k] || 0) - (Math.floor(Number(tira[k])) || 0); });
+    const baixas = baixasRecentes(atual.baixas, Date.now());
+    baixas[pid] = { i: tira, em: agora };
+    if (await fb.gravarJuntos([
+      { caminho: caminhoEstoque(loja), dados: { q: q, baixas: baixas, atualizadoEm: agora }, trava: est ? { updateTime: est._atualizadoNoBanco } : { exists: false } },
+      { caminho: caminhoP, dados: { estoqueDevolvido: false, estoqueFaltou: false }, mascara: ['estoqueDevolvido', 'estoqueFaltou'] },
+    ])) { esquecerEstoque(loja); return true; }
+  }
+  return false;
+}
+
 /* dono (pela copia da borda, sem ler o banco), equipe da loja ou o admin. A equipe vale pela marca {equipe: loja}, que
    so o mensageiro grava (igual as regras do banco): pelo texto do e-mail, qualquer um criaria uma conta com cara de equipe */
 async function ehDaLoja(env, slug, quem) {
@@ -3185,27 +3511,29 @@ function resumoLimpo(r, id) {
   return {
     id: id, senha: curto(x.senha, 8), total: Math.max(0, Math.round(Number(x.total) || 0)),
     tipoEntrega: x.tipoEntrega === 'entrega' ? 'entrega' : 'retirada', origem: x.origem === 'balcao' ? 'balcao' : '',
-    cliente: { nome: curto(x.nome, 40) }, bairro: curto(x.bairro, 40),
+    cliente: { nome: curto(x.nome, 40) }, bairro: curto(x.bairro, 40), segmento: x.segmento === 'comercio' ? 'comercio' : '',
   };
 }
 
+/* "Senha 12" na comida, "Pedido nº 12" no comercio (roupa, calcado...) */
+function numeroDoPedido(p) { return (p && p.segmento === 'comercio' ? 'Pedido nº ' : 'Senha ') + p.senha; }
 /* pedido novo (ou Pix que caiu) para o painel e a cozinha: senha, valor e o tipo (o resto a equipe ve no painel) */
 function avisoDaLoja(p, slug, papel, pix) {
   const onde = p.tipoEntrega === 'entrega' ? 'Entrega' : (p.origem === 'balcao' ? 'Balcão' : 'Retirada');
   const combinar = !pix && p.formaPagamento === 'pix_combinado' && p.status === 'aguardando_pagamento';
-  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! Senha ' : 'Pix pago! Senha ') : combinar ? 'Pedido novo, Pix a combinar! Senha ' : 'Pedido novo! Senha ') + p.senha, texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! ' : 'Pix pago! ') : combinar ? 'Pedido novo, Pix a combinar! ' : 'Pedido novo! ') + numeroDoPedido(p), texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
 }
 /* saiu da cozinha para entrega: para o entregador */
 function avisoDeEntrega(r, slug) {
-  return { titulo: 'Entrega pronta! Senha ' + r.senha, texto: (r.bairro ? r.bairro + ' · ' : '') + 'Toque para ver o endereço.', url: urlDoPapel(slug, 'entregas'), tag: 'entrega-' + r.id, fixo: true, validade: 1800 };
+  return { titulo: 'Entrega pronta! ' + numeroDoPedido(r), texto: (r.bairro ? r.bairro + ' · ' : '') + 'Toque para ver o endereço.', url: urlDoPapel(slug, 'entregas'), tag: 'entrega-' + r.id, fixo: true, validade: 1800 };
 }
 /* o pedido andou: o que o cliente le no celular (titulo com o nome da loja, que ele reconhece) */
 function avisoDoCliente(status, r, nomeLoja) {
   const loja = nomeLoja || 'Seu pedido';
-  const senha = ' Senha ' + r.senha + '.';
+  const senha = ' ' + numeroDoPedido(r) + '.';
   const entrega = r.tipoEntrega === 'entrega';
   if (status === 'pago') return { titulo: loja, texto: 'Pagamento confirmado! Seu pedido entrou na fila.' + senha };
-  if (status === 'producao') return { titulo: loja, texto: 'Estão preparando o seu pedido. ' + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.') + senha };
+  if (status === 'producao') return { titulo: loja, texto: (r.segmento === 'comercio' ? 'A loja está separando o seu pedido. ' : 'Estão preparando o seu pedido. ') + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.') + senha };
   if (status === 'pronto') return { titulo: loja, texto: entrega ? 'Seu pedido saiu para entrega! Já está a caminho.' + senha : 'Seu pedido está pronto! Pode vir buscar.' + senha };
   if (status === 'cancelado') return { titulo: loja, texto: 'Seu pedido foi cancelado pela loja. Toque para ver.' + senha };
   return null;
@@ -3326,6 +3654,8 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env, devolverD
         gravar = Object.assign({ pagamentoStatus: 'pago', pagoEm: agora3, confirmadoPor: 'mercadopago', pagoAposCancelar: true, atualizadoEm: agora3 }, anotar);
       }
       if (gravar && !(await fb.mergeSeIgual(caminhoP, gravar, trava))) continue;
+      /* voltou de um cancelamento: as pecas que tinham voltado para o estoque sao reservadas de novo */
+      if (entrou && p.status === 'cancelado' && p.estoque && typeof p.estoque === 'object') await reservarDeNovo(fb, slug, id, p.estoque).catch((e) => console.error('estoque de novo', e && e.message || e));
       /* o pedido acabou de entrar na fila: avisa a loja e o cliente (aviso que falha nunca derruba o pagamento) */
       if (entrou) await avisarPixPago(env, slug, Object.assign({}, p, { id: id })).catch(() => {});
       return 'pago';

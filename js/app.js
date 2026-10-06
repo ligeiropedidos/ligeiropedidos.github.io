@@ -253,6 +253,12 @@
     if (curto.length > 12) curto = curto.split(' ')[0].slice(0, 12);
     trocarManifest(String(nome || 'Pedir'), curto, caminho);
   }
+  /* tela da equipe que muda de nome com a loja (Cozinha ou Separacao): a tela chama quando sabe a loja */
+  function manifestDaEquipe(caminho, nomeTela) {
+    if (!manifestPadrao || !caminho) return;
+    manifestAtual = caminho;
+    trocarManifest('Ligeiro ' + nomeTela, nomeTela, caminho);
+  }
   function trocarManifest(nome, curto, caminho) {
     var manifesto = {
       name: nome, short_name: curto,
@@ -290,7 +296,7 @@
   window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
   window.addEventListener('resize', UI.medirBarras);
 
-  window.LigeiroApp = { ir: ir, trocar: trocar, substituir: substituir, rota: rotaAtual, limpos: LIMPOS, render: render, partes: partes, manifestDaLoja: manifestDaLoja, redesenharNoLugar: function () { redesenharNoLugar(); } };
+  window.LigeiroApp = { ir: ir, trocar: trocar, substituir: substituir, rota: rotaAtual, limpos: LIMPOS, render: render, partes: partes, manifestDaLoja: manifestDaLoja, manifestDaEquipe: manifestDaEquipe, redesenharNoLugar: function () { redesenharNoLugar(); } };
 
   /* vagas de fundador: valor guardado neste aparelho na hora; o numero de verdade chega em seguida e, se mudou, redesenha a pagina de vendas */
   /* sem o numero conferido nos ultimos 10 min, "usados" fica desconhecido (null) e o site mostra o preco normal: o de

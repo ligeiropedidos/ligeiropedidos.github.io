@@ -131,6 +131,8 @@
         arranjo.className = 'conta-arranjo' + (par ? ' par' : '') + (par && urgente ? ' plano-primeiro' : '');
         tituloPlano.hidden = !par;
         seloTopo.hidden = !((conta && conta.plano && conta.plano.fundador === true) || R.ehDoLigeiro(conta || { email: u.email }));
+        /* so loja de comercio na conta: o plano fala em separacao, nao em cozinha */
+        comercioNaConta = lojas.length > 0 && lojas.every(function (l) { return R.segmento(l) === 'comercio'; });
         desenharPlano(caixaPlano, conta, lojas.length === 0);
         UI.limpar(rodapeLojas);
         /* 1 loja por conta: com a loja criada, o caminho para outra e outra conta (a conta do Ligeiro nao tem limite) */
@@ -154,6 +156,7 @@
     });
 
     /* Caixa do plano: nome, situacao, quando vence, valor, pagar, mensal/anual e encerrar. */
+    var comercioNaConta = false;
     function desenharPlano(caixa, conta, semLoja) {
       UI.limpar(caixa);
       /* sem loja e sem pagamento: os dias gratis ainda nao comecaram (antes dizia "acabaram" para quem esperou vaga) */
@@ -283,7 +286,7 @@
         el('ul', { class: 'plano-gratis-lista' }, [
           itemPlano('dinheiro', ['Pedidos ilimitados, ', el('b', { text: 'sem comissão' }), '.']),
           itemPlano('escudo', ['Pix e cartão ', el('b', { text: 'confirmados sozinhos' }), ' pelo Mercado Pago.']),
-          itemPlano('chef', ['Telas de ', el('b', { text: 'cozinha e entregador' }), '.']),
+          itemPlano(comercioNaConta ? 'caixa' : 'chef', ['Telas de ', el('b', { text: (comercioNaConta ? 'separação' : 'cozinha') + ' e entregador' }), '.']),
           itemPlano('telefone', ['Suporte ', zap ? el('a', { class: 'plano-suporte', href: zap, target: '_blank', rel: 'noopener' }, [suporte]) : suporte, '.']),
         ]),
       ]);
@@ -358,7 +361,7 @@
       var logo = D.logoSrc(l);
       return el('div', { class: 'conta-loja' }, [
         el('div', { class: 'conta-loja-topo' }, [
-          el('span', { class: 'conta-logo' }, logo ? el('img', { src: logo, alt: '' }) : (l.emoji || '🍔')),
+          el('span', { class: 'conta-logo' }, logo ? el('img', { src: logo, alt: '' }) : (l.emoji || R.catalogo(l).icone)),
           el('div', { class: 'conta-loja-info' }, [
             el('div', { class: 'conta-loja-nome', text: l.nome }),
             /* se quebrar, quebra depois do ponto: nunca uma linha comecando com "·" */
@@ -384,9 +387,9 @@
         /* equipe: tres quadradinhos iguais (antes a senha sobrava sozinha numa linha inteira) */
         el('div', { class: 'conta-grupo conta-grupo-equipe', text: 'Equipe' }),
         el('div', { class: 'conta-equipe' }, [
-          ladrilho('a', { href: '#/cozinha/' + l.slug }, 'chef', 'Cozinha'),
+          ladrilho('a', { href: '#/cozinha/' + l.slug, 'aria-label': R.catalogo(l).tela }, R.catalogo(l).iconeTela, R.catalogo(l).comida ? 'Cozinha' : ['Separação', 'Separar']),
           ladrilho('a', { href: '#/entrega/' + l.slug, 'aria-label': 'Entregador' }, 'entrega', ['Entregador', 'Entrega']),
-          ladrilho('button', { type: 'button', title: 'Senha da equipe: cozinha e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, 'chave', 'Senha'),
+          ladrilho('button', { type: 'button', title: 'Senha da equipe: ' + R.catalogo(l).tela.toLowerCase() + ' e entregador', 'aria-label': 'Senha da equipe', onclick: function () { window.LigeiroEquipe.definirSenha(l); } }, 'chave', 'Senha'),
         ]),
       ]);
     }

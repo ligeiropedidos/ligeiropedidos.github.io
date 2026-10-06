@@ -148,7 +148,7 @@
         el('div', { class: 'marca centro' }, [el('img', { class: 'mascote', src: 'img/mascote-192.webp', alt: '' }), el('span', { html: 'Ligei<span>ro</span>' })]),
         el('h2', { class: 'centro', text: 'Painel · ' + estado.loja.nome }),
         dono,
-        el('p', { class: 'centro muted', text: D.modoDemo ? (estado.loja.senhaPainel === '1234' ? 'Digite a senha do painel. Na demonstração é 1234.' : 'Digite a senha do painel.') : 'Equipe (cozinha, entregador): digite a senha da equipe.' }),
+        el('p', { class: 'centro muted', text: D.modoDemo ? (estado.loja.senhaPainel === '1234' ? 'Digite a senha do painel. Na demonstração é 1234.' : 'Digite a senha do painel.') : 'Equipe (' + (catLoja().comida ? 'cozinha' : 'separação') + ', entregador): digite a senha da equipe.' }),
         el('div', { class: 'campo' }, campo),
         erro,
         btnEntrar,
@@ -198,6 +198,9 @@
       UI.limpar(raiz);
       /* pergunta ja ao abrir: o tutorial (em 0,9 s) cita o Pix combinado so quando ele existe */
       pixCombinadoPossivel().then(function (sim) { estado.pixCombinadoOk = sim; });
+      estoquePossivel().then(function (sim) { estado.estoqueOk = sim; });
+      /* a Loja do Ligeiro (outra tela) le o tipo da loja daqui: comercio fala em catalogo */
+      try { sessionStorage.setItem('ligeiro:segmento:' + slug, R.segmento(estado.loja || {})); } catch (_) { /* segue com os textos de comida */ }
       /* voltou do "Conectar com Mercado Pago": o codigo chega aqui e este celular termina (concluir) */
       var rotaMp = ('#/' + window.LigeiroApp.rota()).match(/\/mp-(ok|erro|concluir)(?:\?(.*))?$/) || [];
       var mpVolta = rotaMp[1];
@@ -374,8 +377,10 @@
               if (estado.encerrados) estado.encerrados[id] = x;
               if (x.status === R.STATUS.CANCELADO && x.canceladoPor === 'cliente') {
                 UI.soar('cancelado');
-                UI.avisar('O cliente cancelou o pedido da senha ' + x.senha + '.');
+                UI.avisar('O cliente cancelou ' + oPedido(x) + '.');
               }
+              /* cancelado com estoque reservado que ainda nao voltou (o celular do cliente fechou antes): volta agora */
+              if (x.status === R.STATUS.CANCELADO) devolverReserva(x);
               if (estado.aba === 'pedidos') desenharPedidos();
             });
           });
@@ -391,11 +396,11 @@
             if (!antes || antes === p.status) return;
             if (p.status === R.STATUS.PAGO && (antes === R.STATUS.AGUARDANDO || antes === R.STATUS.CANCELADO || (antes === 'fora' && p.pagoAposCancelar)) && R.pagaPeloSite(p)) {
               UI.soar('pago'); UI.vibrar([80, 40, 160]);
-              var comoPagou = p.formaPagamento === 'cartao_online' ? 'Cartão da senha ' + p.senha + ' aprovado' : 'Pix da senha ' + p.senha + ' caiu';
+              var comoPagou = p.formaPagamento === 'cartao_online' ? 'Cartão ' + daSenha(p) + ' aprovado' : 'Pix ' + daSenha(p) + ' caiu';
               UI.avisar(p.pagoAposCancelar ? comoPagou + ' depois do cancelamento. Confira com o cliente.' : comoPagou + '! Pode começar.');
             } else if (p.status === R.STATUS.CANCELADO && p.canceladoPor === 'cliente') {
               UI.soar('cancelado');
-              UI.avisar('O cliente cancelou o pedido da senha ' + p.senha + '.');
+              UI.avisar('O cliente cancelou ' + oPedido(p) + '.');
             }
           });
         }
@@ -497,7 +502,7 @@
         if (parados.length && Date.now() - (estado.ultimoLembrete || 0) > 2 * 60 * 1000) {
           estado.ultimoLembrete = Date.now();
           UI.soar('lembrete');
-          UI.avisar(parados.length === 1 ? 'A senha ' + parados[0].senha + ' está esperando para começar.' : parados.length + ' pedidos esperando para começar.');
+          UI.avisar(parados.length === 1 ? maiuscula(aSenhaN(parados[0])) + ' está esperando para começar.' : parados.length + ' pedidos esperando para começar.');
         }
       }, 60000);
       estado.parar.push(function () { clearInterval(relogio); });
@@ -661,7 +666,7 @@
         ]),
         el('div', { class: 'linha-botoes avisos-botoes' }, [
           el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Ver como chega', onclick: function () {
-            UI.avisoDeMentira({ icone: icone, titulo: 'Pedido novo! Senha 42', texto: l.nome + ': 1 item, R$ 23,00. Toque para ver.' });
+            UI.avisoDeMentira({ icone: icone, titulo: 'Pedido novo! ' + catLoja().senha + ' 42', texto: l.nome + ': 1 item, R$ 23,00. Toque para ver.' });
           } }),
         ]),
       ]);
@@ -847,7 +852,7 @@
       var cat = R.catalogo(l);
       var itens = [
         /* Pix combinado no WhatsApp tambem resolve o pagamento (loja que escolheu nao usar o Mercado Pago) */
-        [!!l.mpAtivo || R.pixCombinadoNaLoja(l), l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : R.pixCombinadoNaLoja(l) ? 'Recebe o Pix pelo WhatsApp' : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos na cozinha', 'dinheiro', 'ajustes', 'aj-pagamento'],
+        [!!l.mpAtivo || R.pixCombinadoNaLoja(l), l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : R.pixCombinadoNaLoja(l) ? 'Recebe o Pix pelo WhatsApp' : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos ' + cat.naTela, 'dinheiro', 'ajustes', 'aj-pagamento'],
         [comPreco > 0, comPreco > 0 ? comPreco + (comPreco === 1 ? ' item' : ' itens') + ' com preço' : 'Montar o ' + cat.nome, comPreco > 0 ? 'Confira os valores antes de divulgar' : 'Categorias, itens e preços', 'cardapio', 'cardapio', ''],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
         [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
@@ -907,11 +912,11 @@
       return [
         { abertura: true, titulo: 'Bem-vindo à sua loja no Ligeiro!', texto: 'Eu sou o Ligeiro, o ajudante da ' + (l.nome || 'sua loja') + '. Em um minutinho eu te mostro onde fica cada coisa para você começar a vender.' },
         { aba: 'cardapio', alvo: '.aba-painel[data-aba=cardapio]', texto: 'Aqui mora o seu ' + cat.nome + '. Crie as categorias, os itens e os preços. Foto é opcional, mas vende mais!' },
-        { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago: o pedido já chega pago na cozinha, sem ninguém conferir comprovante.' + (estado.pixCombinadoOk ? ' Não quer o Mercado Pago? Ligue o Pix pelo WhatsApp.' : '') },
+        { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago: o pedido já chega pago ' + cat.naTela + ', sem ninguém conferir comprovante.' + (estado.pixCombinadoOk ? ' Não quer o Mercado Pago? Ligue o Pix pelo WhatsApp.' : '') },
         { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
         { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
         { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
-        estado.servicosVisivel ? { aba: 'links', alvo: '.srv-banner', texto: 'E aqui fica a Loja do Ligeiro: logo, fotos do cardápio e vídeo feitos pela nossa equipe, com preço fechado. O vídeo aparece no seu site com botão de play.' } : null,
+        estado.servicosVisivel ? { aba: 'links', alvo: '.srv-banner', texto: 'E aqui fica a Loja do Ligeiro: logo, fotos do ' + cat.nome + ' e vídeo feitos pela nossa equipe, com preço fechado. O vídeo aparece no seu site com botão de play.' } : null,
         { aba: 'pedidos', alvo: '.cartao-avisos', texto: 'Os pedidos chegam aqui, apitando. Ligue os avisos para ouvir até com a tela apagada.' },
         { aba: 'pedidos', alvo: '#primeirosPassosCartao', texto: 'Pronto! Esta lista mostra o que ainda falta. Faça um pedido de teste pelo seu link e veja ele chegar aqui. Boas vendas!' },
       ].filter(Boolean); /* o passo da Loja do Ligeiro so entra quando ela aparece para este dono */
@@ -951,7 +956,7 @@
           el('div', { class: 'tour-titulo', text: 'Combinado entre a gente' }),
           el('p', { class: 'tour-texto', text: 'Antes de continuar, confira o que combinamos. Em resumo:' }),
           el('ul', { class: 'termos-resumo' }, [
-            el('li', { text: 'Quem vende é a sua loja: cardápio, preços, entrega e qualidade são seus.' }),
+            el('li', { text: 'Quem vende é a sua loja: ' + catLoja().nome + ', preços, entrega e qualidade são seus.' }),
             el('li', { text: 'O dinheiro dos pedidos vai direto para o seu Mercado Pago. O Ligeiro não encosta nele.' }),
             el('li', { text: 'Os dados dos seus clientes são para atender e avisar da sua loja, nunca para repassar.' }),
             el('li', { text: 'Sem fidelidade: parou de pagar, a loja para de receber pedidos pelo site.' }),
@@ -1099,7 +1104,7 @@
           var b = e.currentTarget;
           var lista = velhos.slice();
           /* concluir mexe em varios pedidos de uma vez: pergunta antes */
-          UI.perguntar((lista.length === 1 ? 'O pedido sai' : 'Os ' + lista.length + ' pedidos saem') + ' da cozinha e do entregador e ' + (lista.length === 1 ? 'conta' : 'contam') + ' nas vendas do dia em que ' + (lista.length === 1 ? 'foi feito.' : 'foram feitos.'), {
+          UI.perguntar((lista.length === 1 ? 'O pedido sai' : 'Os ' + lista.length + ' pedidos saem') + (catLoja().comida ? ' da cozinha' : ' da separação') + ' e do entregador e ' + (lista.length === 1 ? 'conta' : 'contam') + ' nas vendas do dia em que ' + (lista.length === 1 ? 'foi feito.' : 'foram feitos.'), {
             titulo: lista.length === 1 ? 'Concluir o pedido de outro dia?' : 'Concluir os ' + lista.length + ' pedidos?', sim: 'Concluir',
           }).then(function (sim) {
             if (!sim || estado.concluindoVelhos) return;
@@ -1123,7 +1128,7 @@
           UI.iconeLinha('relogio'),
           el('div', { class: 'aviso-app-texto' }, [
             el('b', { text: velhos.length === 1 ? 'Um pedido ficou aberto de outro dia' : velhos.length + ' pedidos ficaram abertos de outros dias' }),
-            el('span', { text: (senhas.length === 1 ? 'Senha ' : 'Senhas ') + (senhas.length > 1 ? senhas.slice(0, -1).join(', ') + ' e ' + senhas[senhas.length - 1] : senhas[0]) + '. Se já foram entregues, conclua todos de uma vez: somem da cozinha e do entregador.' }),
+            el('span', { text: (catLoja().comida ? (senhas.length === 1 ? 'Senha ' : 'Senhas ') : (senhas.length === 1 ? 'Pedido nº ' : 'Pedidos nº ')) + (senhas.length > 1 ? senhas.slice(0, -1).join(', ') + ' e ' + senhas[senhas.length - 1] : senhas[0]) + '. Se já foram entregues, conclua todos de uma vez: somem ' + (catLoja().comida ? 'da cozinha' : 'da separação') + ' e do entregador.' }),
             /* um embaixo do outro, largura toda (lado a lado, "Concluir todos" nao cabia no celular); a acao em cima */
             el('div', { class: 'botoes-empilhados' }, [
               btnConcluir,
@@ -1147,8 +1152,8 @@
         /* cancelado com o dinheiro ainda com a loja: fica no topo, aberto, ate devolver (de qualquer dia) */
         { titulo: 'Falta devolver', lista: estado.aDevolver || [] },
         { titulo: 'Aguardando pagamento', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
-        { titulo: 'Novos, para começar', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
-        { titulo: 'Preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
+        { titulo: catLoja().novos, filtro: function (p) { return p.status === R.STATUS.PAGO; } },
+        { titulo: catLoja().preparando, filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
         { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
       ];
       /* os de outros dias, fechados embaixo da fila (o aviso la em cima abre e conclui) */
@@ -1203,7 +1208,7 @@
           carregar.querySelector('summary').textContent = 'Carregando…';
           store.pedidosDoDia(slug, inicioDoDia).then(function (l) {
             estado.encerrados = {};
-            l.forEach(function (p) { if (p.status === R.STATUS.FINALIZADO || p.status === R.STATUS.CANCELADO) estado.encerrados[p.id] = p; });
+            l.forEach(function (p) { if (p.status === R.STATUS.FINALIZADO || p.status === R.STATUS.CANCELADO) estado.encerrados[p.id] = p; if (p.status === R.STATUS.CANCELADO) devolverReserva(p); });
             estado.gruposAbertos = estado.gruposAbertos || {};
             estado.gruposAbertos['Concluídos hoje'] = true;
             estado.gruposAbertos['Cancelados hoje'] = true;
@@ -1219,7 +1224,7 @@
     /* um pedido torto nunca apaga a fila inteira: ele vira um cartao curto e os outros aparecem normais */
     function cartaoSeguro(p) {
       try { return cartaoPedido(p); } catch (_) {
-        return el('div', { class: 'pedido-card' }, [el('div', { class: 'cliente', text: 'Senha ' + String((p && p.senha) || '?') + ': pedido com dados incompletos. Abra a ficha ou fale com o cliente.' })]);
+        return el('div', { class: 'pedido-card' }, [el('div', { class: 'cliente', text: catLoja().senha + ' ' + String((p && p.senha) || '?') + ': pedido com dados incompletos. Abra a ficha ou fale com o cliente.' })]);
       }
     }
     function cartaoPedido(p) {
@@ -1251,7 +1256,7 @@
 
       /* mesmo desenho em todo cartao: senha e "ha X" em cima, selos embaixo (antes o selo de entrega pulava de linha so em alguns) */
       card.appendChild(el('div', { class: 'cabeca' }, [
-        el('span', { class: 'senha', 'aria-label': 'Senha ' + p.senha }, [el('small', { text: 'Senha' }), el('b', { text: String(p.senha) })]),
+        el('span', { class: 'senha', 'aria-label': catLoja().senha + ' ' + p.senha }, [el('small', { text: catLoja().comida ? 'Senha' : 'Pedido' }), el('b', { text: String(p.senha) })]),
         UI.seloHorario(p.criadoEm, p.status === R.STATUS.PAGO ? (p.pagoEm || p.criadoEm) : null), /* pago esperando comecar: cor avisa o atraso */
         el('div', { class: 'cabeca-selos' }, selos),
         el('div', { class: 'cabeca-selos' }, extras), /* extras numa linha propria: a de cima fica igual em todo cartao */
@@ -1277,8 +1282,10 @@
       if (p.observacao) card.appendChild(el('div', { class: 'obs' }, [UI.iconeLinha('nota'), el('span', { text: p.observacao })]));
       var conferencia = R.conferirTotal(loja, p);
       if (!conferencia.ok) card.appendChild(el('div', { class: 'divergente', text: conferencia.esperado == null
-        ? 'Atenção: este pedido tem item que não está no ' + R.catalogo(estado.loja).nome + ' e veio com ' + dinheiro(p.total) + '. Confira antes de fazer.'
-        : 'Atenção: pelo ' + R.catalogo(estado.loja).nome + ' de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de fazer.' }));
+        ? 'Atenção: este pedido tem item que não está no ' + R.catalogo(estado.loja).nome + ' e veio com ' + dinheiro(p.total) + '. Confira antes de ' + (catLoja().comida ? 'fazer.' : 'separar.')
+        : 'Atenção: pelo ' + R.catalogo(estado.loja).nome + ' de hoje este pedido daria ' + dinheiro(conferencia.esperado) + ', mas veio com ' + dinheiro(p.total) + '. Confira antes de ' + (catLoja().comida ? 'fazer.' : 'separar.') }));
+      /* pagou depois de cancelado e o que ele tinha reservado ja foi vendido: o dinheiro entrou, mas falta peca */
+      if (p.estoqueFaltou && p.status !== R.STATUS.CANCELADO && p.status !== R.STATUS.FINALIZADO) card.appendChild(el('div', { class: 'divergente', text: 'Atenção: o pagamento caiu depois que o estoque deste pedido acabou. Combine com o cliente uma troca, ou cancele e devolva o dinheiro.' }));
       card.appendChild(el('div', { class: 'total' }, [
         el('span', { text: 'Total ' + dinheiro(p.total) }),
         el('span', { class: 'forma', text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.acrescimoCartao > 0 ? 'taxa do cartão ' + dinheiro(p.acrescimoCartao) + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : 'retirada')) }),
@@ -1319,7 +1326,7 @@
       if (p.status === R.STATUS.CANCELADO && pagoPeloSite(p) && !estado.equipe) {
         var btnDevolver = el('button', { class: 'btn btn-principal', text: 'Devolver ' + dinheiro(p.total), onclick: function () {
           if (!travarToque() || (estado.devolvendo && estado.devolvendo[p.id])) return;
-          UI.perguntar('Devolver ' + dinheiro(p.total) + ' da senha ' + p.senha + ' para o cliente pelo Mercado Pago?', { sim: 'Devolver', nao: 'Voltar' }).then(function (sim) {
+          UI.perguntar('Devolver ' + dinheiro(p.total) + ' ' + daSenha(p) + ' para o cliente pelo Mercado Pago?', { sim: 'Devolver', nao: 'Voltar' }).then(function (sim) {
             if (!sim) return;
             UI.avisar('Devolvendo o dinheiro…');
             devolverPagamento(p);
@@ -1354,7 +1361,7 @@
       if (proximo === R.STATUS.PAGO && p.status === R.STATUS.AGUARDANDO) {
         /* so o Pix pela chave da loja chega aqui, e so o dono: o do Mercado Pago tem o "Conferir pagamento" */
         if (estado.equipe || (p.mp && p.mp.id)) return;
-        UI.perguntar('O Pix de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' caiu mesmo? Confira no extrato da conta da sua chave Pix antes: print ou comprovante mandado pelo cliente não vale. O pedido vai para a cozinha.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo, botao); });
+        UI.perguntar('O Pix de ' + dinheiro(p.total) + ' ' + daSenha(p) + ' caiu mesmo? Confira no extrato da conta da sua chave Pix antes: print ou comprovante mandado pelo cliente não vale. O pedido vai para a cozinha.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo, botao); });
         return;
       }
       avancarAgora(p, proximo, botao);
@@ -1391,21 +1398,34 @@
           /* a fila se redesenhou no meio: o botao novo nasceu ocupado e volta agora */
           if (!botao.isConnected && estado.aba === 'pedidos') desenharPedidos();
           if (!j) { UI.avisar('Não deu para conferir agora. Confira a internet e tente de novo.'); return; }
-          if (j.status === 'pago') { UI.avisar('O Mercado Pago confirmou o pagamento da senha ' + p.senha + '. O pedido já vai para a fila.'); return; }
-          UI.avisar('O Mercado Pago ainda não recebeu o pagamento da senha ' + p.senha + '. Comprovante ou print do cliente não vale: quando cair, o pedido muda sozinho.');
+          if (j.status === 'pago') { UI.avisar('O Mercado Pago confirmou o pagamento ' + daSenha(p) + '. O pedido já vai para a fila.'); return; }
+          UI.avisar('O Mercado Pago ainda não recebeu o pagamento ' + daSenha(p) + '. Comprovante ou print do cliente não vale: quando cair, o pedido muda sozinho.');
         });
     }
 
     /* pago pelo site (Pix ou cartao, pelo Mercado Pago): cancelar devolve o dinheiro sozinho, sem a loja abrir o app */
     function pagoPeloSite(p) { return R.pagaPeloSite(p) && p.pagamentoStatus === 'pago' && p.total > 0 && !!(p.mp && p.mp.id) && !p.devolvidoEm; }
+    /* pedido cancelado que reservou estoque: as pecas voltam (o mensageiro confere que esta cancelado e so devolve uma vez).
+       Uma vez por pedido neste aparelho; quem ja voltou (estoqueDevolvido) nem chama */
+    function devolverReserva(p) {
+      if (!p || !p.estoque || p.estoqueDevolvido === true || p.status !== R.STATUS.CANCELADO || !store.devolverEstoque) return;
+      estado.devolvidos = estado.devolvidos || {};
+      if (estado.devolvidos[p.id]) return;
+      estado.devolvidos[p.id] = true;
+      store.devolverEstoque(slug, p.id).then(function (r) {
+        if (!r || !r.ok) { delete estado.devolvidos[p.id]; return; }
+        estado.estoquePainel = null; /* a proxima olhada no catalogo le de novo */
+      }, function () { delete estado.devolvidos[p.id]; });
+    }
     function cancelar(p, botao) {
       var devolver = pagoPeloSite(p);
+      var qualPedido = catLoja().comida ? 'o pedido de senha ' + p.senha : 'o pedido nº ' + p.senha;
       /* senha da equipe: o mensageiro so deixa o dono devolver. A equipe cancela e o dono devolve pelo painel dele */
       var texto = devolver && estado.equipe
-        ? 'Cancelar o pedido de senha ' + p.senha + '? Ele já foi pago pelo site: só o dono da loja devolve os ' + dinheiro(p.total) + ', pelo painel dele. Avise o dono.'
+        ? 'Cancelar ' + qualPedido + '? Ele já foi pago pelo site: só o dono da loja devolve os ' + dinheiro(p.total) + ', pelo painel dele. Avise o dono.'
         : devolver
-        ? 'Cancelar o pedido de senha ' + p.senha + '? Os ' + dinheiro(p.total) + ' voltam para o cliente pelo Mercado Pago, ' + (p.formaPagamento === 'cartao_online' ? 'no mesmo cartão.' : 'na mesma conta do Pix.')
-        : 'Cancelar o pedido de senha ' + p.senha + '? Avise o cliente pelo WhatsApp se ele já pagou.';
+        ? 'Cancelar ' + qualPedido + '? Os ' + dinheiro(p.total) + ' voltam para o cliente pelo Mercado Pago, ' + (p.formaPagamento === 'cartao_online' ? 'no mesmo cartão.' : 'na mesma conta do Pix.')
+        : 'Cancelar ' + qualPedido + '? Avise o cliente pelo WhatsApp se ele já pagou.';
       UI.perguntar(texto, { sim: devolver && !estado.equipe ? 'Cancelar e devolver' : 'Cancelar pedido', nao: 'Voltar', perigo: true }).then(function (sim) {
         if (!sim) return;
         var soltar = botao ? UI.ocupar(botao, 'Cancelando…') : null;
@@ -1418,6 +1438,7 @@
         store.atualizarPedido(slug, p.id, { status: R.STATUS.CANCELADO, canceladoPor: 'loja' }).then(function () {
           avisarQueAndou(p, R.STATUS.CANCELADO);
           esquecerResumo(p);
+          devolverReserva(Object.assign({}, p, { status: R.STATUS.CANCELADO }));
           if (devolver && estado.equipe) { UI.avisar('Pedido cancelado. Avise o dono para devolver o dinheiro.'); return; }
           if (!devolver) { UI.avisar('Pedido cancelado.'); return; }
           UI.avisar('Pedido cancelado. Devolvendo o dinheiro…');
@@ -1431,10 +1452,10 @@
     }
     /* devolvido por fora (no app do Mercado Pago, ou venda velha que o Mercado Pago nao devolve mais): sai do "Falta devolver" */
     function marcarDevolvido(p) {
-      UI.perguntar('Você já devolveu os ' + dinheiro(p.total) + ' da senha ' + p.senha + ' pelo app do Mercado Pago? O pedido sai de "Falta devolver".', { sim: 'Já devolvi', nao: 'Voltar' }).then(function (sim) {
+      UI.perguntar('Você já devolveu os ' + dinheiro(p.total) + ' ' + daSenha(p) + ' pelo app do Mercado Pago? O pedido sai de "Falta devolver".', { sim: 'Já devolvi', nao: 'Voltar' }).then(function (sim) {
         if (!sim) return;
         store.atualizarPedido(slug, p.id, { devolvidoEm: new Date().toISOString(), pagamentoStatus: 'devolvido', devolvidoPor: 'app' })
-          .then(function () { UI.avisar('Pronto. A senha ' + p.senha + ' saiu de "Falta devolver".'); })
+          .then(function () { UI.avisar('Pronto. ' + maiuscula(aSenhaN(p)) + ' saiu de "Falta devolver".'); })
           .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para marcar agora. Tente de novo.')); });
       });
     }
@@ -1456,7 +1477,7 @@
       var semDevolver = function (motivo) {
         UI.abrirModal({
           titulo: 'Falta devolver',
-          corpo: el('p', { text: (motivo ? motivo + ' ' : '') + 'Devolva pelo app do Mercado Pago: abra a venda de ' + dinheiro(p.total) + ' da senha ' + p.senha + ' e toque em Devolver. Depois, toque em "Já devolvi pelo app".', style: { fontSize: '17px', padding: '6px 0 12px' } }),
+          corpo: el('p', { text: (motivo ? motivo + ' ' : '') + 'Devolva pelo app do Mercado Pago: abra a venda de ' + dinheiro(p.total) + ' ' + daSenha(p) + ' e toque em Devolver. Depois, toque em "Já devolvi pelo app".', style: { fontSize: '17px', padding: '6px 0 12px' } }),
           rodape: [
             el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1' }, text: 'Já devolvi pelo app', onclick: function () { UI.fecharModal(); marcarDevolvido(p); } }),
             el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, text: 'Entendi', onclick: UI.fecharModal }),
@@ -1579,6 +1600,8 @@
       });
       linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', onclick: function () { if (cabeMais('categorias')) editarCategoria(null); } }, [UI.iconeLinha('mais'), 'Categoria']));
       s.appendChild(el('h2', { text: R.catalogo(estado.loja).Nome }));
+      /* loja com estoque: o que acabou e o que esta acabando, logo no topo (preenchido quando as quantidades chegam) */
+      if ((l.produtos || []).some(R.controlaEstoque)) s.appendChild(el('div', { class: 'aviso aviso-falta resumo-estoque', id: 'resumoEstoque', hidden: true }));
 
       /* com muitos itens, achar pelo nome em vez de rolar categoria por categoria */
       var busca = null;
@@ -1626,8 +1649,75 @@
         });
         conteudo.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', onclick: function () { if (cabeMais('grupos')) editarGrupo(null, cat.id); } }, [UI.iconeLinha('mais'), 'Novo grupo de opções']));
       }
-      if (busca) busca.addEventListener('input', function () { estado.buscaCardapio = busca.value; desenharConteudo(); });
+      if (busca) busca.addEventListener('input', function () { estado.buscaCardapio = busca.value; desenharConteudo(); pintarEstoquePainel(); });
       desenharConteudo();
+      pintarEstoquePainel();
+      lerEstoquePainel().then(function () { if (vivo && estado.aba === 'cardapio') pintarEstoquePainel(); });
+    }
+
+    /* ---------- estoque no painel ---------- */
+    /* as quantidades vem do mensageiro (guardadas 30 s); so le quando algum item controla estoque */
+    function lerEstoquePainel(fresco) {
+      var l = estado.loja;
+      if (!l || !(l.produtos || []).some(R.controlaEstoque) || !store.lerEstoque) return Promise.resolve(null);
+      var g = estado.estoquePainel;
+      if (!fresco && g && Date.now() - g.em < 30000) return Promise.resolve(g.q);
+      return store.lerEstoque(slug, !!fresco).then(function (q) {
+        estado.estoquePainel = { q: q || {}, em: Date.now() };
+        return estado.estoquePainel.q;
+      }, function () { return null; });
+    }
+    /* "Estoque: P 2 · M 0 · G 5" ou "Estoque: 7" ou "Esgotado" */
+    function textoEstoque(p, q) {
+      var sit = R.situacaoDoProduto(estado.loja, p, q);
+      if (!sit || sit.esgotado) return 'Esgotado';
+      var tam = R.grupoTamanho(estado.loja, p);
+      if (!tam) return 'Estoque: ' + sit.tem;
+      return 'Estoque: ' + tam.opcoes.map(function (o) { return o.nome + '\u00a0' + R.situacaoEstoque(p, q, o.id).tem; }).join(' · ');
+    }
+    function pintarEstoquePainel() {
+      var q = estado.estoquePainel ? estado.estoquePainel.q : null;
+      var raizS = $('secaoPainel');
+      if (!raizS || !estado.loja) return;
+      raizS.querySelectorAll('[data-estoque]').forEach(function (small) {
+        var p = (estado.loja.produtos || []).filter(function (x) { return x.id === small.dataset.estoque; })[0];
+        if (!p || !R.controlaEstoque(p) || !q) { small.hidden = true; return; }
+        var sit = R.situacaoDoProduto(estado.loja, p, q);
+        small.hidden = false;
+        small.textContent = textoEstoque(p, q);
+        small.classList.toggle('zerado', !!sit.esgotado);
+        small.classList.toggle('pouco', !!sit.pouco);
+      });
+      var resumo = $('resumoEstoque');
+      if (!resumo) return;
+      var acabou = [], acabando = [];
+      if (q) R.produtosAtivos(estado.loja).filter(R.controlaEstoque).forEach(function (p) {
+        var tam = R.grupoTamanho(estado.loja, p);
+        if (!tam) {
+          var n = R.situacaoEstoque(p, q).tem;
+          if (n <= 0) acabou.push(p.nome); else if (n <= R.ESTOQUE_POUCO) acabando.push(p.nome + ' (' + n + ')');
+          return;
+        }
+        /* com tamanho: o item inteiro esgotado sai so com o nome; senao, os tamanhos entre parenteses */
+        var zerados = [], poucos = [];
+        tam.opcoes.forEach(function (o) {
+          var m = R.situacaoEstoque(p, q, o.id).tem;
+          if (m <= 0) zerados.push(o.nome); else if (m <= R.ESTOQUE_POUCO) poucos.push(o.nome + ': ' + m);
+        });
+        if (zerados.length === tam.opcoes.length) acabou.push(p.nome);
+        else if (zerados.length) acabou.push(p.nome + ' (' + zerados.join(', ') + ')');
+        if (poucos.length) acabando.push(p.nome + ' (' + poucos.join(', ') + ')');
+      });
+      var corte = function (lista) { return lista.slice(0, 5).join('; ') + (lista.length > 5 ? '; e mais ' + (lista.length - 5) : ''); };
+      UI.limpar(resumo);
+      resumo.hidden = !acabou.length && !acabando.length;
+      if (resumo.hidden) return;
+      resumo.appendChild(UI.iconeLinha('alerta'));
+      resumo.appendChild(el('div', { class: 'aviso-app-texto' }, [
+        acabou.length ? el('span', {}, [el('b', { text: 'Esgotado: ' }), corte(acabou) + '.']) : null,
+        acabando.length ? el('span', {}, [el('b', { text: 'Acabando: ' }), corte(acabando) + '.']) : null,
+        el('span', { class: 'muted pequeno', text: 'Para repor, toque no lápis do item e mude a quantidade.' }),
+      ]));
     }
 
     function linhaProduto(p) {
@@ -1645,8 +1735,8 @@
       } });
       var srcFoto = D.fotoSrc(p, estado.fotos);
       return el('div', { class: 'linha-produto item' + (p.ativo !== false ? '' : ' desligado') }, [
-        srcFoto ? el('img', { class: 'miniatura-produto', src: srcFoto, alt: '' }) : el('span', { class: 'emoji', text: p.emoji || '🍽️' }),
-        el('div', { class: 'nome' }, [p.nome, el('small', { text: p.descricao || '' })]),
+        srcFoto ? el('img', { class: 'miniatura-produto', src: srcFoto, alt: '' }) : el('span', { class: 'emoji', text: p.emoji || catLoja().vazio }),
+        el('div', { class: 'nome' }, [p.nome, el('small', { text: p.descricao || '' }), R.controlaEstoque(p) ? el('small', { class: 'estoque-linha', dataset: { estoque: p.id }, hidden: true }) : null]),
         preco,
         el('button', { class: 'editar apagar', 'aria-label': 'Excluir ' + p.nome, title: 'Excluir', onclick: function () { excluirProduto(p); } }, [UI.iconeLinha('lixeira')]),
         el('button', { class: 'editar', 'aria-label': 'Editar ' + p.nome, title: 'Editar', onclick: function () { editarProduto(p, p.categoria); } }, [UI.iconeLinha('lapis')]),
@@ -1692,7 +1782,7 @@
       function somar(texto) {
         partes(texto).map(limpo).filter(Boolean).forEach(function (t) {
           if (itens.some(function (x) { return x.toLowerCase() === t.toLowerCase(); })) { UI.avisar(t + ' já está na lista.'); return; }
-          if (itens.length >= 30) { UI.avisar('Até 30 ingredientes por item.'); return; }
+          if (itens.length >= 30) { UI.avisar(o.limiteTexto || 'Até 30 ingredientes por item.'); return; }
           itens.push(t);
         });
         desenhar();
@@ -1824,12 +1914,12 @@
         if (srcCapa) capa.appendChild(el('img', { src: srcCapa, alt: '' }));
         capa.classList.toggle('sem-capa', !srcCapa);
         UI.limpar(logo);
-        logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: '' }) : el('span', { class: 'emoji', text: (f.emoji && f.emoji.input.value.trim()) || l.emoji || '🍽️' }));
+        logo.appendChild(srcLogo ? el('img', { src: srcLogo, alt: '' }) : el('span', { class: 'emoji', text: (f.emoji && f.emoji.input.value.trim()) || l.emoji || R.catalogo(tipoDoForm(f, l)).vazio }));
         nome.textContent = f.nome.input.value.trim() || l.nome;
         /* a mesma linha do topo da loja: a frase de apresentacao; sem ela, o tipo e a cidade */
         var frase = f.descricao ? f.descricao.input.value.trim() : (l.descricao || '');
-        texto.textContent = frase || (R.tipoVisivel({ tipo: f.tipo.input.value.trim() || l.tipo }) + (l.cidade ? ' em ' + l.cidade : ''));
-        fraseBotao.textContent = l.aceitaEntrega === false ? 'retirar no balcão' : (R.descreverFrete(l) === 'Entrega grátis' ? 'entrega grátis' : 'entrega') + ' em ~' + (l.tempoEntrega || 40) + ' min';
+        texto.textContent = frase || (R.tipoVisivel(tipoDoForm(f, l)) + (l.cidade ? ' em ' + l.cidade : ''));
+        fraseBotao.textContent = l.aceitaEntrega === false ? 'retirar ' + R.catalogo(tipoDoForm(f, l)).retirada : (R.descreverFrete(l) === 'Entrega grátis' ? 'entrega grátis' : 'entrega') + ' em ~' + (l.tempoEntrega || 40) + ' min';
         tirarCapa.hidden = !srcCapa || !!exclusiva;
         tirarLogo.hidden = !srcLogo;
         tirar.hidden = !!exclusiva || (!srcCapa && !srcLogo);
@@ -1884,9 +1974,10 @@
         var lugar = [l.cidade, l.uf].filter(Boolean).join('/');
         var nome = (f.nome.input.value || l.nome || '').trim();
         var frase = f.descricao ? f.descricao.input.value.trim() : String(l.descricao || '').trim();
-        var tipo = (f.tipo.input.value || '').trim();
+        var doForm = tipoDoForm(f, l);
+        var tipo = doForm.tipo ? R.tipoVisivel(doForm) : '';
         var titulo = nome + (lugar ? ' · ' + lugar : '');
-        var texto = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o cardápio e peça pelo celular: Pix, cartão ou na entrega.';
+        var texto = frase || (tipo ? tipo + (lugar ? ' em ' + lugar : '') + '. ' : '') + 'Veja o ' + R.catalogo(doForm).nome + ' e peça pelo celular: Pix, cartão ou na entrega.';
         var pv = f.logo.querySelector('.foto-previa img');
         var src = pv && !pv.hidden && pv.getAttribute('src');
         UI.limpar(cartao);
@@ -1907,6 +1998,7 @@
       }
       new MutationObserver(atualizar).observe(f.logo, { subtree: true, attributes: true, childList: true });
       [f.nome, f.tipo, f.descricao].forEach(function (c) { if (c) c.input.addEventListener('input', atualizar); });
+      if (f.tipo && f.tipo.nome) { f.tipo.input.addEventListener('change', atualizar); f.tipo.nome.input.addEventListener('input', atualizar); }
       var bloco = el('div', { class: 'campo previa-whats-bloco' }, [el('label', { text: 'O link no WhatsApp' }), dica, cartao, trocar]); /* na loja comum o botao repete o Trocar logo do celular: no celular do dono ele fica bem longe, la em cima */
       bloco.atualizar = atualizar;
       setTimeout(atualizar, 0);
@@ -1915,15 +2007,18 @@
 
     /* Emojis de comida que todo celular e Windows desenham. O primeiro da lista e o padrao. */
     var EMOJIS = ['🍔', '🍕', '🌭', '🍟', '🥪', '🌮', '🍗', '🥩', '🍖', '🍱', '🍛', '🍝', '🍜', '🥗', '🍣', '🍤', '🥟', '🧀', '🥐', '🍞', '🎂', '🍰', '🍩', '🍪', '🍫', '🍦', '🍨', '🥤', '🍹', '☕', '🍺', '🍷', '🥂', '🥛', '🍇', '🍓', '🥑', '🌽', '🍿', '🍬'];
+    /* Comercio: roupa, calcado, presente, eletronico, pet... (os de comida continuam depois: mercado vende comida) */
+    var EMOJIS_COMERCIO = ['🛍️', '👕', '👚', '👗', '👖', '👔', '🧥', '👙', '🧦', '🧢', '👒', '👟', '👠', '👡', '👢', '👞', '👜', '👛', '🎒', '👓', '🕶️', '⌚', '💍', '💄', '💅', '🧴', '🎁', '🎀', '🧸', '💐', '📱', '💻', '🎧', '🔌', '📚', '✏️', '🐶', '🐱', '🦴', '🛒', '🧼', '🏷️'];
+    function emojisDaLoja() { return catLoja().comida ? EMOJIS : EMOJIS_COMERCIO.concat(EMOJIS); }
     function emojiSeguro(e) {
       var t = String(e || '').trim();
-      return t || '🍔';
+      return t || catLoja().icone;
     }
     /* Grade de emojis: toca e escolhe. Sem digitar, sem quadradinho quebrado. bloco.valor() -> '🍕' */
     function campoEmoji(rotulo, atual, opcoes) {
       var o = opcoes || {};
       var escolhido = emojiSeguro(atual);
-      var lista = EMOJIS.slice();
+      var lista = emojisDaLoja().slice();
       if (lista.indexOf(escolhido) < 0) lista.unshift(escolhido); /* emoji antigo continua valendo */
       var grade = el('div', { class: 'grade-emoji' });
       var atualEl = el('span', { class: 'emoji-atual', text: escolhido });
@@ -1989,21 +2084,84 @@
       });
     }
 
+    /* "Controlar estoque" no item: liga e diz quantas tem (uma por tamanho quando a categoria tem tamanho). Aparece com o
+       mensageiro que ja reserva o estoque no pedido (ou quando o item ja controla). As quantidades sao as de agora, lidas
+       do mensageiro; so as que mudaram vao para ele ao salvar (o que vendeu enquanto isso nao volta) */
+    function campoEstoque(p, selCategoria) {
+      var chave = interruptorCampo('Controlar estoque', 'Vende só o que tem. Quando acaba, o site mostra "Esgotado" e ninguém consegue pedir. Pedido cancelado devolve a peça sozinho.', !!(p && R.controlaEstoque(p)));
+      var nota = el('p', { class: 'ajuda' });
+      var grade = el('div', { class: 'grade-estoque' });
+      var qtds = el('div', { class: 'estoque-qtds' }, [nota, grade]);
+      var bloco = el('div', { class: 'campo largo campo-estoque' }, [chave, qtds]);
+      var lido = null, falhou = false, campos = {};
+      bloco.hidden = !(p && R.controlaEstoque(p)) && estado.estoqueOk !== true;
+      if (estado.estoqueOk !== true) estoquePossivel().then(function (sim) { estado.estoqueOk = sim; bloco.hidden = !sim && !(p && R.controlaEstoque(p)); });
+      function tamanhos() {
+        var tam = R.gruposDaCategoria(estado.loja, selCategoria.value).filter(function (g) { return g.tipo === 'unico'; })[0];
+        return tam ? { titulo: String(tam.titulo || 'tamanho'), opcoes: tam.opcoes } : null;
+      }
+      function desenhar() {
+        qtds.hidden = !chave.chave.ligado;
+        UI.limpar(grade);
+        campos = {};
+        if (!chave.chave.ligado) return;
+        if (p && !lido && !falhou) { nota.textContent = 'Lendo o estoque de agora…'; return; }
+        if (falhou) { nota.textContent = 'Não deu para ler o estoque agora. Feche e abra o item de novo daqui a pouco.'; return; }
+        var tam = tamanhos();
+        var linhas = tam ? tam.opcoes.map(function (o) { return [o.id, o.nome]; }) : [['', 'Quantidade']];
+        nota.textContent = tam ? 'Quantas peças tem de cada ' + tam.titulo.toLowerCase() + ' agora. Zero aparece como esgotado.' : 'Quantas unidades tem agora. Zero aparece como esgotado.';
+        linhas.forEach(function (x) {
+          var atual = p && lido ? (Math.floor(Number(lido[R.chaveEstoque(p.id, x[0])])) || 0) : 0;
+          var input = el('input', { type: 'number', inputmode: 'numeric', min: '0', max: '99999', step: '1', 'aria-label': (tam ? x[1] + ': ' : '') + 'quantidade em estoque' });
+          input.value = String(atual);
+          input.dataset.antes = String(atual);
+          campos[x[0]] = input;
+          grade.appendChild(el('label', { class: 'estoque-qtd' }, [el('span', { class: 'estoque-qtd-nome', text: x[1] }), input]));
+        });
+      }
+      function ler() {
+        if (!p || lido || !store.lerEstoque) { desenhar(); return; }
+        store.lerEstoque(slug, true).then(function (q) { lido = q || {}; falhou = false; }, function () { falhou = true; }).then(desenhar);
+        desenhar();
+      }
+      chave.chave.addEventListener('click', function () { if (chave.chave.ligado) ler(); else desenhar(); });
+      selCategoria.addEventListener('change', desenhar);
+      if (chave.chave.ligado) ler(); else desenhar();
+      bloco.valendo = function () { return !bloco.hidden; };
+      bloco.ligado = function () { return !!chave.chave.ligado; };
+      /* { chave: quantidade } do que mudou (item novo ou categoria nova: tudo). id: o do item salvo */
+      bloco.mudancas = function (id, categoria) {
+        if (falhou) return null;
+        var saida = {}, mudouCategoria = !p || p.categoria !== categoria || !p.controlaEstoque;
+        Object.keys(campos).forEach(function (tid) {
+          var n = Math.max(0, Math.min(99999, Math.floor(Number(campos[tid].value)) || 0));
+          if (mudouCategoria || String(n) !== campos[tid].dataset.antes) saida[R.chaveEstoque(id, tid)] = n;
+        });
+        return saida;
+      };
+      return bloco;
+    }
+
     function editarProduto(p, categoriaId) {
       /* o item como esta agora (o da lista desenhada pode ser de antes de uma mudanca que acabou de sair) */
       if (p) p = estado.loja.produtos.filter(function (x) { return x.id === p.id; })[0] || p;
       var novo = !p;
+      var comida = catLoja().comida;
       var f = {
-        nome: campoTexto('Nome', p ? p.nome : '', { max: 60, placeholder: 'Ex: X-Bacon' }),
-        descricao: campoTexto('Descrição curta', p ? p.descricao : '', { max: 140, placeholder: 'O que vem, em uma linha' }),
+        nome: campoTexto('Nome', p ? p.nome : '', { max: 60, placeholder: comida ? 'Ex: X-Bacon' : 'Ex: Camiseta básica preta' }),
+        descricao: campoTexto('Descrição curta', p ? p.descricao : '', { max: 140, placeholder: comida ? 'O que vem, em uma linha' : 'Tecido, modelo ou detalhe, em uma linha' }),
         preco: campoDinheiro('Preço', p ? p.preco : 0),
-        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, destaque: true, ajuda: 'Item com foto vende mais. Qualquer foto do celular serve: prato no centro, ocupando a foto toda.' }),
-        emoji: campoEmoji('Emoji (aparece quando não tem foto)', p ? p.emoji : '🍔'),
+        foto: UI.campoFoto('Foto do item', D.fotoSrc(p, estado.fotos), { lado: 640, destaque: true, ajuda: comida ? 'Item com foto vende mais. Qualquer foto do celular serve: prato no centro, ocupando a foto toda.' : 'Item com foto vende mais. Qualquer foto do celular serve: produto no centro, com fundo limpo.' }),
+        emoji: campoEmoji('Emoji (aparece quando não tem foto)', p ? p.emoji : catLoja().icone),
         categoria: campoSelect('Categoria', categoriaId, estado.loja.categorias.map(function (c) { return [c.id, c.nome]; })),
-        ingredientes: campoEtiquetas('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes : [], { placeholder: 'Ex.: Cebola', ajuda: 'Escreva um de cada vez e toque em Adicionar. Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' }),
+        /* comercio: a mesma lista vira "o que vem" (kit, combo), so para o cliente ler */
+        ingredientes: comida
+          ? campoEtiquetas('Ingredientes que o cliente pode tirar', p && p.ingredientes ? p.ingredientes : [], { placeholder: 'Ex.: Cebola', ajuda: 'Escreva um de cada vez e toque em Adicionar. Aparece no "Tirar alguma coisa?". Deixe vazio se não tiver.' })
+          : campoEtiquetas('O que vem (opcional)', p && p.ingredientes ? p.ingredientes : [], { placeholder: 'Ex.: Caneca', limiteTexto: 'Até 30 por item.', ajuda: 'Para kit ou combo: escreva um de cada vez e toque em Adicionar. O cliente só lê. Deixe vazio se não for kit.' }),
       };
+      f.estoque = campoEstoque(p, f.categoria.input);
       /* a foto no topo, grande: e o que mais vende, e antes ficava espremida entre o preco e a descricao */
-      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.foto, f.nome, f.preco, f.descricao, f.categoria, f.ingredientes, f.emoji]);
+      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.foto, f.nome, f.preco, f.descricao, f.categoria, f.estoque, f.ingredientes, f.emoji]);
       if (!novo) {
         var mesmos = estado.loja.produtos.filter(function (x) { return x.categoria === p.categoria; }).map(function (x) { return x.id; });
         var posP = mesmos.indexOf(p.id);
@@ -2021,10 +2179,13 @@
         if (nome.length < 2) return UI.avisar('Digite o nome do item.');
         if (!preco) return UI.avisar('Digite o preço.');
         var dados = {
-          nome: nome, descricao: f.descricao.input.value.trim(), preco: preco, emoji: f.emoji.valor() || '🍔',
+          nome: nome, descricao: f.descricao.input.value.trim(), preco: preco, emoji: f.emoji.valor() || catLoja().icone,
           categoria: f.categoria.input.value,
           ingredientes: f.ingredientes.lista(),
         };
+        /* o estoque so muda quando o bloco aparece (mensageiro com estoque no ar); escondido, o item fica como estava */
+        if (f.estoque.valendo()) dados.controlaEstoque = f.estoque.ligado();
+        var idDoItem = p ? p.id : '';
         /* Foto: primeiro guarda a imagem (documento separado), depois o item aponta pra ela, e so entao a antiga sai.
            Enquanto isso, a limpeza de foto solta (carregarFotos) espera: ela via o item na foto velha ja apagada. */
         var foto = f.foto.valor();
@@ -2054,12 +2215,23 @@
             var id = base;
             var n = 2;
             while (estado.loja.produtos.some(function (x) { return x.id === id; })) id = base + '-' + (n++);
+            idDoItem = id;
             produtos = estado.loja.produtos.concat([Object.assign({ id: id, ativo: true, ordem: estado.loja.produtos.length }, dados)]);
           } else {
             produtos = estado.loja.produtos.map(function (x) { return x.id === p.id ? Object.assign({}, x, dados) : x; });
           }
           return salvarLoja({ produtos: produtos }, novo ? nome + ' entrou no ' + R.catalogo(estado.loja).nome : 'Item salvo');
         }).then(function () {
+          /* as quantidades vao depois do item (o mensageiro so aceita chave de item que controla estoque). Falhou: o item
+             ficou salvo, e o aviso diz que falta o estoque */
+          var qtds = dados.controlaEstoque ? f.estoque.mudancas(idDoItem, dados.categoria) : null;
+          if (qtds && Object.keys(qtds).length) {
+            store.salvarEstoque(slug, qtds).then(function (q) {
+              estado.estoquePainel = { q: q || {}, em: Date.now() };
+              UI.avisar('Estoque de ' + nome + ' salvo.');
+              if (vivo && estado.aba === 'cardapio') pintarEstoquePainel();
+            }, function (e) { UI.avisar('O item foi salvo, mas o estoque não: ' + D.erroAmigavel(e, 'tente de novo daqui a pouco.')); });
+          }
           if (apagarDepois) store.excluirFoto(slug, apagarDepois).catch(function () { /* a antiga pode ja ter sumido */ });
           fimDaTroca();
           UI.fecharModal();
@@ -2154,9 +2326,9 @@
     function editarCategoria(cat) {
       var novo = !cat;
       var l = estado.loja;
-      var nome = campoTexto('Nome da categoria', cat ? cat.nome : '', { max: 40, placeholder: 'Ex: Lanches' });
-      var emoji = campoEmoji('Emoji da categoria', cat ? cat.emoji : '🍔');
-      var ligada = novo ? null : interruptorCampo('Categoria ligada', 'Desligada, ela e todos os itens somem do site na hora e voltam quando você ligar. Bom para "Almoço" fora do horário.', cat.ativa !== false);
+      var nome = campoTexto('Nome da categoria', cat ? cat.nome : '', { max: 40, placeholder: catLoja().comida ? 'Ex: Lanches' : 'Ex: Camisetas' });
+      var emoji = campoEmoji('Emoji da categoria', cat ? cat.emoji : catLoja().icone);
+      var ligada = novo ? null : interruptorCampo('Categoria ligada', 'Desligada, ela e todos os itens somem do site na hora e voltam quando você ligar. ' + (catLoja().comida ? 'Bom para "Almoço" fora do horário.' : 'Bom para a coleção fora de época.'), cat.ativa !== false);
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [nome, emoji, ligada]);
       if (!novo) {
         var ids = l.categorias.map(function (c) { return c.id; });
@@ -2282,16 +2454,17 @@
       ]));
       var lista = el('div', { class: 'pilha' });
       (g.opcoes || []).forEach(function (op, indice) {
-        var preco = el('input', { class: 'preco', type: 'text', inputmode: 'numeric', value: op.preco ? dinheiro(op.preco) : 'grátis', 'aria-label': 'Acréscimo de ' + op.nome });
+        var semAcrescimo = catLoja().comida ? 'grátis' : dinheiro(0);
+        var preco = el('input', { class: 'preco', type: 'text', inputmode: 'numeric', value: op.preco ? dinheiro(op.preco) : semAcrescimo, 'aria-label': 'Acréscimo de ' + op.nome });
         UI.mascaraDinheiro(preco);
         preco.addEventListener('change', function () {
           var c = UI.centavosDoCampo(preco.value);
           atualizarOpcao(chave, indice, { preco: c });
-          if (!c) preco.value = 'grátis';
+          if (!c) preco.value = semAcrescimo;
         });
         var chaveAtiva = el('button', { class: 'chave' + (op.ativo !== false ? ' on' : ''), 'aria-label': 'Ligar ou desligar ' + op.nome, onclick: function () { atualizarOpcao(chave, indice, { ativo: !(op.ativo !== false) }); } });
         lista.appendChild(el('div', { class: 'linha-produto opcao' + (op.ativo !== false ? '' : ' desligado') }, [
-          el('div', { class: 'nome' }, [op.nome + (op.padrao ? ' (padrão)' : ''), op.descricao ? el('small', { text: op.descricao }) : null]),
+          el('div', { class: 'nome' }, [op.nome + (op.padrao && catLoja().comida ? ' (padrão)' : ''), op.descricao ? el('small', { text: op.descricao }) : null]),
           preco,
           el('button', { class: 'editar', 'aria-label': 'Remover ' + op.nome, onclick: function () {
             UI.perguntar('Remover a opção "' + op.nome + '"?', { sim: 'Remover', perigo: true }).then(function (sim) { if (sim) removerOpcao(chave, indice); });
@@ -2316,7 +2489,7 @@
     }
     function novaOpcao(chave) {
       if (!cabeMais('opcoes', chave)) return;
-      var nome = campoTexto('Nome da opção', '', { max: 40, placeholder: 'Ex: Bacon' });
+      var nome = campoTexto('Nome da opção', '', { max: 40, placeholder: catLoja().comida ? 'Ex: Bacon' : 'Ex: M ou 38' });
       var preco = campoDinheiro('Acréscimo no preço', 0, 'Deixe vazio se for grátis');
       UI.abrirModal({ titulo: 'Nova opção', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [nome, preco]), rodape: [el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Adicionar', onclick: function () {
         var n = nome.input.value.trim();
@@ -2339,8 +2512,8 @@
     function editarGrupo(chave, categoriaId) {
       var novo = !chave;
       var g = novo ? { titulo: '', tipo: 'varios', max: 0, opcoes: [] } : estado.loja.grupos[chave];
-      var titulo = campoTexto('Título que o cliente vê', g.titulo, { max: 50, placeholder: 'Ex: Tamanho, Adicionais' });
-      var tipo = campoSelect('Como escolhe', g.tipo, [['unico', 'Escolhe só um (tamanho)'], ['varios', 'Pode escolher vários (adicionais)']]);
+      var titulo = campoTexto('Título que o cliente vê', g.titulo, { max: 50, placeholder: catLoja().comida ? 'Ex: Tamanho, Adicionais' : 'Ex: Tamanho, Numeração' });
+      var tipo = campoSelect('Como escolhe', g.tipo, catLoja().comida ? [['unico', 'Escolhe só um (tamanho)'], ['varios', 'Pode escolher vários (adicionais)']] : [['unico', 'Escolhe só um (tamanho, numeração)'], ['varios', 'Pode escolher vários (extras, como embrulho)']]);
       var max = campoTexto('Máximo de escolhas (só para "vários")', g.max || '', { tipo: 'number', placeholder: '0 = sem limite' });
       max.input.min = '0';
       var usa = el('div', { class: 'pilha' });
@@ -2533,12 +2706,57 @@
     /* ---------------------------------------------------------- ajustes */
     /* o mensageiro no ar ja aceita pedido no "Pix combinado"? (pergunta uma vez por visita; na demonstracao, sim) */
     var recursos = null;
-    function pixCombinadoPossivel() {
+    function recursoNoAr(nome) {
       if (D.modoDemo) return Promise.resolve(true);
       var base = String((window.LIGEIRO_CONFIG || {}).proxyMercadoPago || '').replace(/\/$/, '');
       if (!base || !window.fetch) return Promise.resolve(false);
       if (!recursos) recursos = fetch(base + '/recursos').then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { return (j && j.recursos) || []; }).catch(function () { recursos = null; return []; });
-      return recursos.then(function (lista) { return lista.indexOf('pix-combinado') >= 0; });
+      return recursos.then(function (lista) { return lista.indexOf(nome) >= 0; });
+    }
+    function pixCombinadoPossivel() { return recursoNoAr('pix-combinado'); }
+    /* estoque (vender so o que tem): precisa do mensageiro que ja reserva o estoque no pedido */
+    function estoquePossivel() { return recursoNoAr('estoque'); }
+
+    /* o vocabulario da loja (comida ou comercio) e o nome do numero do pedido: "senha 12" na comida, "pedido nº 12" no
+       comercio. O numero e o mesmo, so muda o nome */
+    function catLoja() { return R.catalogo(estado.loja || {}); }
+    function daSenha(p) { return catLoja().comida ? 'da senha ' + p.senha : 'do pedido nº ' + p.senha; }
+    function oPedido(p) { return catLoja().comida ? 'o pedido da senha ' + p.senha : 'o pedido nº ' + p.senha; }
+    function aSenhaN(p) { return catLoja().comida ? 'a senha ' + p.senha : 'o pedido nº ' + p.senha; }
+    function maiuscula(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+    /* a loja como o formulario de Ajustes esta agora (tipo e nome livre), para a previa falar a lingua certa */
+    function tipoDoForm(f, l) {
+      if (!f || !f.tipo || !f.tipo.input) return { tipo: l.tipo, tipoNome: l.tipoNome };
+      return { tipo: f.tipo.input.value || l.tipo, tipoNome: f.tipo.nome && !f.tipo.nome.hidden ? f.tipo.nome.input.value : '' };
+    }
+    /* Tipo da loja: escolhido numa lista (comida ou comercio), nunca texto solto. "Outra comida" e "Outro comércio" pedem o
+       nome que o cliente le ("Papelaria"). Tipo antigo que nao esta na lista continua valendo, no topo */
+    function campoTipoLoja(l) {
+      var atual = String(l.tipo || '').trim();
+      var nomes = R.TIPOS_DE_LOJA.concat(R.TIPOS_DE_COMERCIO).map(function (t) { return t[0]; });
+      var sel = el('select', { 'aria-label': 'Tipo da loja' });
+      if (!atual) sel.appendChild(el('option', { value: '', text: 'Escolha o tipo' }));
+      else if (nomes.indexOf(atual) < 0) sel.appendChild(el('option', { value: atual, text: atual.toLowerCase() === 'outro' ? 'Outro (comida)' : atual }));
+      sel.appendChild(el('optgroup', { label: 'Comida' }, R.TIPOS_DE_LOJA.map(function (t) { return el('option', { value: t[0], text: t[0] }); })));
+      sel.appendChild(el('optgroup', { label: 'Outros comércios' }, R.TIPOS_DE_COMERCIO.map(function (t) { return el('option', { value: t[0], text: t[0] }); })));
+      sel.value = atual;
+      var ajuda = el('p', { class: 'ajuda' });
+      var bloco = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), ajuda, sel]);
+      var nome = campoTexto('Nome do tipo', l.tipoNome || '', { max: 24, ajuda: 'O que o cliente lê na lista da cidade, no lugar de "Outro".' });
+      function pintar() {
+        var comercio = R.segmento({ tipo: sel.value }) === 'comercio';
+        nome.hidden = !/^outr[oa] (comida|comércio|comercio)$/i.test(sel.value);
+        nome.input.placeholder = comercio ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
+        ajuda.textContent = comercio
+          ? 'É por ele que o cliente acha a loja. Comércio: o site fala em catálogo e em separar o pedido.'
+          : 'É por ele que o cliente acha a loja na lista da cidade.';
+      }
+      sel.addEventListener('change', pintar);
+      pintar();
+      bloco.input = sel;
+      bloco.nome = nome;
+      return bloco;
     }
 
     function interruptorCampo(rotulo, ajuda, valor) {
@@ -2561,8 +2779,8 @@
       var aparencia = el('div', { class: 'bloco-form', id: 'aj-aparencia' }, [el('div', { class: 'bloco-titulo', text: 'Aparência do site' })]);
       var g1 = el('div', { class: 'grade-form' });
       f.nome = campoTexto('Nome', l.nome, { max: 60, ajuda: 'Aparece no topo do site e no link que você manda no WhatsApp.' });
-      f.tipo = campoTexto('Tipo', l.tipo, { max: 30, placeholder: 'Lanchonete, Pizzaria, Marmitaria…', ajuda: 'É por ele que o cliente acha a loja na lista da cidade.' });
-      f.logo = UI.campoFoto('Logo', D.logoSrc(l), { quadrado: true, lado: 200, qualidade: 0.82, vazio: l.emoji || '🍽️' });
+      f.tipo = campoTipoLoja(l);
+      f.logo = UI.campoFoto('Logo', D.logoSrc(l), { quadrado: true, lado: 200, qualidade: 0.82, vazio: l.emoji || catLoja().vazio });
       f.capa = UI.campoFoto('Capa', l.capa ? D.fotoSrc({ foto: l.capa }, estado.fotos) : (l.capaUrl || null), { lado: 1080, qualidade: 0.72, larga: true, vazio: 'imagem' });
       f.logo.hidden = true; f.capa.hidden = true; /* quem mostra e a previa; eles so guardam a foto */
       /* loja com design exclusivo (feito pelo Ligeiro): cores, estilo e capa sao do design e ficam travados, para o dono
@@ -2574,17 +2792,18 @@
       f.cor = campoCor('Cor da sua loja', l.cor, function () { f.previa.atualizar(); });
       f.estilo = campoEstilo('Estilo do site', l.estilo, function () { f.previa.atualizar(); });
       f.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
-      f.tipo.input.addEventListener('input', function () { f.previa.atualizar(); });
+      f.tipo.input.addEventListener('change', function () { f.previa.atualizar(); });
+      f.tipo.nome.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.medidas = el('details', { class: 'avancado campo largo' }, [
         el('summary', { text: 'Medidas das imagens, para quem for fazer a arte' }),
         exclusiva
           ? el('p', { class: 'muted pequeno' }, [el('b', { text: 'Imagem do WhatsApp: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece pequena no link do WhatsApp e na lista da cidade: fundo cheio, sem letra pequena.'])
           : el('p', { class: 'muted pequeno' }, [el('b', { text: 'Logo: ' }), 'quadrada, 500 × 500 px ou maior (JPG ou PNG). O sistema corta o centro e diminui. Aparece com 120 px no site, 60 px na vitrine e pequena no link do WhatsApp: símbolo grande, sem letra pequena.']),
         exclusiva ? null : el('p', { class: 'muted pequeno' }, [el('b', { text: 'Capa: ' }), 'deitada, 1200 × 500 px (proporção 12 por 5). No celular aparece só a faixa do meio: deixe o que importa no centro e nada escrito nas bordas. Uma foto do celular na horizontal serve.']),
-        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, prato no centro. O sistema diminui para 640 px.']),
+        el('p', { class: 'muted pequeno' }, [el('b', { text: 'Foto de item: ' }), 'qualquer foto do celular, ' + (catLoja().comida ? 'prato' : 'produto') + ' no centro. O sistema diminui para 640 px.']),
       ]);
       f.emoji = campoEmoji('Emoji da loja', l.emoji, { ajuda: 'Aparece no lugar da logo enquanto você não manda uma.', aoMudar: function () { if (f.previa) f.previa.atualizar(); } });
-      f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: 'Ex: Lanche bem servido, feito na hora.', ajuda: 'Aparece no topo do site, embaixo do nome.' });
+      f.descricao = campoTexto('Frase de apresentação', l.descricao, { max: 120, largo: true, placeholder: catLoja().comida ? 'Ex: Lanche bem servido, feito na hora.' : 'Ex: Moda feminina com preço justo.', ajuda: 'Aparece no topo do site, embaixo do nome.' });
       f.descricao.input.addEventListener('input', function () { f.previa.atualizar(); });
       f.avisoTopo = campoTexto('Aviso no topo do site', l.avisoTopo, { max: 120, largo: true, placeholder: 'Ex: Hoje só entrega no Centro', ajuda: 'Aparece em destaque para o cliente. Deixe vazio para não mostrar.' });
       f.cidade = window.LigeiroCidades.campo(l.cidade, l.uf, { rotulo: 'Cidade', ajuda: 'Escolha na lista. É a página da cidade em que sua loja aparece.' });
@@ -2625,7 +2844,7 @@
       aparencia.appendChild(f.logo);
       aparencia.appendChild(f.capa);
       s.appendChild(aparencia);
-      [f.nome, f.tipo, f.descricao, f.avisoTopo, f.cidade, f.endereco, f.whatsapp, f.instagram, f.google, f.cnpj].forEach(function (c) { g1.appendChild(c); });
+      [f.nome, f.tipo, f.tipo.nome, f.descricao, f.avisoTopo, f.cidade, f.endereco, f.whatsapp, f.instagram, f.google, f.cnpj].forEach(function (c) { g1.appendChild(c); });
       identidade.appendChild(g1);
       /* sem o "ID da loja": o design exclusivo e pedido pela Loja do Ligeiro (o pedido ja sabe a loja) e a Central acha a
          loja pelo nome ou pelo e-mail do dono */
@@ -2662,7 +2881,7 @@
       entrega.appendChild(f.frete);
       var ge = el('div', { class: 'grade-form' });
       f.pedidoMinimo = campoDinheiro('Pedido mínimo', l.pedidoMinimo, 'Vazio = sem pedido mínimo.');
-      f.tempoPreparo = campoTexto('Tempo de preparo (min)', l.tempoPreparo, { tipo: 'number', ajuda: ' ' });
+      f.tempoPreparo = campoTexto(catLoja().tempoRotulo + ' (min)', l.tempoPreparo, { tipo: 'number', ajuda: ' ' });
       f.tempoEntrega = campoTexto('Tempo de entrega (min)', l.tempoEntrega, { tipo: 'number', ajuda: ' ' });
       /* a ajuda mostra o que o cliente le no site com o numero digitado (o mesmo padrao do site quando fica vazio: 20 e 40) */
       function ajudaTempo(c, antes, padrao) {
@@ -2670,7 +2889,7 @@
         function pintar() { var n = Math.round(Number(c.input.value)); p.textContent = antes + (n > 0 ? n : padrao) + ' min".'; }
         c.input.addEventListener('input', pintar); pintar();
       }
-      ajudaTempo(f.tempoPreparo, 'Quem vai buscar vê "fica pronto em ~', 20);
+      ajudaTempo(f.tempoPreparo, 'Quem vai buscar vê "' + catLoja().prontoEm.toLowerCase() + ' ~', 20);
       ajudaTempo(f.tempoEntrega, 'Do pedido até a porta do cliente. O site mostra "entrega em ~', 40);
       f.tempoPreparo.input.min = '1'; f.tempoPreparo.input.max = '240'; f.tempoEntrega.input.min = '1'; f.tempoEntrega.input.max = '240';
       [f.taxaEntrega, f.entregaGratisAcima, f.pedidoMinimo, f.tempoPreparo, f.tempoEntrega].forEach(function (c) { ge.appendChild(c); });
@@ -2801,7 +3020,7 @@
         }
         conexao.appendChild(el('div', { class: 'mp-convite' }, [
           el('b', { text: 'Receba Pix e cartão pelo site' }),
-          el('span', { class: 'muted pequeno', text: 'O pedido chega pago na cozinha. Ninguém confere comprovante, e print falso não passa.' }),
+          el('span', { class: 'muted pequeno', text: 'O pedido chega pago ' + catLoja().naTela + '. Ninguém confere comprovante, e print falso não passa.' }),
         ]));
         /* amostra: o Mercado Pago e do dono, depois da entrega (conectado aqui, o dinheiro cairia na conta de quem montou) */
         if (estado.loja.amostra === true) {
@@ -2884,11 +3103,11 @@
       pintarCartao();
       f.aceitaCartaoEntrega = interruptorCampo('Cartão na maquininha', 'Crédito ou débito, quando o cliente recebe ou busca.', !!l.aceitaCartaoEntrega);
       f.aceitaDinheiroEntrega = interruptorCampo('Dinheiro', 'O cliente já diz se precisa de troco.', !!l.aceitaDinheiroEntrega);
-      f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar no balcão', 'Desligado, quem retira paga pelo site.', l.aceitaPagarNoBalcao !== false);
+      f.aceitaPagarNoBalcao = interruptorCampo('Quem retira pode pagar ' + catLoja().retirada, 'Desligado, quem retira paga pelo site.', l.aceitaPagarNoBalcao !== false);
       /* Pix combinado no WhatsApp: para quem nao quer o Mercado Pago. O cliente manda o pedido e combina o Pix com a loja;
          o pedido so vai para a cozinha quando a loja marca que o Pix caiu. Um ou outro: com os dois, o cliente veria dois
          "Pix". So aparece com o mensageiro que ja aceita esse pedido (o antigo recusaria) */
-      f.aceitaPixCombinado = interruptorCampo('Pix pelo WhatsApp', 'Sem Mercado Pago: o cliente combina o Pix com você no WhatsApp. O pedido só vai para a cozinha quando você marcar que caiu.', l.aceitaPixCombinado === true);
+      f.aceitaPixCombinado = interruptorCampo('Pix pelo WhatsApp', 'Sem Mercado Pago: o cliente combina o Pix com você no WhatsApp. O pedido só vai para ' + catLoja().aTela + ' quando você marcar que caiu.', l.aceitaPixCombinado === true);
       var grupoCombinado = el('div', { class: 'forma-grupo mais-longe', text: 'Pix sem Mercado Pago' });
       grupoCombinado.hidden = f.aceitaPixCombinado.hidden = true;
       pagamento.appendChild(grupoCombinado);
@@ -2907,7 +3126,7 @@
       f.mpAtivo.chave.addEventListener('click', function () {
         if (f.mpAtivo.chave.ligado && f.aceitaPixCombinado.chave.ligado) { f.aceitaPixCombinado.chave.click(); UI.avisar('Pix pelo WhatsApp desligado: agora o Pix cai sozinho pelo Mercado Pago.'); }
       });
-      pagamento.appendChild(el('div', { class: 'forma-grupo mais-longe', text: 'Na entrega ou no balcão' }));
+      pagamento.appendChild(el('div', { class: 'forma-grupo mais-longe', text: 'Na entrega ou ' + catLoja().retirada }));
       [f.aceitaCartaoEntrega, f.aceitaDinheiroEntrega, f.aceitaPagarNoBalcao].forEach(function (c) { pagamento.appendChild(c); });
       /* o que vale hoje, com as mesmas contas do site do cliente: sem Pix e sem "pagar no balcao", quem busca nao tem como pagar */
       var resumoPag = el('p', { class: 'aviso', hidden: true });
@@ -2927,7 +3146,7 @@
         f.aceitaPagarNoBalcao.hidden = !cartao && !dinheiroNaPorta;
         var retiradaSemComo = !pix && !cartaoSite && !combinado && formas.length && f.aceitaRetirada.chave.ligado && !f.aceitaPagarNoBalcao.chave.ligado;
         var texto = !formas.length ? 'Nenhuma forma de pagamento ligada: o cliente não consegue fechar o pedido.'
-          : retiradaSemComo ? 'Sem pagar pelo site, quem vai buscar não tem como pagar. Ligue "Quem retira pode pagar no balcão".'
+          : retiradaSemComo ? 'Sem pagar pelo site, quem vai buscar não tem como pagar. Ligue "Quem retira pode pagar ' + catLoja().retirada + '".'
           : 'Hoje o cliente paga com ' + (formas.length > 1 ? formas.slice(0, -1).join(', ') + ' e ' + formas[formas.length - 1] : formas[0]) + '.';
         var falta = !formas.length || retiradaSemComo;
         UI.limpar(resumoPag);
@@ -2945,7 +3164,9 @@
       s.appendChild(pagamento);
 
       var noSite = el('div', { class: 'bloco-form', id: 'aj-site' }, [el('div', { class: 'bloco-titulo', text: 'No seu site' })]);
-      f.permitePersonalizar = interruptorCampo('Cliente pode tirar ingredientes e mandar recado', 'Ex.: sem cebola, bem passado.', l.permitePersonalizar !== false);
+      f.permitePersonalizar = catLoja().comida
+        ? interruptorCampo('Cliente pode tirar ingredientes e mandar recado', 'Ex.: sem cebola, bem passado.', l.permitePersonalizar !== false)
+        : interruptorCampo('Cliente pode mandar recado', 'No item e no pedido. Ex.: é para presente.', l.permitePersonalizar !== false);
       f.mostrarOutras = interruptorCampo('Mostrar "outros estabelecimentos da cidade" no meu site', 'Desligado, o seu link é só seu: o cliente não vê concorrente. Ligado, sua loja vira parte da vitrine da cidade e ganha o link de volta.', l.mostrarOutras === true);
       noSite.appendChild(f.permitePersonalizar);
       noSite.appendChild(f.mostrarOutras);
@@ -3029,7 +3250,7 @@
       s.appendChild(cupons);
 
       /* sons do painel: o dono ouve cada um e sabe o que significa */
-      var listaSons = [['apito', 'Pedido novo', 'Alto, para ouvir da cozinha', 'sino'], ['pago', 'Pagamento caiu', 'Pix ou cartão: o pedido já pode começar', 'dinheiro'], ['cancelado', 'Cliente cancelou', 'O pedido saiu da fila', 'fechar'], ['lembrete', 'Pedido parado', 'Pago há mais de 5 minutos sem começar', 'relogio']];
+      var listaSons = [['apito', 'Pedido novo', catLoja().comida ? 'Alto, para ouvir da cozinha' : 'Alto, para ouvir de longe', 'sino'], ['pago', 'Pagamento caiu', 'Pix ou cartão: o pedido já pode começar', 'dinheiro'], ['cancelado', 'Cliente cancelou', 'O pedido saiu da fila', 'fechar'], ['lembrete', 'Pedido parado', 'Pago há mais de 5 minutos sem começar', 'relogio']];
       s.appendChild(el('div', { class: 'bloco-form' }, [
         el('div', { class: 'bloco-titulo', text: 'Sons do painel' }),
         el('p', { class: 'muted pequeno', text: 'Toque para ouvir cada aviso. Para silenciar tudo, use o botão Apito lá em cima.' }),
@@ -3087,7 +3308,7 @@
       var estadoH = {};
       dias.forEach(function (d) {
         var faixas = ((horarios && horarios[d[0]]) || []).map(faixaPar).filter(Boolean).slice(0, 2);
-        estadoH[d[0]] = { aberto: faixas.length > 0, turnos: faixas.length ? faixas : [['18:00', '23:00']] };
+        estadoH[d[0]] = { aberto: faixas.length > 0, turnos: faixas.length ? faixas : [catLoja().comida ? ['18:00', '23:00'] : ['09:00', '18:00']] };
       });
 
       var caixa = el('div', { class: 'horarios' });
@@ -3097,7 +3318,12 @@
         return i;
       }
       /* o 2o turno nasce sem bater no primeiro: quem abre a noite ganha o almoco; quem abre de dia ganha a janta */
-      function segundoTurno(e) { var t = e.turnos[0] || ['', '']; return t[0] >= '15:00' ? ['11:00', '14:00'] : ['18:00', '23:00']; }
+      function segundoTurno(e) {
+        var t = e.turnos[0] || ['', ''];
+        /* comercio: o 2o turno e a volta do almoco (o primeiro termina ao meio-dia) */
+        if (!catLoja().comida && t[0] < '12:00') { var fim = t[1] > '14:00' ? t[1] : '18:00'; if (t[1] > '12:00') t[1] = '12:00'; return ['14:00', fim]; }
+        return t[0] >= '15:00' ? ['11:00', '14:00'] : ['18:00', '23:00'];
+      }
       /* "2º turno" no PC; no celular o botao fica do lado das horas e mostra so "2º" (o nome inteiro vai no aria-label) */
       function textoTurno() { return el('span', { class: 'dia-mais-texto' }, ['2º', el('span', { class: 'dia-mais-resto', text: ' turno' })]); }
       function desenharDia(dia) {
@@ -3120,7 +3346,7 @@
           linha.appendChild(turnos);
           /* tirar o 2o turno: na mesma coluna e no mesmo formato do "+ 2º turno", na altura da linha do 2o turno */
           if (e.turnos.length > 1) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais dia-tirar', 'aria-label': 'Tirar o 2º turno de ' + nomes[dia], onclick: function () { e.turnos.splice(1, 1); redesenhar(dia); } }, [UI.iconeLinha('fechar'), textoTurno()]));
-          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: 'Adicionar 2º turno (para quem abre no almoço e na janta)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }, [UI.iconeLinha('mais'), textoTurno()]));
+          if (e.turnos.length < 2) linha.appendChild(el('button', { type: 'button', class: 'btn btn-fantasma btn-mini dia-mais', title: catLoja().comida ? 'Adicionar 2º turno (para quem abre no almoço e na janta)' : 'Adicionar 2º turno (para quem fecha para o almoço)', 'aria-label': 'Adicionar 2º turno em ' + nomes[dia], onclick: function () { e.turnos.push(segundoTurno(e)); redesenhar(dia); } }, [UI.iconeLinha('mais'), textoTurno()]));
         }
         return linha;
       }
@@ -3144,7 +3370,7 @@
       ]));
       var bloco = el('div', { class: 'campo largo' }, [
         el('label', { text: 'Horário de cada dia' }),
-        el('p', { class: 'ajuda', text: 'Fecha depois da meia-noite? Coloque "até 01:00" que o sistema entende. Abre no almoço e na janta? Use o 2º turno.' }),
+        el('p', { class: 'ajuda', text: catLoja().comida ? 'Fecha depois da meia-noite? Coloque "até 01:00" que o sistema entende. Abre no almoço e na janta? Use o 2º turno.' : 'Fecha para o almoço? Use o 2º turno: o primeiro até o meio-dia e o segundo na volta.' }),
         caixa,
       ]);
       bloco.valor = function (silencioso) {
@@ -3192,7 +3418,9 @@
       var mudancas = {
         nome: f.nome.input.value.trim() || estado.loja.nome,
         tipo: f.tipo.input.value.trim(),
-        emoji: f.emoji.input.value.trim() || '🍔',
+        /* "Outra comida" e "Outro comércio": o nome que o cliente le; os outros tipos nao tem */
+        tipoNome: f.tipo.nome.hidden ? '' : f.tipo.nome.input.value.trim().slice(0, 24),
+        emoji: f.emoji.input.value.trim() || R.catalogo({ tipo: f.tipo.input.value }).icone,
         cor: f.cor.valor(),
         estilo: f.estilo.valor(),
         descricao: f.descricao.input.value.trim(),
@@ -3412,7 +3640,7 @@
       return el('div', { class: 'bloco-form senha-equipe bloco-avisos' }, [
         el('div', { class: 'senha-equipe-texto' }, [
           el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('celular'), 'Avisos com a tela apagada']),
-          el('p', { class: 'muted pequeno', text: texto + ' Cozinha e entregador ligam na tela deles, no botão Tela apagada.' }),
+          el('p', { class: 'muted pequeno', text: texto + ' ' + catLoja().tela + ' e entregador ligam na tela deles, no botão Tela apagada.' }),
         ]),
         botoes.length ? el('div', { class: 'bloco-avisos-botoes' }, botoes) : null,
       ]);
@@ -3453,7 +3681,9 @@
       s.appendChild(el('h2', { text: 'Minha loja' }));
       s.appendChild(el('p', { class: 'muted', text: 'Cada tela abre em outra aba, sem fechar o painel. As duas usam a senha da equipe, que você define aqui embaixo.' }));
       s.appendChild(el('div', { class: 'telas-grade' }, [
-        tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', UI.linkDoSite('cozinha/' + l.slug)),
+        catLoja().comida
+          ? tela('chef', 'Cozinha', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho na cozinha.', UI.linkDoSite('cozinha/' + l.slug))
+          : tela('caixa', 'Separação', 'Fila do dia em letra grande, apita quando entra pedido. Num tablet ou celular velho no estoque.', UI.linkDoSite('cozinha/' + l.slug)),
         tela('entrega', 'Entregador', 'No celular do motoboy: endereço, o que cobrar, mapa, WhatsApp do cliente e "entregue".', UI.linkDoSite('entrega/' + l.slug)),
       ]));
       /* o link do painel: um cartao como o da senha logo abaixo (antes era uma linha solta com um botao menor) */
@@ -3467,7 +3697,7 @@
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [
           el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('chave'), 'Senha da equipe']),
-          el('p', { class: 'muted pequeno', text: 'Cozinha e entregador abrem com ela (8 a 10 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
+          el('p', { class: 'muted pequeno', text: catLoja().tela + ' e entregador abrem com ela (8 a 10 números). Você, logado, entra sem senha. Esqueceu? É só definir outra.' }),
         ]),
         el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: estado.loja.senhaEquipeEm ? 'Trocar a senha' : 'Definir a senha', onclick: function () { window.LigeiroEquipe.definirSenha(estado.loja); } }),
       ]));
@@ -3475,7 +3705,7 @@
       if (blocoAvisos) s.appendChild(blocoAvisos);
 
       /* 2. divulgar */
-      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + '. É rápido, você ' + R.frasePagamento(estado.loja) + ' e acompanha pela senha.';
+      var msgWhats = 'Olá! 😊 Faça seu pedido pelo nosso ' + R.catalogo(estado.loja).nome + ': ' + linkLoja + '. É rápido, você ' + R.frasePagamento(estado.loja) + ' e acompanha ' + R.catalogo(estado.loja).pelaSenha + '.';
       var qr = el('div', { class: 'qr-caixa divulgar-qr' }); /* tamanho no CSS: no PC ele estica ate a altura da coluna do lado */
       /* justo na caixa (209 no PC, 180 no celular): tira a borda (3) e pelo menos 4 px de respiro de cada lado */
       Pix.desenharQr(qr, linkLoja, (window.matchMedia && window.matchMedia('(min-width: 900px)').matches ? 209 : 180) - 11, true);

@@ -150,6 +150,9 @@ ok(chamadasDesenho < 2500, 'um quadro inteiro faz ' + chamadasDesenho + ' chamad
 
 /* ---- 3. bater, pular e pegar moeda ---- */
 console.log('Bater, pular e moeda');
+/* depois da batida o fim vem num relogio de 850 ms: espera ele chegar (antes eram 900 ms fixos, e com o computador
+   ocupado o relogio atrasava e o teste falhava de vez em quando) */
+async function esperarFim() { for (let i = 0; i < 80 && J() && J().fase !== 'fim'; i++) await new Promise((r) => setTimeout(r, 50)); }
 function corridaLimpa() {
   T.comecar();
   const j = J();
@@ -271,7 +274,7 @@ j = corridaLimpa();
 j.dist = 500; j.moedas = 7; j.bonus = 70;
 j.obj.push({ tipo: 'cone', faixa: 0, z: 2, alt: 0 });
 for (let i = 0; i < 30 && j.fase === 'jogando'; i++) T.passo(dt);
-await new Promise((r) => setTimeout(r, 900));
+await esperarFim();
 ok(J().fase === 'fim' && Number(guardado['ligeiro:jogo:recorde']) >= 570, 'fim da corrida: recorde guardado no aparelho (' + guardado['ligeiro:jogo:recorde'] + ')');
 ok(!/firestore|fetch\(|firebase|XMLHttpRequest/i.test(codigo.replace(/\/\*[\s\S]*?\*\//g, '')), 'o jogo nao chama banco nem internet');
 
@@ -294,7 +297,7 @@ ok(j.pegos['x-bacon'] === 1 && j.textos.some((t) => t.t === 'X-Bacon: turbo!'), 
 j.turbo = 0; j.imune = 0;
 j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
 for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
-await new Promise((r) => setTimeout(r, 900));
+await esperarFim();
 const acha = (e, cls) => { if (!e) return null; if (String(e.class || e.className || '').split(' ').indexOf(cls) >= 0) return e; for (const f of e.children || []) { const r = acha(f, cls); if (r) return r; } return null; };
 const fome = acha(J() && J().painel, 'jogo-fome');
 const textoFome = fome ? JSON.stringify(fome.children.map((c) => (c.children || []).map((x) => x.textContent))) : '';
@@ -307,7 +310,7 @@ await new Promise((r) => setTimeout(r, 20));
 j = corridaLimpa();
 j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
 for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
-await new Promise((r) => setTimeout(r, 900));
+await esperarFim();
 ok(J().fase === 'fim' && !acha(J().painel, 'jogo-fome'), 'loja fechou durante a corrida: sem "Bateu fome?"');
 LJ.fechar();
 
@@ -326,9 +329,24 @@ T.passo(dt);
 j.turbo = 0; j.imune = 0;
 j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
 for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
-await new Promise((r) => setTimeout(r, 900));
+await esperarFim();
 const fomeB = acha(J().painel, 'jogo-fome');
 ok(j.textos.some((t) => t.t === 'X-Bacon Duplo: turbo!') && fomeB && /🌭/.test(textoDe(fomeB)) && /X-Bacon Duplo por R\$ 39,00/.test(textoDe(fomeB)), 'fim na outra loja: "Bateu fome?" com o nome, o emoji e o preco dela');
+LJ.fechar();
+
+/* loja de comercio: o jogo fala de produto ("Os produtos da Moda da Bia viram poderes", "Gostou deste?", "Ver no catálogo") */
+LJ.abrir({ cidade: 'Registro', nomeLoja: 'Moda da Bia', comercio: true, aoVerProduto() {}, podePedir: () => true, produtos: [{ id: 'camiseta', nome: 'Camiseta preta', preco: 3990, emoji: '' }] });
+await new Promise((r) => setTimeout(r, 20));
+ok(/Os produtos da Moda da Bia viram poderes/.test(textoDe(J().painel)) && !/lanche/i.test(textoDe(J().painel)), 'comercio: a tela de inicio fala dos produtos da loja');
+j = corridaLimpa();
+j.obj.push({ tipo: 'turbo', faixa: 0, z: 0.5, alt: 0.9 });
+T.passo(dt);
+j.turbo = 0; j.imune = 0;
+j.obj.push({ tipo: 'cone', faixa: 0, z: 3, alt: 0 });
+for (let i = 0; i < 60 && j.fase === 'jogando'; i++) T.passo(dt);
+await esperarFim();
+const fomeC = acha(J().painel, 'jogo-fome');
+ok(fomeC && /Gostou deste\?/.test(textoDe(fomeC)) && /Ver no catálogo/.test(textoDe(fomeC)) && !/fome|cardápio/i.test(textoDe(fomeC)) && /🛍️/.test(textoDe(fomeC)), 'comercio: no fim, "Gostou deste?" e "Ver no catálogo" (sem fome nem cardapio)');
 LJ.fechar();
 
 /* um jogo novo (sem desenhos ainda, como na primeira vez), com a foto que demora a carregar, o som de mentira e os

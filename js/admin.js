@@ -14,7 +14,12 @@
   var $ = UI.$;
 
   var TIPOS = R.TIPOS_DE_LOJA;
-  var MODELOS = [['vazio', 'Cardápio vazio (monto na loja)'], ['lanchonete-do-ze', 'Modelo de lanchonete'], ['dom-conizza', 'Modelo de pizzaria'], ['marmitaria-da-cida', 'Modelo de marmitaria'], ['sorveteria-da-lu', 'Modelo de sorveteria / açaí']];
+  var MODELOS = [['vazio', 'Vazio (monto na loja)'], ['lanchonete-do-ze', 'Modelo de lanchonete'], ['dom-conizza', 'Modelo de pizzaria'], ['marmitaria-da-cida', 'Modelo de marmitaria'], ['sorveteria-da-lu', 'Modelo de sorveteria / açaí'],
+    ['modelo-roupas', 'Modelo de loja de roupas'], ['modelo-calcados', 'Modelo de calçados'], ['modelo-acessorios', 'Modelo de acessórios'], ['modelo-cosmeticos', 'Modelo de cosméticos'], ['modelo-presentes', 'Modelo de presentes'],
+    ['modelo-eletronicos', 'Modelo de eletrônicos'], ['modelo-pet', 'Modelo de pet shop'], ['modelo-mercado', 'Modelo de mercado']];
+  /* o emoji do tipo, procurado nas duas listas (comida e comercio) */
+  function emojiDoTipo(tipo) { return (TIPOS.concat(R.TIPOS_DE_COMERCIO).filter(function (t) { return t[0] === tipo; })[0] || ['', R.catalogo({ tipo: tipo }).icone])[1]; }
+  function ehOutroTipo(tipo) { return /^outr[oa] (comida|comércio|comercio)$/i.test(String(tipo || '')); }
 
   var CHAVE_ABA = 'ligeiro:admin:aba';
   var DIAS_ALERTA = 7; /* "vencendo" e "acabam em 7 dias" */
@@ -850,7 +855,7 @@
       var logo = D.logoSrc(l);
       return el('button', { class: 'adm-linha adm-com-logo' + (l.ativa === false ? ' desligada' : ''), type: 'button', onclick: function () { abrirLoja(l.slug); } }, [
         el('span', { class: 'adm-c-principal' }, [
-          el('span', { class: 'adm-logo', 'aria-hidden': 'true' }, logo ? el('img', { src: logo, alt: '', loading: 'lazy' }) : (l.emoji || '🍽️')),
+          el('span', { class: 'adm-logo', 'aria-hidden': 'true' }, logo ? el('img', { src: logo, alt: '', loading: 'lazy' }) : (l.emoji || R.catalogo(l).vazio)),
           el('span', { class: 'adm-textos' }, [
             el('span', { class: 'adm-nome' }, [l.nome || l.slug, UI.seloVerificada(l)]),
             el('span', { class: 'adm-sub adm-so-cel', text: cidadeUF(l) + (l.tipo ? ' · ' + l.tipo : '') }),
@@ -1279,7 +1284,7 @@
           el('span', { class: 'muted', text: 'Mande o link para o dono ver. O site mostra a faixa AMOSTRA e o pedido não sai. Quando ele fechar, entregue a loja para o e-mail do Google dele.' }),
         ]),
         el('div', { class: 'adm-amostra-botoes' }, [
-          el('button', { class: 'btn btn-fantasma', type: 'button', onclick: function () { colarCardapio(l, marca, trava); } }, [UI.iconeLinha('cardapio'), 'Colar cardápio']),
+          el('button', { class: 'btn btn-fantasma', type: 'button', onclick: function () { colarCardapio(l, marca, trava); } }, [UI.iconeLinha(R.catalogo(l).iconeCatalogo), 'Colar ' + R.catalogo(l).nome]),
           el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { entregarAmostra(l, marca, trava); } }, [UI.iconeLinha('presente'), 'Entregar ao cliente']),
         ]),
       ]);
@@ -1289,13 +1294,13 @@
     function lerCardapioColado(texto) {
       var lim = (window.LIGEIRO_CONFIG || {}).limites || { categorias: 20, itens: 300, grupos: 30, opcoes: 30 };
       var x;
-      try { x = JSON.parse(String(texto || '').trim()); } catch (_) { throw new Error('O texto colado não é um cardápio. Copie de novo o texto inteiro que o Ligeiro mandou.'); }
+      try { x = JSON.parse(String(texto || '').trim()); } catch (_) { throw new Error('O texto colado não é um cardápio nem um catálogo. Copie de novo o texto inteiro que o Ligeiro mandou.'); }
       var ID = /^[a-z0-9][a-z0-9-]{0,39}$/i;
       var txt = function (v, max) { return typeof v === 'string' && v.trim().length > 0 && v.length <= max; };
       var preco = function (v) { return typeof v === 'number' && Math.floor(v) === v && v >= 0 && v <= 1000000; };
       if (!x || !Array.isArray(x.categorias) || !Array.isArray(x.produtos)) throw new Error('Faltam as categorias ou os itens no texto colado.');
-      if (!x.categorias.length || x.categorias.length > lim.categorias) throw new Error('O cardápio precisa ter de 1 a ' + lim.categorias + ' categorias.');
-      if (!x.produtos.length || x.produtos.length > lim.itens) throw new Error('O cardápio precisa ter de 1 a ' + lim.itens + ' itens.');
+      if (!x.categorias.length || x.categorias.length > lim.categorias) throw new Error('O texto precisa ter de 1 a ' + lim.categorias + ' categorias.');
+      if (!x.produtos.length || x.produtos.length > lim.itens) throw new Error('O texto precisa ter de 1 a ' + lim.itens + ' itens.');
       var cats = {}, ids = {};
       var categorias = x.categorias.map(function (c) {
         if (!c || !ID.test(c.id) || cats[c.id] || !txt(c.nome, 40)) throw new Error('Categoria com problema: ' + JSON.stringify(c).slice(0, 60));
@@ -1305,8 +1310,11 @@
       var produtos = x.produtos.map(function (p, i) {
         if (!p || !ID.test(p.id) || ids[p.id] || !cats[p.categoria] || !txt(p.nome, 80) || !preco(p.preco)) throw new Error('Item com problema: ' + JSON.stringify(p).slice(0, 60));
         ids[p.id] = true;
-        return { id: p.id, categoria: p.categoria, nome: p.nome.trim(), descricao: typeof p.descricao === 'string' ? p.descricao.trim().slice(0, 300) : '', preco: p.preco,
+        var item = { id: p.id, categoria: p.categoria, nome: p.nome.trim(), descricao: typeof p.descricao === 'string' ? p.descricao.trim().slice(0, 300) : '', preco: p.preco,
           emoji: typeof p.emoji === 'string' ? p.emoji.slice(0, 8) : '', ingredientes: Array.isArray(p.ingredientes) ? p.ingredientes.filter(function (s) { return txt(s, 40); }).slice(0, 20) : [], ativo: true, ordem: i };
+        /* comercio: o item ja pode vir com o estoque ligado (as quantidades o dono acerta no painel) */
+        if (p.controlaEstoque === true) item.controlaEstoque = true;
+        return item;
       });
       var grupos = {}, gx = x.grupos && typeof x.grupos === 'object' ? x.grupos : {};
       if (Object.keys(gx).length > lim.grupos) throw new Error('Grupos de opções demais: o limite é ' + lim.grupos + '.');
@@ -1337,19 +1345,20 @@
     }
 
     function colarCardapio(l, marca, trava) {
-      var campo = el('textarea', { rows: 8, placeholder: 'Cole aqui o texto do cardápio que o Ligeiro preparou', spellcheck: 'false', style: { width: '100%', fontFamily: 'monospace', fontSize: '13px' } });
+      var nomeCat = R.catalogo(l).nome;
+      var campo = el('textarea', { rows: 8, placeholder: 'Cole aqui o texto do ' + nomeCat + ' que o Ligeiro preparou', spellcheck: 'false', style: { width: '100%', fontFamily: 'monospace', fontSize: '13px' } });
       var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
-      UI.abrirModal({ titulo: 'Colar cardápio', corpo: el('div', { class: 'pilha' }, [
-        el('p', { class: 'muted', text: 'Troca as categorias, os itens e as opções de ' + l.nome + ' pelo cardápio colado. Fotos, logo e cores continuam como estão (as fotos dos itens entram pelo painel).' }),
+      UI.abrirModal({ titulo: 'Colar ' + nomeCat, corpo: el('div', { class: 'pilha' }, [
+        el('p', { class: 'muted', text: 'Troca as categorias, os itens e as opções de ' + l.nome + ' pelo ' + nomeCat + ' colado. Fotos, logo e cores continuam como estão (as fotos dos itens entram pelo painel).' }),
         campo, erro,
       ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Conferir e trocar', onclick: function () {
         var novo;
         try { novo = lerCardapioColado(campo.value); } catch (e) { erro.textContent = e.message; erro.hidden = false; return; }
         erro.hidden = true;
         var grupos = Object.keys(novo.grupos).length;
-        UI.perguntar('Trocar o cardápio de ' + l.nome + ' por ' + novo.categorias.length + (novo.categorias.length === 1 ? ' categoria, ' : ' categorias, ') + novo.produtos.length + (novo.produtos.length === 1 ? ' item' : ' itens') + (grupos ? ' e ' + grupos + (grupos === 1 ? ' grupo de opções' : ' grupos de opções') : '') + '? O cardápio de agora sai.', { titulo: 'Trocar o cardápio?', sim: 'Trocar' }).then(function (sim) {
+        UI.perguntar('Trocar o ' + nomeCat + ' de ' + l.nome + ' por ' + novo.categorias.length + (novo.categorias.length === 1 ? ' categoria, ' : ' categorias, ') + novo.produtos.length + (novo.produtos.length === 1 ? ' item' : ' itens') + (grupos ? ' e ' + grupos + (grupos === 1 ? ' grupo de opções' : ' grupos de opções') : '') + '? O cardápio de agora sai.', { titulo: 'Trocar o cardápio?', sim: 'Trocar' }).then(function (sim) {
           if (!sim) { reabrir(marca); return; }
-          executar(trava, marca, function () { return store.salvarLoja(Object.assign({ slug: l.slug }, novo)); }, 'Cardápio de ' + l.nome + ' trocado');
+          executar(trava, marca, function () { return store.salvarLoja(Object.assign({ slug: l.slug }, novo)); }, R.catalogo(l).Nome + ' de ' + l.nome + ' trocado');
         });
       } })] });
       setTimeout(function () { campo.focus(); }, 60);
@@ -1360,7 +1369,7 @@
       var email = el('input', { type: 'email', maxlength: 80, placeholder: 'email.do.dono@gmail.com', autocomplete: 'off', inputmode: 'email' });
       var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
       var passos = el('ul', { class: 'termos-resumo' }, [
-        'A loja passa para a conta do Google deste e-mail, com cardápio, fotos e link iguais.',
+        'A loja passa para a conta do Google deste e-mail, com ' + R.catalogo(l).nome + ', fotos e link iguais.',
         'A faixa AMOSTRA some na hora e os pedidos passam a sair.',
         'Os ' + ((((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis) || 7) + ' dias grátis começam hoje.',
         'Ele entra no painel com o Google e conecta o Mercado Pago dele.',
@@ -1408,7 +1417,7 @@
         });
       });
       UI.abrirModal({ titulo: 'Excluir ' + l.nome + '?', corpo: el('div', { class: 'pilha' }, [
-        el('p', { text: 'Isso apaga a loja do Ligeiro para sempre: o cardápio, as fotos, o histórico de pedidos e o endereço ' + l.slug + '. Não dá para desfazer.' }),
+        el('p', { text: 'Isso apaga a loja do Ligeiro para sempre: o ' + R.catalogo(l).nome + ', as fotos, o histórico de pedidos e o endereço ' + l.slug + '. Não dá para desfazer.' }),
         el('p', { class: 'muted', text: 'Só para tirar do site? Deixe como está: ela já está desativada e dá para reativar.' }),
         el('div', { class: 'campo' }, [el('label', { for: 'admExcluirSlug', text: 'Para confirmar, digite o endereço da loja' }), el('p', { class: 'ajuda', text: 'É o nome que aparece no link: ' + l.slug + '.' }), campo]),
         erro,
@@ -1467,7 +1476,7 @@
         zap ? el('a', { class: 'btn btn-whats', href: zap, target: '_blank', rel: 'noopener' }, [UI.icone('zap'), 'WhatsApp'])
           : el('button', { class: 'btn btn-whats', type: 'button', disabled: true, title: 'Loja sem WhatsApp cadastrado' }, [UI.icone('zap'), 'WhatsApp']),
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Copia o link da loja e o do painel, para mandar para o dono', onclick: function () {
-          var texto = l.nome + '\nCardápio: ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
+          var texto = l.nome + '\n' + R.catalogo(l).Nome + ': ' + UI.linkDaLoja(l) + '\nPainel: ' + UI.linkDoPainel(l) + (D.modoDemo ? ' (senha ' + (l.senhaPainel || '') + ')' : (l.donoEmail ? ' (login ' + l.donoEmail + ')' : ''));
           UI.copiar(texto).then(function () { UI.avisar('Links da loja e do painel copiados'); });
         } }, [UI.iconeLinha('copiar'), 'Copiar links']),
         el('button', { class: 'btn btn-fantasma', type: 'button', title: 'Selo verde ao lado do nome. Ligue depois de conferir que a loja existe (WhatsApp, endereço).', text: l.verificada === true ? 'Tirar selo' : 'Verificar', onclick: function (ev) {
@@ -1743,8 +1752,11 @@
       estado.ficha = null;
       var f = {};
       f.nome = campo('Nome do estabelecimento', '', { max: 60, placeholder: 'Ex: Lanchonete do Zé' });
-      var tipoSel = el('select', {}, TIPOS.map(function (t) { return el('option', { value: t[0], text: t[1] + ' ' + t[0] }); }));
-      f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), tipoSel]);
+      var opcaoTipo = function (t) { return el('option', { value: t[0], text: t[1] + ' ' + t[0] }); };
+      var tipoSel = el('select', {}, [el('optgroup', { label: 'Comida' }, TIPOS.map(opcaoTipo)), el('optgroup', { label: 'Outros comércios' }, R.TIPOS_DE_COMERCIO.map(opcaoTipo))]);
+      f.tipo = el('div', { class: 'campo' }, [el('label', { text: 'Tipo' }), el('p', { class: 'ajuda', text: 'Comércio (roupa, calçado...) fala em catálogo e separação; comida, em cardápio e cozinha.' }), tipoSel]);
+      f.tipoNome = campo('Nome do tipo (opcional)', '', { max: 24, placeholder: 'Ex.: Papelaria', ajuda: 'Aparece na lista da cidade no lugar de "Outro".' });
+      f.tipoNome.hidden = true;
       f.cidade = window.LigeiroCidades.campo('Juquiá', 'SP', { rotulo: 'Cidade', largo: true });
       f.whatsapp = campo('WhatsApp da loja', '', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999' });
       UI.mascaraTelefone(f.whatsapp.input);
@@ -1752,7 +1764,15 @@
         ? campo('Senha do painel', String(1000 + Math.floor(Math.random() * 9000)), { max: 20, ajuda: 'Anote e entregue para o dono.' })
         : campo('E-mail do dono (login do painel)', '', { max: 80, tipo: 'email', ajuda: 'O dono entra com o Google deste e-mail.' });
       var modeloSel = el('select', {}, MODELOS.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
-      f.modelo = el('div', { class: 'campo largo' }, [el('label', { text: 'Começar com que cardápio?' }), el('p', { class: 'ajuda', text: 'O modelo vem com categorias, itens e adicionais típicos. Depois é só ajustar nome e preço no painel.' }), modeloSel]);
+      f.modelo = el('div', { class: 'campo largo' }, [el('label', { text: 'Começar com que modelo?' }), el('p', { class: 'ajuda', text: 'O modelo vem com categorias, itens e opções típicas (tamanho, numeração). Depois é só ajustar nome e preço no painel.' }), modeloSel]);
+      /* trocou o tipo: o modelo que combina vem marcado, e o nome livre aparece no "Outro" */
+      var acertarTipo = function () {
+        f.tipoNome.hidden = !ehOutroTipo(tipoSel.value);
+        f.tipoNome.input.placeholder = R.segmento({ tipo: tipoSel.value }) === 'comercio' ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
+        if (window.LigeiroSeed && window.LigeiroSeed.modeloDoTipo) modeloSel.value = window.LigeiroSeed.modeloDoTipo(tipoSel.value);
+      };
+      tipoSel.addEventListener('change', acertarTipo);
+      acertarTipo();
       /* amostra: a loja nasce na conta do Ligeiro, sem o e-mail do dono (ele ainda nao fechou). Entrega depois, na ficha */
       var chaveAmostra = el('button', { class: 'chave', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'É uma amostra' });
       chaveAmostra.ligado = false;
@@ -1764,15 +1784,15 @@
         if (!D.modoDemo) f.whatsapp.classList.toggle('largo', chaveAmostra.ligado); /* sem o e-mail ao lado, o WhatsApp ocupa a linha (nao sobra meia linha vazia) */
       });
       f.amostra = el('div', { class: 'interruptor largo' }, [el('div', { class: 'texto' }, ['É uma amostra', el('small', { text: 'Para mostrar a um dono que ainda não fechou. Fica na conta do Ligeiro, com a faixa AMOSTRA, e não recebe pedidos.' })]), chaveAmostra]);
-      var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.cidade, f.whatsapp, f.amostra, f.senha, f.modelo]);
+      var corpo = el('div', { class: 'grade-form', style: { paddingTop: '8px' } }, [f.nome, f.tipo, f.tipoNome, f.cidade, f.whatsapp, f.amostra, f.senha, f.modelo]);
 
       UI.abrirModal({ titulo: 'Cadastrar estabelecimento', corpo: corpo, rodape: [el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Cadastrar', onclick: function () {
         var nome = f.nome.input.value.trim();
         if (nome.length < 2) return UI.avisar('Digite o nome.');
         var tipo = tipoSel.value;
-        var emoji = (TIPOS.filter(function (t) { return t[0] === tipo; })[0] || ['', '🍽️'])[1];
+        var emoji = emojiDoTipo(tipo);
         var dadosLoja = {
-          nome: nome, tipo: tipo, emoji: emoji,
+          nome: nome, tipo: tipo, tipoNome: ehOutroTipo(tipo) ? f.tipoNome.input.value.replace(/\s+/g, ' ').trim().slice(0, 24) : '', emoji: emoji,
           cidade: (f.cidade.valor() || { nome: 'Juquiá', uf: 'SP' }).nome, uf: (f.cidade.valor() || { nome: 'Juquiá', uf: 'SP' }).uf,
           whatsapp: f.whatsapp.input.value.replace(/\D/g, ''),
           senhaPainel: D.modoDemo ? (f.senha.input.value.trim() || '1234') : undefined,
@@ -1783,7 +1803,7 @@
         if (chaveAmostra.ligado) dadosLoja.amostra = true;
         var modelo = modeloSel.value;
         if (modelo !== 'vazio' && window.LigeiroSeed) {
-          var base = window.LigeiroSeed().lojas[modelo];
+          var base = window.LigeiroSeed.modelo ? window.LigeiroSeed.modelo(modelo) : window.LigeiroSeed().lojas[modelo];
           if (base) {
             dadosLoja.categorias = D.clonar(base.categorias);
             dadosLoja.produtos = D.clonar(base.produtos);
@@ -1791,7 +1811,7 @@
             dadosLoja.gruposPorCategoria = D.clonar(base.gruposPorCategoria);
           }
         } else if (modelo === 'vazio') {
-          dadosLoja.categorias = [{ id: 'cardapio', nome: 'Cardápio', emoji: emoji }];
+          dadosLoja.categorias = [{ id: 'cardapio', nome: R.catalogo({ tipo: tipo }).Nome, emoji: emoji }];
         }
         /* trava o botao ate o banco responder: toque duplo cadastrava a loja duas vezes */
         var botao = this;
@@ -1833,14 +1853,15 @@
 
     function mostrarLinks(loja) {
       estado.ficha = null;
+      var cat = R.catalogo(loja);
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
-        el('p', { text: loja.amostra === true ? 'Amostra pronta. Monte o cardápio (Colar cardápio, na ficha) e mande o link do cardápio para o dono ver. O painel é o seu, com o login do Ligeiro.' : 'Pronto! Entregue estes dois links para o dono:' }),
-        el('div', {}, [el('b', { text: 'Cardápio (para o cliente)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDaLoja(loja)))]),
+        el('p', { text: loja.amostra === true ? 'Amostra pronta. Monte o ' + cat.nome + ' (Colar ' + cat.nome + ', na ficha) e mande o link do ' + cat.nome + ' para o dono ver. O painel é o seu, com o login do Ligeiro.' : 'Pronto! Entregue estes dois links para o dono:' }),
+        el('div', {}, [el('b', { text: cat.Nome + ' (para o cliente)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDaLoja(loja)))]),
         el('div', {}, [el('b', { text: 'Painel (só o dono)' }), el('div', { class: 'caixa-link' }, UI.pedacosDeLink(UI.linkDoPainel(loja))), el('p', { class: 'muted pequeno', text: D.modoDemo ? 'Senha do painel: ' + loja.senhaPainel : 'Login: ' + (loja.donoEmail || '') + ', entrando com o Google deste e-mail' })]),
       ]);
       UI.abrirModal({ titulo: loja.nome + ' cadastrado', corpo: corpo, rodape: [
         el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, text: 'Copiar tudo', onclick: function () {
-          var texto = loja.nome + '\nCardápio: ' + UI.linkDaLoja(loja) + '\nPainel: ' + UI.linkDoPainel(loja) + (D.modoDemo ? ' (senha ' + loja.senhaPainel + ')' : ' (login ' + (loja.donoEmail || '') + ')');
+          var texto = loja.nome + '\n' + cat.Nome + ': ' + UI.linkDaLoja(loja) + '\nPainel: ' + UI.linkDoPainel(loja) + (D.modoDemo ? ' (senha ' + loja.senhaPainel + ')' : ' (login ' + (loja.donoEmail || '') + ')');
           UI.copiar(texto).then(function () { UI.avisar('Copiado'); });
         } }),
         el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Abrir o painel', onclick: function () { UI.fecharModal(); window.LigeiroApp.ir('painel/' + loja.slug); } }),

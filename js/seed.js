@@ -345,6 +345,103 @@
     return lista;
   }
 
+  /* ---------------- Modelos de comercio (o catalogo com que a loja nasce) ----------------
+     So o catalogo (categorias, itens e tamanhos), sem loja de demonstracao. Estoque desligado: com ele ligado e sem
+     quantidade, tudo nasceria "esgotado". O dono liga item por item e diz quantas tem */
+  function tamanhos(titulo, nomes) {
+    return { titulo: titulo, tipo: 'unico', max: 0, opcoes: nomes.map(function (n, i) { return opcao(String(n).toLowerCase().replace(/[^a-z0-9]+/g, '-'), String(n), 0, i === 0 ? { padrao: true } : null); }) };
+  }
+  function modelosDeComercio() {
+    var roupa = tamanhos('Tamanho', ['P', 'M', 'G', 'GG']);
+    return {
+      'modelo-roupas': {
+        categorias: [{ id: 'camisetas', nome: 'Camisetas', emoji: '👕' }, { id: 'blusas', nome: 'Blusas', emoji: '👚' }, { id: 'calcas', nome: 'Calças e bermudas', emoji: '👖' }, { id: 'vestidos', nome: 'Vestidos', emoji: '👗' }],
+        produtos: [
+          produto('camiseta-basica-preta', 'camisetas', 'Camiseta básica preta', 'Algodão, gola redonda', 3990, '👕'),
+          produto('camiseta-estampada', 'camisetas', 'Camiseta estampada', 'Algodão, estampa na frente', 4990, '👕'),
+          produto('blusa-manga-curta', 'blusas', 'Blusa de manga curta', 'Tecido leve, caimento solto', 5990, '👚'),
+          produto('calca-jeans', 'calcas', 'Calça jeans', 'Lavagem média, cintura alta', 11990, '👖'),
+          produto('bermuda-sarja', 'calcas', 'Bermuda de sarja', 'Com bolsos, várias cores', 6990, '👖'),
+          produto('vestido-midi', 'vestidos', 'Vestido midi', 'Viscose estampada', 12990, '👗'),
+        ],
+        grupos: { tamanho: roupa },
+        gruposPorCategoria: { camisetas: ['tamanho'], blusas: ['tamanho'], calcas: ['tamanho'], vestidos: ['tamanho'] },
+      },
+      'modelo-calcados': {
+        categorias: [{ id: 'tenis', nome: 'Tênis', emoji: '👟' }, { id: 'sandalias', nome: 'Sandálias', emoji: '👡' }, { id: 'chinelos', nome: 'Chinelos', emoji: '👡' }],
+        produtos: [
+          produto('tenis-casual', 'tenis', 'Tênis casual branco', 'Couro sintético, sola de borracha', 14990, '👟'),
+          produto('tenis-corrida', 'tenis', 'Tênis de corrida', 'Leve, com amortecimento', 19990, '👟'),
+          produto('sandalia-rasteira', 'sandalias', 'Sandália rasteira', 'Tiras finas, confortável', 6990, '👡'),
+          produto('chinelo', 'chinelos', 'Chinelo de borracha', 'Várias cores', 2990, '👡'),
+        ],
+        grupos: { numero: tamanhos('Numeração', ['34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44']) },
+        gruposPorCategoria: { tenis: ['numero'], sandalias: ['numero'], chinelos: ['numero'] },
+      },
+      'modelo-acessorios': {
+        categorias: [{ id: 'bolsas', nome: 'Bolsas', emoji: '👜' }, { id: 'bijuterias', nome: 'Bijuterias', emoji: '💍' }, { id: 'oculos', nome: 'Óculos', emoji: '🕶️' }],
+        produtos: [
+          produto('bolsa-tiracolo', 'bolsas', 'Bolsa tiracolo', 'Alça regulável, fecho com zíper', 8990, '👜'),
+          produto('carteira', 'bolsas', 'Carteira', 'Com porta-cartões', 4990, '👛'),
+          produto('brinco-argola', 'bijuterias', 'Brinco de argola', 'Banhado, não escurece', 2990, '💍'),
+          produto('oculos-de-sol', 'oculos', 'Óculos de sol', 'Proteção UV400', 7990, '🕶️'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-cosmeticos': {
+        categorias: [{ id: 'maquiagem', nome: 'Maquiagem', emoji: '💄' }, { id: 'pele', nome: 'Cuidados com a pele', emoji: '🧴' }, { id: 'unhas', nome: 'Unhas', emoji: '💅' }],
+        produtos: [
+          produto('batom', 'maquiagem', 'Batom matte', 'Longa duração', 2990, '💄'),
+          produto('base', 'maquiagem', 'Base líquida', '30 ml', 4990, '💄'),
+          produto('hidratante', 'pele', 'Hidratante facial', '50 g', 3990, '🧴'),
+          produto('esmalte', 'unhas', 'Esmalte', 'Várias cores', 990, '💅'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-presentes': {
+        categorias: [{ id: 'canecas', nome: 'Canecas', emoji: '🎁' }, { id: 'kits', nome: 'Kits', emoji: '🎀' }, { id: 'pelucias', nome: 'Pelúcias', emoji: '🧸' }],
+        produtos: [
+          produto('caneca-personalizada', 'canecas', 'Caneca personalizada', 'Com nome ou frase, 325 ml', 3990, '🎁'),
+          produto('kit-cafe', 'kits', 'Kit café da manhã', 'Caneca, biscoitos e chocolate', 7990, '🎀', ['Caneca', 'Biscoitos', 'Chocolate']),
+          produto('urso-pelucia', 'pelucias', 'Urso de pelúcia', '30 cm', 5990, '🧸'),
+        ],
+        grupos: { embrulho: { titulo: 'Para presente', tipo: 'varios', max: 1, opcoes: [opcao('embrulho', 'Embrulho de presente', 500), opcao('cartao', 'Cartão com recado', 300)] } },
+        gruposPorCategoria: { canecas: ['embrulho'], kits: ['embrulho'], pelucias: ['embrulho'] },
+      },
+      'modelo-eletronicos': {
+        categorias: [{ id: 'fones', nome: 'Fones', emoji: '🎧' }, { id: 'carregadores', nome: 'Carregadores e cabos', emoji: '🔌' }, { id: 'capinhas', nome: 'Capinhas', emoji: '📱' }],
+        produtos: [
+          produto('fone-bluetooth', 'fones', 'Fone sem fio', 'Bluetooth, com estojo', 8990, '🎧'),
+          produto('carregador-turbo', 'carregadores', 'Carregador turbo', 'Tomada USB-C, 20 W', 4990, '🔌'),
+          produto('cabo-usb-c', 'carregadores', 'Cabo USB-C', '1 metro, reforçado', 1990, '🔌'),
+          produto('capinha', 'capinhas', 'Capinha', 'Diga o modelo do celular no recado', 2990, '📱'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-pet': {
+        categorias: [{ id: 'racao', nome: 'Ração', emoji: '🐶' }, { id: 'petiscos', nome: 'Petiscos', emoji: '🦴' }, { id: 'brinquedos', nome: 'Brinquedos', emoji: '🐱' }],
+        produtos: [
+          produto('racao-caes', 'racao', 'Ração para cães adultos', 'Sabor carne', 4990, '🐶'),
+          produto('racao-gatos', 'racao', 'Ração para gatos', 'Sabor peixe', 5490, '🐱'),
+          produto('osso', 'petiscos', 'Osso de couro', 'Pacote com 3', 1590, '🦴'),
+          produto('bolinha', 'brinquedos', 'Bolinha de borracha', 'Resistente', 990, '🐶'),
+        ],
+        grupos: { peso: { titulo: 'Peso', tipo: 'unico', max: 0, opcoes: [opcao('1kg', '1 kg', 0, { padrao: true }), opcao('3kg', '3 kg', 8000), opcao('10kg', '10 kg', 20000)] } },
+        gruposPorCategoria: { racao: ['peso'] },
+      },
+      'modelo-mercado': {
+        categorias: [{ id: 'mercearia', nome: 'Mercearia', emoji: '🛒' }, { id: 'bebidas', nome: 'Bebidas', emoji: '🥤' }, { id: 'limpeza', nome: 'Limpeza', emoji: '🧼' }],
+        produtos: [
+          produto('arroz', 'mercearia', 'Arroz 5 kg', 'Tipo 1', 2990, '🛒'),
+          produto('feijao', 'mercearia', 'Feijão 1 kg', 'Carioca', 899, '🛒'),
+          produto('refri-2l', 'bebidas', 'Refrigerante 2 L', 'Gelado', 1099, '🥤'),
+          produto('detergente', 'limpeza', 'Detergente', '500 ml', 299, '🧼'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+    };
+  }
+
   window.LigeiroSeed = function () {
     var dc = domConizza();
     return {
@@ -357,5 +454,33 @@
       pedidos: { 'dom-conizza': pedidosDeExemplo(dc) },
       contadores: {},
     };
+  };
+  /* o catalogo-modelo de cada tipo de comercio (fora do banco da demonstracao: so o cadastro e a Central usam) */
+  window.LigeiroSeed.modelos = modelosDeComercio;
+  /* que modelo combina com cada tipo de loja: comida usa as lojas de exemplo; comercio, os modelos acima */
+  window.LigeiroSeed.modeloDoTipo = function (tipo) {
+    var R = window.LigeiroRegras;
+    var t = (R ? R.semAcento(tipo || '') : String(tipo || '')).toLowerCase();
+    if (R && R.segmento({ tipo: tipo }) === 'comercio') {
+      if (/roupa/.test(t)) return 'modelo-roupas';
+      if (/calcad/.test(t)) return 'modelo-calcados';
+      if (/acessor/.test(t)) return 'modelo-acessorios';
+      if (/cosmet/.test(t)) return 'modelo-cosmeticos';
+      if (/presente/.test(t)) return 'modelo-presentes';
+      if (/eletron/.test(t)) return 'modelo-eletronicos';
+      if (/pet/.test(t)) return 'modelo-pet';
+      if (/mercado/.test(t)) return 'modelo-mercado';
+      return 'vazio';
+    }
+    if (/pizza/.test(t)) return 'dom-conizza';
+    if (/marmit|restaur|self/.test(t)) return 'marmitaria-da-cida';
+    if (/sorvet|acai|gelad/.test(t)) return 'sorveteria-da-lu';
+    if (/lanch|burg|hamb|espet|padar|sushi|pastel/.test(t)) return 'lanchonete-do-ze';
+    return 'vazio';
+  };
+  /* o modelo pronto (categorias, itens e opcoes) pelo nome; null quando nao tem */
+  window.LigeiroSeed.modelo = function (chave) {
+    if (!chave || chave === 'vazio') return null;
+    return window.LigeiroSeed().lojas[chave] || modelosDeComercio()[chave] || null;
   };
 })();

@@ -16,6 +16,13 @@
   function cfg() { return geral().lojaLigeiro || {}; }
   function catalogo() { return cfg().servicos || []; }
   function servico(id) { var c = catalogo(); for (var i = 0; i < c.length; i++) if (c[i].id === id) return c[i]; return null; }
+  /* loja de comercio (o painel guarda o tipo da loja na aba): os servicos falam de catalogo e de produto, nao de cardapio */
+  function ehComercio(slug) { try { return sessionStorage.getItem('ligeiro:segmento:' + slug) === 'comercio'; } catch (_) { return false; } }
+  function paraComercio(t) { return String(t).replace(/Fotos do cardápio/g, 'Fotos dos produtos').replace(/cardápio/g, 'catálogo').replace(/dá vontade de pedir/g, 'dá vontade de comprar'); }
+  function servicoDaLoja(slug, s) {
+    if (!s || !ehComercio(slug)) return s;
+    return Object.assign({}, s, { nome: paraComercio(s.nome), resumo: paraComercio(s.resumo || ''), inclui: (s.inclui || []).map(paraComercio), precisa: (s.precisa || []).map(paraComercio) });
+  }
   function mensageiro() { return String((geral().cobranca || {}).mensageiro || '').replace(/\/+$/, ''); }
   function ehAdmin(email) { return !!email && String(email).toLowerCase() === String(geral().adminEmail || '').toLowerCase(); }
   /* ligada: todo dono ve; desligada: so o admin (testa depois de colar o mensageiro, sem ninguem ver pela metade) */
@@ -168,7 +175,7 @@
       if (!u && !D.modoDemo) { window.LigeiroApp.substituir('painel/' + slug); return; }
       u = u || { email: '' };
       if (!visivel(u.email)) { mensagemTela(raiz, 'Em breve', 'A Loja do Ligeiro ainda não abriu. Assim que abrir, ela aparece no seu painel.', el('a', { class: 'btn srv-btn btn-fantasma', href: '#/painel/' + slug }, 'Voltar para o painel')); return; }
-      if (qual === 'item' && servico(partes[3])) return telaItem(raiz, slug, servico(partes[3]), u);
+      if (qual === 'item' && servico(partes[3])) return telaItem(raiz, slug, servicoDaLoja(slug, servico(partes[3])), u);
       if (qual === 'meus') return telaMeus(raiz, slug, paradas, u);
       if (qual === 'videos') return telaVideos(raiz, slug, u);
       if (qual === 'termos') return telaTermos(raiz, slug);
@@ -248,7 +255,7 @@
     var secao = el('section', { class: 'secao srv-secao srv-secao-loja' }, [
       hero,
       el('div', { class: 'srv-titulo-linha srv-antes-titulo' }, [el('h2', { class: 'srv-h2', text: 'Escolha o serviço' }), el('span', { class: 'srv-peq', text: 'Pagamento único' })]),
-      el('div', { class: 'srv-produtos' }, catalogo().map(function (s) { return cartaoServico(slug, s); })),
+      el('div', { class: 'srv-produtos' }, catalogo().map(function (s) { return cartaoServico(slug, servicoDaLoja(slug, s)); })),
     ].concat([
       el('h2', { class: 'srv-h2 srv-antes-titulo', text: 'Como funciona' }),
       passos(),
@@ -549,10 +556,10 @@
     UI.limpar(raiz);
     document.title = 'Termos da Loja do Ligeiro';
     var blocos = [
-      ['O que é', 'A Loja do Ligeiro vende serviços de criação para as lojas que usam o Ligeiro: melhoria das fotos do cardápio, logo, vídeo promocional e design exclusivo do site. Estes termos completam os Termos de uso do Ligeiro.'],
+      ['O que é', 'A Loja do Ligeiro vende serviços de criação para as lojas que usam o Ligeiro: melhoria das fotos dos itens, logo, vídeo promocional e design exclusivo do site. Estes termos completam os Termos de uso do Ligeiro.'],
       ['Preço e pagamento', 'O preço aparece antes da compra e é fechado, em pagamento único. Você paga na página do Asaas, por Pix, cartão ou boleto. O link vale 3 dias; depois disso o pedido é cancelado sozinho, sem custo. O pagamento confirma sem precisar de comprovante.'],
       ['Prazo', 'O prazo é contado em dias úteis a partir do dia em que o material completo chega (fotos, logo antiga, ideias). Enquanto o material não chega, o prazo não corre. Se o material não chegar em 30 dias, combinamos com você: produzimos com o que houver ou devolvemos o valor.'],
-      ['Ajustes', 'Fotos do cardápio têm 1 ajuste; logo e design exclusivo têm 2. Ajuste é mudar o que foi entregue, não começar um trabalho novo, e vale para pedidos feitos em até 7 dias depois da entrega. O vídeo promocional não tem ajuste: antes de produzir, você aprova o roteiro e os textos.'],
+      ['Ajustes', 'As fotos têm 1 ajuste; logo e design exclusivo têm 2. Ajuste é mudar o que foi entregue, não começar um trabalho novo, e vale para pedidos feitos em até 7 dias depois da entrega. O vídeo promocional não tem ajuste: antes de produzir, você aprova o roteiro e os textos.'],
       ['Desistência e reembolso', 'Antes de a produção começar, você pode desistir e recebe o valor inteiro de volta. Depois que a produção começa, não há reembolso, a não ser que o Ligeiro não entregue no prazo: aí devolvemos o valor inteiro ou a parte que couber. O reembolso volta pelo Asaas: no Pix, para a conta de quem pagou; no cartão, como estorno na fatura. Contestar no cartão uma compra entregue suspende novos pedidos.'],
       ['Seu material e seus direitos', 'Você garante que pode usar as fotos, marcas e textos que nos manda. O resultado entregue é seu: use onde quiser. A música dos vídeos é liberada para redes sociais. O Ligeiro pode mostrar o trabalho como exemplo, a não ser que você peça para não mostrar.'],
       ['Vídeos no site', 'Guardamos até 10 vídeos por loja enquanto a conta estiver ativa, e você escolhe qual aparece no site. Baixe uma cópia dos que quiser guardar. Se a conta for encerrada, os vídeos são apagados depois de 90 dias.'],

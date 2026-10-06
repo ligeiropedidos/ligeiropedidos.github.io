@@ -1197,6 +1197,18 @@ ok(avisos.filter((a) => a.url === doCliente.inscricao.endpoint)[0].headers.Topic
 const vEntrega = abrirAviso(avisos.filter((a) => a.url === doEntregador.inscricao.endpoint)[0], doEntregador);
 ok(vEntrega.titulo === 'Entrega pronta! Senha 21' && vEntrega.texto.indexOf('Centro') === 0 && vEntrega.url === '#/entrega/dom-conizza', 'o entregador sabe a senha e o bairro');
 ok(conta.leituras === 0 && conta.gravacoes === 0, 'pedido andou e avisou: 0 leituras e 0 gravacoes no banco');
+/* loja de comercio: o resumo leva o segmento e os avisos dizem "Pedido nº" e "separando" */
+zerar(); avisos.length = 0;
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'producao', resumo: Object.assign({}, resumo, { segmento: 'comercio' }), aviso: comAviso.aviso }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') }); j = await r.json();
+const vComercio = abrirAviso(avisos.filter((a) => a.url === doCliente.inscricao.endpoint)[0], doCliente);
+ok(vComercio.texto === 'A loja está separando o seu pedido. Logo sai para entrega. Pedido nº 21.', 'comercio: o cliente le "separando" e "Pedido nº", sem cozinha');
+zerar(); avisos.length = 0;
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo: Object.assign({}, resumo, { segmento: 'comercio' }), aviso: null }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') });
+ok(abrirAviso(avisos.filter((a) => a.url === doEntregador.inscricao.endpoint)[0], doEntregador).titulo === 'Entrega pronta! Pedido nº 21', 'comercio: o entregador le "Pedido nº 21"');
+zerar(); avisos.length = 0;
+r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo: Object.assign({}, resumo, { segmento: '<b>x</b>' }), aviso: null }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJlcXVpcGUifQ.assinatura') });
+ok(abrirAviso(avisos.filter((a) => a.url === doEntregador.inscricao.endpoint)[0], doEntregador).titulo === 'Entrega pronta! Senha 21', 'segmento torto no resumo: vale o texto de sempre');
+zerar(); avisos.length = 0;
 r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso } });
 ok(r.status === 401, 'avisar o cliente sem login: recusado');
 r = await chamar(w, '/avisar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: NOVO, status: 'pronto', resumo, aviso: comAviso.aviso }, headers: bearer('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura') });
@@ -1768,5 +1780,96 @@ console.log('Pentest de 03/10/2026');
   db.delete && db.delete('vitrine/inflada-teste');
 }
 
+
+console.log('Estoque das lojas de comercio');
+{
+  const DONO = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura';
+  const OUTRO = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura';
+  db.set('lojas/roupas-teste', {
+    slug: 'roupas-teste', nome: 'Roupas Teste', tipo: 'Roupas', donoEmail: 'dono@x.com', aberta: true, ativa: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true,
+    categorias: [{ id: 'cam', nome: 'Camisetas' }, { id: 'ace', nome: 'Acessórios' }],
+    produtos: [
+      { id: 'camiseta', categoria: 'cam', nome: 'Camiseta preta', preco: 5990, controlaEstoque: true },
+      { id: 'meia', categoria: 'ace', nome: 'Meia', preco: 1500, controlaEstoque: true },
+      { id: 'bone', categoria: 'ace', nome: 'Boné', preco: 3990 },
+    ],
+    grupos: { tam: { titulo: 'Tamanho', tipo: 'unico', opcoes: [{ id: 'p', nome: 'P', preco: 0 }, { id: 'm', nome: 'M', preco: 0 }, { id: 'g', nome: 'G', preco: 0 }] } },
+    gruposPorCategoria: { cam: ['tam'], ace: [] },
+  });
+  db.set('lojas/roupas-teste/privado/mercadopago', { token: 'TOKEN-LOJA' });
+  let w = await workerNovo();
+  const EST = 'lojas/roupas-teste/contadores/estoque';
+  let nIpE = 0;
+  const ipNovo = () => { nIpE += 1; return '10.91.' + Math.floor(nIpE / 250) + '.' + (nIpE % 250); };
+  const pedirR = (itens, extra) => chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'roupas-teste', dados: Object.assign({ nome: 'Bia Lima', telefone: '13988887777', tipoEntrega: 'retirada', itens: itens, formaPagamento: 'pix' }, extra) }, headers: { 'CF-Connecting-IP': ipNovo() } });
+  let r, j;
+
+  /* o dono acerta as quantidades; chave de produto sem controle, tamanho que nao existe e numero torto ficam de fora */
+  r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-teste', q: { 'camiseta|m': 2, 'camiseta|g': 1, meia: 1, bone: 5, 'camiseta|xx': 3, 'camiseta|p': -1, meia2: 4 } }, headers: { Authorization: DONO } }); j = await r.json();
+  ok(r.status === 200 && j.ok && JSON.stringify(db.get(EST).q) === JSON.stringify({ 'camiseta|m': 2, 'camiseta|g': 1, meia: 1 }), 'dono acerta o estoque: so as chaves de produto com controle (e do tamanho da categoria)');
+  r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-teste', q: { meia: 99 } }, headers: { Authorization: OUTRO } });
+  ok(r.status === 403 && db.get(EST).q.meia === 1, 'outra pessoa nao mexe no estoque da loja: 403');
+  r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-teste', q: { meia: 99 } } });
+  ok(r.status === 401 && db.get(EST).q.meia === 1, 'sem login: 401');
+  /* o site le as quantidades (sem as reservas) */
+  r = await chamar(w, '/estoque/roupas-teste'); j = await r.json();
+  ok(r.status === 200 && j.q['camiseta|m'] === 2 && !('baixas' in j), 'site le o estoque (so as quantidades)');
+  r = await chamar(w, '/estoque/dom-conizza'); j = await r.json();
+  ok(r.status === 200 && JSON.stringify(j.q) === '{}', 'loja sem produto com estoque: nem le o banco, volta vazio');
+
+  /* roupa sem tamanho escolhido nao passa */
+  r = await pedirR([{ produtoId: 'camiseta', quantidade: 1 }]); j = await r.json();
+  ok(r.status === 422 && /Escolha o tamanho de "Camiseta preta"/.test(j.erro), 'comercio: sem escolher o tamanho, o pedido nao nasce');
+  /* o pedido reserva o estoque no mesmo lote */
+  r = await pedirR([{ produtoId: 'camiseta', quantidade: 2, tamanho: 'm' }, { produtoId: 'bone', quantidade: 3 }]); j = await r.json();
+  const P1 = j.pedido && j.pedido.id;
+  ok(r.status === 200 && db.get(EST).q['camiseta|m'] === 0 && db.get(EST).baixas[P1] && db.get(EST).baixas[P1].i['camiseta|m'] === 2, 'pedido reserva 2 camisetas M (e o bone, sem controle, nao mexe em nada)');
+  ok(JSON.stringify(db.get('lojas/roupas-teste/pedidos/' + P1).estoque) === JSON.stringify({ 'camiseta|m': 2 }), 'o pedido guarda o que reservou');
+  /* acabou: 409 com o que falta, e nada e gravado */
+  const pedidosAntes = [...db.keys()].filter((k) => k.indexOf('lojas/roupas-teste/pedidos/') === 0).length;
+  r = await pedirR([{ produtoId: 'camiseta', quantidade: 1, tamanho: 'm' }, { produtoId: 'meia', quantidade: 2 }]); j = await r.json();
+  ok(r.status === 409 && /Camiseta preta \(M\) esgotou\./.test(j.erro) && /Só tem 1 de Meia\./.test(j.erro), 'sem estoque: 409 dizendo o que acabou e quanto sobrou');
+  ok([...db.keys()].filter((k) => k.indexOf('lojas/roupas-teste/pedidos/') === 0).length === pedidosAntes && db.get(EST).q.meia === 1, 'e nada foi gravado (nem pedido, nem senha, nem estoque)');
+  /* dois clientes atras da ultima peca: o outro pedido grava antes deste lote; a trava faz reler e este recusa */
+  globalThis.__antesDoLote = () => { const d = db.get(EST); d.q['camiseta|g'] = 0; versoes.set(EST, (versoes.get(EST) || 0) + 1); };
+  r = await pedirR([{ produtoId: 'camiseta', quantidade: 1, tamanho: 'g' }]); j = await r.json();
+  globalThis.__antesDoLote = null;
+  ok(r.status === 409 && /Camiseta preta \(G\) esgotou/.test(j.erro), 'a ultima peca disputada por dois: so um leva (o outro recebe "esgotou")');
+  db.get(EST).q['camiseta|g'] = 1;
+
+  /* cancelado: a reserva volta, uma vez so */
+  r = await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P1 } }); j = await r.json();
+  ok(j.ok === false && db.get(EST).q['camiseta|m'] === 0, 'pedido que nao foi cancelado: nada volta');
+  Object.assign(db.get('lojas/roupas-teste/pedidos/' + P1), { status: 'cancelado', canceladoPor: 'cliente' });
+  r = await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P1 } }); j = await r.json();
+  ok(j.ok && db.get(EST).q['camiseta|m'] === 2 && !db.get(EST).baixas[P1] && db.get('lojas/roupas-teste/pedidos/' + P1).estoqueDevolvido === true, 'cancelou: as 2 camisetas voltam e o pedido fica marcado');
+  r = await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P1 } }); j = await r.json();
+  ok(j.ok && j.ja && db.get(EST).q['camiseta|m'] === 2, 'devolver de novo nao soma duas vezes');
+
+  /* pagou depois de cancelar: volta para a fila e reserva de novo */
+  /* (o Pix e gerado com o pedido ainda esperando; depois ele cancela, as pecas voltam e o pagamento cai) */
+  db.get('lojas/roupas-teste/pedidos/' + P1).status = 'aguardando_pagamento';
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P1 } }); j = await r.json();
+  const ordemP1 = j.mp;
+  Object.assign(db.get('lojas/roupas-teste/pedidos/' + P1), { status: 'cancelado', canceladoPor: 'cliente' });
+  if (ordemP1 && ordens.get(ordemP1)) ordens.get(ordemP1).status = 'processed';
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: ordemP1, external_reference: 'roupas-teste__' + P1 } }, headers: { Origin: '' } });
+  const p1 = db.get('lojas/roupas-teste/pedidos/' + P1);
+  ok(!!ordemP1 && p1.status === 'pago' && p1.pagoAposCancelar === true && db.get(EST).q['camiseta|m'] === 0 && db.get(EST).baixas[P1] && p1.estoqueDevolvido === false, 'pagou depois de cancelar: o pedido volta e as 2 camisetas sao reservadas de novo');
+
+  /* pagou depois de cancelar e a peca ja tinha sido vendida: o pedido entra, marcado para a loja resolver */
+  r = await pedirR([{ produtoId: 'meia', quantidade: 1 }]); j = await r.json();
+  const P2 = j.pedido && j.pedido.id;
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P2 } }); j = await r.json();
+  const ordemP2 = j.mp;
+  Object.assign(db.get('lojas/roupas-teste/pedidos/' + P2), { status: 'cancelado', canceladoPor: 'pix-vencido' });
+  await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: P2 } });
+  const ok2 = db.get(EST).q.meia === 1;
+  r = await pedirR([{ produtoId: 'meia', quantidade: 1 }], { telefone: '13977776666' });
+  if (ordemP2 && ordens.get(ordemP2)) ordens.get(ordemP2).status = 'processed';
+  await chamar(w, '/webhook', { metodo: 'POST', corpo: { data: { id: ordemP2, external_reference: 'roupas-teste__' + P2 } }, headers: { Origin: '' } });
+  const p2 = db.get('lojas/roupas-teste/pedidos/' + P2);
+  ok(ok2 && r.status === 200 && p2.status === 'pago' && p2.estoqueFaltou === true && db.get(EST).q.meia === 0, 'pagou depois e a meia ja foi vendida para outro: o pedido entra com o aviso "estoque faltou" e o estoque nao fica negativo');
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

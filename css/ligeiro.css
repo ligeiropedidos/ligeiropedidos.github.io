@@ -537,6 +537,14 @@ a.selo-google:hover { background: var(--lime-suave); }
   .modal-item:not(.com-lado) .modal-rodape { padding-top: 16px; padding-bottom: 24px; }
 }
 .btn-adicionar { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; padding-left: 12px; padding-right: 12px; line-height: 1.15; }
+/* estoque (loja que vende quantidade limitada): o selo fica no canto da foto, por cima da imagem, com cor fixa (a mesma
+   em qualquer tema: em cima de foto, cor de tema some). Esgotado: a foto fica cinza e o PEDIR vira ESGOTADO, apagado */
+.selo-estoque { position: absolute; left: 8px; bottom: 8px; z-index: 1; max-width: calc(100% - 16px); padding: 4px 8px; border-radius: 8px; background: #FF8A3D; color: #1A1206; font-family: var(--corpo); font-size: 12px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selo-estoque.esgotado { background: rgba(17, 24, 39, 0.84); color: #FFFFFF; }
+.card-produto.esgotado .foto { filter: grayscale(1); } /* a foto e o emoji: o selo escuro fica igual */
+.card-produto.esgotado .foto > img { opacity: 0.6; }
+.card-produto.esgotado .preco { color: var(--muted); }
+.card-produto.esgotado .mais { background: var(--line); color: var(--muted); }
 .btn-adicionar .add-rotulo, .btn-adicionar .add-valor { white-space: nowrap; }
 .btn-adicionar .add-valor { font-family: var(--display); }
 .grupo { margin-top: 16px; }
@@ -554,6 +562,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .opcao .rotulo small { display: block; font-weight: 400; font-size: 13.5px; color: var(--muted); }
 .opcao .valor { font-weight: 700; color: var(--deep); font-size: 15px; }
 .opcao .valor.gratis { color: var(--lime-escuro); }
+/* tamanho que acabou: fica na lista (o cliente ve que existe), apagado e sem toque. Poucos: "Últimas 2" embaixo do nome */
+.opcao.esgotada { cursor: not-allowed; opacity: 0.55; }
+.opcao .valor.esgotado { color: var(--muted); font-weight: 600; }
+.opcao .rotulo small.pouco { color: var(--deep); font-weight: 700; }
+/* comercio: tocou em Adicionar sem escolher o tamanho, o grupo acende */
+.grupo.falta-escolher .grupo-dica { color: var(--erro); font-weight: 700; }
+.grupo.falta-escolher .opcao:not(.esgotada) { border-color: var(--erro); }
 .recheio { margin: 8px 0 0; padding-left: 20px; color: var(--body); }
 
 /* ---------- Carrinho ---------- */
@@ -1021,6 +1036,17 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .linha-produto { gap: 8px; padding: 10px; } .linha-produto input.preco { width: 92px; padding: 8px 6px; font-size: 15px; } .linha-produto .editar { padding: 0 8px; } .linha-produto .emoji { width: 28px; font-size: 22px; } }
 .linha-produto.desligado { opacity: 0.55; }
+/* estoque no painel: a linha embaixo do nome do item ("Estoque: P 2 · M 0"), o resumo do que acabou no topo do catalogo
+   e o bloco do editor do item (uma caixa por tamanho, 8 entre elas, 12 do interruptor) */
+.linha-produto .nome small.estoque-linha { color: var(--deep); font-weight: 600; }
+.linha-produto .nome small.estoque-linha.pouco { color: #9A5A06; }
+.linha-produto .nome small.estoque-linha.zerado { color: var(--erro); }
+.campo-estoque { display: flex; flex-direction: column; gap: 12px; }
+.campo-estoque .estoque-qtds .ajuda { margin: 0 0 8px; }
+.grade-estoque { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+.campo .estoque-qtd { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.estoque-qtd-nome { font-size: 14px; line-height: 19px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.campo .estoque-qtd input { min-height: 48px; padding: 8px 10px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .linha-produto .editar { min-width: 44px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; } /* na altura do campo de preco do lado (48) */
 .linha-produto .editar.apagar { border-color: #F3C9C2; background: #FFF6F4; }
 /* celular: item e opcao em duas linhas, em grade (nada quebra pra terceira linha, por mais estreita que a tela seja).
@@ -2369,6 +2395,11 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cadastro-rotulo { font-weight: 700; font-size: 15px; color: var(--ink); margin-bottom: -8px; }
 .cadastro-cidade input { min-height: 60px; font-size: 20px; border-radius: 14px; }
 .escolhas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* cadastro: o titulo de cada grupo de tipos (Comida, Outros comercios) e a caixa do nome livre ("Outro comercio") */
+.cadastro-secao { margin-top: 8px; }
+.cadastro-livre { padding-top: 0; }
+.cadastro-livre[hidden] { display: none; }
+.cadastro-livre .cadastro-livre-ajuda { margin: -4px 0 -8px; } /* como o campo: rotulo, 4, ajuda, 8, entrada */
 .escolhas-lista { display: flex; flex-direction: column; gap: 10px; }
 .escolha-tile { flex-direction: column; justify-content: center; text-align: center; gap: 6px; min-height: 104px; padding: 14px 8px; }
 .escolha-tile .icone { width: auto; font-size: 34px; line-height: 1; }
