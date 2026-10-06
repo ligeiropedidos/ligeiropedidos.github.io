@@ -2101,7 +2101,7 @@
       var lista = el('div', { class: 'paleta' });
       var previa = el('span', { class: 'btn btn-principal btn-pequeno previa-cor', text: 'PEDIR AGORA' });
       var entrada = el('input', { type: 'color', value: escolhida || '#84CC16', 'aria-label': 'Outra cor' });
-      var outra = el('label', { class: 'cor outra', title: 'Outra cor' }, [entrada, el('span', { text: '+' })]);
+      var outra = el('label', { class: 'cor outra', title: 'Outra cor' }, [entrada, UI.iconeLinha('mais')]);
       function pintar() {
         lista.querySelectorAll('button.cor').forEach(function (b) { b.classList.toggle('marcada', b.dataset.cor === escolhida); });
         var naPaleta = UI.PALETA.some(function (c) { return c[0] === escolhida; });
@@ -2168,8 +2168,8 @@
       function linhaDe(tid, nome, atual, antes) {
         var texto = el('span', { class: 'estoque-item-situacao' });
         var input = el('input', { type: 'text', inputmode: 'numeric', pattern: '[0-9]*', maxlength: '5', 'aria-label': nome + ': quantidade em estoque' });
-        var menos = el('button', { type: 'button', 'aria-label': 'Uma a menos de ' + nome, text: '−' });
-        var mais = el('button', { type: 'button', 'aria-label': 'Uma a mais de ' + nome, text: '+' });
+        var menos = el('button', { type: 'button', 'aria-label': 'Uma a menos de ' + nome }, [UI.iconeLinha('menos')]);
+        var mais = el('button', { type: 'button', 'aria-label': 'Uma a mais de ' + nome }, [UI.iconeLinha('mais')]);
         function valor() { return Math.max(0, Math.min(99999, Math.floor(Number(String(input.value).replace(/\D/g, ''))) || 0)); }
         function pintar() {
           var n = valor(), sit = situacao(n);
@@ -3621,7 +3621,7 @@
 
       var noSite = el('div', { class: 'bloco-form', id: 'aj-site' }, [el('div', { class: 'bloco-titulo', text: 'No seu site' })]);
       f.permitePersonalizar = catLoja().comida
-        ? interruptorCampo('Cliente pode tirar ingredientes e mandar recado', 'Ex.: sem cebola, bem passado.', l.permitePersonalizar !== false)
+        ? interruptorCampo('Cliente pode tirar ingredientes e mandar recado', 'Ex.: sem cebola, molho à parte.', l.permitePersonalizar !== false)
         : interruptorCampo('Cliente pode mandar recado', 'No item e no pedido. Ex.: é para presente.', l.permitePersonalizar !== false);
       f.mostrarOutras = interruptorCampo('Mostrar "outros estabelecimentos da cidade" no meu site', 'Desligado, o seu link é só seu: o cliente não vê concorrente. Ligado, sua loja vira parte da vitrine da cidade e ganha o link de volta.', l.mostrarOutras === true);
       noSite.appendChild(f.permitePersonalizar);

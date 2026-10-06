@@ -1000,6 +1000,7 @@
     seta: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
     fechar: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
     mais: '<path d="M12 5.5v13"/><path d="M5.5 12h13"/>',
+    menos: '<path d="M5.5 12h13"/>',
     fogo: '<path d="M12 21a6 6 0 0 0 6-6c0-3.6-2.4-5.4-3.6-8.2-.7 1.8-1.8 2.9-2.9 3.4C11.3 7.6 10.4 5.3 11.6 3 7.9 4.6 6 8.6 6 12.4V15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 1-2.5-2.5c0-1.6 1.3-2.4 2.5-4 1.2 1.6 2.5 2.4 2.5 4A2.5 2.5 0 0 1 12 21z"/>',
     /* cartao do pedido: a pessoa (o cliente) e a carteira (o total); do alto (4,5) ao pe (19,5), o meio no 12 */
     pessoa: '<circle cx="12" cy="8" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/>',

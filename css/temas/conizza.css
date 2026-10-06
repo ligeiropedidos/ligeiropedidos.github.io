@@ -191,7 +191,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 /* contador de quantidade (item e carrinho): borda e sombra de desenho, na altura do "Adicionar" do lado */
 .tema-conizza .contador { border: 3px solid var(--cz-tinta); border-radius: 18px; background: var(--cz-branco); box-shadow: 0 4px 0 var(--cz-tinta); }
 /* no carrinho, o contador fica no pe do cartao: a sombra (4) ganha o mesmo tanto embaixo, e o vao que se ve fica 12, como em cima */
-.tema-conizza .item-carrinho .item-carrinho-pe { padding-bottom: 4px; }
+.tema-conizza .item-carrinho .contador { margin-bottom: 4px; } /* a sombra chapada (4 embaixo) conta na altura: o contador e a sombra juntos no meio da linha */
 .tema-conizza .campo input, .tema-conizza .campo select, .tema-conizza .campo textarea { border: 3px solid var(--cz-tinta); border-radius: 14px; background: var(--cz-branco); font-family: var(--cz-corpo); }
 .tema-conizza .campo select { background-image: var(--seta-select); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; } /* o fundo do tema (acima) apagava a seta */
 .tema-conizza .campo input:focus-visible, .tema-conizza .btn:focus-visible { outline: 4px solid var(--cz-ouro); outline-offset: 2px; }

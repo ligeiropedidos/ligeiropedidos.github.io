@@ -41,6 +41,7 @@
   --line: rgba(246, 235, 221, 0.10); --line-forte: rgba(246, 235, 221, 0.22);
   --deep: #F2B233; --deep2: #FFD36B; --lime: #F2B233; --lime-escuro: #C98A12; --lime-suave: #2B2016; --lime2: #FFD36B;
   --orange: #FF8A1F; --orange-suave: #2B1A0E; --erro: #FF8B7B; --erro-suave: rgba(255, 90, 74, 0.13); --laranja-texto: #FFB07A;
+  --orange-borda: rgba(255, 176, 122, 0.34); --orange-texto: #FFD9BC; --lime-borda: rgba(242, 178, 51, 0.30);
   --texto-no-destaque: #1A0E07; --anel: rgba(242, 178, 51, 0.5); --sombra: 0 10px 30px rgba(0, 0, 0, 0.5);
   --display: var(--mk-display);
   color: var(--ink);
@@ -280,7 +281,7 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #2A1D14; color: #
 }
 /* o pulso e um batimento leve (escala, feito pela placa de video), e nao a sombra mudando de tamanho a cada quadro */
 @keyframes mk-pulsar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
-.tema-makburguer #tela-inicio .btn-gigante .sub { color: #3B2310; opacity: 0.9; letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
+.tema-makburguer #tela-inicio .btn-gigante .sub { color: #2A1708; opacity: 1; letter-spacing: 0.02em; text-transform: none; font-weight: 600; } /* no laranja do pe do botao: 6:1 (com 0,9 de opacidade dava 4,4) */
 .tema-makburguer #tela-inicio .btn-gigante:disabled { background: #3A2E25; color: #A8957F; box-shadow: none; }
 .tema-makburguer #tela-inicio .btn:focus-visible { outline-color: var(--mk-ouro-claro); }
 

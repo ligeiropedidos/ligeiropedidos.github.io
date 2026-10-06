@@ -33,6 +33,8 @@
   --deep: var(--bh-ouro);
   --deep2: var(--bh-ouro);
   --lime-suave: var(--bh-carvao-3);
+  --orange-suave: #2E1A0E; --orange-borda: rgba(255, 178, 26, 0.32); --orange-texto: #FFE0C2; --lime-borda: rgba(255, 178, 26, 0.30);
+  --laranja-texto: #FFB27A;
   --sombra: 0 8px 24px rgba(0, 0, 0, 0.4);
   background: var(--bh-carvao);
   color: var(--bh-creme);

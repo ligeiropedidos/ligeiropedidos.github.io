@@ -27,6 +27,9 @@
   --deep2: #1B6B4A;
   --orange: #FF8A3D;
   --orange-suave: #FFF1E7;
+  --orange-borda: #F7D2B8; /* caixa laranja clara (o "a cobrar"): borda e letra; o tema escuro troca as duas */
+  --orange-texto: #7A3B10;
+  --lime-borda: #C9E7A1; /* borda do cartao verde claro (convite do jogo, aviso ligado); o tema escuro troca */
   --laranja-texto: #B4501A;
   --laranja-forte: #C2410C; /* fundo laranja com letra ou icone branco por cima: 5,2:1 (o --orange com branco dava 2,3:1) */ /* o laranja de letra (SEM, referencia do endereco, avisos): 5,1:1 no branco; o tema escuro troca */
   --lemon: #FDE047;
@@ -494,7 +497,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .modal-rodape .btn { min-width: 0; }
 .modal-rodape .contador { flex: none; }
 .contador { display: flex; align-items: center; gap: 4px; border: 1.5px solid var(--line-forte); border-radius: 14px; padding: 4px; }
-.contador button { width: 46px; height: 46px; border: 0; background: var(--lime-suave); border-radius: 10px; font-size: 24px; font-weight: 700; color: var(--ink); }
+.contador button { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; padding: 0; border: 0; background: var(--lime-suave); border-radius: 10px; font-size: 24px; font-weight: 700; color: var(--ink); }
+.contador button .ico-traco svg { width: 22px; height: 22px; stroke-width: 2.4; } /* o − e o + de traco: o desenho e simetrico no quadro de 24, entao o meio do botao e o meio do traco */
 .contador button:disabled { opacity: 0.35; }
 .contador .numero { min-width: 36px; text-align: center; font-family: var(--display); font-size: 22px; font-weight: 700; }
 /* foto grande do item: quadrado exato (igual a lista), a imagem preenche tudo recortando pelo centro, nunca estica */
@@ -639,22 +643,23 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o item do carrinho, como no carrinho do Mercado Livre e da Amazon: em cima a foto e o nome (com o tamanho e os adicionais
    embaixo dele); no pe, o contador na esquerda (a lixeira no lugar do menos quando e 1) e o preco na direita, na mesma
    coluna dos valores dos totais. Tudo a 12 da borda; 12 entre o topo e o pe */
-.item-carrinho { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
-.item-carrinho-topo { display: flex; gap: 12px; min-width: 0; }
-.item-carrinho .miniatura { width: 56px; height: 56px; flex: none; border-radius: 12px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; }
+/* o item do carrinho numa linha so (iFood e Anota): foto de 48, o bloco do nome, detalhes e preco, e o contador a direita, os tres no
+   meio da altura. Antes eram duas linhas (nome em cima, preco e contador embaixo): ~130 px por item, espacoso demais */
+.item-carrinho { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
+.item-carrinho .miniatura { width: 48px; height: 48px; flex: none; border-radius: 10px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; }
 .item-carrinho .miniatura img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; } /* o nome e os detalhes no meio da altura da foto (com muitos adicionais, o texto cresce e a foto fica no topo) */
+.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; } /* nome, detalhes e preco juntos (6 entre eles) */
 .item-carrinho .nome { font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .item-carrinho .detalhes { font-size: 14px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
 .item-carrinho .detalhes .sem { color: var(--laranja-texto); font-weight: 600; }
-.item-carrinho-pe { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.item-carrinho .preco { font-family: var(--display); font-weight: 700; color: var(--deep); font-size: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.item-carrinho .preco { font-family: var(--display); font-weight: 700; color: var(--deep); font-size: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 340px) { .item-carrinho { gap: 10px; } .item-carrinho .miniatura { width: 40px; height: 40px; font-size: 20px; } } /* 320: mais lugar para o nome */
 /* o contador do carrinho: o mesmo da janela do item (a mesma borda, o mesmo fundo dos botoes), menor */
 .contador.contador-mini { flex: none; gap: 2px; padding: 2px; border-radius: 12px; }
-.contador.contador-mini button { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; padding: 0; border-radius: 9px; font-size: 20px; line-height: 1; }
-.contador.contador-mini .numero { min-width: 28px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.contador.contador-mini button { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border-radius: 9px; font-size: 20px; line-height: 1; }
+.contador.contador-mini .numero { min-width: 24px; font-size: 16px; font-variant-numeric: tabular-nums; }
 .contador.contador-mini .contador-lixeira { color: var(--erro); }
-.contador.contador-mini .contador-lixeira .ico-traco svg { width: 18px; height: 18px; }
+.contador.contador-mini .ico-traco svg { width: 18px; height: 18px; }
 .contador.contador-mini button:focus-visible { outline: 3px solid var(--deep); outline-offset: 1px; }
 /* o texto do item medido pela letra: a caixa de cada texto fica aparada na tinta (sem a sobra de cima e de baixo), entao o
    vao entre o nome e os detalhes e o que se ve e o bloco fica no meio exato da foto */
@@ -757,7 +762,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .painel-senha .rotulo { font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255, 255, 255, 0.75); font-weight: 700; }
 .senha-gigante { font-family: var(--display); font-size: 104px; line-height: 1; font-weight: 700; color: var(--senha, var(--lime)); margin: 6px 0; }
 .painel-senha .instrucao { font-size: 16.5px; color: rgba(255, 255, 255, 0.9); }
-.a-cobrar { width: 100%; max-width: 420px; background: var(--orange-suave); border: 1px solid #F7D2B8; color: #7A3B10; border-radius: var(--raio-p); padding: 12px 14px; font-weight: 600; }
+.a-cobrar { width: 100%; max-width: 420px; background: var(--orange-suave); border: 1px solid var(--orange-borda); color: var(--orange-texto); border-radius: var(--raio-p); padding: 12px 14px; font-weight: 600; }
 /* linha do tempo do pedido num cartao, como os outros da tela: um traco liga as bolinhas (na cor da loja ate onde o
    pedido ja chegou) e a etapa de agora ganha o fundo de destaque. Cada etapa com 56 de altura e a bolinha de 40 */
 .linha-do-tempo { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 0; padding: 8px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; text-align: left; }
@@ -1205,6 +1210,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .estoque-item-situacao.zerado { color: var(--erro); }
 .contador-estoque { flex: none; }
 .contador-estoque button { width: 40px; height: 40px; font-size: 22px; }
+.contador-estoque button .ico-traco svg { width: 20px; height: 20px; }
 .campo .contador-estoque input { width: 56px; min-height: 0; height: 40px; padding: 0; border: 0; border-radius: 8px; background: transparent; text-align: center; font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .campo .contador-estoque input:focus { outline: none; background: var(--lime-suave); }
 @media (max-width: 340px) { .estoque-item { padding-left: 12px; gap: 8px; } .contador-estoque button { width: 36px; } .campo .contador-estoque input { width: 48px; } }
@@ -1525,6 +1531,38 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 .splash-makburguer .splash-fogo::before { left: 0; background-image: url('../img/oficial/mak-chamas-fundo.svg'); animation: splash-mk-correr 8s linear infinite, splash-mk-tremular 1.8s ease-in-out infinite; }
 .splash-makburguer .splash-fogo::after { left: -260px; background-image: url('../img/oficial/mak-chamas-frente.svg'); animation: splash-mk-correr-b 6s linear infinite, splash-mk-tremular 1.5s ease-in-out -0.6s infinite; }
+/* Kazoku Sushi: a tela de carregamento ja e a da casa japonesa (preto sumi, o sol vermelho atras da logo, bolhinhas subindo,
+   a faixa de ondas japonesas no pe e o fio vermelho que corre). Mora aqui pelo mesmo motivo da do Mak. */
+.splash-kazoku { overflow: hidden; gap: 18px; background-image: radial-gradient(circle min(300px, 72vw) at 50% 42%, rgba(212, 46, 50, 0.42), rgba(212, 46, 50, 0) 72%), linear-gradient(180deg, #100E11 0%, #0B0A0C 60%, #070608 100%) !important; }
+.splash-kazoku > * { position: relative; z-index: 1; }
+.splash-kazoku::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; z-index: 0; pointer-events: none; will-change: transform;
+  height: calc(100% + 480px); background-repeat: repeat; background-size: 270px 480px, 330px 480px, 390px 480px, 450px 480px;
+  background-image:
+    radial-gradient(circle at 60px 430px, rgba(244, 238, 228, 0) 0 2.6px, rgba(244, 238, 228, 0.45) 3.2px, rgba(244, 238, 228, 0) 4px),
+    radial-gradient(circle at 210px 120px, rgba(244, 238, 228, 0) 0 1.6px, rgba(244, 238, 228, 0.4) 2.1px, rgba(244, 238, 228, 0) 2.8px),
+    radial-gradient(circle at 300px 300px, rgba(244, 238, 228, 0) 0 3.6px, rgba(244, 238, 228, 0.38) 4.3px, rgba(244, 238, 228, 0) 5.2px),
+    radial-gradient(circle at 150px 360px, rgba(255, 120, 110, 0.55) 0 1.2px, rgba(212, 46, 50, 0) 3px);
+  animation: splash-kz-bolhas 9s linear infinite;
+}
+.splash-kazoku img {
+  width: min(196px, 50vw); transform-origin: 50% 40%;
+  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 28px rgba(212, 46, 50, 0.4));
+  animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite;
+}
+.splash-kazoku .splash-frase { font-family: 'Oswald', 'Ligeiro Display', Bahnschrift, 'Segoe UI', system-ui, sans-serif; font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.34em; text-indent: 0.34em; text-transform: uppercase; color: #F5A27F; animation: splash-mk-frase 1.6s ease-in-out infinite; }
+.splash-kazoku .splash-pontos { position: relative; display: block; width: 148px; height: 3px; border-radius: 3px; background: rgba(244, 238, 228, 0.14); overflow: hidden; }
+.splash-kazoku .splash-pontos span { display: none; }
+.splash-kazoku .splash-pontos::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, rgba(212, 46, 50, 0), #D42E32 55%, #F5A27F); box-shadow: 0 0 10px rgba(212, 46, 50, 0.9); animation: splash-mk-fio 1.3s ease-in-out infinite; }
+.splash-kazoku .splash-fogo { position: absolute; left: 0; right: 0; bottom: 0; height: 168px; overflow: hidden; pointer-events: none; z-index: 0; }
+.splash-kazoku .splash-fogo::before {
+  content: ""; position: absolute; left: 0; bottom: 0; width: calc(100% + 80px); height: 168px; opacity: 0.42;
+  background: url('../img/oficial/kazoku-ondas.svg') 0 100% / 80px 40px repeat;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%); mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  animation: splash-kz-ondas 6s linear infinite;
+}
+@keyframes splash-kz-bolhas { to { transform: translate3d(0, -480px, 0); } }
+@keyframes splash-kz-ondas { from { translate: 0 0; } to { translate: -80px 0; } }
 @keyframes splash-mk-correr { from { translate: 0 0; } to { translate: -260px 0; } }
 @keyframes splash-mk-correr-b { from { translate: 0 0; } to { translate: 260px 0; } }
 @keyframes splash-mk-tremular { 0%, 100% { transform: scaleY(1); opacity: 0.92; } 40% { transform: scaleY(1.07); opacity: 1; } 70% { transform: scaleY(0.96); opacity: 0.88; } }
@@ -2341,6 +2379,11 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .splash-makburguer .splash-fogo::before { animation: splash-mk-correr 8s linear infinite, splash-mk-tremular 1.8s ease-in-out infinite !important; }
   .splash-makburguer .splash-fogo::after { animation: splash-mk-correr-b 6s linear infinite, splash-mk-tremular 1.5s ease-in-out -0.6s infinite !important; }
   .splash-makburguer .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
+  .splash-kazoku::before { animation: splash-kz-bolhas 9s linear infinite !important; }
+  .splash-kazoku img { animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite !important; }
+  .splash-kazoku .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
+  .splash-kazoku .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
+  .splash-kazoku .splash-fogo::before { animation: splash-kz-ondas 6s linear infinite !important; }
   .splash-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .splash-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
   .splash-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
@@ -2923,12 +2966,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .aviso-cel-pedido-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
 @media (max-width: 340px) { .aviso-cel-pedido { gap: 10px; padding-left: 12px; } .aviso-cel-pedido .btn { min-width: 80px; padding: 0 14px; } } /* 320: mais lugar para o nome do jogo */
 .aviso-cel-pedido .btn { flex: none; min-height: 44px; min-width: 96px; padding: 0 18px; } /* Avisar e Jogar com a mesma largura: um cartao embaixo do outro, os botoes alinham */
-.aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: #C9E7A1; }
-.aviso-cel-pedido.ligado .aviso-cel-ico { background: #fff; }
+.aviso-cel-pedido.ligado { background: var(--lime-suave); border-color: var(--lime-borda); }
+.aviso-cel-pedido.ligado .aviso-cel-ico { background: var(--card); }
 .aviso-cel-pedido.ligado .aviso-cel-pedido-texto { color: var(--deep); font-weight: 600; text-wrap: balance; } /* sem "andar." sozinho na segunda linha */
 /* convite da Corrida do Ligeiro: o mesmo cartao do "Quer saber quando sair?", com o mascote no lugar do icone */
 /* em destaque: o mesmo cartao, com o fundo verde-limao e a borda do botao principal */
-.jogo-convite { background: linear-gradient(135deg, var(--lime-suave) 0%, #FFFFFF 85%); border-color: #C9E7A1; }
+.jogo-convite { background: linear-gradient(135deg, var(--lime-suave) 0%, var(--card) 85%); border-color: var(--lime-borda); } /* do verde claro ao cartao: no tema escuro vai ao cartao escuro (com branco fixo, a letra clara sumia) */
 /* Corrida e Pulo, um embaixo do outro: a mesma altura com ou sem a etiqueta do recorde (que e 4 px mais alta que a frase) */
 .jogo-convite .aviso-cel-pedido-texto { min-height: 48px; justify-content: center; }
 .jogo-convite { padding-left: 12px; } /* o icone do jogo e quadrado (o 14 do cartao e para o icone redondo): 13 da borda, como o Jogar do outro lado */

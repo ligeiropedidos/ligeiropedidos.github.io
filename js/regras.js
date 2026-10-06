@@ -1226,7 +1226,7 @@
         preparando: 'Preparando', preparandoFrase: 'Estão preparando o seu pedido agora.',
         tela: 'Cozinha', naTela: 'na cozinha', aTela: 'a cozinha',
         tempoRotulo: 'Tempo de preparo', prontoEm: 'Fica pronto em', maisPedidos: 'Os mais pedidos',
-        observacaoEx: 'Ex.: sem cebola, bem passado', itemEx: 'Ex.: X-Burguer', categoriaEx: 'Ex.: Lanches',
+        observacaoEx: 'Ex.: sem cebola, molho à parte', itemEx: 'Ex.: X-Burguer', categoriaEx: 'Ex.: Lanches',
         pagouEntra: 'Pagou, confirmou: esta tela muda sozinha e o pedido já entra na cozinha.',
         senha: 'Senha', suaSenha: 'Sua senha', pelaSenha: 'pela senha', aSenha: 'a senha',
         iconePreparo: 'fogo', iconeTela: 'chef', iconeCatalogo: 'cardapio',

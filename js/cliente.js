@@ -1481,7 +1481,7 @@
         else if (produto.ingredientes && produto.ingredientes.length) corpo.appendChild(el('div', { class: 'grupo' }, [el('div', { class: 'grupo-titulo', text: 'O que vem' }), el('ul', { class: 'recheio' }, produto.ingredientes.map(function (i) { return el('li', { text: i }); }))]));
         var obs = el('div', { class: 'campo', style: { marginTop: '16px' } }, [
           el('label', { for: 'obsItem', html: 'Algum recado sobre este item? <span class="opcional">opcional</span>' }),
-          el('textarea', { id: 'obsItem', maxlength: '140', placeholder: cat.comida ? 'Ex: bem passado, pouca cebola…' : 'Ex: é para presente…' }),
+          el('textarea', { id: 'obsItem', maxlength: '140', placeholder: cat.comida ? 'Ex: sem cebola, molho à parte…' : 'Ex: é para presente…' }),
         ]);
         corpo.appendChild(obs);
       } else if (produto.ingredientes && produto.ingredientes.length) {
@@ -1489,8 +1489,9 @@
       }
 
       var numero = el('span', { class: 'numero', text: '1' });
-      var menos = el('button', { type: 'button', 'aria-label': 'Diminuir', text: '−', disabled: true });
-      var mais = el('button', { type: 'button', 'aria-label': 'Aumentar', text: '+' });
+      /* o − e o + de traco (o caractere da fonte ficava fora do meio do botao) */
+      var menos = el('button', { type: 'button', 'aria-label': 'Diminuir', disabled: true }, [UI.iconeLinha('menos')]);
+      var mais = el('button', { type: 'button', 'aria-label': 'Aumentar' }, [UI.iconeLinha('mais')]);
       var valor = el('span', { class: 'add-valor' });
       /* duas partes que nunca quebram por dentro: "Adicionar" e o preco. Em tela estreita o preco desce inteiro pra segunda linha. */
       var adicionar = el('button', { class: 'btn btn-principal btn-adicionar', style: { flex: '1' } }, [el('span', { class: 'add-rotulo', text: 'Adicionar' }), valor]);
@@ -1762,14 +1763,14 @@
         montarCarrinho();
         atualizarBarraCarrinho();
       };
-      var menos = el('button', { class: 'contador-menos' + (qtd <= 1 ? ' contador-lixeira' : ''), type: 'button', 'aria-label': qtd <= 1 ? 'Tirar ' + nomeDoItem + ' do pedido' : 'Um a menos de ' + nomeDoItem, onclick: function () { mexer('contador-menos', qtd - 1); } }, qtd <= 1 ? [UI.iconeLinha('lixeira')] : [document.createTextNode('\u2212')]);
-      var mais = el('button', { class: 'contador-mais', type: 'button', text: '+', 'aria-label': 'Um a mais de ' + nomeDoItem, onclick: function () {
+      var menos = el('button', { class: 'contador-menos' + (qtd <= 1 ? ' contador-lixeira' : ''), type: 'button', 'aria-label': qtd <= 1 ? 'Tirar ' + nomeDoItem + ' do pedido' : 'Um a menos de ' + nomeDoItem, onclick: function () { mexer('contador-menos', qtd - 1); } }, qtd <= 1 ? [UI.iconeLinha('lixeira')] : [UI.iconeLinha('menos')]);
+      var mais = el('button', { class: 'contador-mais', type: 'button', 'aria-label': 'Um a mais de ' + nomeDoItem, onclick: function () {
         var sobra = produto ? sobraDoTamanho(produto, item.tamanho) : 99;
         if (qtd >= 20) { UI.avisar('Até 20 de cada item por pedido.'); return; }
         if (sobra <= 0) { UI.avisar(qtd === 1 ? 'Só tem esta unidade.' : 'Só tem estas ' + qtd + ' unidades.'); return; }
         UI.soar('adicionar');
         mexer('contador-mais', qtd + 1);
-      } });
+      } }, [UI.iconeLinha('mais')]);
       return el('div', { class: 'contador contador-mini', role: 'group', 'aria-label': 'Quantidade' }, [menos, el('span', { class: 'numero', text: String(qtd) }), mais]);
     }
 
@@ -1814,15 +1815,15 @@
         if (det && removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
         var srcItem = D.fotoSrc(produtoDoItem, estado.fotos) || desenhoDoProduto(produtoDoItem);
         var nomeDoItem = conta ? conta.nome : item.nome;
+        /* uma linha so, como no iFood e na Anota: a foto, o bloco (nome, detalhes e o preco embaixo deles) e o contador do lado
+           do polegar, no meio da altura */
         lista.appendChild(el('div', { class: 'item-carrinho', dataset: { item: item.idLocal } }, [
-          el('div', { class: 'item-carrinho-topo' }, [
-            el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? imagemOuEmoji(srcItem, item.emoji) : (item.emoji || R.catalogo(estado.loja).vazio)),
-            el('div', { class: 'corpo' }, [el('div', { class: 'nome', text: nomeDoItem }), det]),
-          ]),
-          el('div', { class: 'item-carrinho-pe' }, [
-            contadorDoItem(item, nomeDoItem, produtoDoItem),
+          el('span', { class: 'miniatura' + (srcItem && !D.fotoSrc(produtoDoItem, estado.fotos) ? ' com-desenho' : '') }, srcItem ? imagemOuEmoji(srcItem, item.emoji) : (item.emoji || R.catalogo(estado.loja).vazio)),
+          el('div', { class: 'corpo' }, [
+            el('div', { class: 'nome', text: nomeDoItem }), det,
             el('span', { class: 'preco', text: dinheiro(conta ? conta.totalItem : item.precoUnitario * item.quantidade) }),
           ]),
+          contadorDoItem(item, nomeDoItem, produtoDoItem),
         ]));
       });
       if (estado.focoCarrinho) {
