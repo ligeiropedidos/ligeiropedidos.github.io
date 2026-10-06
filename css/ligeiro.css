@@ -648,7 +648,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .item-carrinho { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
 .item-carrinho .miniatura { width: 48px; height: 48px; flex: none; border-radius: 10px; background: var(--lime-suave); display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; }
 .item-carrinho .miniatura img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; } /* nome, detalhes e preco juntos (6 entre eles) */
+.item-carrinho .corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; } /* nome, detalhes e preco: 8 entre eles, a regra do subtitulo colado no titulo (com 6, o "$" do preco quase encostava no nome) */
 .item-carrinho .nome { font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .item-carrinho .detalhes { font-size: 14px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
 .item-carrinho .detalhes .sem { color: var(--laranja-texto); font-weight: 600; }
