@@ -301,5 +301,16 @@ console.log('== repasse do login do Google so para caminhos do Firebase ==');
   ok(cookieVisto === '', 'o cookie do nosso dominio nao vai junto para o Firebase');
 }
 
+{
+  /* os mensageiros vao para a Cloudflare pela area de transferencia: caractere de controle no codigo (NUL, 0x1F) corta o
+     colar no meio. So tab, quebra de linha e retorno */
+  const { readFileSync } = await import('node:fs');
+  for (const nome of ['worker-site.js', 'worker-mercadopago.js', 'worker-asaas.js']) {
+    let bytes;
+    try { bytes = readFileSync(new URL('../ferramentas/' + nome, import.meta.url)); } catch (_) { continue; }
+    const ruins = [...bytes].filter((x) => x < 32 && x !== 9 && x !== 10 && x !== 13).length;
+    ok(ruins === 0, nome + ' sem caractere de controle (o colar na Cloudflare vai inteiro)');
+  }
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
