@@ -400,7 +400,10 @@
       if (total >= 5) { seloLojas.textContent = total + ' lojas em ' + cidades.length + (cidades.length === 1 ? ' cidade' : ' cidades'); seloLojas.hidden = false; }
     }).catch(function () { /* sem lista, sem selo */ });
 
-    var corpo = el('div', { class: 'conteudo vender' });
+    /* a capa pinta sozinha no primeiro quadro (e o que se ve ao abrir); o resto da pagina e o rodape aparecem no quadro
+       seguinte. Montar e medir as secoes todas antes da primeira pintura travava o celular por 1,3 s (com a lentidao de 4x)
+       antes do titulo aparecer */
+    var corpo = el('div', { class: 'conteudo vender', hidden: true });
     raiz.appendChild(corpo);
 
     /* ---------- para quem e: comida e comercio, com os tipos do cadastro ---------- */
@@ -616,7 +619,9 @@
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('fechamento'); } }),
       ]),
     ]));
-    raiz.appendChild(rodape());
+    var rodapeDaPagina = rodape();
+    rodapeDaPagina.hidden = true;
+    raiz.appendChild(rodapeDaPagina);
     botaoFlutuante(raiz);
 
     /* barra fixa no celular: aparece quando o heroi sai da tela */
@@ -654,9 +659,17 @@
     }
     window.addEventListener('scroll', conferirBarra, { passive: true });
     window.addEventListener('resize', conferirBarra);
-    conferirBarra();
+    /* depois da primeira pintura: mostra o resto e so entao mede (medir antes forcava o layout da pagina inteira) */
+    var mostrarResto = 0;
+    requestAnimationFrame(function () {
+      mostrarResto = setTimeout(function () {
+        corpo.hidden = false;
+        rodapeDaPagina.hidden = false;
+        conferirBarra();
+      }, 0);
+    });
 
-    return function () { clearInterval(trocaTitulo); clearTimeout(conferirBarra.depois); window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
+    return function () { clearTimeout(mostrarResto); clearInterval(trocaTitulo); clearTimeout(conferirBarra.depois); window.removeEventListener('scroll', conferirBarra); window.removeEventListener('resize', conferirBarra); document.title = 'Ligeiro: pedido ligeiro, sem comissão'; };
   }
 
   /* Mensal e anual lado a lado (1 loja por conta), com o que vem incluso uma vez so, embaixo: da para comparar sem tocar
