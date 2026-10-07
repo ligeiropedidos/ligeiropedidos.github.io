@@ -415,7 +415,7 @@
       [f.nome, f.whatsapp, f.loja].forEach(function (x) { x.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } }); });
       cartao.appendChild(el('div', { class: 'contato-topo' }, [
         el('span', { class: 'contato-avatar', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: '48', height: '48' }), el('span', { class: 'contato-online' })]),
-        el('div', { class: 'contato-topo-texto' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('span', { text: 'A gente monta para você e chama no seu WhatsApp.' })]),
+        el('div', { class: 'contato-topo-texto' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('span', { text: 'A gente monta tudo e chama você no WhatsApp.' })]),
       ]));
       cartao.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja]));
       cartao.appendChild(botao);
