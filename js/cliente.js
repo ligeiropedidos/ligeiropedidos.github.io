@@ -55,11 +55,11 @@
       }));
       if (c.lojas.length > 4) logos.appendChild(el('span', { class: 'cidade-logo mais', text: '+' + (c.lojas.length - 4) }));
       var abertas = c.lojas.filter(function (l) { return R.lojaAberta(l); }).length;
-      var detalhe = c.lojas.length + (c.lojas.length === 1 ? ' loja' : ' lojas') + '\u00a0· ' + (abertas ? abertas + (abertas === 1 ? ' aberta agora' : ' abertas agora') : 'nenhuma aberta agora');
+      var detalhe = c.lojas.length + (c.lojas.length === 1 ? ' loja' : ' lojas') + ' ·\u00a0' + (abertas ? abertas + (abertas === 1 ? ' aberta agora' : ' abertas agora') : 'nenhuma aberta agora');
       return el('button', { class: 'cidade-linha' + (destaque ? ' minha' : ''), onclick: function () { ir(c.slug); } }, [
         logos,
         el('span', { class: 'cidade-info' }, [
-          el('span', { class: 'cidade-nome' }, [c.nome, el('small', { text: '\u00a0· ' + (c.uf || '') })]),
+          el('span', { class: 'cidade-nome' }, [c.nome, el('small', { text: '\u00a0·\u00a0' + (c.uf || '') })]),
           el('span', { class: 'cidade-detalhe', text: detalhe }),
         ]),
         el('span', { class: 'cidade-acao', text: destaque ? 'Continuar' : 'Ver lojas' }),
@@ -173,8 +173,8 @@
         var atual = c.slug === cidadeSlug;
         return el('button', { class: 'cidade-linha' + (atual ? ' minha' : ''), type: 'button', onclick: function () { UI.fecharModal(); if (!atual) ir(c.slug); } }, [
           el('span', { class: 'cidade-info' }, [
-            el('span', { class: 'cidade-nome' }, [c.nome, el('small', { text: '\u00a0· ' + (c.uf || '') })]),
-            el('span', { class: 'cidade-detalhe', text: c.lojas + (c.lojas === 1 ? ' loja' : ' lojas') + '\u00a0· ' + (c.abertas ? c.abertas + (c.abertas === 1 ? ' aberta agora' : ' abertas agora') : 'nenhuma aberta agora') }),
+            el('span', { class: 'cidade-nome' }, [c.nome, el('small', { text: '\u00a0·\u00a0' + (c.uf || '') })]),
+            el('span', { class: 'cidade-detalhe', text: c.lojas + (c.lojas === 1 ? ' loja' : ' lojas') + ' ·\u00a0' + (c.abertas ? c.abertas + (c.abertas === 1 ? ' aberta agora' : ' abertas agora') : 'nenhuma aberta agora') }),
           ]),
           el('span', { class: 'cidade-acao', text: atual ? 'Você está aqui' : 'Ver lojas' }),
         ]);
@@ -278,7 +278,7 @@
         detalhe.appendChild(el('div', { class: 'ps-texto' }, [
           /* o selo no fluxo do texto, colado na ultima palavra: nome comprido nao deixa o selo sozinho na linha de baixo */
           el('div', { class: 'ps-nome' }, [l.nome, UI.seloVerificada(l, 'no-nome')]),
-          el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join('\u00a0· ') }),
+          el('div', { class: 'ps-meta', text: [l.tipo ? R.tipoVisivel(l) : '', x.itens.length ? 'tem: ' + x.itens.slice(0, 2).join(', ') + (x.itens.length > 2 ? ' +' + (x.itens.length - 2) : '') : (l.descricao || '')].filter(Boolean).join(' ·\u00a0') }),
           el('div', { class: 'ps-status' }, [
             el('span', { class: aberta ? 'aberta' : 'fechada' }, [el('span', { class: 'bolinha', 'aria-hidden': 'true' }), aberta ? 'Aberta agora' : (abreAs ? 'Abre às ' + abreAs : 'Fechada')]),
             el('span', {}, [UI.iconeLinha('relogio'), tempo]),
@@ -1053,10 +1053,10 @@
         if (l.amostra === true && zapLigeiro) {
           rodapeLigeiro.href = R.linkWhatsapp(zapLigeiro, 'Oi! Vi a amostra da ' + l.nome + ' no Ligeiro e queria tirar umas dúvidas.');
           rodapeLigeiro.target = '_blank'; rodapeLigeiro.rel = 'noopener';
-          rodapeLigeiro.textContent = 'Feito com Ligeiro\u00a0· tirar dúvidas no WhatsApp →';
+          rodapeLigeiro.textContent = 'Feito com Ligeiro ·\u00a0tirar dúvidas no WhatsApp →';
         } else {
           rodapeLigeiro.href = '#/'; rodapeLigeiro.removeAttribute('target');
-          rodapeLigeiro.textContent = 'Feito com Ligeiro\u00a0· quero isso na minha loja →';
+          rodapeLigeiro.textContent = 'Feito com Ligeiro ·\u00a0quero isso na minha loja →';
         }
       }
       if (!balcao && window.LigeiroApp && window.LigeiroApp.manifestDaLoja) window.LigeiroApp.manifestDaLoja((l.cidadeSlug || 'loja') + '/' + l.slug, l.nome);
@@ -1324,7 +1324,7 @@
       $('opcaoRetirada').disabled = modos.indexOf('retirada') < 0;
       /* espaco que nao quebra: a linha nunca comeca com o ponto e o "min" nunca fica sozinho embaixo */
       $('detalheRetirada').textContent = R.catalogo(l).prontoEm + ' ~' + (l.tempoPreparo || 20) + '\u00a0min';
-      $('detalheEntrega').textContent = R.descreverFrete(l) + '\u00a0· ~' + (l.tempoEntrega || 40) + '\u00a0min';
+      $('detalheEntrega').textContent = R.descreverFrete(l) + ' ·\u00a0~' + (l.tempoEntrega || 40) + '\u00a0min';
       /* a escolha so aparece fora do caminho normal quando o jeito escolhido saiu (tipoSaiu) */
       var passoTipo = raiz.querySelector('#tela-tipo .topo-passo');
       if (passoTipo && estado.pularEscolhaTipo) passoTipo.textContent = 'Confira';
@@ -1873,7 +1873,7 @@
         if (nomeTamanho) detalhes.push(R.tituloDoTamanho(estado.loja, item) + ': ' + nomeTamanho);
         if (nomesAdicionais.length) detalhes.push('Com ' + nomesAdicionais.join(', '));
         if (item.observacao) detalhes.push('Obs: ' + item.observacao);
-        var det = detalhes.length || removidos.length ? el('div', { class: 'detalhes', text: detalhes.join('\u00a0· ') }) : null;
+        var det = detalhes.length || removidos.length ? el('div', { class: 'detalhes', text: detalhes.join(' ·\u00a0') }) : null;
         if (det && removidos.length) det.appendChild(el('div', { class: 'sem', text: 'SEM: ' + removidos.join(', ') }));
         var srcItem = D.fotoSrc(produtoDoItem, estado.fotos) || desenhoDoProduto(produtoDoItem);
         var nomeDoItem = conta ? conta.nome : item.nome;
@@ -3431,7 +3431,7 @@
               if (!p || !R.lojaAberta(estado.loja)) return;
               comecarPedido(); montarGrade(p.categoria); abrirPersonalizacao(p);
             },
-            rotulo: R.catalogo(estado.loja).senha + ' ' + estado.pedido.senha + '\u00a0· ' + R.rotuloStatusCliente(estado.pedido),
+            rotulo: R.catalogo(estado.loja).senha + ' ' + estado.pedido.senha + ' ·\u00a0' + R.rotuloStatusCliente(estado.pedido),
             aoFechar: function () { if (vivo && estado.pedido) desenharConviteJogo(estado.pedido, false); },
           });
         }, function () { soltar(); UI.avisar('Não deu para abrir o jogo agora. Confira a internet.'); });
@@ -3606,7 +3606,7 @@
       if (!mudou && novo.status === R.STATUS.AGUARDANDO && $('tela-cartao').classList.contains('ativa')) { travaDoCartao(novo); return; }
       if (!mudou) return;
       /* jogando: a etiqueta do jogo muda; saiu, ficou pronto, chegou ou foi cancelado, o jogo pausa e pergunta */
-      cadaJogoAberto(function (J) { J.pedidoMudou(novo, R.catalogo(estado.loja).senha + ' ' + novo.senha + '\u00a0· ' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0); });
+      cadaJogoAberto(function (J) { J.pedidoMudou(novo, R.catalogo(estado.loja).senha + ' ' + novo.senha + ' ·\u00a0' + R.rotuloStatusCliente(novo), [R.STATUS.PRONTO, R.STATUS.FINALIZADO, R.STATUS.CANCELADO].indexOf(novo.status) >= 0); });
       if ($('tela-cartao').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { desmontarCartao(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
       if ($('tela-pagamento').classList.contains('ativa') && novo.status !== R.STATUS.AGUARDANDO) { pararVigia(); if (novo.status === R.STATUS.PAGO) { UI.soar('sucesso'); UI.vibrar([80, 40, 80]); } mostrarSenha(novo); return; }
       if ($('tela-senha').classList.contains('ativa')) {
@@ -3720,7 +3720,7 @@
           el('span', { class: 'icone' }, [UI.iconeLinha(!sabido ? 'recibo' : cancelado ? 'fechar' : andando ? 'relogio' : 'feito')]),
           el('span', {}, [
             el('span', { class: 'rotulo', text: R.catalogo(estado.loja).senha + ' ' + p.senha }),
-            el('span', { class: 'detalhe', text: UI.dataCurta(p.criadoEm) + ' ' + UI.horaCurta(p.criadoEm) + '\u00a0· ' + dinheiro(p.total) }),
+            el('span', { class: 'detalhe', text: UI.dataCurta(p.criadoEm) + ' ' + UI.horaCurta(p.criadoEm) + ' ·\u00a0' + dinheiro(p.total) }),
             el('span', { class: 'meu-status' + (!sabido || velho ? '' : cancelado ? ' cancelado' : andando ? ' andando' : ''), text: velho ? 'Detalhes com a loja' : (sabido ? R.rotuloStatusCliente(p) : 'Toque para ver como ficou') }),
           ]),
           el('span', { class: 'seta', text: '→' }),
@@ -3839,7 +3839,7 @@
         /* a lista dos pedidos feitos neste aparelho sempre tem porta: a faixa de cima so aparece com pedido andando */
         '<button class="cupom-abrir" id="btnMeusPedidosRodape" hidden style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;width:100%">' + UI.iconeHtml('recibo') + 'Meus pedidos</button>' +
         '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;justify-content:center;width:100%"></button>' +
-        '<div class="ligeiro"><a href="#/" id="linkLigeiroRodape">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
+        '<div class="ligeiro"><a href="#/" id="linkLigeiroRodape">Feito com Ligeiro ·&nbsp;quero isso na minha loja →</a></div>' +
       '</footer>' +
     '</section>' +
 

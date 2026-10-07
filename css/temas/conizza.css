@@ -116,7 +116,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 .tema-conizza .btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--cz-tinta); }
-.tema-conizza .btn-principal { background: linear-gradient(180deg, var(--cz-vermelho-claro), var(--cz-vermelho)); color: var(--cz-creme); }
+.tema-conizza .btn-principal { background: linear-gradient(180deg, #c43d31, #a8301f); color: var(--cz-creme); } /* letra creme a 4,57:1 ate no topo (com o vermelho claro em cima dava 3,3:1) */
 .tema-conizza .btn-escuro { background: var(--cz-tinta); color: var(--cz-creme); }
 /* na janela de confirmar, a acao que desfaz (Desistir, Excluir) e vermelha como a acao da casa; sem isso ficava creme,
    igual ao "voltar". So na janela: no painel o vermelho ja e do botao principal do lado */
@@ -126,7 +126,7 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
   box-shadow: 0 7px 0 var(--cz-vermelho-escuro), 0 10px 0 var(--cz-tinta);
 }
 .tema-conizza .btn-gigante:active { transform: translateY(7px); box-shadow: 0 0 0 var(--cz-vermelho-escuro), 0 3px 0 var(--cz-tinta); }
-.tema-conizza .btn-gigante .sub { font-family: var(--cz-corpo); font-weight: 700; opacity: 0.92; }
+.tema-conizza .btn-gigante .sub { font-family: var(--cz-corpo); font-weight: 700; opacity: 1; }
 .tema-conizza .btn-fantasma { background: transparent; border-style: dashed; box-shadow: none; }
 .tema-conizza .btn-fantasma:active { transform: none; }
 .tema-conizza .btn-whats { background: var(--cz-verde); color: #fff; }
