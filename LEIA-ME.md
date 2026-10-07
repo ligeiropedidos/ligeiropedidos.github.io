@@ -587,9 +587,11 @@ Fotos: uns 20 KB cada; 12 lojas com 40 fotos dão cerca de 10 MB do 1 GB grátis
 **Espaço (1 GB):** o que mais ocupa são os índices automáticos dos pedidos (um
 pedido de 2 KB leva uns 14 KB de índice). Isenções de índice no console tiram
 quase tudo: Firestore > Índices > Campo único > Adicionar isenção, coleção
-`pedidos` (grupo de coleções), campos `itens`, `cliente`, `endereco`, `aviso` e
-`mp`, desmarcando todas as opções. Nenhuma consulta do site usa esses campos.
-Com isso cada pedido cai para uns 3 a 4 KB no total.
+`pedidos` (grupo de coleções), campos `itens`, `endereco`, `aviso` e `mp`,
+desmarcando todas as opções. Nenhuma consulta usa esses campos (conferido em
+07/10/2026 no site e nos mensageiros). **Nunca o campo `cliente`**: a busca de
+dados do titular (LGPD) da Central procura por `cliente.telefone` e quebraria.
+Com isso cada pedido cai para uns 4 a 6 KB no total.
 
 ## O que ainda não tem (de propósito)
 
