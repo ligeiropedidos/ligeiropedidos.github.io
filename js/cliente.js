@@ -987,7 +987,7 @@
 
     /* amostra (loja que o Ligeiro montou para mostrar ao dono): na primeira vez neste aparelho, o ratinho recebe o dono como no
        tutorial do painel. Diz o que a loja resolve (pedido que nao se perde, relatorio, Pix conferido sozinho, gente no WhatsApp) e o
-       que tira o medo (sem compromisso, sem comissao, dias gratis sem cartao e sem fidelidade), e o toque leva para a loja. Uma vez
+       que tira o medo (sem compromisso, sem comissao e sem fidelidade), e o toque leva para a loja. Uma vez
        por loja em cada aparelho; "Quero no ar" abre o WhatsApp do Ligeiro com a mensagem pronta. */
     function boasVindasAmostra() {
       var l = estado.loja;
@@ -995,7 +995,6 @@
       var chave = 'ligeiro:amostra-recebida:' + l.slug;
       if (UI.lerLocal(chave)) return;
       var cfgSite = window.LIGEIRO_CONFIG || {};
-      var dias = (cfgSite.precos && cfgSite.precos.diasGratis) || 7;
       var tecla = function (e) { if (e.key === 'Escape') fechar(); };
       var caixa = null;
       function fechar() {
@@ -1024,7 +1023,8 @@
             item('escudo', 'Pix confirmado sozinho, sem conferir comprovante.'),
             item('pessoa', 'Suporte no WhatsApp, com gente de verdade.'),
           ]),
-          el('p', { class: 'bv-garantia', text: '0% de comissão. ' + dias + ' dias grátis, sem cartão e sem fidelidade.' }),
+          /* sem o prazo de teste ("7 dias gratis" fazia o dono pensar na cobranca logo depois): so o que tira o medo */
+          el('p', { class: 'bv-garantia', text: '0% de comissão e sem fidelidade: sai quando quiser.' }),
           el('div', { class: 'tour-rodape' }, [quero, ver]),
         ]),
       ]);
