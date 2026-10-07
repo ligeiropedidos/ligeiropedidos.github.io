@@ -428,7 +428,12 @@
     /* Saude do sistema: quanto do banco gratis o dia ja usou (todos os pedidos de hoje contra os que cabem)
        e se o cardapio esta vindo pelo Cloudflare. Passou de 70%: sobe o plano do banco (combinado) */
     function quadroSistema() {
-      var cabe = Number(((window.LIGEIRO_CONFIG || {}).capacidade || {}).pedidosDia) || 2100;
+      /* quantos pedidos cabem hoje no banco gratis com as lojas que existem: as telas abertas de cada loja gastam um tanto
+         por dia, e cada pedido outro tanto (numeros medidos no codigo, em js/config.js) */
+      var capCfg = (window.LIGEIRO_CONFIG || {}).capacidade || {};
+      var lojasAtivas = (estado.lojas || []).filter(function (l) { return l.ativa !== false && l.amostra !== true; }).length;
+      var cabe = Number(capCfg.pedidosDia) || Math.max(100, Math.floor(((Number(capCfg.leiturasDia) || 50000) * 0.9
+        - lojasAtivas * (Number(capCfg.leiturasPorLoja) || 80)) / (Number(capCfg.leiturasPorPedido) || 24)));
       var h = estado.hoje && estado.hoje.qtd != null && !estado.hoje.erro ? estado.hoje : null;
       var n = h ? (h.todos != null ? h.todos : h.qtd) : null;
       var pct = n == null ? 0 : Math.min(100, Math.round(n / cabe * 100));
@@ -441,6 +446,11 @@
         el('div', { class: 'adm-capacidade-barra', role: 'progressbar', 'aria-label': 'Uso do banco hoje', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct) }, el('i', { style: { width: pct + '%' } })),
         el('div', { class: 'adm-capacidade-situacao', text: situacao }),
         el('div', { class: 'adm-capacidade-nota', text: 'Todos os pedidos de hoje, de todas as lojas. Passando de 70% em algum dia, é hora de subir o plano do banco.' }),
+        /* falta o indice que deixa a soma do dia quase de graca: o link vem do proprio banco (console do Firebase) */
+        estado.indiceHoje && /^https:\/\/console\.firebase\.google\.com\//.test(estado.indiceHoje)
+          ? el('div', { class: 'adm-capacidade-nota' }, ['Para a Central somar o dia sem ler pedido por pedido, crie o índice do banco uma vez: ',
+            el('a', { href: estado.indiceHoje, target: '_blank', rel: 'noopener', text: 'criar o índice' }), '. Fica pronto em alguns minutos.'])
+          : null,
         el('div', { class: 'adm-capacidade-acoes' }, el('div', { class: 'adm-luz' + (b === 'ok' ? ' ok' : (b === 'fora' ? ' fora' : '')), role: 'status' }, [el('i', { 'aria-hidden': 'true' }), el('span', {}, ['Cardápio pelo Cloudflare: ', el('b', { text: textoLuz })])])),
       ]);
     }
@@ -523,14 +533,23 @@
       var vez = ++estado.vezHoje;
       estado.hoje = 'carregando';
       var faltou = false; /* alguma loja nao respondeu: mostra o que veio, mas nao guarda */
+      /* cada loja pela contagem do banco (2 leituras por loja, nao 1 por pedido). Sem o indice composto ainda, o banco
+         manda o link para criar (aparece no quadro do sistema) e a loja e somada lendo os pedidos, como antes */
       Promise.all(ativas.map(function (l) {
-        return store.listarPedidos(l.slug, { desde: desde }).catch(function () { faltou = true; return []; });
-      })).then(function (listas) {
+        var contagem = store.contarPedidosHoje ? store.contarPedidosHoje(l.slug, desde).catch(function () { return null; }) : Promise.resolve(null);
+        return contagem.then(function (c) {
+          if (c && c.qtd != null) return c;
+          if (c && c.indice) estado.indiceHoje = c.indice;
+          return store.listarPedidos(l.slug, { desde: desde }).then(function (lista) {
+            var s = somarPedidos(lista, desde);
+            return { todos: lista.length, qtd: s.qtd, total: s.total };
+          });
+        }).catch(function () { faltou = true; return { todos: 0, qtd: 0, total: 0 }; });
+      })).then(function (contas) {
         if (!vivo || vez !== estado.vezHoje) return;
-        var todos = [];
-        listas.forEach(function (x) { todos = todos.concat(x || []); });
-        estado.hoje = somarPedidos(todos, desde);
-        estado.hoje.todos = todos.length;
+        estado.hoje = contas.reduce(function (s, c) {
+          return { qtd: s.qtd + (Number(c.qtd) || 0), total: s.total + (Number(c.total) || 0), todos: s.todos + (Number(c.todos) || 0) };
+        }, { qtd: 0, total: 0, todos: 0 });
         if (!faltou && !D.modoDemo) { try { localStorage.setItem(CHAVE_HOJE, JSON.stringify({ desde: desde, em: Date.now(), qtd: estado.hoje.qtd, total: estado.hoje.total, todos: estado.hoje.todos })); } catch (_) { /* sem espaco: segue sem guardar */ } }
         if (estado.aba === 'geral') pintar();
       }).catch(function () {

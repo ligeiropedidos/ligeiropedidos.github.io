@@ -244,15 +244,16 @@ service cloud.firestore {
          O dono e o admin corrigem se precisar. Ninguem de fora le (a lista mostrava os codigos de cupom) nem grava
          (dava para queimar o cupom da loja, repetir senha ou travar os pedidos gravando sem parar) */
       match /contadores/{c} {
-        allow get: if isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
-        allow list: if isDonoFirme(loja) || isAdmin();
+        /* admin e equipe primeiro: os dois se reconhecem pela marca do login, sem ler a loja (isDonoDaLoja le) */
+        allow get: if isAdmin() || isEquipe(loja) || isDonoDaLoja(loja);
+        allow list: if isAdmin() || isDonoFirme(loja);
         /* pentest 04/10: D-01: quem grava senha e cupom e o mensageiro; o dono so apaga (zerar o uso de um cupom) */
         allow create, update: if isAdmin();
-        allow delete: if isDonoFirme(loja) || isAdmin();
+        allow delete: if isAdmin() || isDonoFirme(loja);
       }
       /* vendas de cada dia que ja fechou (o relatorio de 30 dias le 30 resumos, nao os pedidos do mes): so o dono e o admin */
       match /resumos/{dia} {
-        allow read, delete: if isDonoFirme(loja) || isAdmin();
+        allow read, delete: if isAdmin() || isDonoFirme(loja);
         /* pentest 04/10: D-01: so o dia (ultimos 40) e so o que o relatorio grava */
         allow create, update: if isAdmin() || (isDonoFirme(loja) && diaDoResumo(dia)
           && request.resource.data.keys().hasOnly(['pedidos', 'total', 'porHora', 'porForma', 'produtos', 'clientes', 'atualizadoEm'])
@@ -263,7 +264,7 @@ service cloud.firestore {
       }
       match /fotos/{foto} {
         allow read: if true;
-        allow delete: if isDonoFirme(loja) || isAdmin();
+        allow delete: if isAdmin() || isDonoFirme(loja);
         /* pentest 04/10: D-01: so os nomes que o painel usa e fotos de tamanho de foto */
         allow create, update: if isAdmin() || (isDonoFirme(loja)
           && foto.matches('^(f[a-z0-9]{10}|capa-[a-z0-9]{8}|_pacote[0-3])$')
@@ -274,7 +275,7 @@ service cloud.firestore {
       }
       /* token do Mercado Pago e outros segredos: so o dono (e o admin, pra suporte) */
       match /privado/{doc} {
-        allow read, delete: if isDonoFirme(loja) || isAdmin();
+        allow read, delete: if isAdmin() || isDonoFirme(loja);
         /* cupons: ate 20 por loja (o painel avisa antes; aqui ninguem passa por fora) */
         allow create, update: if isAdmin() || (isDonoFirme(loja)
           /* pentest 04/10: D-01: so os tres documentos que o painel usa, e poucos campos */
@@ -291,15 +292,18 @@ service cloud.firestore {
         /* o cliente acompanha pelo id (ninguem adivinha). Nome, telefone e endereco ficam abertos so por 3 dias: link
            vazado depois disso nao mostra mais nada */
         allow get: if resource.data.get('criadoEm', '') >= dataISO(request.time - duration.value(3, 'd'))
-                   || isEquipe(loja) || isDonoDaLoja(loja) || isAdmin();
+                   || isEquipe(loja) || isAdmin() || isDonoDaLoja(loja);
         /* a equipe vem primeiro: ela se reconhece pela marca do login, sem ler a loja (isDonoDaLoja le a loja inteira,
            e a leitura conta no plano gratis a cada toque da cozinha e do entregador) */
         /* a loja e a equipe dela listam a fila; a equipe sempre com limite (nunca o historico inteiro de clientes) */
         /* a equipe (senha de 6 numeros, compartilhada) ve so a fila e os pedidos dos ultimos 2 dias: paginando, antes ela
            chegava ao historico inteiro de clientes (nome, telefone, endereco) */
-        allow list: if isAdmin() || isDonoDaLoja(loja) || (isEquipe(loja) && request.query.limit <= 300 && request.query.get('offset', 0) == 0 /* pentest 04/10: staff offset: pular documentos custa leitura */
+        /* 07/10/2026: a equipe vem antes do dono aqui tambem. Com o dono antes, cada atualizacao da fila da cozinha e do
+           entregador lia a loja inteira (~7 leituras a mais por pedido) */
+        allow list: if isAdmin() || (isEquipe(loja) && request.query.limit <= 300 && request.query.get('offset', 0) == 0 /* pentest 04/10: staff offset: pular documentos custa leitura */
           && (resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto']
-              || resource.data.criadoEm >= dataISO(request.time - duration.value(2, 'd'))));
+              || resource.data.criadoEm >= dataISO(request.time - duration.value(2, 'd'))))
+          || isDonoDaLoja(loja);
         allow update: if
           /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
           (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm'])
@@ -322,7 +326,7 @@ service cloud.firestore {
               /* pentest 04/10: D-05: tipos e tamanhos dos campos que a equipe grava */
               && txt(request.resource.data.get('pagamentoStatus', ''), 20) && txt(request.resource.data.get('canceladoPor', ''), 30)
               && txt(request.resource.data.get('pagoEm', ''), 40) && txt(request.resource.data.get('atualizadoEm', ''), 40))
-          || isDonoDaLoja(loja) || isAdmin()
+          || isAdmin() || isDonoDaLoja(loja)
           /* (o "ja paguei" do cliente saiu: o Pix confirma sozinho e o aviso deixava o pedido laranja, "Diz que pagou", com
              qualquer print) */
           /* cliente: cancelar o proprio pedido enquanto ainda esta aguardando o Pix (nunca com o cartao em analise no banco:

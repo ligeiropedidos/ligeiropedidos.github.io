@@ -222,11 +222,13 @@
     return d + (d === 1 ? ' dia' : ' dias');
   }
 
-  /* A loja das telas da equipe acompanha o cardapio do dono pela copia da borda (a mesma do cliente, confere a cada
-     minuto e nao gasta leitura do banco). Antes a cozinha e o entregador ficavam com o cardapio de quando a tela abriu,
-     e preco novo ou item criado depois acendia "valor nao confere" em pedido certo. aoMudar(loja) a cada mudanca */
+  /* A loja das telas da equipe acompanha o cardapio do dono pela copia da borda (a mesma do cliente, sem gastar leitura
+     do banco), conferindo a cada 5 min: o tablet fica aberto o dia todo e cada conferida e uma chamada na borda (com 1 min
+     eram ~750 por tablet por dia). Antes de acender "valor nao confere", o conferir() abaixo busca a loja na hora.
+     Antes a cozinha e o entregador ficavam com o cardapio de quando a tela abriu, e preco novo ou item criado depois
+     acendia "valor nao confere" em pedido certo. aoMudar(loja) a cada mudanca */
   function lojaAtualizada(slug, aoMudar) {
-    var viva = store.lojaPublica ? store.lojaPublica(slug) : null;
+    var viva = store.lojaPublica ? store.lojaPublica(slug, { intervalo: 5 * 60000 }) : null;
     if (!viva) return { conferir: function () { return Promise.resolve(null); }, parar: function () {} };
     var parado = false, pararOuvir = function () {};
     /* escuta depois da primeira: sem a borda, a loja passa a vir do banco ao vivo, e so ai da para escutar */

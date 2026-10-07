@@ -1163,9 +1163,12 @@
    * A loja para o site do cliente: vem da borda (0 leitura no Firestore) e confere de novo a cada minuto com a tela
    * aberta (e na volta para a aba). Sem borda, e a loja ao vivo do Firestore, como antes.
    * conferirAgora: a loja de agora, antes de mandar o pedido (fechou? mudou preco?).
+   * opcoes.intervalo: de quanto em quanto tempo conferir (minimo e padrao 1 min). As telas da equipe usam 5 min: o tablet
+   * da cozinha fica aberto o dia todo, e cada conferida e uma chamada na borda (100 mil por dia no gratis da Cloudflare)
    */
-  FirebaseStore.prototype.lojaPublica = function (slug) {
+  FirebaseStore.prototype.lojaPublica = function (slug, opcoes) {
     var eu = this, ouvintes = [], ultimoJson = '', parado = false, relogio = null, viva = null, conferidaEm = 0;
+    var intervalo = Math.max(60000, Number((opcoes || {}).intervalo) || 60000);
     function buscar(fresco) {
       return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
         if (x.status === 404) return null;
@@ -1192,7 +1195,7 @@
     function aoVoltar() { if (!document.hidden) conferir(); }
     var primeira = buscar(false).then(function (l) {
       ultimoJson = JSON.stringify(l);
-      if (l && !parado) { relogio = setInterval(conferir, 60000); document.addEventListener('visibilitychange', aoVoltar); }
+      if (l && !parado) { relogio = setInterval(conferir, intervalo); document.addEventListener('visibilitychange', aoVoltar); }
       return l;
     }, function () {
       if (parado) return null;
@@ -2326,6 +2329,51 @@
         return lista;
       });
     }.bind(this));
+  };
+
+  /* A Central soma o dia pela contagem do proprio banco, sem ler pedido por pedido (o Firebase "compat" do site nao tem
+     count nem sum: vai pelo endereco REST, com o login). Cada conta custa 1 leitura a cada 1.000 pedidos (minimo 1); antes
+     era 1 leitura por pedido, a cada abertura. Duas contas por loja: todos os de hoje (o uso do banco) e os que valem (sem
+     cancelados e sem Pix esperando), com o total em reais. A segunda pede um indice composto (status + criadoEm): sem ele
+     o banco recusa e manda o link para criar; volta { todos, indice } e a Central soma lendo os pedidos, como antes */
+  var STATUS_QUE_VALEM = [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO, R.STATUS.FINALIZADO];
+  function numeroDoBanco(v) { return v ? Number(v.integerValue != null ? v.integerValue : v.doubleValue) || 0 : 0; }
+  FirebaseStore.prototype.contarPedidosHoje = function (lojaSlug, desde) {
+    var proj = (((window.LIGEIRO_CONFIG || {}).firebase) || {}).projectId;
+    if (!proj || !window.fetch || !desde) return Promise.reject(new Error('sem contagem'));
+    var endereco = 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(proj) + '/databases/(default)/documents/lojas/'
+      + encodeURIComponent(lojaSlug) + ':runAggregationQuery';
+    var deHoje = { fieldFilter: { field: { fieldPath: 'criadoEm' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: desde } } };
+    var queValem = { fieldFilter: { field: { fieldPath: 'status' }, op: 'IN', value: { arrayValue: { values: STATUS_QUE_VALEM.map(function (s) { return { stringValue: s }; }) } } } };
+    return this.obterIdToken().then(function (token) {
+      function contar(onde, comTotal) {
+        var contas = [{ alias: 'qtd', count: {} }];
+        if (comTotal) contas.push({ alias: 'total', sum: { field: { fieldPath: 'total' } } });
+        return fetch(endereco, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: { from: [{ collectionId: 'pedidos' }], where: onde }, aggregations: contas } }),
+        }).then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (j) {
+            if (!r.ok) {
+              var erro = (Array.isArray(j) ? j[0] && j[0].error : j && j.error) || {};
+              var e = new Error(String(erro.message || ('contagem ' + r.status)));
+              var link = /https:\/\/console\.firebase\.google\.com\/\S+/.exec(String(erro.message || ''));
+              if (link) e.indice = link[0];
+              throw e;
+            }
+            var campos = (Array.isArray(j) && j[0] && j[0].result && j[0].result.aggregateFields) || {};
+            return { qtd: numeroDoBanco(campos.qtd), total: numeroDoBanco(campos.total) };
+          });
+        });
+      }
+      return Promise.all([
+        contar(deHoje, false),
+        contar({ compositeFilter: { op: 'AND', filters: [queValem, deHoje] } }, true).catch(function (e) { return { erro: e }; }),
+      ]).then(function (r) {
+        if (r[1].erro) return { todos: r[0].qtd, indice: r[1].erro.indice || '' };
+        return { todos: r[0].qtd, qtd: r[1].qtd, total: Math.round(r[1].total) };
+      });
+    });
   };
 
   /* Pedidos que ficaram andando de outros dias (ninguem concluiu): uma leitura avulsa ao abrir o painel, sem escuta.

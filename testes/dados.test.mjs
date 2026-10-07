@@ -433,5 +433,29 @@ console.log('apagarLojaDeVez: exclui a loja inteira (so desativada), por lotes, 
   ok(publicacoes().length === antes + 1 && JSON.parse(publicacoes()[publicacoes().length - 1].opcoes.body).loja === 'morta', 'avisa a borda (/publicar) para ela limpar a copia');
 }
 
+console.log('contarPedidosHoje: a Central soma o dia pela contagem do banco (07/10/2026)');
+{
+  const { n, store } = lojaNaNuvem();
+  n.respostas.push({ status: 200, corpo: [{ result: { aggregateFields: { qtd: { integerValue: '12' } } } }] });
+  n.respostas.push({ status: 200, corpo: [{ result: { aggregateFields: { qtd: { integerValue: '9' }, total: { integerValue: '45600' } } } }] });
+  const c = await store.contarPedidosHoje('loja', '2026-10-07T03:00:00.000Z');
+  ok(c.todos === 12 && c.qtd === 9 && c.total === 45600, 'todos os de hoje, os que valem e o total em centavos');
+  const contas = n.chamadas.filter((x) => /documents\/lojas\/loja:runAggregationQuery$/.test(x.endereco));
+  ok(contas.length === 2 && contas.every((x) => x.opcoes.method === 'POST' && x.opcoes.headers.Authorization === 'Bearer tok-dono'), 'duas contas no endereco do banco, com o login');
+  const filtros = JSON.parse(contas[1].opcoes.body).structuredAggregationQuery.structuredQuery.where.compositeFilter.filters;
+  ok(filtros[0].fieldFilter.op === 'IN' && filtros[0].fieldFilter.value.arrayValue.values.map((v) => v.stringValue).join() === 'pago,producao,pronto,finalizado', 'os que valem: sem cancelados e sem Pix esperando');
+  ok(filtros[1].fieldFilter.field.fieldPath === 'criadoEm' && filtros[1].fieldFilter.value.stringValue === '2026-10-07T03:00:00.000Z', 'so os de hoje');
+}
+
+console.log('contarPedidosHoje: sem o indice composto, volta o link para criar');
+{
+  const { n, store } = lojaNaNuvem();
+  const link = 'https://console.firebase.google.com/v1/r/project/teste/firestore/indexes?create_composite=Abc123';
+  n.respostas.push({ status: 200, corpo: [{ result: { aggregateFields: { qtd: { integerValue: '3' } } } }] });
+  n.respostas.push({ status: 400, corpo: [{ error: { code: 400, status: 'FAILED_PRECONDITION', message: 'The query requires an index. You can create it here: ' + link } }] });
+  const c = await store.contarPedidosHoje('loja', '2026-10-07T03:00:00.000Z');
+  ok(c.todos === 3 && c.qtd == null && c.indice === link, 'conta todos e devolve o link (a Central soma os que valem lendo os pedidos, como antes)');
+}
+
 console.log('\n' + (total - falhas) + ' de ' + total + ' ok' + (falhas ? ', ' + falhas + ' falharam' : ''));
 if (falhas) process.exit(1);

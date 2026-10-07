@@ -281,8 +281,8 @@ w = await workerNovo();
 zerar();
 r = await chamar(w, '/loja/dom-conizza');
 ok(r.status === 200 && conta.leituras === 0, 'outro worker (memoria vazia) serve do KV: 0 leituras');
-/* copia velha: serve na hora e confere o banco por tras */
-kv.mapa.get('loja:dom-conizza').metadata.em = Date.now() - 7 * 3600 * 1000;
+/* copia velha (passou de 24 h): serve na hora e confere o banco por tras */
+kv.mapa.get('loja:dom-conizza').metadata.em = Date.now() - 25 * 3600 * 1000;
 db.get('lojas/dom-conizza').aberta = false;
 w = await workerNovo();
 zerar();
@@ -604,6 +604,46 @@ console.log('Pentest: ataques que tem que falhar');
   ok(!/Firestore|429|RESOURCE/.test(JSON.stringify(j)), 'erro interno sem detalhe do banco na resposta');
   /* o 429 de mentira deixou o aviso de "banco no limite" no KV: tira, para os proximos testes */
   for (const k of [...kv.mapa.keys()]) if (/pausa/i.test(k)) kv.mapa.delete(k);
+}
+
+console.log('Pix nasce junto com o pedido (07/10/2026)');
+{
+  Object.assign(db.get('lojas/dom-conizza'), { aberta: true, aceitaPix: true, mpAtivo: true, aceitaRetirada: true });
+  kv.mapa.delete('loja:dom-conizza');
+  w = await workerNovo();
+  const dadosPix = (fone) => ({ nome: 'Rui Lima', telefone: fone, tipoEntrega: 'retirada', itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'pix' });
+  const pedirPix = (fone) => chamar(w, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: dadosPix(fone) }, headers: { 'CF-Connecting-IP': '203.0.113.77' } });
+  r = await pedirPix('13911110001'); j = await r.json();
+  ok(r.status === 200 && j.pedido && j.pedido.pixCodigo && j.pedido.pixExpiraEm && j.pedido.mp && j.pedido.mp.id, 'o /pedido ja devolve o codigo do Pix, o prazo e a cobranca');
+  const salvo = j.pedido && db.get('lojas/dom-conizza/pedidos/' + j.pedido.id);
+  ok(salvo && salvo.pixCodigo === j.pedido.pixCodigo && salvo.mp.id === j.pedido.mp.id, 'e o codigo ja esta gravado no pedido (a escuta da tela do Pix abre com ele)');
+  const cobrancasAntes = ordens.size;
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: j.pedido.id } }); const jc = await r.json();
+  ok(r.status === 200 && jc.codigo === j.pedido.pixCodigo && jc.mp === j.pedido.mp.id && ordens.size === cobrancasAntes, 'o /criar depois (site antigo, em cache) devolve o mesmo Pix, sem outra cobranca');
+  zerar();
+  r = await pedirPix('13911110002'); j = await r.json();
+  const leiturasPedidoPix = conta.leituras, gravacoesPedidoPix = conta.gravacoes;
+  console.log('    (pedido no Pix numa chamada so: ' + leiturasPedidoPix + ' leitura(s) e ' + gravacoesPedidoPix + ' gravacao(oes) no banco)');
+  ok(r.status === 200 && j.pedido.pixCodigo && leiturasPedidoPix === 1, 'pedido + Pix numa chamada: 1 leitura (o contador da senha; o pedido e o token nao sao relidos)');
+  /* Mercado Pago fora na hora do pedido: o pedido nasce do mesmo jeito e o /criar gera o Pix depois, como antes */
+  const fetchBom = globalThis.fetch;
+  let falhasMp = 2;
+  globalThis.fetch = async (u, o) => {
+    if (falhasMp > 0 && String(u).indexOf('api.mercadopago.com/v1/orders') >= 0 && (o || {}).method === 'POST') { falhasMp--; return new Response(JSON.stringify({ message: 'falha de mentira' }), { status: 500 }); }
+    return fetchBom(u, o);
+  };
+  r = await pedirPix('13911110003'); j = await r.json();
+  globalThis.fetch = fetchBom;
+  ok(r.status === 200 && j.pedido && !j.pedido.pixCodigo && j.pedido.status === 'aguardando_pagamento', 'Mercado Pago fora: o pedido nasce mesmo assim, sem o codigo (o site pede pelo /criar)');
+  r = await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: j.pedido.id } }); const jf = await r.json();
+  ok(r.status === 200 && jf.codigo, 'e o /criar gera o Pix quando o Mercado Pago volta');
+  /* copia da loja de 7 h ja nao e velha (vale 24 h): a visita nao le o banco */
+  kv.mapa.get('loja:dom-conizza').metadata.em = Date.now() - 7 * 3600 * 1000;
+  w = await workerNovo();
+  zerar();
+  await chamar(w, '/loja/dom-conizza');
+  await esperarFundo();
+  ok(conta.leituras === 0 && kv.gravacoes === 0, 'copia da loja de 7 h: nada de ler o banco nem regravar o KV (antes, a cada 6 h)');
 }
 
 console.log('Pedido criado pelo servidor');

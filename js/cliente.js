@@ -3585,7 +3585,11 @@
     }
 
     function acompanhar(pedido) {
+      /* ja escutando este pedido (a tela do Pix virou a da senha): a mesma escuta segue. Desligar e ligar de novo
+         custava uma leitura a mais do banco em todo Pix pago */
+      if (estado.pararPedido && estado.pedidoEscutado === pedido.id) return;
       pararAcompanhar();
+      estado.pedidoEscutado = pedido.id;
       estado.pararPedido = store.assistirPedido(estado.loja.slug, pedido.id, pedidoMudou);
     }
 
@@ -3628,6 +3632,7 @@
     function pararAcompanhar() {
       if (typeof estado.pararPedido === 'function') estado.pararPedido();
       estado.pararPedido = null;
+      estado.pedidoEscutado = null;
     }
 
     /* sozinho: aberto pelo link, sem toque (quem ja entrou num pedido novo nesse meio tempo fica onde esta) */
