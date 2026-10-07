@@ -58,11 +58,12 @@ window.LIGEIRO_CONFIG = {
      As regras do banco (ferramentas/firestore.rules, cardapioNoLimite) usam os mesmos numeros */
   limites: { categorias: 20, itens: 300, grupos: 30, opcoes: 30 },
   /* Capacidade do banco gratis (Spark: 50 mil leituras por dia), medida no codigo em 07/10/2026 depois da otimizacao: um
-     pedido no Pix com painel, cozinha e entregador abertos gasta ~22 leituras (eram ~32; so com o painel, ~14), e cada loja
-     ~80 por dia so de telas abertas. A conta usa 24 por pedido, com folga. A Central mostra quantos pedidos cabem hoje com as lojas que existem (~1.800 com 11 lojas).
-     maxLojas 60: cabe no pior caso (60 lojas de 30 pedidos/dia) no Firebase e na Cloudflare gratis. Vale para quem ainda
-     nao gravou um limite: depois, e o "Mudar limite" da Central. Com o Blaze e o Workers Paid, sobe ou fica sem limite */
-  capacidade: { maxLojas: 60, leiturasDia: 50000, leiturasPorPedido: 24, leiturasPorLoja: 80 },
+     pedido no Pix com painel, cozinha e entregador abertos gasta ~24 leituras (eram ~32; so com o painel, ~14), e cada loja
+     ~80 por dia so de telas abertas. A Central mostra quantos pedidos cabem hoje com as lojas que existem (~1.800 com 11).
+     maxLojas 40: cabe com folga (40 lojas de 30 pedidos/dia) no Firebase e na Cloudflare gratis, mesmo antes das regras
+     novas. Vale para quem ainda nao gravou um limite: depois, e o "Mudar limite" da Central. Com o Blaze e o Workers Paid,
+     sobe ou fica sem limite */
+  capacidade: { maxLojas: 40, leiturasDia: 50000, leiturasPorPedido: 24, leiturasPorLoja: 80 },
   /* Um plano so, tudo incluso (centavos): 1 loja por conta, mensal ou anual. Outra loja = outra conta (outro e-mail), com a
      propria assinatura (decidido em 25/09/2026: trocar entre 1, 2 e 3 lojas era o que mais dava dor de cabeca com dinheiro).
      anual: 0 esconde o anual */

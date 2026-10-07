@@ -75,11 +75,10 @@
       if (!store.publicarLoja || !store.usuarioAtual || !estado.loja) return;
       store.usuarioAtual().then(function (u) {
         if (!(u && u.email && u.email === String(estado.loja.donoEmail || '').toLowerCase())) return;
-        /* no maximo a cada 24 h por aparelho: cada publicar grava na borda (1.000 gravacoes por dia no gratis, para todas
-           as lojas juntas). Toda mudanca de verdade ja publica na hora (salvar nos Ajustes, Mercado Pago, pagamento): isto
-           so cobre o que mudou por fora, na mao */
+        /* no maximo a cada 6 h por aparelho: cada publicar grava na borda (1.000 gravacoes por dia no gratis). Salvar nos
+           Ajustes publica na hora, como sempre */
         var k = 'ligeiro:publicou-ao-abrir:' + slug, ultima = Number(UI.lerLocal(k)) || 0;
-        if (Date.now() - ultima >= 24 * 3600e3) { UI.guardarLocal(k, Date.now()); store.publicarLoja(slug); }
+        if (Date.now() - ultima >= 6 * 3600e3) { UI.guardarLocal(k, Date.now()); store.publicarLoja(slug); }
         /* marca de dono no login (uma vez por loja): a fila passa a custar 1 leitura por pedido que anda, nao 2 */
         if (store.marcarDono) store.marcarDono(slug);
       }).catch(function () { /* segue */ });

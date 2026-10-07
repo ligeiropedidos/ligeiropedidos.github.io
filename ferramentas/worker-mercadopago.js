@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-07a';
+const VERSAO_MENSAGEIRO = '2026-10-06c';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -85,14 +85,11 @@ const EMAIL_EQUIPE = /^equipe-([a-z0-9-]+)@equipe\.(ligeiropedidos\.com\.br|lige
 const emailEquipe = (slug) => 'equipe-' + slug + '@equipe.ligeiropedidos.com.br';
 const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + '.ligeiropedidos.com.br';
 /* a copia da loja confere o banco de novo depois disso (so se alguem pedir); o painel atualiza na hora ao salvar */
-/* A copia da loja confere o banco a cada 24 h e a vitrine a cada 3 h. Toda mudanca de verdade ja chega na hora: o
+/* A copia da loja confere o banco a cada 6 h e a vitrine a cada 3 h. Toda mudanca de verdade ja chega na hora: o
    painel avisa ao salvar (/publicar), o Asaas apaga a copia quando o pagamento cai e o Conectar do Mercado Pago
-   refaz a loja. O prazo so cobre o que mudou por fora (na mao, pelo console). Antes: 20 e 15 min, depois 6 h; cada
-   conferida e 1 leitura do banco e 1 gravacao do KV (1 mil por dia no gratis, para todas as lojas juntas), e com 6 h
-   eram 4 por loja por dia sem nada ter mudado (07/10/2026) */
-const LOJA_VALE = 24 * 3600 * 1000;
-/* quanto o /pedido espera o Mercado Pago devolver o Pix (o normal e 1 a 2 s); passou disso, o site pede pelo /criar */
-const PIX_NO_PEDIDO = 8000;
+   refaz a loja. O prazo so cobre o que mudou por fora (na mao, pelo console). Antes: 20 e 15 min, o que gastava
+   leitura do banco e gravacao do KV (1 mil por dia no gratis) sem nada ter mudado */
+const LOJA_VALE = 6 * 3600 * 1000;
 const VITRINE_VALE = 3 * 3600 * 1000;
 /* Contato novo (leads): e-mail para o admin com o botao do WhatsApp e a mensagem de resposta pronta. Mesmo Apps Script do mensageiro
    do Asaas (EMAIL_URL e EMAIL_TOKEN como Secret tambem aqui); sem eles configurados, nao faz nada. Teto de 30 por dia para um
@@ -2192,7 +2189,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho', 'pix-no-pedido'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -2777,18 +2774,6 @@ export default {
         }
         if (!completo) return json({ erro: 'Muita gente pedindo agora. Toque em enviar de novo.' }, 503);
         if (comEstoque) esquecerEstoque(loja);
-        /* Pix pelo Mercado Pago: o codigo ja nasce aqui, junto com o pedido. Antes o site chamava o /criar logo depois: uma
-           ida a mais, uma leitura do pedido a mais, e a escuta da tela do Pix recebia o codigo como mudanca (outra
-           leitura). Espera ate PIX_NO_PEDIDO; passou disso ou deu erro, o pedido volta sem o codigo e o site pede pelo
-           /criar, como sempre (busca a mesma order: nunca duas cobrancas) */
-        if (completo.formaPagamento === 'pix' && completo.status === 'aguardando_pagamento' && completo.total > 0) {
-          const gerando = gerarPix(env, fb, loja, completo.id, completo).catch((e) => ({ erro: String((e && e.message) || e), status: 502 }));
-          let prazoPix = null;
-          const g = await Promise.race([gerando, new Promise((ok) => { prazoPix = setTimeout(() => ok(null), PIX_NO_PEDIDO); })]);
-          clearTimeout(prazoPix);
-          if (g && g.codigo) completo = Object.assign({}, completo, { mp: { id: g.mp, pagamentoId: g.pagamentoId, criadoEm: g.em }, pixCodigo: g.codigo, pixExpiraEm: g.expiraEm, atualizadoEm: g.em });
-          else if (!g && ctx && ctx.waitUntil) ctx.waitUntil(gerando);
-        }
         /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo. Pix combinado com a
            loja: so o painel (a loja precisa combinar e confirmar; a cozinha so ve depois de pago) */
         const combinado = completo.formaPagamento === 'pix_combinado' && completo.status === 'aguardando_pagamento';
@@ -2814,17 +2799,71 @@ export default {
         const fb = await firebase(env);
         const p = await fb.get('lojas/' + loja + '/pedidos/' + pedido, true);
         if (!p) { contarFalta(ipC); return json({ erro: 'pedido não existe' }, 404); }
-        /* o Pix ja existe (nasceu com o pedido, no /pedido, ou numa tentativa anterior): o mesmo codigo */
-        if (p.pixCodigo) return json({ codigo: p.pixCodigo, expiraEm: p.pixExpiraEm || '', mp: p.mp && p.mp.id ? String(p.mp.id) : '' });
+        if (p.pixCodigo) return json({ codigo: p.pixCodigo, expiraEm: p.pixExpiraEm || '' });
         if (p.status !== 'aguardando_pagamento' || p.formaPagamento !== 'pix' || !(p.total > 0)) return json({ erro: 'esse pedido não está esperando Pix' }, 400);
         /* pedido antigo que nunca ganhou codigo: nada de Pix novo horas depois. Vale a hora em que o pedido nasceu no
            banco (o criadoEm e o relogio do aparelho) */
         if (Date.now() - nasceuEm(p) > 40 * 60 * 1000) return json({ erro: 'esse pedido passou do prazo do Pix' }, 409);
         /* o valor tem que ser o do cardapio: pedido gravado direto no banco com total inventado nao vira Pix */
         if (!(await valorConfere(env, fb, loja, p))) return json({ erro: 'A loja mudou algum item ou preço, e o valor do pedido não confere. Monte o pedido de novo.' }, 409);
-        const g = await gerarPix(env, fb, loja, pedido, p);
-        if (g.erro) return json({ erro: g.erro }, g.status);
-        return json({ codigo: g.codigo, expiraEm: g.expiraEm, mp: g.mp });
+        const token = await tokenDaLoja(fb, loja, env);
+        if (!token) return json({ erro: 'a loja não ligou o Pix automático' }, 409);
+        /* nome da loja (sobrenome de quem pediu com um nome so): da copia da borda, sem ler o banco */
+        const nome = separarNome(p.cliente && p.cliente.nome, await nomeDaLoja(env, loja));
+        /* API Orders do Mercado Pago (a de Payments vai ser descontinuada) */
+        const valor = (p.total / 100).toFixed(2);
+        const inteira = loja + '__' + pedido;
+        /* a API Orders so aceita letras, numeros, hifen e sublinhado (ate 64): nada de "|" */
+        const referencia = inteira.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+        const corpo = {
+          type: 'online',
+          total_amount: valor,
+          external_reference: referencia,
+          processing_mode: 'automatic',
+          transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
+          payer: { email: emailPagador(p.senha, loja), first_name: nome.primeiro, last_name: nome.sobrenome },
+        };
+        const caminhoPix = 'lojas/' + loja + '/pedidos/' + pedido;
+        const codigoDa = (o) => { const pg = (o && o.transactions && o.transactions.payments && o.transactions.payments[0]) || {}; return { pagto: pg, qr: (pg.payment_method && pg.payment_method.qr_code) || '' }; };
+        let ord = null;
+        /* a order deste Pix ja foi criada (a resposta nao chegou ou veio sem o codigo): busca, nao cria outra */
+        if (p.mp && p.mp.id && !p.mp.cartao) {
+          try { ord = await mp(token, '/v1/orders/' + encodeURIComponent(String(p.mp.id)), {}); } catch (e) { if (e && e.status === 401) delete MEM.mp[loja]; ord = null; }
+          if (ord && ['action_required', 'processing', 'created'].indexOf(String(ord.status)) < 0) ord = null;
+        }
+        if (!ord) {
+          const criar = (chave) => mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': chave } });
+          try {
+            try { ord = await criar(pedido + '-o2'); } catch (e1) {
+              if (e1 && e1.status === 401) delete MEM.mp[loja];
+              /* chave ja usada numa order que se perdeu: uma chave nova (o cliente so ve um codigo) */
+              if (e1 && e1.status === 409) ord = await criar(pedido + '-o3');
+              else if (e1 && e1.status >= 400 && e1.status < 500) throw e1;
+              else ord = await criar(pedido + '-o2');
+            }
+          } catch (e) {
+            console.error('pix nao criou', loja, pedido, e && e.message);
+            return json({ erro: 'Não deu para gerar o Pix agora. Tente de novo em instantes.' }, 502);
+          }
+          /* o id fica guardado na hora: se o codigo demorar, a proxima tentativa busca esta mesma order */
+          if (ord && ord.id && !codigoDa(ord).qr) await fb.merge(caminhoPix, { mp: { id: String(ord.id), criadoEm: new Date().toISOString() }, atualizadoEm: new Date().toISOString() }).catch(() => {});
+        }
+        let { pagto, qr } = codigoDa(ord);
+        /* o Mercado Pago pode gerar o codigo um instante depois (order "processing"): pergunta de novo, ate 3 vezes */
+        for (let volta = 0; !qr && ord && ord.id && volta < 3; volta++) {
+          await new Promise((ok) => setTimeout(ok, 1000));
+          const de = await mp(token, '/v1/orders/' + encodeURIComponent(String(ord.id)), {}).catch(() => null);
+          if (de) { ord = de; ({ pagto, qr } = codigoDa(ord)); }
+        }
+        if (!qr) return json({ erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)' }, 502);
+        /* o prazo que o Mercado Pago deu ao codigo (o do relogio daqui so se ele nao disser) */
+        const fimMp = Date.parse(pagto.date_of_expiration || '');
+        const expira = new Date(!isNaN(fimMp) && fimMp > Date.now() ? Math.min(fimMp, Date.now() + 30 * 60 * 1000) : Date.now() + 30 * 60 * 1000).toISOString();
+        const agora2 = new Date().toISOString();
+        await fb.merge(caminhoPix, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
+        /* indice pro webhook so quando a referencia foi cortada (loja de nome muito comprido): o aviso normal ja traz loja e pedido */
+        if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
+        return json({ codigo: qr, expiraEm: expira, mp: String(ord.id) });
       }
 
       /* ---- cobra o cartao do pedido: o numero do cartao nunca passa aqui (vem o token do formulario do Mercado Pago),
@@ -3107,7 +3146,7 @@ async function gravarKv(env, chave, valor, metadata, validadeSegundos) {
   try { await env.CARDAPIO.put(chave, valor, op); return true; } catch (_) { return false; }
 }
 
-/* A loja pronta para o site: da memoria (1 min), do KV (e confere o banco por tras se passou de 24 h) ou do banco. */
+/* A loja pronta para o site: da memoria (1 min), do KV (e confere o banco por tras se passou de 6 h) ou do banco. */
 async function lerLoja(env, ctx, slug) {
   const mem = MEM.lojas[slug];
   if (mem && Date.now() - mem.lida < 60 * 1000) return mem;
@@ -3857,72 +3896,6 @@ async function cuponsDaLoja(env, fb, slug) {
   MEM.cupons[slug] = { lista: lista, em: Date.now() };
   return lista;
 }
-/* Gera o Pix de um pedido no Mercado Pago e grava no pedido (codigo, prazo e o id da order). O /criar chama depois de
-   conferir o pedido; o /pedido chama logo depois de gravar (o Pix ja nasce junto com o pedido). Nunca sai order em
-   dobro: pedido que ja tem uma (p.mp.id) busca a mesma, e a criacao usa a chave de idempotencia do pedido (o Mercado
-   Pago devolve a mesma order para a mesma chave, mesmo com o /pedido e o /criar chegando juntos).
-   Devolve { codigo, expiraEm, mp, pagamentoId, em } ou { erro, status } */
-async function gerarPix(env, fb, loja, pedido, p) {
-  const token = await tokenDaLoja(fb, loja, env);
-  if (!token) return { erro: 'a loja não ligou o Pix automático', status: 409 };
-  /* nome da loja (sobrenome de quem pediu com um nome so): da copia da borda, sem ler o banco */
-  const nome = separarNome(p.cliente && p.cliente.nome, await nomeDaLoja(env, loja));
-  /* API Orders do Mercado Pago (a de Payments vai ser descontinuada) */
-  const valor = (p.total / 100).toFixed(2);
-  const inteira = loja + '__' + pedido;
-  /* a API Orders so aceita letras, numeros, hifen e sublinhado (ate 64): nada de "|" */
-  const referencia = inteira.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-  const corpo = {
-    type: 'online',
-    total_amount: valor,
-    external_reference: referencia,
-    processing_mode: 'automatic',
-    transactions: { payments: [{ amount: valor, payment_method: { id: 'pix', type: 'bank_transfer' }, expiration_time: 'PT30M' }] },
-    payer: { email: emailPagador(p.senha, loja), first_name: nome.primeiro, last_name: nome.sobrenome },
-  };
-  const caminhoPix = 'lojas/' + loja + '/pedidos/' + pedido;
-  const codigoDa = (o) => { const pg = (o && o.transactions && o.transactions.payments && o.transactions.payments[0]) || {}; return { pagto: pg, qr: (pg.payment_method && pg.payment_method.qr_code) || '' }; };
-  let ord = null;
-  /* a order deste Pix ja foi criada (a resposta nao chegou ou veio sem o codigo): busca, nao cria outra */
-  if (p.mp && p.mp.id && !p.mp.cartao) {
-    try { ord = await mp(token, '/v1/orders/' + encodeURIComponent(String(p.mp.id)), {}); } catch (e) { if (e && e.status === 401) delete MEM.mp[loja]; ord = null; }
-    if (ord && ['action_required', 'processing', 'created'].indexOf(String(ord.status)) < 0) ord = null;
-  }
-  if (!ord) {
-    const criar = (chave) => mp(token, '/v1/orders', { method: 'POST', body: JSON.stringify(corpo), headers: { 'X-Idempotency-Key': chave } });
-    try {
-      try { ord = await criar(pedido + '-o2'); } catch (e1) {
-        if (e1 && e1.status === 401) delete MEM.mp[loja];
-        /* chave ja usada numa order que se perdeu: uma chave nova (o cliente so ve um codigo) */
-        if (e1 && e1.status === 409) ord = await criar(pedido + '-o3');
-        else if (e1 && e1.status >= 400 && e1.status < 500) throw e1;
-        else ord = await criar(pedido + '-o2');
-      }
-    } catch (e) {
-      console.error('pix nao criou', loja, pedido, e && e.message);
-      return { erro: 'Não deu para gerar o Pix agora. Tente de novo em instantes.', status: 502 };
-    }
-    /* o id fica guardado na hora: se o codigo demorar, a proxima tentativa busca esta mesma order */
-    if (ord && ord.id && !codigoDa(ord).qr) await fb.merge(caminhoPix, { mp: { id: String(ord.id), criadoEm: new Date().toISOString() }, atualizadoEm: new Date().toISOString() }).catch(() => {});
-  }
-  let { pagto, qr } = codigoDa(ord);
-  /* o Mercado Pago pode gerar o codigo um instante depois (order "processing"): pergunta de novo, ate 3 vezes */
-  for (let volta = 0; !qr && ord && ord.id && volta < 3; volta++) {
-    await new Promise((ok) => setTimeout(ok, 1000));
-    const de = await mp(token, '/v1/orders/' + encodeURIComponent(String(ord.id)), {}).catch(() => null);
-    if (de) { ord = de; ({ pagto, qr } = codigoDa(ord)); }
-  }
-  if (!qr) return { erro: 'o Mercado Pago não devolveu o Pix (a conta tem chave Pix cadastrada?)', status: 502 };
-  /* o prazo que o Mercado Pago deu ao codigo (o do relogio daqui so se ele nao disser) */
-  const fimMp = Date.parse(pagto.date_of_expiration || '');
-  const expira = new Date(!isNaN(fimMp) && fimMp > Date.now() ? Math.min(fimMp, Date.now() + 30 * 60 * 1000) : Date.now() + 30 * 60 * 1000).toISOString();
-  const agora2 = new Date().toISOString();
-  await fb.merge(caminhoPix, { mp: { id: String(ord.id), pagamentoId: String(pagto.id || ''), criadoEm: agora2 }, pixCodigo: qr, pixExpiraEm: expira, atualizadoEm: agora2 });
-  /* indice pro webhook so quando a referencia foi cortada (loja de nome muito comprido): o aviso normal ja traz loja e pedido */
-  if (referencia !== inteira) await fb.merge('mp_indice/' + String(ord.id), { loja: loja, pedido: pedido, criadoEm: agora2 }).catch(() => {});
-  return { codigo: qr, expiraEm: expira, mp: String(ord.id), pagamentoId: String(pagto.id || ''), em: agora2 };
-}
-
 async function tokenDaLoja(fb, slug, env) {
   const m = MEM.mp[slug];
   if (m && Date.now() - m.em < 60 * 1000) return m.token;

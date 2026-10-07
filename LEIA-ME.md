@@ -547,41 +547,42 @@ Detalhes do modo nuvem que valem saber:
 Com o cardápio, a loja e as fotos vindo pela borda (Cloudflare KV), o Firebase
 grátis fica só com os pedidos. Medido no código em 07/10/2026, depois da segunda
 otimização: um pedido no Pix com painel, cozinha e entregador abertos gasta umas
-22 leituras (eram ~32; só com o painel, ~14), e cada loja gasta umas 80 por dia
-só com as telas abertas (a conta da Central usa 24 por pedido, com folga). Dá cerca de 1.800 pedidos por dia com 11 lojas; lojas de
+24 leituras (eram ~32; só com o painel, ~14), e cada loja gasta umas 80 por dia
+só com as telas abertas. Dá cerca de 1.800 pedidos por dia com 11 lojas; lojas de
 30 pedidos por dia cabem umas 60. O que mais pesou:
 - **Marca de dono no login** (`/dono`): as regras reconhecem o dono sem ler a
   loja. Antes cada pedido que andava custava 2 leituras no painel do dono.
 - **Equipe e admin primeiro nas regras** (07/10): a fila da cozinha e do
-  entregador lia a loja inteira a cada atualização (~7 leituras por pedido).
+  entregador lia a loja inteira a cada atualização (~7 leituras por pedido). Só a
+  ordem mudou; quem pode o quê é o mesmo.
 - **Painel ouve só o que está andando**: o celular que volta do bloqueio relê só
   esses, não o dia inteiro. Concluídos e cancelados carregam num toque.
-- **O Pix nasce junto com o pedido** (07/10): o `/pedido` já devolve o código;
-  o `/criar` fica para quando o Mercado Pago demora (mais de 8 s).
 - **Uma escuta só por pedido** na tela do cliente (a do Pix vira a da senha).
 - **Central soma o dia pela contagem do banco** (2 leituras por loja). Precisa
   do índice composto `pedidos` (status + criadoEm): o link para criar aparece no
   quadro do sistema da Central; sem ele, soma lendo os pedidos, como antes.
 - **Entregador filtra no banco** (só entrega), **cozinha e entregador abrem pela
-  borda** e conferem o cardápio a cada 5 min (o cliente, a cada minuto), **token
-  do Mercado Pago guardado na borda** (6 h) e **cartão aprovado numa gravação
-  só**. A cópia da loja confere o banco a cada 24 h, e o painel republica ao abrir
-  no máximo a cada 24 h (a vitrine a cada 3 h): toda mudança de verdade já chega
-  na hora pelo `/publicar`.
+  borda** e conferem o cardápio a cada 5 min (o cliente, a cada minuto; antes de
+  acender "valor não confere" a tela busca a loja na hora), **token do Mercado
+  Pago guardado na borda** (6 h) e **cartão aprovado numa gravação só**. A cópia
+  da loja confere o banco a cada 6 h (a vitrine a cada 3 h): toda mudança de
+  verdade já chega na hora pelo `/publicar`.
 - **Dica sem código**: no PC do balcão, entre com a senha da equipe.
 
-Na Cloudflare grátis (100 mil chamadas e 1 mil gravações no KV por dia, para
-todas as lojas juntas), o que pesa é o tablet da cozinha aberto o dia todo e a
-cópia da loja; com as mudanças de 07/10 cabem umas 100 lojas movimentadas. O
-Workers Paid (US$ 5 por mês) tira esse teto.
+Ficou de fora de propósito (07/10/2026, ele pediu segurança antes de economia):
+gerar o Pix dentro do `/pedido` (2 leituras a menos por pedido, mas mexe no
+caminho do pagamento) e conferir a cópia da loja a cada 24 h (só pesa com mais
+de ~150 lojas). Reavaliar quando o número de lojas pedir.
 
-O limite de lojas fica em `capacidade.maxLojas` no `js/config.js` (60) e pode ser
+O limite de lojas fica em `capacidade.maxLojas` no `js/config.js` (40) e pode ser
 mudado pela Central sem publicar o site ("Mudar limite"; o número gravado lá vale
 mais que o do arquivo). A partir dele, cliente novo cai na lista de espera. O
 quadro "Pedidos hoje no banco" da Central mostra o uso do dia contra o que cabe
 com as lojas de agora; passando de 70%, é hora do plano Blaze (uns R$ 0,13 a
-cada mil pedidos acima do grátis, com alerta de gasto). Fotos: uns 20 KB cada;
-12 lojas com 40 fotos dão cerca de 10 MB do 1 GB grátis.
+cada mil pedidos acima do grátis, com alerta de gasto). Na Cloudflare grátis
+(100 mil chamadas e 1 mil gravações no KV por dia, para todas as lojas juntas)
+cabem umas 150 lojas pequenas; o Workers Paid (US$ 5 por mês) tira esse teto.
+Fotos: uns 20 KB cada; 12 lojas com 40 fotos dão cerca de 10 MB do 1 GB grátis.
 
 **Espaço (1 GB):** o que mais ocupa são os índices automáticos dos pedidos (um
 pedido de 2 KB leva uns 14 KB de índice). Isenções de índice no console tiram
