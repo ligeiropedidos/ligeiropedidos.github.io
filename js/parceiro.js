@@ -533,13 +533,21 @@
       el('div', { class: 'calc-resultado' }, [resultado, frase, ctaCalc, el('p', { class: 'calc-fonte', text: 'Preços públicos do iFood e do Anota AI em setembro de 2026. No iFood, o pagamento online já está na comissão; no Ligeiro, o Pix tem a taxa do Mercado Pago (0,99% por venda), paga direto a ele e já descontada na conta acima.' })]),
     ]));
 
-    /* ---------- antes e depois ---------- */
+    /* ---------- antes e depois: um celular em cada lado (07/10/2026, como o do Anota AI). Sem: o WhatsApp lotado, com as dores
+       na ordem (o Pix falso primeiro). Com: o painel de verdade (a loja de exemplo da demonstracao) com o Pix confirmado. O
+       celular e o mesmo da "loja de verdade" e a lista sobe por cima dele num cartao branco ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [
       el('div', { class: 'kicker', text: 'Antes e depois' }),
       el('h2', { text: 'Sem Ligeiro vs com Ligeiro' }),
-      el('div', { class: 'antes-depois' }, [
-        el('div', { class: 'cartao lado sem' }, [el('b', { text: 'Sem Ligeiro' })].concat(['Comissão comendo a margem', 'Comprovante de Pix falso passando', 'WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente perguntando "tem no M?" e "e o meu pedido?"', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', {}, [UI.iconeLinha('fechar'), t]); }))),
-        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Com Ligeiro' })].concat(['0% de comissão: a margem fica com você', 'Pix e cartão confirmados pelo Mercado Pago: print falso não passa', 'Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com número e endereço', 'Tamanho, estoque e andamento do pedido na tela do cliente', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', {}, [UI.iconeLinha('check'), t]); }))),
+      el('div', { class: 'antes-depois com-celular' }, [
+        el('div', { class: 'cartao lado sem' }, [
+          el('div', { class: 'ad-cena', 'aria-hidden': 'true' }, celularAberto('ad-cel ad-cel-zap', [telaWhatsLotado()])),
+          el('div', { class: 'ad-lista' }, [el('b', { text: 'Sem Ligeiro' })].concat(['Comissão comendo a margem', 'Comprovante de Pix falso passando', 'WhatsApp lotado na hora do pico', 'Pedido anotado errado', 'Cliente perguntando "tem no M?" e "e o meu pedido?"', 'Fim do mês sem saber quanto vendeu'].map(function (t) { return el('p', {}, [UI.iconeLinha('fechar'), t]); }))),
+        ]),
+        el('div', { class: 'cartao lado com' }, [
+          el('div', { class: 'ad-cena' }, celularAberto('ad-cel ad-cel-painel', [el('img', { src: 'img/venda/painel-pedido-pix.webp', alt: 'O painel do Ligeiro com um pedido novo e o Pix confirmado', width: '520', height: '827', loading: 'lazy', decoding: 'async' })])),
+          el('div', { class: 'ad-lista' }, [el('b', { text: 'Com Ligeiro' })].concat(['0% de comissão: a margem fica com você', 'Pix e cartão confirmados pelo Mercado Pago: print falso não passa', 'Cliente monta o pedido sozinho pelo link', 'Pedido chega certo, com número e endereço', 'Tamanho, estoque e andamento do pedido na tela do cliente', 'Vendas do dia e da semana no painel'].map(function (t) { return el('p', {}, [UI.iconeLinha('check'), t]); }))),
+        ]),
       ]),
     ]));
 
@@ -566,9 +574,7 @@
       el('a', { class: 'loja-real-vitrine', href: linkLojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
         /* o aparelho: borda, ilha, hora e bateria em CSS (sem imagem a mais); a tela e o print da loja */
         el('span', { class: 'loja-real-cel' }, el('span', { class: 'loja-real-tela' }, [
-          el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>19:30</b><i class="ilha"></i><span class="icones">' +
-            '<svg viewBox="0 0 18 12" width="16" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
-            '<svg viewBox="0 0 27 13" width="24" height="12"><rect x="0.75" y="0.75" width="22" height="11.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"/><rect x="2.75" y="2.75" width="15" height="7.5" rx="2"/><path d="M24.5 4.5v4c.9-.3 1.5-1.1 1.5-2s-.6-1.7-1.5-2z" opacity="0.4"/></svg></span>' }),
+          barraDoCelular(),
           el('img', { src: 'img/loja-ligeiro/exclusivo.webp', alt: 'A loja da Dom Conizza no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' }),
         ])),
       ]),
@@ -1033,6 +1039,37 @@
       el('ul', { class: 'segmento-tipos', 'aria-label': 'Tipos de loja de ' + titulo.toLowerCase() }, tipos.map(function (x) { return el('li', { text: x }); }).concat([el('li', { class: 'e-outros', text: 'e outros' })])),
     ]);
   }
+  /* A barra do celular desenhado (hora, ilha, sinal e bateria), igual nos celulares da pagina de vendas */
+  function barraDoCelular() {
+    return el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>19:30</b><i class="ilha"></i><span class="icones">' +
+      '<svg viewBox="0 0 18 12" width="16" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
+      '<svg viewBox="0 0 27 13" width="24" height="12"><rect x="0.75" y="0.75" width="22" height="11.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"/><rect x="2.75" y="2.75" width="15" height="7.5" rx="2"/><path d="M24.5 4.5v4c.9-.3 1.5-1.1 1.5-2s-.6-1.7-1.5-2z" opacity="0.4"/></svg></span>' });
+  }
+  /* O celular aberto embaixo (a moldura da "loja de verdade"), com a barra em cima e o conteudo na tela */
+  function celularAberto(classe, conteudo) {
+    return el('span', { class: 'loja-real-cel ' + (classe || '') }, el('span', { class: 'loja-real-tela' }, [barraDoCelular()].concat(conteudo)));
+  }
+  /* A tela do "sem Ligeiro": o WhatsApp do dono lotado na hora do pico, com as duvidas de sempre (o Pix falso primeiro) */
+  function telaWhatsLotado() {
+    var conversas = [
+      ['Carla', '#E57373', 'Já fiz o Pix', true, '19:42', 2], /* com o icone da foto: o print do comprovante (o texto inteiro cortava no celular) */
+      ['Diego', '#64B5F6', 'Manda o cardápio?', false, '19:41', 3],
+      ['Seu Antônio', '#F2A541', 'Cadê meu pedido?', false, '19:40', 4],
+      ['Bruna', '#BA68C8', 'Tem no tamanho M?', false, '19:38', 1],
+      ['Patrícia', '#4DB6AC', 'Quanto é a entrega?', false, '19:37', 2],
+      ['Rafael', '#90A4AE', 'Aceita cartão?', false, '19:35', 1],
+    ];
+    return el('span', { class: 'zap-lotado' }, [
+      el('span', { class: 'zap-lotado-topo' }, [el('b', { text: 'WhatsApp' }), el('span', { text: '13 não lidas' })]),
+    ].concat(conversas.map(function (c) {
+      return el('span', { class: 'zap-conversa' }, [
+        el('span', { class: 'zap-avatar', style: { background: c[1] }, text: c[0].replace(/^Seu /, '').charAt(0) }),
+        el('span', { class: 'zap-meio' }, [el('b', { text: c[0] }), el('span', { class: 'zap-previa' }, [c[3] ? UI.iconeLinha('camera') : null, el('span', { text: c[2] })])]),
+        el('span', { class: 'zap-lado' }, [el('span', { class: 'zap-hora', text: c[4] }), el('span', { class: 'zap-naolidas', text: String(c[5]) })]),
+      ]);
+    })));
+  }
+
   /* As funcoes da pagina de vendas em abas. Cada cartao: [icone, cor do quadrado, titulo, texto] */
   var FUNCOES = [
     { aba: 'Vendas', itens: [
