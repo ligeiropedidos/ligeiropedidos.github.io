@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-06c';
+const VERSAO_MENSAGEIRO = '2026-10-07a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -2192,7 +2192,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho', 'pix-no-pedido'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
