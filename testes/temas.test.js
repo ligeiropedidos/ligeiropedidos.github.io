@@ -65,4 +65,22 @@ temas.forEach(function (arquivo) {
     const achados = css.match(perigo) || [];
     assert.deepStrictEqual(achados.map(function (x) { return x.slice(0, 80); }), [], 'o tema mexeu na posicao de peca do sistema');
   });
+
+  /* 06/10/2026: o tema do Mak (e o da Kazoku, copiado dele) trocou o .topo de "sticky" para "relative" so para desenhar o fio de
+     luz embaixo; o cabecalho passou a subir com a pagina e a barra das categorias (presa na altura dele) ficou solta no meio
+     da tela, com os lanches aparecendo por cima. As barras presas ao rolar so mudam de cor e letra no tema, nunca de posicao */
+  test('tema ' + nome + ': nao solta as barras presas ao rolar (cabecalho, categorias, topo e abas do painel)', function () {
+    const css = fs.readFileSync(path.join(PASTA, arquivo), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const achados = [];
+    const bloco = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = bloco.exec(css))) {
+      const mexe = /(^|[;\s])(position|top|bottom|inset)\s*:/.test(m[2]);
+      if (!mexe) continue;
+      m[1].split(',').forEach(function (sel) {
+        if (/\.(topo|abas|painel-topo|abas-painel|barra-topo)\s*$/.test(sel.trim())) achados.push(sel.trim().slice(0, 80));
+      });
+    }
+    assert.deepStrictEqual(achados, [], 'o tema mexeu na posicao de barra presa');
+  });
 });

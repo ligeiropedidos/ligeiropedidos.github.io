@@ -224,7 +224,6 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #2A1D14; color: #
 .tema-makburguer:has(#tela-inicio) .card-produto:nth-child(n+5) { animation-delay: 0.42s; }
 /* a foto do lanche na janela respira (zoom lento), o fio de ouro do cabecalho acende e passa, e a senha pulsa em ouro */
 .tema-makburguer .foto-modal-desenho img { animation: mk-zoom 9s ease-in-out infinite alternate; transform-origin: 50% 55%; }
-.tema-makburguer:has(#tela-inicio) .topo { position: relative; }
 .tema-makburguer:has(#tela-inicio) .topo::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; pointer-events: none;
   background: linear-gradient(90deg, rgba(255, 244, 200, 0) 0%, #FFF4C8 50%, rgba(255, 244, 200, 0) 100%) -60% 0 / 40% 100% no-repeat; animation: mk-fio 3.4s ease-in-out infinite;

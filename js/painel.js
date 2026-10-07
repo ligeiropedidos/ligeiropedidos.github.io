@@ -235,6 +235,8 @@
         loja: '<path d="M4 10v10h16V10"/><path d="M2.5 10 5 4h14l2.5 6z"/><path d="M10 20v-5h4v5"/>',
         /* desenhos com o meio no 12,12 (o sino e o boneco ficavam baixos no quadrinho) */
         conta: '<g transform="translate(0 -0.5)"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></g>',
+        /* balao de conversa (o "Tirar duvidas" do painel de demonstracao), com o meio no 12,12 */
+        conversa: '<path d="M20.5 11.5c0 4.1-3.8 7.4-8.5 7.4-1.2 0-2.3-.2-3.3-.6L4 19.8l1.3-3.8c-1.1-1.3-1.8-2.8-1.8-4.5 0-4.1 3.8-7.4 8.5-7.4s8.5 3.3 8.5 7.4z"/>',
         sino: '<g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g>',
         semsino: '<g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g><path d="M3.5 3.5l17 17"/>',
         impressora: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>',
@@ -289,7 +291,10 @@
         el('div', { class: 'nome', text: estado.loja.nome }),
         el('div', { class: 'painel-topo-acoes' }, [
           rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/' + estado.loja.cidadeSlug + '/' + slug, target: '_blank', rel: 'noopener', title: 'Abre a sua loja em outra aba, do jeito que o cliente vê' }), 'olho', 'Ver loja', 'Ver loja'),
-          estado.equipe ? null : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Sua loja e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
+          estado.equipe ? null : estado.loja.demoPainel && (window.LIGEIRO_CONFIG || {}).whatsappLigeiro
+            /* demonstracao: a duvida vai para o WhatsApp do Ligeiro (a conta e os planos ficam para depois da conversa) */
+            ? rotuloTopo(el('a', { class: 'btn btn-pequeno', href: R.linkWhatsapp(window.LIGEIRO_CONFIG.whatsappLigeiro, 'Oi! Vi o painel de demonstração da ' + estado.loja.nome + ' no Ligeiro e queria tirar umas dúvidas.'), target: '_blank', rel: 'noopener', title: 'Tirar dúvidas no WhatsApp' }), 'conversa', 'Tirar dúvidas', 'Dúvidas')
+            : rotuloTopo(el('a', { class: 'btn btn-pequeno', href: '#/conta', title: 'Sua loja e sua assinatura' }), 'conta', 'Minha conta', 'Conta'),
           btnImp, btnSom,
           /* "Sair" so para a equipe (que nao tem Minha conta). O dono sai em Minha conta: no topo, um toque sem querer
              deslogava o celular e o apito dos pedidos parava */
@@ -1309,7 +1314,9 @@
       } else if (!avisoSozinho && p.cliente.telefone) {
         var mandado = zapMandados()[p.id] === p.status;
         var rotuloZap = function (feito) { return [el('span', { class: 'zap-status-texto' }, [feito ? 'Avisado: ' : 'Avisar: ', el('b', { text: R.rotuloAvisoWhats(p) })]), el('span', { class: 'zap-status-fim', 'aria-hidden': 'true' }, [UI.iconeLinha(feito ? 'check' : 'avancar')])]; };
-        var zap = el('a', { class: 'zap-status' + (mandado ? ' feito' : ''), href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', onclick: function () {
+        var zap = el('a', { class: 'zap-status' + (mandado ? ' feito' : ''), href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', onclick: function (e) {
+          /* demonstracao: os clientes sao de mentira (o numero pode ser de alguem de verdade): mostra o que aconteceria, sem abrir o WhatsApp */
+          if (estado.loja && estado.loja.demoPainel) { e.preventDefault(); UI.avisar('Na loja de verdade, abre o WhatsApp do cliente com esta mensagem pronta.'); }
           marcarZap(p.id, p.status);
           setTimeout(function () { zap.classList.add('feito'); UI.limpar(zap); zap.appendChild(UI.icone('zap')); rotuloZap(true).forEach(function (n) { zap.appendChild(n); }); }, 400);
         } }, [UI.icone('zap')].concat(rotuloZap(mandado)));
@@ -4117,14 +4124,17 @@
           el('b', { text: titulo }),
           el('p', { text: texto }),
           el('div', { class: 'linha-botoes' }, [
-            el('a', { class: 'btn btn-principal btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: abrir || 'Abrir' }),
+            el('a', { class: 'btn btn-principal btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: abrir || 'Abrir', onclick: function (e) {
+              /* demonstracao: a cozinha e o entregador de verdade pedem a senha da equipe (sairia da demonstracao para uma tela fechada) */
+              if (estado.loja && estado.loja.demoPainel) { e.preventDefault(); UI.avisar('Na loja de verdade, a tela ' + ({ 'Cozinha': 'da cozinha', 'Separação': 'da separação', 'Entregador': 'do entregador' }[titulo] || 'da equipe') + ' abre por este link, num tablet ou celular.'); }
+            } }),
             el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(link) }, [UI.iconeLinha('copiar'), 'Copiar link']), /* fila .tela-acoes: duas metades iguais */
           ]),
         ]);
       }
 
       /* 0. Loja do Ligeiro: o banner fixo no topo (so o dono; a equipe nao compra nada) */
-      if (!estado.equipe && window.LigeiroServicos && store.usuarioAtual) {
+      if (!estado.equipe && window.LigeiroServicos && store.usuarioAtual && !(estado.loja && estado.loja.demoPainel)) { /* na demonstracao nao: ali nao se vende nada, as duvidas vao para o WhatsApp */
         var lugarBanner = el('div', { hidden: true });
         s.appendChild(lugarBanner);
         store.usuarioAtual().then(function (u) {

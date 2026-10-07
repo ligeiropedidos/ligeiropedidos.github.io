@@ -193,7 +193,6 @@ body:has(.tema-kazoku #tela-inicio) .torrada { background: #221C22; color: #F4EE
 .tema-kazoku:has(#tela-inicio) .card-produto:nth-child(n+5) { animation-delay: 0.42s; }
 /* a foto da peca na janela respira (zoom lento), o fio de luz do cabecalho passa e a senha pulsa em salmao */
 .tema-kazoku .foto-modal-desenho img { animation: kz-zoom 9s ease-in-out infinite alternate; transform-origin: 50% 55%; }
-.tema-kazoku:has(#tela-inicio) .topo { position: relative; }
 .tema-kazoku:has(#tela-inicio) .topo::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; pointer-events: none;
   background: linear-gradient(90deg, rgba(255, 196, 168, 0) 0%, #FFD9C6 50%, rgba(255, 196, 168, 0) 100%) -60% 0 / 40% 100% no-repeat; animation: kz-fio 3.6s ease-in-out infinite;

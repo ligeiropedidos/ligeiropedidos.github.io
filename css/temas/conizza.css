@@ -421,3 +421,5 @@ body:has(.tema-conizza) { background: var(--cz-creme-fundo); }
 .tema-conizza .foto-previa.destaque.vazia { border-style: dashed; }
 .tema-conizza .foto-previa.destaque .sem-foto .ico-traco { color: var(--cz-tinta); }
 .tema-conizza .campo-foto.destaque .foto-botoes > .btn:not(.btn-fantasma) { margin-bottom: 4px; }
+/* o alfinete do endereco no meio da maiuscula: a fonte da Conizza diz uma altura de maiuscula 1,2 px maior que a tinta do "H" (medido em 06/10/2026) */
+.tema-conizza #enderecoLoja .ico-traco { vertical-align: calc((1cap - 15px) / 2 + 0.6px); }

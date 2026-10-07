@@ -2998,8 +2998,10 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .confirmado { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .nota:has(> .ico-traco) { display: flex; justify-content: center; align-items: flex-start; gap: 6px; text-align: center; } /* nota com icone (cadeado) no centro, como as linhas de confianca */
 /* endereco no centro e no mesmo desenho das linhas de confianca de cima (13 px, negrito leve, icone de 15) */
-#enderecoLoja:not(:empty) { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
-#enderecoLoja .ico-traco { flex: none; }
+/* o alfinete vai junto da primeira palavra, dentro do texto: com o endereco em duas linhas, a caixa lado a lado deixava o
+   alfinete solto na borda e o texto no meio (06/10/2026, Kazoku). As linhas ficam no meio e equilibradas */
+#enderecoLoja:not(:empty) { display: block; text-align: center; font-size: 13px; font-weight: 600; line-height: 18px; color: var(--muted); text-wrap: balance; }
+#enderecoLoja .ico-traco { display: inline-flex; vertical-align: -3px; vertical-align: calc((1cap - 15px) / 2); margin-right: 6px; } /* o meio do alfinete no meio da maiuscula da letra de cada loja (a fonte do tema muda a altura dela) */
 #enderecoLoja .ico-traco svg { width: 15px; height: 15px; }
 .hub-selos .ico-traco svg { width: 15px; height: 15px; stroke-width: 2.6; }
 

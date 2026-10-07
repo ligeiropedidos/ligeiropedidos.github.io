@@ -1047,6 +1047,18 @@
         };
       }
       marcarForaDaBusca(l.amostra === true);
+      /* amostra: o dono tira as duvidas no WhatsApp do Ligeiro, nao no site (la tem preco e prazo de teste antes da conversa) */
+      var rodapeLigeiro = $('linkLigeiroRodape'), zapLigeiro = (window.LIGEIRO_CONFIG || {}).whatsappLigeiro;
+      if (rodapeLigeiro) {
+        if (l.amostra === true && zapLigeiro) {
+          rodapeLigeiro.href = R.linkWhatsapp(zapLigeiro, 'Oi! Vi a amostra da ' + l.nome + ' no Ligeiro e queria tirar umas dúvidas.');
+          rodapeLigeiro.target = '_blank'; rodapeLigeiro.rel = 'noopener';
+          rodapeLigeiro.textContent = 'Feito com Ligeiro\u00a0· tirar dúvidas no WhatsApp →';
+        } else {
+          rodapeLigeiro.href = '#/'; rodapeLigeiro.removeAttribute('target');
+          rodapeLigeiro.textContent = 'Feito com Ligeiro\u00a0· quero isso na minha loja →';
+        }
+      }
       if (!balcao && window.LigeiroApp && window.LigeiroApp.manifestDaLoja) window.LigeiroApp.manifestDaLoja((l.cidadeSlug || 'loja') + '/' + l.slug, l.nome);
       var logo = $('logoLoja');
       UI.limpar(logo);
@@ -3827,7 +3839,7 @@
         /* a lista dos pedidos feitos neste aparelho sempre tem porta: a faixa de cima so aparece com pedido andando */
         '<button class="cupom-abrir" id="btnMeusPedidosRodape" hidden style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;width:100%">' + UI.iconeHtml('recibo') + 'Meus pedidos</button>' +
         '<button class="cupom-abrir" id="btnOutrasLojas" style="text-align:center;justify-content:center;width:100%"></button>' +
-        '<div class="ligeiro"><a href="#/">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
+        '<div class="ligeiro"><a href="#/" id="linkLigeiroRodape">Feito com Ligeiro&nbsp;· quero isso na minha loja →</a></div>' +
       '</footer>' +
     '</section>' +
 
