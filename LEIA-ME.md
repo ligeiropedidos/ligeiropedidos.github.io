@@ -547,8 +547,8 @@ Detalhes do modo nuvem que valem saber:
 Com o cardápio, a loja e as fotos vindo pela borda (Cloudflare KV), o Firebase
 grátis fica só com os pedidos. Medido no código em 07/10/2026, depois da segunda
 otimização: um pedido no Pix com painel, cozinha e entregador abertos gasta umas
-24 leituras (eram ~32; só com o painel, ~14), e cada loja gasta umas 80 por dia
-só com as telas abertas. Dá cerca de 1.800 pedidos por dia com 11 lojas; lojas de
+22 leituras (eram ~32; só com o painel, ~14), e cada loja gasta umas 80 por dia
+só com as telas abertas (a conta da Central usa 24 por pedido, com folga). Dá cerca de 1.800 pedidos por dia com 11 lojas; lojas de
 30 pedidos por dia cabem umas 60. O que mais pesou:
 - **Marca de dono no login** (`/dono`): as regras reconhecem o dono sem ler a
   loja. Antes cada pedido que andava custava 2 leituras no painel do dono.
