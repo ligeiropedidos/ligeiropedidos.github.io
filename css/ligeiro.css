@@ -2290,7 +2290,6 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .vender-capa > .heroi-texto { grid-area: texto; }
   .vender-capa > .heroi-mascote-caixa { grid-area: mascote; justify-self: center; margin-bottom: -32px; z-index: 2; }
   .vender-capa > .cartao-montamos { grid-area: cartao; margin-top: 0; max-width: none; padding: 40px 24px 24px; }
-  .cartao-montamos .contato-avatar { display: none; } /* o mascote grande ja esta em cima do cartao */
   .heroi-mascote { width: 180px; height: 180px; flex: none; }
   .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
@@ -3315,8 +3314,9 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .contato-topo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.4; color: var(--body); }
 .contato-topo-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
 .campo label .opcional { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: lowercase; }
-.contato-seguro { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
-.contato-seguro .ico-traco { flex: none; color: var(--deep2); }
+.contato-seguro { display: block; margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); text-align: center; text-wrap: balance; }
+/* o cadeado anda com a primeira palavra, no meio da altura das maiusculas (centrado no bloco de duas linhas, ele ficava solto) */
+.contato-seguro .ico-traco { display: inline-flex; margin-right: 6px; vertical-align: -3px; vertical-align: calc((1cap - 16px) / 2); color: var(--deep2); }
 .contato-seguro .ico-traco svg { width: 16px; height: 16px; }
 .contato-ok { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0 8px; text-align: center; font-size: 15px; line-height: 1.45; color: var(--body); text-wrap: balance; }
 .contato-ok b { font-family: var(--display); font-size: 22px; color: var(--ink); }
@@ -3327,7 +3327,24 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cartao-montamos { width: 100%; max-width: 440px; margin-top: 8px; display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 12px 32px rgba(15, 61, 46, 0.08); text-align: left; }
 .cartao-montamos .contato-topo-texto h2 { margin: 0; font-family: var(--display); font-size: 18px; line-height: 1.25; color: var(--ink); }
 .cartao-montamos .contato-ok { padding: 8px 0 0; }
-.cartao-montamos .grade-form { grid-template-columns: 1fr; } /* um campo embaixo do outro: lado a lado, o "(13) 99999-9999" encostava na borda (e cortava com a letra do iPhone) */
+.cartao-montamos .grade-form { grid-template-columns: 1fr; }
+.cartao-montamos .contato-avatar { display: none; } /* o mascote grande fica em cima do cartao, em toda tela */
+/* o cartao no ritmo da letra: com a caixa de cada texto do topo das maiusculas ate a linha de base, o vao da caixa e o vao
+   que o olho ve. 16 entre os blocos (faixa, campos, botao e nota), 8 do rotulo ao campo e do titulo ao apoio, 12 de recuo
+   dentro da faixa. Medido em prints/pente-fino-home/medir_cartao.mjs (antes: 22, 18, 16 e 21 entre os blocos) */
+@supports (text-box: trim-both cap alphabetic) {
+  .cartao-montamos .contato-topo-texto h2, .cartao-montamos .contato-topo-texto span, .cartao-montamos .campo label, .cartao-montamos .contato-seguro { text-box: trim-both cap alphabetic; }
+  .cartao-montamos .contato-topo-texto { gap: 8px; }
+  .cartao-montamos .grade-form { gap: 16px; }
+}
+/* celular: o mascote desce do topo para cima do cartao, como no computador (pedido dele, 07/10/2026). A primeira tela fica com
+   o titulo e o botao, e o mascote apresenta o cartao */
+@media (max-width: 899px) {
+  .vender-capa > .heroi-texto { order: 1; }
+  .vender-capa > .heroi-mascote-caixa { order: 2; margin: 8px 0 -48px; z-index: 2; } /* -48 com o vao de 16 da coluna: o mascote entra 32 no cartao, como no computador */
+  .vender-capa > .cartao-montamos { order: 3; margin-top: 0; padding-top: 40px; }
+  .vender-capa .heroi-mascote { width: 140px; height: 140px; }
+} /* um campo embaixo do outro: lado a lado, o "(13) 99999-9999" encostava na borda (e cortava com a letra do iPhone) */
 
 /* Central: ver e apagar os dados de uma pessoa (LGPD), com as pecas da Central (adm-ico, adm-kpi, adm-lista).
    Ritmo: 16 entre os blocos, 8 entre rotulo e campo; campo e botao com 48, como os botoes da Central */
