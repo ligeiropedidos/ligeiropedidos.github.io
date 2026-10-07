@@ -214,7 +214,6 @@
     var filhos = [
       el('span', { class: 'zap-icone' }, el('span', { class: 'icone-zap', 'aria-hidden': 'true' })),
       el('span', { class: 'zap-texto', text: 'Chamar no WhatsApp' }),
-      el('span', { class: 'zap-ponto' }),
     ];
     raiz.appendChild(zap
       ? el('a', { class: 'zap-flutuante', href: zap, target: '_blank', rel: 'noopener', 'aria-label': 'Chamar no WhatsApp' }, filhos)
@@ -413,10 +412,9 @@
       var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: enviar, text: 'Quero minha loja pronta' });
       var seguro = el('p', { class: 'contato-seguro' }, [UI.iconeLinha('cadeado'), 'Sem compromisso. Seu número só é usado para a gente falar com você.']);
       [f.nome, f.whatsapp, f.loja].forEach(function (x) { x.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } }); });
-      cartao.appendChild(el('div', { class: 'contato-topo' }, [
-        el('span', { class: 'contato-avatar', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: '48', height: '48' }), el('span', { class: 'contato-online' })]),
-        el('div', { class: 'contato-topo-texto' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('span', { text: 'A gente monta tudo e chama você no WhatsApp.' })]),
-      ]));
+      /* o topo do formulario, limpo como nos sites profissionais (07/10/2026: ele nao gostou da faixa verde com o mascotinho
+         dentro do cartao): titulo e frase de apoio no proprio cartao, no meio */
+      cartao.appendChild(el('div', { class: 'montamos-topo' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('p', { text: 'A gente monta tudo e chama você no WhatsApp.' })]));
       cartao.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja]));
       cartao.appendChild(botao);
       cartao.appendChild(seguro);
@@ -596,7 +594,6 @@
         el('div', { class: 'cartao lado manda' }, [el('b', { text: 'Você manda' })].concat([['camera', 'Fotos do cardápio ou dos produtos'], ['dinheiro', 'Os preços (e os tamanhos, se tiver)'], ['imagem', 'Sua logo, se tiver'], ['relogio', 'Horário e taxa de entrega']].map(function (x) { return el('p', {}, [UI.iconeLinha(x[0]), x[1]]); }))),
         el('div', { class: 'cartao lado com' }, [el('b', { text: 'Você recebe' })].concat(['A loja montada, com fotos e categorias', 'O link para a bio do Instagram e o status', 'O QR code para imprimir no balcão', 'Ajuda para ligar o Pix do Mercado Pago'].map(function (x) { return el('p', {}, [UI.iconeLinha('check'), x]); }))),
       ]),
-      el('button', { class: 'btn btn-fantasma monta-cta', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('monta'); } }),
     ]));
 
     /* ---------- teste gratis ---------- */
@@ -707,18 +704,38 @@
     }
     /* no celular o botao do WhatsApp so aparece depois do heroi: na primeira tela ele ficava em cima do "Começar grátis" */
     var zapBotao = raiz.querySelector('.zap-flutuante');
+    /* o botao do WhatsApp nao fica em cima de um botao da pagina ("Comecar gratis" da faixa, os planos...): enquanto cobre, some */
+    function zapCobreBotao() {
+      if (!zapBotao || zapBotao.classList.contains('no-heroi')) return false;
+      var z = zapBotao.getBoundingClientRect();
+      return [].some.call(raiz.querySelectorAll('.btn'), function (b) {
+        if (b === zapBotao || b.closest('.cta-fixa')) return false;
+        var r = b.getBoundingClientRect();
+        return r.width > 0 && r.right > z.left && r.left < z.right && r.bottom > z.top && r.top < z.bottom;
+      });
+    }
+    function conferirZap() {
+      if (!zapBotao) return;
+      /* no celular ele fica 16 acima da barra "Comecar gratis" quando ela aparece e 16 acima do pe quando ela some (antes ficava
+         sempre na altura da barra: sem ela, sobrava um buraco embaixo) */
+      zapBotao.classList.toggle('com-barra', mostrando);
+      zapBotao.classList.toggle('sobre-botao', zapCobreBotao());
+    }
     function conferirBarra() {
       var heroi = capa.getBoundingClientRect().bottom > 0;
       if (zapBotao) zapBotao.classList.toggle('no-heroi', heroi);
       var mostrar = !heroi && !grandes.some(naTela);
       /* no maximo uma troca a cada 0,35 s (a rolagem com embalo cruzava a beirada varias vezes); a ultima confere de novo */
-      if (mostrar !== mostrando && Date.now() - trocouEm < 350) { clearTimeout(conferirBarra.depois); conferirBarra.depois = setTimeout(conferirBarra, 360); return; }
+      if (mostrar !== mostrando && Date.now() - trocouEm < 350) { clearTimeout(conferirBarra.depois); conferirBarra.depois = setTimeout(conferirBarra, 360); conferirZap(); return; }
       if (mostrar !== mostrando) {
         trocouEm = Date.now();
         mostrando = mostrar;
         barra.classList.toggle('visivel', mostrar);
         barra.setAttribute('aria-hidden', mostrar ? 'false' : 'true');
+        /* depois de subir ou descer junto com a barra, confere de novo se ficou em cima de algum botao */
+        clearTimeout(conferirZap.depois); conferirZap.depois = setTimeout(conferirZap, 300);
       }
+      conferirZap();
     }
     window.addEventListener('scroll', conferirBarra, { passive: true });
     window.addEventListener('resize', conferirBarra);
@@ -1073,7 +1090,7 @@
       ]),
       el('span', { class: 'mini-placa' }, [
         el('span', { class: 'mini-placa-papel' }, [
-          el('span', { class: 'mini-qr-codigo', html: '<svg viewBox="-2 -2 29 29" shape-rendering="crispEdges"><rect x="-2" y="-2" width="29" height="29" fill="#fff"/><path d="' + QR_DO_SITE + '" fill="#0E1F14"/></svg>' }),
+          el('span', { class: 'mini-qr-codigo', html: '<svg viewBox="0 0 25 25" shape-rendering="crispEdges"><path d="' + QR_DO_SITE + '" fill="#0E1F14"/></svg>' }), /* a margem branca do QR e o proprio papel */
           el('b', { text: 'Lanchonete do Zé' }),
           el('small', { text: 'Aponte a câmera para pedir' }),
         ]),
@@ -1089,8 +1106,10 @@
       el('span', { class: 'mini-avisos' }, [
         el('span', { class: 'mini-aviso' }, [
           fotoDoExemplo('aviso-icone', 'mini-aviso-icone', [72, 72]),
-          el('span', { class: 'mini-aviso-texto' }, [el('b', { text: 'Pix pago! Senha 42' }), el('span', { text: 'R$ 46,00 · Entrega · Toque para abrir' })]),
-          el('small', { text: 'agora' }),
+          el('span', { class: 'mini-aviso-texto' }, [
+            el('span', { class: 'mini-aviso-linha' }, [el('b', { text: 'Pix pago! Senha 42' }), el('small', { text: 'agora' })]),
+            el('span', { class: 'mini-aviso-corpo', text: 'R$ 46,00 · Entrega · Toque para abrir' }),
+          ]),
         ]),
         el('span', { class: 'mini-aviso-pilha' }),
       ]),
@@ -1126,6 +1145,8 @@
     ];
     return el('span', { class: 'zap-lotado' }, [
       el('span', { class: 'zap-lotado-topo' }, [el('b', { text: 'WhatsApp' }), el('span', { text: '13 não lidas' })]),
+      /* os filtros do WhatsApp de verdade: descem as conversas para a lista do cartao comecar logo depois da 3a (sem cortar texto no meio) */
+      el('span', { class: 'zap-filtros' }, ['Tudo', 'Não lidas', 'Favoritas'].map(function (x, i) { return el('span', { class: 'zap-filtro' + (i === 0 ? ' ativo' : ''), text: x }); })),
     ].concat(conversas.map(function (c) {
       return el('span', { class: 'zap-conversa' }, [
         el('span', { class: 'zap-avatar', style: { background: c[1] }, text: c[0].replace(/^Seu /, '').charAt(0) }),

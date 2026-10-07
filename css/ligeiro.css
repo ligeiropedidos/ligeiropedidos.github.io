@@ -1814,10 +1814,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passos-venda { display: flex; flex-direction: column; gap: 12px; }
 .passo-venda { display: flex; flex-direction: column; overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
 /* o corpo do passo pela regua, medido na letra (text-box: a caixa do texto vai da altura das maiusculas a linha de base): 16 em
-   volta; o numero e o titulo numa linha (o titulo no meio do numero, 12 entre eles) e o texto na largura toda, 12 abaixo do
-   numero. Igual aos cartoes de "O que o Ligeiro faz", no celular e no computador (no computador, 8 do titulo ao texto ficava
+   volta; o numero e o titulo numa linha (o titulo no meio do numero, 12 entre eles) e o texto na largura toda, 16 abaixo do
+   numero (o mesmo 16 dos outros lados, 07/10/2026). Igual aos cartoes de "O que o Ligeiro faz", no celular e no computador (no computador, 8 do titulo ao texto ficava
    menor que o espaco entre as linhas do proprio texto) */
-.passo-corpo { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 12px; padding: 16px; }
+.passo-corpo { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 16px; padding: 16px; }
 .passo-corpo p { grid-column: 1 / -1; margin: 0; }
 .passo-venda .n { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--deep); color: var(--lime); font-family: var(--display); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .passo-corpo b { display: block; font-family: var(--display); font-size: 18px; line-height: 1.2; }
@@ -1829,70 +1829,79 @@ a.selo-google:hover { background: var(--lime-suave); }
   .passo-venda .n { display: block; box-sizing: border-box; line-height: 1; text-align: center; text-box: trim-both cap alphabetic; padding-top: calc((40px - 1cap) / 2); }
 }
 /* as cenas dos passos (07/10/2026): pedacos das telas de verdade em miniatura, com as fotos da loja de exemplo, no fundo da cor
-   do passo (as cores das funcoes), na letra do celular. 168 de altura: a mais alta (a placa do QR) com 16 de folga em cima e
-   embaixo */
+   do passo (as cores das funcoes), na letra do celular. Por dentro, pela regua e pela letra (text-box: a caixa de cada texto vai
+   do topo das maiusculas ate a linha de base): uma coluna da esquerda para a logo e a foto, uma da direita para o "Aberto" e o
+   PEDIR, cada texto no meio da sua linha. Medido em prints/pente-fino-home/medir_passos.mjs */
 .passo-venda.cor-lima { --tinta-fundo: #ECF7D9; --tinta-borda: #D5EBB4; }
 .passo-venda.cor-azul { --tinta-fundo: #E5EEFF; --tinta-borda: #CCDCFB; }
 .passo-venda.cor-laranja { --tinta-fundo: #FFF0DC; --tinta-borda: #F6DBB8; }
 .passo-cena { flex: none; display: flex; align-items: center; justify-content: center; height: 168px; padding: 0 12px; overflow: hidden; background: var(--tinta-fundo); border-bottom: 1px solid var(--tinta-borda); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #111B21; }
 .passo-cena img { display: block; object-fit: cover; }
 .mini-vitrine, .mini-perfil, .mini-placa-papel { background: #fff; box-shadow: 0 8px 24px rgba(14, 31, 20, 0.12); }
-/* 1) a loja pronta como o cliente ve: a capa, a logo por cima dela, o nome com o "Aberto" e um produto com o botao PEDIR (o nome e o
-   "Aberto" cabem na mesma linha com a letra do iPhone, 8% mais larga) */
+/* 1) a loja pronta como o cliente ve. Esquerda (10): a logo e a foto do produto, as duas com 36, e os textos comecando juntos
+   (54); direita (10): o "Aberto" e o PEDIR. O nome no meio da faixa branca ao lado da logo (abaixo da capa); o produto no meio
+   da foto, 10 abaixo da linha que separa */
 .mini-vitrine { width: 240px; display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; }
 .mini-vitrine-capa { width: 100%; height: 44px; }
 .mini-vitrine-topo { display: flex; align-items: flex-end; gap: 8px; margin-top: -16px; padding: 0 10px; }
 .mini-vitrine-logo { flex: none; width: 36px; height: 36px; border-radius: 9px; box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(0, 0, 0, 0.2); }
 .mini-vitrine-nome { flex: 1; min-width: 0; height: 20px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .mini-vitrine-nome b { font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
-.mini-aberta { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 999px; background: #EAF6DD; font-size: 9.5px; font-weight: 700; line-height: 1; color: #2F6B0F; white-space: nowrap; }
-.mini-aberta::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #4CAF20; }
-.mini-produto { display: flex; align-items: center; gap: 8px; margin: 8px 10px 10px; padding: 6px; border: 1px solid #E6ECE1; border-radius: 10px; }
-.mini-produto-foto { flex: none; width: 40px; height: 40px; border-radius: 8px; }
-.mini-produto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mini-aberta { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 999px; background: #EAF6DD; font-size: 9.5px; font-weight: 700; line-height: 1.2; color: #2F6B0F; white-space: nowrap; }
+.mini-aberta::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: #4CAF20; }
+.mini-produto { display: flex; align-items: center; gap: 8px; margin: 10px; padding-top: 10px; border-top: 1px solid #EEF1EC; }
+.mini-produto-foto { flex: none; width: 36px; height: 36px; border-radius: 8px; }
+.mini-produto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .mini-produto-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .mini-produto-texto strong { font-size: 11px; font-weight: 800; line-height: 1.2; color: #0E1F14; white-space: nowrap; }
 /* na loja de verdade o nome, o produto, o preco e o PEDIR vao na letra da marca; o resto das cenas, na letra do celular */
 .mini-vitrine-nome b, .mini-produto-texto b, .mini-produto-texto strong, .mini-pedir { font-family: var(--display); }
-.mini-pedir { flex: none; padding: 6px 9px; border-radius: 7px; background: var(--lime); font-size: 9.5px; font-weight: 800; line-height: 1; letter-spacing: 0.02em; color: #0E1F14; }
-/* 2) o perfil da loja com o link na bio e a placa do balcao (papel branco num suporte de acrilico) com o QR, o nome e a frase do
-   QR que o painel baixa. O QR e de verdade, 29 modulos com a margem: 2,5 px cada (2 px onde o cartao e estreito) */
+.mini-pedir { flex: none; padding: 6px 9px; border-radius: 7px; background: var(--lime); font-size: 9.5px; font-weight: 800; line-height: 1.2; letter-spacing: 0.02em; color: #0E1F14; }
+/* 2) o perfil da loja (a foto, a bio e o link na mesma borda da esquerda; o nome no meio da foto) e a placa do balcao num suporte
+   de acrilico, com o QR, o nome e a frase do QR que o painel baixa. O QR e de verdade (25 modulos de 2,5 px) e o papel em volta
+   dele e a margem branca que a camera pede: a mesma folga em cima, embaixo e dos lados */
 .mini-divulga { display: flex; align-items: center; gap: 12px; }
-.mini-perfil { width: 156px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; }
+.mini-perfil { width: 156px; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 14px; }
 .mini-perfil-topo { display: flex; align-items: center; gap: 8px; }
 .mini-perfil-foto { flex: none; width: 34px; height: 34px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #DDE3EA; }
-.mini-perfil-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mini-perfil-nome { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .mini-perfil-nome b { font-size: 11px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .mini-perfil-nome small { font-size: 9.5px; line-height: 1.2; color: #737373; white-space: nowrap; }
 .mini-perfil-bio { font-size: 10.5px; line-height: 1.3; text-wrap: balance; }
-.mini-perfil-link { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; line-height: 1.2; color: #00376B; white-space: nowrap; }
+.mini-perfil-link { display: flex; align-items: center; gap: 4px; margin-top: -2px; font-size: 10.5px; font-weight: 600; line-height: 1.2; color: #00376B; white-space: nowrap; } /* 8 da bio (os 10 do vao menos 2) */
 .mini-perfil-link .ico-traco { flex: none; display: inline-flex; }
 .mini-perfil-link .ico-traco svg { width: 11px; height: 11px; }
 .mini-placa { flex: none; position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 6px; }
-.mini-placa-papel { position: relative; z-index: 1; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 9px; border-radius: 4px; text-align: center; }
-.mini-placa-papel b { margin-top: 4px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
-.mini-placa-papel small { font-size: 8px; line-height: 1.2; color: #4B5A4F; text-wrap: balance; }
-.mini-qr-codigo svg { display: block; width: 72.5px; height: 72.5px; }
+.mini-placa-papel { position: relative; z-index: 1; width: 96px; display: flex; flex-direction: column; align-items: center; padding: 16.75px 6px; border-radius: 4px; text-align: center; } /* 16,75: a folga do QR dos lados ((96 - 62,5) / 2) tambem em cima e embaixo */
+.mini-placa-papel b { margin-top: 8px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-placa-papel small { margin-top: 4px; font-size: 8px; line-height: 1.2; color: #4B5A4F; text-wrap: balance; }
+.mini-qr-codigo svg { display: block; width: 62.5px; height: 62.5px; }
 .mini-placa-base { position: absolute; z-index: 2; left: -8px; right: -8px; bottom: 0; height: 12px; border-radius: 3px 3px 6px 6px; background: linear-gradient(rgba(255, 255, 255, 0.75), rgba(232, 238, 246, 0.9)); box-shadow: inset 0 1px 0 #fff, 0 6px 12px rgba(14, 31, 20, 0.14); }
 /* onde o cartao e estreito (celular de 320 e os tres lado a lado logo depois de 900) o perfil e a placa diminuem juntos, na mesma
    proporcao: as letras continuam cabendo como no tamanho cheio */
 @media (max-width: 359px), (min-width: 900px) and (max-width: 979px) { .mini-divulga { zoom: 0.92; } }
-/* 3) o celular bloqueado: a hora grande e o aviso igual ao de verdade (icone do app, titulo e texto do mensageiro) num vidro
-   fosco, com mais avisos empilhados atras */
+/* 3) o celular bloqueado: a hora grande e, 10 abaixo, o aviso igual ao de verdade num vidro fosco (o icone do app; o titulo com o
+   "agora" na mesma linha de base; o texto do mensageiro), com mais avisos empilhados atras */
 .mini-bloqueio { width: 100%; max-width: 286px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .mini-bloqueio-hora { font-size: 40px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: #7C3A0E; font-variant-numeric: tabular-nums; }
 .mini-avisos { position: relative; align-self: stretch; padding-bottom: 12px; }
-.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 10px 28px rgba(124, 58, 14, 0.16); }
+.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 10px 28px rgba(124, 58, 14, 0.16); }
 .mini-aviso-icone { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
-.mini-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.mini-aviso-texto b { font-size: 12.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mini-aviso-texto span { font-size: 11px; line-height: 1.3; color: #3C3C43; text-wrap: balance; }
-.mini-aviso small { flex: none; align-self: flex-start; font-size: 10px; line-height: 1.25; color: #8A8A8E; }
+.mini-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mini-aviso-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.mini-aviso-linha b { min-width: 0; font-size: 12.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-aviso-linha small { flex: none; font-size: 10px; line-height: 1.25; color: #8A8A8E; }
+.mini-aviso-corpo { font-size: 11px; line-height: 1.3; color: #3C3C43; text-wrap: balance; }
 .mini-aviso-pilha { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 24px; border-radius: 0 0 16px 16px; background: rgba(255, 255, 255, 0.6); box-shadow: 0 6px 16px rgba(124, 58, 14, 0.08); }
 .mini-aviso-pilha::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 12px; border-radius: 0 0 12px 12px; background: rgba(255, 255, 255, 0.4); }
+@supports (text-box: trim-both cap alphabetic) {
+  .mini-vitrine-nome b, .mini-aberta, .mini-produto-texto b, .mini-produto-texto strong, .mini-pedir,
+  .mini-perfil-nome b, .mini-perfil-nome small, .mini-perfil-bio, .mini-perfil-link span, .mini-placa-papel b, .mini-placa-papel small,
+  .mini-bloqueio-hora, .mini-aviso-linha b, .mini-aviso-linha small, .mini-aviso-corpo { text-box: trim-both cap alphabetic; }
+}
 /* As funcoes em abas (07/10/2026, como as do Anota AI): o seletor de assunto e 4 cartoes com o icone num quadrado colorido e
    o titulo do lado. 1 coluna no celular, 2 x 2 no tablet, 4 numa linha no computador */
-.funcoes-abas { display: flex; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; }
+.funcoes-abas { display: flex; align-self: center; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; } /* no meio, em cima dos cartoes (07/10/2026; encostada na esquerda sobrava espaco do lado); no celular, a largura toda */
 .funcoes-aba { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 700; font-size: 15px; color: var(--deep2); cursor: pointer; transition: background 0.16s, color 0.16s; }
 .funcoes-aba[aria-selected="true"] { background: var(--deep); color: #fff; }
 @media (hover: hover) { .funcoes-aba[aria-selected="false"]:hover { background: var(--lime-suave); } }
@@ -1908,6 +1917,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .funcao-icone .ico-traco svg { width: 22px; height: 22px; }
 .funcao b { font-family: var(--display); font-size: 16.5px; line-height: 1.25; color: var(--ink); text-wrap: pretty; } /* balance quebrava "Pix e / cartao automaticos" */
 .funcao p { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
+/* o cartao pela letra, igual aos dos "Tres passos" (07/10/2026): a caixa do titulo e do texto vai do topo das maiusculas ate a
+   linha de base, entao 16 em volta, o titulo no meio do icone e o texto 16 abaixo do icone sao o que o olho ve (antes, com a
+   caixa da linha inteira, sobravam uns 21 embaixo e 17 entre o icone e o texto) */
+@supports (text-box: trim-both cap alphabetic) {
+  .funcao b, .funcao p { text-box: trim-both cap alphabetic; }
+  .funcao { gap: 16px; }
+}
 /* as cores dos quadrados: fundo claro e traco escuro do mesmo tom (o verde e o da marca) */
 .funcao.cor-lima { --tinta: #3F6212; --tinta-fundo: #ECF7D9; }
 .funcao.cor-azul { --tinta: #1D4ED8; --tinta-fundo: #E5EEFF; }
@@ -2054,8 +2070,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 340px) { .teste-botoes .btn.btn-contorno { font-size: 14.5px; padding-left: 8px; padding-right: 8px; } } /* vence a regra de 340 logo abaixo (15 px e 12 de lado nao cabia com a letra do iPhone) */
 @media (max-width: 340px) { .teste-banner { padding-left: 12px; padding-right: 12px; } .teste-botoes .btn { font-size: 15px; padding-left: 12px; padding-right: 12px; } }
 /* o mesmo par de botoes no fechamento da pagina: "Quero que montem para mim" numa linha so ate 320 */
-@media (max-width: 380px) { .vender-final .btn-fantasma, .monta-cta { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
-@media (max-width: 340px) { .vender-final .btn-fantasma, .monta-cta { font-size: 15px; padding-left: 12px; padding-right: 12px; } } /* "Quero que montem para mim" numa linha so, igual nos dois lugares */
+@media (max-width: 380px) { .vender-final .btn-fantasma { font-size: 17px; padding-left: 14px; padding-right: 14px; } }
+@media (max-width: 340px) { .vender-final .btn-fantasma { font-size: 15px; padding-left: 12px; padding-right: 12px; } } /* "Quero que montem para mim" numa linha so */
 .planos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .plano-card { position: relative; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: default; }
 /* mensal e anual lado a lado, ate no celular (as partes dos dois na mesma altura, pelo subgrid); o incluso embaixo */
@@ -2160,6 +2176,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-lotado-topo { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 14px 8px; }
 .zap-lotado-topo b { font-size: 18px; font-weight: 700; color: #1DAA61; }
 .zap-lotado-topo span { font-size: 11px; font-weight: 700; color: #1DAA61; }
+.zap-filtros { display: flex; gap: 6px; padding: 6px 14px; }
+.zap-filtro { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 11px; background: #F0F2F5; font-size: 10.5px; font-weight: 600; line-height: 1; color: #54656F; white-space: nowrap; }
+.zap-filtro.ativo { background: #D9FDD3; color: #15803D; }
 .zap-conversa { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid #EEF1EF; }
 .zap-avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; }
 .zap-meio { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -2214,10 +2233,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-link-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zap-link-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; color: #111B21; white-space: nowrap; }
 .zap-link-texto small { font-size: 10.5px; line-height: 1.2; color: #667781; }
-.monta-cta { width: 100%; }
-/* do tamanho do texto so no computador: de 560 a 899 os dois cartoes ficam lado a lado e o botao (309) passava do cartao de cima (278)
-   sem chegar na largura toda: a borda direita nao batia com nada. Ali ele vai na largura toda, como no celular */
-@media (min-width: 900px) { .monta-cta { align-self: flex-start; width: auto; min-width: 280px; padding-left: 28px; padding-right: 28px; } }
 .por-dia { color: var(--deep); }
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
@@ -2422,17 +2437,14 @@ a.selo-google:hover { background: var(--lime-suave); }
   .conta-arranjo.par .conta-loja .conta-grupo-equipe { margin-top: auto; } /* a equipe no pe, na linha dos botoes do plano */
 }
 /* botao flutuante de WhatsApp (paginas de venda) */
-.zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s, opacity 0.2s ease, visibility 0.2s; animation: entrar 0.4s ease-out 0.6s both; }
+.zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s, opacity 0.2s ease, visibility 0.2s; animation: entrar 0.4s ease-out 0.6s backwards; } /* backwards e nao both: depois de entrar a animacao solta o transform (com both ela prendia o botao em transform: none e nem o subir com a barra nem o levantar no mouse funcionavam) */
 .zap-flutuante .zap-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); font-size: 18px; }
-.zap-flutuante .zap-ponto { position: absolute; top: 4px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: #E53935; border: 2px solid #fff; animation: pulsarPonto 1.8s ease-in-out infinite; }
-@keyframes pulsarPonto { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 @media (hover: hover) { .zap-flutuante:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 30px rgba(37, 211, 102, 0.42); } }
 .zap-flutuante:active { transform: scale(0.97); }
 a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um link direto */
 /* o botao do WhatsApp so aparece depois do topo, em toda tela: no celular ficava em cima do "Começar grátis", e no computador
    (desde o cartao "a gente monta", 07/10/2026) em cima do botao do cartao, num notebook de 1366 x 768 */
-.zap-flutuante.no-heroi { opacity: 0; visibility: hidden; pointer-events: none; }
-@media (max-width: 759px) { .zap-flutuante { transition: opacity 0.2s ease, visibility 0.2s; } }
+.zap-flutuante.no-heroi, .zap-flutuante.sobre-botao { opacity: 0; visibility: hidden; pointer-events: none; } /* sobre-botao: enquanto ele cobre um botao da pagina */
 /* barra fixa de chamada no celular */
 .cta-fixa { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); transform: translateY(calc(100% + 24px)); visibility: hidden; transition: transform 0.25s ease-out, visibility 0s linear 0.25s; }
 .cta-fixa.visivel { transform: none; visibility: visible; transition: transform 0.25s ease-out, visibility 0s; } /* sobe e desce deslizando (antes: sumia de vez e voltava com animacao a cada troca) */
@@ -2442,13 +2454,23 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 @media (max-width: 400px) { .cta-fixa b { display: block; } .cta-fixa .cta-sep { display: none; } }
 .cta-fixa .btn { flex: none; }
 @media (prefers-reduced-motion: reduce) { .cta-fixa, .cta-fixa.visivel { transition: none; } }
-/* o botao fica 16 px acima da barra "Comecar gratis" (65 de barra + 16 = 81) mais a faixa de baixo do iPhone, que engorda a barra: com o 84 fixo ele encostava, e com a faixa entrava em cima dela */
-@media (max-width: 759px) { .zap-flutuante { bottom: calc(81px + env(safe-area-inset-bottom)); width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
+/* no celular o botao fica 16 acima do pe (mais a faixa de baixo do iPhone) e, com a barra "Comecar gratis" na tela, sobe junto com ela
+   (65 de barra): 16 acima dela. Antes ficava sempre na altura da barra, e sem ela sobrava um buraco de 81 embaixo */
+@media (max-width: 759px) { .zap-flutuante { bottom: calc(16px + env(safe-area-inset-bottom)); width: 58px; height: 58px; min-height: 0; padding: 0; justify-content: center; } .zap-flutuante .zap-texto { display: none; } .zap-flutuante .zap-icone { width: 100%; height: 100%; background: transparent; font-size: 26px; } }
+@media (max-width: 759px) {
+  .zap-flutuante { transition: opacity 0.2s ease, visibility 0.2s, transform 0.25s ease-out; }
+  .zap-flutuante.com-barra { transform: translateY(-65px); }
+  .zap-flutuante.com-barra:active { transform: translateY(-65px) scale(0.97); } /* apertando, ele nao pula de volta para baixo */
+}
+@media (max-width: 759px) and (prefers-reduced-motion: reduce) { .zap-flutuante { transition: none; } }
 @media (min-width: 760px) { .cta-fixa { display: none; } }
 .texto-legal h1 { font-size: 30px; margin-bottom: 4px; }
 .texto-legal h2 { font-size: 19px; margin-top: 16px; } /* 16 + 8 do gap: 24 antes de cada secao */
 .texto-legal p { color: var(--body); line-height: 1.5; }
 @media (min-width: 560px) { .planos { grid-template-columns: 1fr 1fr; }  .antes-depois { grid-template-columns: 1fr 1fr; }  }
+/* o antes e depois com os celulares fica um embaixo do outro ate o computador: lado a lado no tablet os cartoes ficavam estreitos
+   e a lista quebrava em linhas tortas ("Comprovante de Pix / falso passando") */
+@media (min-width: 560px) and (max-width: 899px) { .antes-depois.com-celular { grid-template-columns: minmax(0, 1fr); } }
 @media (min-width: 900px) {   .teste-banner { grid-template-columns: minmax(0, 1fr) 340px; align-items: center; gap: 40px; padding: 40px 44px; text-align: left; } .teste-banner .teste-texto { align-items: flex-start; } .teste-banner .teste-checks { justify-content: flex-start; } .teste-banner h2 { font-size: 32px; } .teste-banner::after { display: none; } .planos { max-width: 760px; margin: 0 auto; width: 100%; } }
 .calc-entrada, .calc-resultado { display: flex; flex-direction: column; gap: 12px; }
 
@@ -2460,9 +2482,8 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .vender-capa { padding: 56px var(--margem) 24px; display: grid; grid-template-columns: minmax(0, 640px) minmax(320px, 380px); grid-template-rows: 1fr auto auto 1fr;
     grid-template-areas: "texto ." "texto mascote" "texto cartao" "texto ."; column-gap: 48px; row-gap: 0; justify-content: center; align-items: center; text-align: left; }
   .vender-capa > .heroi-texto { grid-area: texto; }
-  .vender-capa > .heroi-mascote-caixa { grid-area: mascote; justify-self: center; margin-bottom: -32px; z-index: 2; }
-  .vender-capa > .cartao-montamos { grid-area: cartao; margin-top: 0; max-width: none; padding: 40px 24px 24px; }
-  .cartao-montamos .contato-avatar { display: none; } /* o mascote grande ja esta em cima do cartao */
+  .vender-capa > .heroi-mascote-caixa { grid-area: mascote; justify-self: center; align-self: end; margin-bottom: -32px; z-index: 2; } /* preso ao pe da linha e o cartao ao topo da dele: o mascote entra sempre 32 no cartao (no meio, ele andava com a altura do texto) */
+  .vender-capa > .cartao-montamos { grid-area: cartao; align-self: start; margin-top: 0; max-width: none; padding: 38.9px 24px 24px; } /* em cima: 16 do fim do desenho do mascote parado (a flutuacao so sobe) ao titulo */
   .heroi-mascote { width: 180px; height: 180px; flex: none; }
   .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
@@ -3502,18 +3523,18 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cartao-montamos .contato-topo-texto h2 { margin: 0; font-family: var(--display); font-size: 18px; line-height: 1.25; color: var(--ink); }
 .cartao-montamos .contato-ok { padding: 8px 0 0; }
 .cartao-montamos .grade-form { grid-template-columns: 1fr; } /* um campo embaixo do outro: lado a lado, o "(13) 99999-9999" encostava na borda (e cortava com a letra do iPhone) */
-/* o cartao no ritmo da letra: com a caixa de cada texto do topo das maiusculas ate a linha de base, o vao da caixa e o vao
-   que o olho ve. 16 entre os blocos (faixa, campos, botao e nota), 8 do rotulo ao campo e do titulo ao apoio, 12 de recuo
-   dentro da faixa. Medido em prints/pente-fino-home/medir_cartao.mjs (antes: 22, 18, 16 e 21 entre os blocos) */
+/* o topo do formulario (07/10/2026, sem a faixa verde): titulo e apoio no proprio cartao, no meio, como nos formularios
+   profissionais. O cartao no ritmo da letra (a caixa de cada texto vai do topo das maiusculas ate a linha de base, entao o vao
+   da caixa e o vao que o olho ve): 24 do topo aos campos, 16 entre os outros blocos (campos, botao e nota), 8 do titulo ao apoio e
+   do rotulo ao campo.
+   Medido em prints/pente-fino-home/medir_formulario.mjs */
+.montamos-topo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 8px; text-align: center; } /* 16 + 8: do topo aos campos, 24 (a troca de secao) */
+.montamos-topo h2 { margin: 0; font-family: var(--display); font-size: 22px; line-height: 1.2; color: var(--ink); text-wrap: balance; }
+.montamos-topo p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--body); text-wrap: balance; } /* quebrando, as duas linhas do mesmo tamanho */
 @supports (text-box: trim-both cap alphabetic) {
-  .cartao-montamos .contato-topo-texto h2, .cartao-montamos .contato-topo-texto span, .cartao-montamos .campo label, .cartao-montamos .contato-seguro { text-box: trim-both cap alphabetic; }
-  .cartao-montamos .contato-topo-texto { gap: 8px; }
+  .montamos-topo h2, .montamos-topo p, .cartao-montamos .campo label, .cartao-montamos .contato-seguro { text-box: trim-both cap alphabetic; }
   .cartao-montamos .grade-form { gap: 16px; }
 }
-.cartao-montamos .contato-topo-texto span { text-wrap: balance; } /* quebrando, as duas linhas do mesmo tamanho (nada de "WhatsApp." sozinho) */
-/* celular: o mascote grande fica no topo da pagina e o mascotinho na faixa do cartao (ele preferiu assim, 07/10/2026: o grande
-   descendo para cima do cartao ficava solto no meio). No computador o grande fica em cima do cartao e o mascotinho some */
-@media (max-width: 359px) { .cartao-montamos .contato-avatar { display: none; } } /* celular estreito: com o mascotinho, o titulo quebrava em 2 linhas e o apoio em 3 */
 
 /* Central: ver e apagar os dados de uma pessoa (LGPD), com as pecas da Central (adm-ico, adm-kpi, adm-lista).
    Ritmo: 16 entre os blocos, 8 entre rotulo e campo; campo e botao com 48, como os botoes da Central */
