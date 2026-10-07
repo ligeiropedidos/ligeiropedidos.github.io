@@ -413,6 +413,10 @@
   }
   conferirVersao(true);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) conferirVersao(false); });
+  /* o site aberto do lado de outra janela (sempre visivel, a aba nunca "volta"): confere quando a janela ganha o foco de novo, no
+     maximo uma vez por minuto (07/10/2026: ficou horas numa versao velha com o navegador do lado do Claude) */
+  var conferiuNoFoco = 0;
+  window.addEventListener('focus', function () { if (Date.now() - conferiuNoFoco > 60000) { conferiuNoFoco = Date.now(); conferirVersao(false); } });
   setInterval(function () { if (!document.hidden) conferirVersao(false); }, 30 * 60 * 1000);
 
   limparEndereco();
