@@ -364,9 +364,71 @@
       return [el('span', { class: 'oculto-visual', text: palavras.join(' ou ') }), caixa];
     }
 
+    /* O cartao "a gente monta" do topo (07/10/2026, ideia do formulario do Anota AI, em versao curta): 3 campos, sem login,
+       e o contato cai na Central (aba Contatos) como o "Fale com a gente". Dono de loja quase nunca se cadastra sozinho; deixar
+       o WhatsApp para a gente montar e o caminho que mais converte. Sem salvar (internet, limite do banco), o contato vai pronto
+       pelo WhatsApp do Ligeiro: nada se perde */
+    function cartaoMontamos() {
+      var c = cfg();
+      var cartao = el('section', { class: 'cartao-montamos', 'aria-labelledby': 'montamosTitulo' });
+      var f = {
+        nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
+        whatsapp: campoSimples('Seu WhatsApp', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', autocomplete: 'tel' }),
+        loja: campoSimples('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', autocomplete: 'organization' }),
+      };
+      UI.mascaraTelefone(f.whatsapp.input);
+      function enviar() {
+        var nome = f.nome.input.value.trim();
+        var whatsapp = f.whatsapp.input.value.replace(/\D/g, '');
+        var loja = f.loja.input.value.trim();
+        if (whatsapp.length > 11 && whatsapp.indexOf('55') === 0) whatsapp = whatsapp.slice(2);
+        if (nome.length < 2) { UI.avisar('Digite seu nome.'); f.nome.input.focus(); return; }
+        if (whatsapp.length < 10) { UI.avisar('Digite o WhatsApp com DDD.'); f.whatsapp.input.focus(); return; }
+        if (loja.length < 2) { UI.avisar('Digite o nome da loja.'); f.loja.input.focus(); return; }
+        var soltar = UI.ocupar(botao, 'Enviando…');
+        if (!soltar) return;
+        var texto = ['Oi! Quero a minha loja pronta no Ligeiro.', 'Nome: ' + nome, 'WhatsApp: ' + f.whatsapp.input.value, 'Loja: ' + loja].join('\n');
+        D().store.salvarLead({ nome: nome, whatsapp: whatsapp, loja: loja, cidade: '', uf: '', origem: 'home-cartao', pagina: '#/' + window.LigeiroApp.rota() + ' [' + (window.LigeiroVariante || 'ifood') + ']' })
+          .then(function () {
+            if (window.LigeiroMeta) window.LigeiroMeta.evento('Lead');
+            UI.soar('sucesso');
+            /* o cartao vira a confirmacao, com o numero para a pessoa conferir e o WhatsApp para quem quer falar ja */
+            UI.limpar(cartao);
+            cartao.classList.add('enviado');
+            cartao.appendChild(el('div', { class: 'contato-ok', role: 'status' }, [
+              el('span', { class: 'contato-ok-marca', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]),
+              el('b', { text: 'Recebemos, ' + nome.split(/\s+/)[0] + '!' }),
+              el('span', { text: 'A gente chama você no WhatsApp ' + f.whatsapp.input.value + ' em breve.' }),
+            ]));
+            if (c.whatsappLigeiro) cartao.appendChild(el('a', { class: 'btn btn-whats btn-largo', href: linkWhats(texto), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Falar agora no WhatsApp']));
+          })
+          .catch(function (e) {
+            soltar();
+            if (c.whatsappLigeiro && !cartao.querySelector('.contato-falhou')) {
+              cartao.insertBefore(el('a', { class: 'btn btn-whats btn-largo contato-falhou', href: linkWhats(texto), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar pelo WhatsApp']), seguro);
+              UI.avisar('Não deu para salvar agora. Toque em Mandar pelo WhatsApp que a gente anota.');
+            } else UI.avisar(D().erroAmigavel(e, 'Não deu para enviar. Tente de novo.'));
+          });
+      }
+      var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: enviar, text: 'Quero minha loja pronta' });
+      var seguro = el('p', { class: 'contato-seguro' }, [UI.iconeLinha('cadeado'), 'Sem compromisso. Seu número só é usado para a gente falar com você.']);
+      [f.nome, f.whatsapp, f.loja].forEach(function (x) { x.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } }); });
+      cartao.appendChild(el('div', { class: 'contato-topo' }, [
+        el('span', { class: 'contato-avatar', 'aria-hidden': 'true' }, [el('img', { src: 'img/mascote-192.webp', alt: '', width: '48', height: '48' }), el('span', { class: 'contato-online' })]),
+        el('div', { class: 'contato-topo-texto' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('span', { text: 'A gente monta para você e chama no seu WhatsApp.' })]),
+      ]));
+      cartao.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja]));
+      cartao.appendChild(botao);
+      cartao.appendChild(seguro);
+      return cartao;
+    }
+
     /* ---------- heroi ---------- */
     var porCardapio = window.LigeiroVariante === 'cardapio';
     var seloLojas = el('span', { class: 'selo', hidden: true });
+    /* os selos do topo: o de fundador (so com vaga) e o de lojas (so com 5 ou mais). Sem nenhum, a linha some (senao ficava o vao) */
+    var seloFund = seloFundador();
+    var selosTopo = el('div', { class: 'vender-selos', hidden: !seloFund }, [seloFund, seloLojas]);
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
@@ -383,21 +445,16 @@
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
         el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio ou catálogo, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
         botoesChamada(true, true),
-        el('div', { class: 'vender-selos' }, [
-          /* quem nao quer fazer sozinho chama no WhatsApp com a mensagem pronta (e o caminho que mais converte para dono de loja) */
-          cfg().whatsappLigeiro
-            ? el('a', { class: 'selo selo-acao', href: linkWhats('Oi! Quero que o Ligeiro monte a minha loja.'), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('check'), 'A gente monta para você', UI.iconeLinha('avancar')])
-            : el('span', { class: 'selo' }, [UI.iconeLinha('check'), 'A gente monta para você']),
-          seloFundador(),
-          seloLojas,
-        ]),
+        /* o "a gente monta para voce" virou o cartao ao lado (no celular, logo abaixo): o selo do WhatsApp saiu daqui */
+        selosTopo,
       ]),
+      cartaoMontamos(),
     ]);
     raiz.appendChild(capa);
     /* prova social de verdade: so aparece quando tem loja suficiente pra impressionar */
     if (D() && D().store.listarCidades) D().store.listarCidades().then(function (cidades) {
       var total = cidades.reduce(function (n, c) { return n + (c.lojas || 0); }, 0);
-      if (total >= 5) { seloLojas.textContent = total + ' lojas em ' + cidades.length + (cidades.length === 1 ? ' cidade' : ' cidades'); seloLojas.hidden = false; }
+      if (total >= 5) { seloLojas.textContent = total + ' lojas em ' + cidades.length + (cidades.length === 1 ? ' cidade' : ' cidades'); seloLojas.hidden = false; selosTopo.hidden = false; }
     }).catch(function () { /* sem lista, sem selo */ });
 
     /* a capa pinta sozinha no primeiro quadro (e o que se ve ao abrir); o resto da pagina e o rodape aparecem no quadro

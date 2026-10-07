@@ -1674,13 +1674,14 @@ a.selo-google:hover { background: var(--lime-suave); }
 .comparativo { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
 .tabela-concorrentes { min-width: 480px; }
-.tabela-concorrentes th, .tabela-concorrentes td { padding: 12px 16px; } /* o texto a 16 da borda, como nos cartoes da pagina */
+.tabela-concorrentes th, .tabela-concorrentes td { padding: 12px 16px; vertical-align: top; } /* o texto a 16 da borda, como nos cartoes da pagina; linha que quebra comeca no topo, como as outras */
 .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: nowrap; }
 .tabela-concorrentes td:first-child b { white-space: nowrap; } /* nome do concorrente inteiro ("Delivery Direto") */
 .tabela-concorrentes tr.destaque td { background: var(--lime-suave); }
 .tabela-concorrentes tr.destaque td:first-child { box-shadow: inset 4px 0 0 var(--lime); }
-@media (max-width: 520px) {
-  /* no celular a tabela vira lista: nome em cima, preco e comissao embaixo, sem rolagem lateral */
+@media (max-width: 759px) {
+  /* no celular e no tablet a tabela vira lista: nome em cima, preco e comissao embaixo, sem rolagem lateral (o limite era 520: de
+     521 a 759 a tabela rolava de lado e as linhas ficavam altas, com vao em cima) */
   .comparativo .rolagem { overflow: visible; background: var(--card); border: 1px solid var(--line); }
   .tabela-concorrentes { min-width: 0; border: 0; }
   .tabela-concorrentes thead { display: none; }
@@ -2249,14 +2250,17 @@ a.selo-google:hover { background: var(--lime-suave); }
   .conta-arranjo.par .conta-loja .conta-grupo-equipe { margin-top: auto; } /* a equipe no pe, na linha dos botoes do plano */
 }
 /* botao flutuante de WhatsApp (paginas de venda) */
-.zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s; animation: entrar 0.4s ease-out 0.6s both; }
+.zap-flutuante { position: fixed; right: calc(16px + var(--trava, 0px)); bottom: 16px; z-index: 80; display: inline-flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 18px 10px 12px; border: 0; border-radius: 999px; background: var(--whats); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px; box-shadow: 0 10px 24px rgba(37, 211, 102, 0.35); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s, opacity 0.2s ease, visibility 0.2s; animation: entrar 0.4s ease-out 0.6s both; }
 .zap-flutuante .zap-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); font-size: 18px; }
 .zap-flutuante .zap-ponto { position: absolute; top: 4px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: #E53935; border: 2px solid #fff; animation: pulsarPonto 1.8s ease-in-out infinite; }
 @keyframes pulsarPonto { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 @media (hover: hover) { .zap-flutuante:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 30px rgba(37, 211, 102, 0.42); } }
 .zap-flutuante:active { transform: scale(0.97); }
 a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um link direto */
-@media (max-width: 759px) { .zap-flutuante { transition: opacity 0.2s ease, visibility 0.2s; } .zap-flutuante.no-heroi { opacity: 0; visibility: hidden; pointer-events: none; } }
+/* o botao do WhatsApp so aparece depois do topo, em toda tela: no celular ficava em cima do "Começar grátis", e no computador
+   (desde o cartao "a gente monta", 07/10/2026) em cima do botao do cartao, num notebook de 1366 x 768 */
+.zap-flutuante.no-heroi { opacity: 0; visibility: hidden; pointer-events: none; }
+@media (max-width: 759px) { .zap-flutuante { transition: opacity 0.2s ease, visibility 0.2s; } }
 /* barra fixa de chamada no celular */
 .cta-fixa { position: fixed; left: 0; right: var(--trava, 0px); bottom: 0; z-index: 70; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--margem); padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(14, 31, 20, 0.1); font-size: 14.5px; color: var(--body); transform: translateY(calc(100% + 24px)); visibility: hidden; transition: transform 0.25s ease-out, visibility 0s linear 0.25s; }
 .cta-fixa.visivel { transform: none; visibility: visible; transition: transform 0.25s ease-out, visibility 0s; } /* sobe e desce deslizando (antes: sumia de vez e voltava com animacao a cada troca) */
@@ -2279,13 +2283,20 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* Computador: a pagina de vendas ganha colunas em vez de esticar a coluna do celular */
 
 @media (min-width: 900px) {
-  .vender-capa { padding: 56px var(--margem) 24px; flex-direction: row-reverse; justify-content: center; align-items: center; gap: 48px; text-align: left; }
-  .heroi-mascote { width: 340px; height: 340px; flex: none; }
+  /* texto a esquerda; a direita o mascote e, embaixo dele, o cartao "a gente monta" (as linhas de 1fr centram a coluna da
+     direita na altura do texto) */
+  .vender-capa { padding: 56px var(--margem) 24px; display: grid; grid-template-columns: minmax(0, 640px) minmax(320px, 380px); grid-template-rows: 1fr auto auto 1fr;
+    grid-template-areas: "texto ." "texto mascote" "texto cartao" "texto ."; column-gap: 48px; row-gap: 0; justify-content: center; align-items: center; text-align: left; }
+  .vender-capa > .heroi-texto { grid-area: texto; }
+  .vender-capa > .heroi-mascote-caixa { grid-area: mascote; justify-self: center; margin-bottom: -32px; z-index: 2; }
+  .vender-capa > .cartao-montamos { grid-area: cartao; margin-top: 0; max-width: none; padding: 40px 24px 24px; }
+  .cartao-montamos .contato-avatar { display: none; } /* o mascote grande ja esta em cima do cartao */
+  .heroi-mascote { width: 180px; height: 180px; flex: none; }
   .heroi-texto { align-items: flex-start; text-align: left; max-width: 640px; gap: 24px; }
   .heroi-texto .chamada { max-width: 420px; }
-  .heroi-texto .vender-selos { justify-content: flex-start; }
-  .heroi-texto .garantia-botao { text-align: left; }
-  .heroi-texto .link-loja-real { justify-content: flex-start; } /* coluna alinhada a esquerda: o link nao fica centrado no meio dela */
+  /* o bloco dos botoes ocupa a coluna inteira e o texto dos botoes fica no meio: o que vem entre e embaixo deles (a frase,
+     o link e os selos) segue o mesmo eixo, como no celular (07/10/2026; antes ficava encostado a esquerda) */
+  .heroi-texto .vender-selos { justify-content: center; width: 100%; max-width: 420px; }
   .vender-titulo { font-size: 44px; max-width: 640px; }
   .vender-sub { font-size: 19px; max-width: 560px; } .vender-oferta { font-size: 26px; max-width: 640px; }
   .vender { width: 100%; max-width: 1060px; margin: 0 auto; gap: 40px; } /* PC: 40 antes de cada secao (a regua do PC) */
@@ -3311,6 +3322,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .contato-ok b { font-family: var(--display); font-size: 22px; color: var(--ink); }
 .contato-ok-marca { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 50%; background: var(--lime); color: var(--texto-no-destaque); display: inline-flex; align-items: center; justify-content: center; }
 .contato-ok-marca .ico-traco svg { width: 32px; height: 32px; }
+/* o cartao "a gente monta" do topo da pagina de vendas (07/10/2026): as pecas do "Fale com a gente" num cartao.
+   Celular: logo abaixo do texto (16 do vao + 8 = 24). Computador: na coluna da direita, com o mascote por cima */
+.cartao-montamos { width: 100%; max-width: 440px; margin-top: 8px; display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 12px 32px rgba(15, 61, 46, 0.08); text-align: left; }
+.cartao-montamos .contato-topo-texto h2 { margin: 0; font-family: var(--display); font-size: 18px; line-height: 1.25; color: var(--ink); }
+.cartao-montamos .contato-ok { padding: 8px 0 0; }
+.cartao-montamos .grade-form { grid-template-columns: 1fr; } /* um campo embaixo do outro: lado a lado, o "(13) 99999-9999" encostava na borda (e cortava com a letra do iPhone) */
 
 /* Central: ver e apagar os dados de uma pessoa (LGPD), com as pecas da Central (adm-ico, adm-kpi, adm-lista).
    Ritmo: 16 entre os blocos, 8 entre rotulo e campo; campo e botao com 48, como os botoes da Central */
