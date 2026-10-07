@@ -574,22 +574,10 @@
       ]),
     ]));
 
-    /* ---------- o que vem ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
-      el('div', { class: 'kicker', text: 'O que o Ligeiro faz por você' }),
-      el('h2', { text: 'Do pedido ao Pix, sem você digitar nada' }),
-      el('div', { class: 'vender-grade' }, [
-        item('link', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'),
-        item('dinheiro', 'Pix e cartão automáticos', 'Pelo Mercado Pago: o cliente paga no Pix ou no cartão de crédito e o pedido já cai pago no painel. Sem conferir comprovante.'),
-        item('sino', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'),
-        item('camera', 'Até 3 fotos por item', 'A principal na lista e mais duas (costas, detalhe, o prato servido): o cliente desliza para ver.'),
-        item('fogo', 'Oferta por tempo limitado', 'Um foguinho com quanto falta e o preço antigo riscado. Na hora marcada, o preço volta sozinho.'),
-        item('caixa', 'Estoque e tamanhos', 'Cada tamanho com o seu preço e a sua quantidade. Esgotou, o site avisa e ninguém consegue pedir.'),
-        item('chef', 'Cozinha, separação e entregador', 'Uma tela para quem prepara e outra para o motoboy, com mapa e o que cobrar.'),
-        item('imprimir', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'),
-        item('vendas', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'),
-      ]),
-    ]));
+    /* ---------- o que vem: as funcoes em abas (07/10/2026, como as abas do Anota AI): 3 assuntos com 4 cartoes cada, icone
+       em quadrado colorido com o titulo do lado. 4 por aba: 2 x 2 no tablet e 4 numa linha no PC (com 9 soltos, um sobrava
+       sozinho na largura toda). So o que o Ligeiro tem de verdade ---------- */
+    corpo.appendChild(secaoFuncoes());
 
     /* ---------- a gente monta: o que a pessoa manda e o que recebe (sem tempo de montar nao e motivo para ficar de fora) ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco' }, [
@@ -659,6 +647,7 @@
         duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, pela autorização oficial deles: o Ligeiro recebe só uma permissão limitada para criar os pagamentos da sua loja, nunca a sua senha. O dinheiro cai direto na sua conta, e você desconecta quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('E o cartão de crédito pelo site?', 'Vem da mesma conexão: o cliente digita o cartão no formulário seguro do Mercado Pago e o pedido já cai pago. A taxa é do Mercado Pago, cerca de 5% por venda, e você pode repassar ao cliente.'),
         duvida('Serve para loja de roupa ou outro comércio?', 'Serve. No cadastro você escolhe o tipo (roupas, calçados, presentes, pet shop e outros) e o site vira um catálogo: até 3 fotos por peça, tamanho com preço próprio (o GG pode custar mais), estoque que avisa quando restam poucas e tira do site o que esgotou, e uma tela de separação no lugar da cozinha.'),
+        duvida('Serve para entrega e para retirada?', 'Serve. Na hora de pedir, o cliente escolhe: entrega no endereço, com a taxa que você definir, ou retirada na loja.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: toca no item, escolhe e paga. E quem chamar no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business, sem você digitar nada.'),
         duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que olhamos em setembro de 2026 costumam limitar os pedidos por mês (de 30 a 65, em vários) e cobrar por pedido a mais ou parar de receber. No Ligeiro o pedido é ilimitado e o Pix cai confirmado sozinho. Você testa ' + pr.diasGratis + ' dias com tudo liberado, sem cartão, e só paga se compensar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'O Ligeiro não pede CNPJ para criar a loja. O dinheiro do Pix e do cartão cai na sua conta do Mercado Pago, que tem as próprias regras para abrir a conta.'),
@@ -1044,9 +1033,57 @@
       el('ul', { class: 'segmento-tipos', 'aria-label': 'Tipos de loja de ' + titulo.toLowerCase() }, tipos.map(function (x) { return el('li', { text: x }); }).concat([el('li', { class: 'e-outros', text: 'e outros' })])),
     ]);
   }
-  function item(icone, titulo, texto) {
-    return el('div', { class: 'cartao item-venda' }, [el('span', { class: 'icone' }, [UI.iconeLinha(icone)]), el('b', { text: titulo }), el('p', { text: texto })]);
+  /* As funcoes da pagina de vendas em abas. Cada cartao: [icone, cor do quadrado, titulo, texto] */
+  var FUNCOES = [
+    { aba: 'Vendas', itens: [
+      ['link', 'lima', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede em um minuto, sem cadastro.'],
+      ['dinheiro', 'azul', 'Pix e cartão automáticos', 'Pelo Mercado Pago: o cliente paga no Pix ou no cartão e o pedido já cai pago no painel. Sem conferir comprovante.'],
+      ['fogo', 'laranja', 'Oferta por tempo limitado', 'Um foguinho com quanto falta e o preço antigo riscado. Na hora marcada, o preço volta sozinho.'],
+      ['cupom', 'roxo', 'Cupom de desconto', 'Você cria o código, a porcentagem e o limite de usos. O site confere sozinho na hora do pedido.'],
+    ] },
+    { aba: 'Pedidos', itens: [
+      ['sino', 'laranja', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'],
+      ['chef', 'lima', 'Cozinha, separação e entregador', 'Uma tela para quem prepara e outra para o motoboy, com mapa e o que cobrar.'],
+      ['imprimir', 'azul', 'Impressão automática', 'A ficha sai sozinha na impressora que você já tem.'],
+      ['celular', 'roxo', 'Cliente acompanha pela senha', 'Depois de pedir, ele vê a senha e cada etapa do pedido, sem precisar perguntar no WhatsApp.'],
+    ] },
+    { aba: 'Gestão', itens: [
+      ['caixa', 'azul', 'Estoque e tamanhos', 'Cada tamanho com o seu preço e a sua quantidade. Esgotou, o site avisa e ninguém consegue pedir.'],
+      ['camera', 'roxo', 'Até 3 fotos por item', 'A principal na lista e mais duas: o cliente desliza para ver.'],
+      ['lapis', 'lima', 'Cardápio sempre em dia', 'Mudou um preço ou acabou um item? Você muda no painel e o site já mostra.'],
+      ['vendas', 'laranja', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'],
+    ] },
+  ];
+  function secaoFuncoes() {
+    var abas = [], paineis = [];
+    function escolher(i, foco) {
+      abas.forEach(function (a, k) { a.setAttribute('aria-selected', k === i ? 'true' : 'false'); a.tabIndex = k === i ? 0 : -1; });
+      paineis.forEach(function (p, k) { p.hidden = k !== i; });
+      if (foco) abas[i].focus();
+    }
+    FUNCOES.forEach(function (f, i) {
+      var idAba = 'funcoesAba' + i, idPainel = 'funcoesPainel' + i;
+      abas.push(el('button', { class: 'funcoes-aba', type: 'button', role: 'tab', id: idAba, 'aria-controls': idPainel, 'aria-selected': i === 0 ? 'true' : 'false', tabindex: i === 0 ? '0' : '-1', text: f.aba,
+        onclick: function () { escolher(i, false); },
+        onkeydown: function (e) {
+          /* setas trocam de aba (o padrao das abas): da ultima volta para a primeira */
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); escolher((i + (e.key === 'ArrowRight' ? 1 : FUNCOES.length - 1)) % FUNCOES.length, true); }
+        } }));
+      paineis.push(el('div', { class: 'funcoes-painel', role: 'tabpanel', id: idPainel, 'aria-labelledby': idAba, hidden: i !== 0 }, f.itens.map(function (x) {
+        return el('div', { class: 'funcao cor-' + x[1] }, [
+          el('div', { class: 'funcao-topo' }, [el('span', { class: 'funcao-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(x[0])]), el('b', { text: x[2] })]),
+          el('p', { text: x[3] }),
+        ]);
+      })));
+    });
+    return el('section', { class: 'vender-bloco funcoes' }, [
+      el('div', { class: 'kicker', text: 'O que o Ligeiro faz por você' }),
+      el('h2', { text: 'Do pedido ao Pix, sem você digitar nada' }),
+      el('p', { class: 'muted', text: 'Tudo isso já vem no mesmo plano, sem comissão. Toque nos assuntos para ver.' }),
+      el('div', { class: 'funcoes-abas', role: 'tablist', 'aria-label': 'Funções do Ligeiro' }, abas),
+    ].concat(paineis));
   }
+
   /* Comparativo com os concorrentes. Valores publicos conferidos em setembro de 2026 (sites e blogs do setor). */
   function tabelaConcorrentes(pr) {
     var linhas = [

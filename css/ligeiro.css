@@ -1789,7 +1789,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .vender-bloco { display: flex; flex-direction: column; gap: 12px; }
 .vender-bloco > * { margin: 0; }
 .vender-bloco .kicker { font-size: 12.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--deep2); font-weight: 700; margin-bottom: -4px; } /* 8 ate o titulo, como o selo da Loja do Ligeiro */
-.vender-bloco h2 { font-size: 24px; line-height: 1.15; }
+.vender-bloco h2, .vender-final h2 { font-size: 24px; line-height: 1.15; } /* o titulo do fechamento no mesmo tamanho dos outros (era 22) */
 .vender-bloco > .cartao { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .vender-bloco > .cartao > * { margin: 0; }
 .vender-bloco > .cartao b { display: block; font-family: var(--display); font-size: 18px; }
@@ -1816,6 +1816,30 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passo-venda .n { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--deep); color: var(--lime); font-family: var(--display); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .passo-venda b { display: block; font-family: var(--display); font-size: 18px; margin-bottom: 4px; }
 .passo-venda p { color: var(--body); font-size: 15px; }
+/* As funcoes em abas (07/10/2026, como as do Anota AI): o seletor de assunto e 4 cartoes com o icone num quadrado colorido e
+   o titulo do lado. 1 coluna no celular, 2 x 2 no tablet, 4 numa linha no computador */
+.funcoes-abas { display: flex; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; }
+.funcoes-aba { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 700; font-size: 15px; color: var(--deep2); cursor: pointer; transition: background 0.16s, color 0.16s; }
+.funcoes-aba[aria-selected="true"] { background: var(--deep); color: #fff; }
+@media (hover: hover) { .funcoes-aba[aria-selected="false"]:hover { background: var(--lime-suave); } }
+.funcoes-aba:focus-visible { outline: 2px solid var(--lime-escuro); outline-offset: 2px; }
+@media (max-width: 559px) { .funcoes-abas { width: 100%; } .funcoes-aba { flex: 1 1 0; padding: 0 8px; } }
+.funcoes-painel { display: grid; grid-template-columns: 1fr; gap: 12px; animation: entrar 0.3s ease-out both; }
+@media (min-width: 560px) { .funcoes-painel { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .funcoes-painel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.funcao { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s; }
+@media (hover: hover) { .funcao:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(14, 31, 20, 0.1); } }
+.funcao-topo { display: flex; align-items: center; gap: 12px; }
+.funcao-icone { flex: none; width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--tinta-fundo); color: var(--tinta); }
+.funcao-icone .ico-traco svg { width: 22px; height: 22px; }
+.funcao b { font-family: var(--display); font-size: 16.5px; line-height: 1.25; color: var(--ink); text-wrap: pretty; } /* balance quebrava "Pix e / cartao automaticos" */
+.funcao p { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
+/* as cores dos quadrados: fundo claro e traco escuro do mesmo tom (o verde e o da marca) */
+.funcao.cor-lima { --tinta: #3F6212; --tinta-fundo: #ECF7D9; }
+.funcao.cor-azul { --tinta: #1D4ED8; --tinta-fundo: #E5EEFF; }
+.funcao.cor-laranja { --tinta: #B45309; --tinta-fundo: #FFF0DC; }
+.funcao.cor-roxo { --tinta: #6D28D9; --tinta-fundo: #F0E8FF; }
+@media (prefers-reduced-motion: reduce) { .funcoes-painel { animation: none; } .funcao, .funcoes-aba { transition: none; } }
 .vender-grade { display: grid; grid-template-columns: 1fr; gap: 10px; }
 @media (min-width: 560px) { .vender-grade { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; } } /* lado a lado: todas as linhas da altura da mais alta */
 .item-venda { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
@@ -2045,7 +2069,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .antes-depois .manda { background: var(--card); border-color: var(--line); color: var(--ink); }
 .antes-depois .manda p .ico-traco { color: var(--deep2); }
 .monta-cta { width: 100%; }
-@media (min-width: 560px) { .monta-cta { align-self: flex-start; width: auto; min-width: 280px; padding-left: 28px; padding-right: 28px; } }
+/* do tamanho do texto so no computador: de 560 a 899 os dois cartoes ficam lado a lado e o botao (309) passava do cartao de cima (278)
+   sem chegar na largura toda: a borda direita nao batia com nada. Ali ele vai na largura toda, como no celular */
+@media (min-width: 900px) { .monta-cta { align-self: flex-start; width: auto; min-width: 280px; padding-left: 28px; padding-right: 28px; } }
 .por-dia { color: var(--deep); }
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
