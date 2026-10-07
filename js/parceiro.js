@@ -556,7 +556,7 @@
       el('div', { class: 'kicker', text: 'Como funciona' }),
       el('h2', { text: 'Três passos, e o pedido cai' }),
       el('div', { class: 'passos-venda' }, [
-        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio ou o catálogo já vem montado para o seu tipo de loja; você só ajusta os preços. Se preferir, a gente monta para você, com as fotos que você já tem.', 'lima', cenaPassoLoja()),
+        passo('1', 'Sua loja nasce em 3 minutos', 'Nome, WhatsApp e frete. O cardápio ou o catálogo já vem montado para o seu tipo de loja; você só ajusta os preços.', 'lima', cenaPassoLoja()),
         passo('2', 'Você espalha o link', 'Bio do Instagram, status e saudação automática do WhatsApp, QR no balcão. Quem pede uma vez, pede de novo pelo link.', 'azul', cenaPassoLink()),
         passo('3', 'O pedido cai apitando', 'No seu celular ou no computador do caixa, com número, itens, endereço com referência e o pagamento já conferido para você.', 'laranja', cenaPassoAviso()),
       ]),
@@ -1030,11 +1030,12 @@
   }
 
   /* ---------- pecas ---------- */
-  /* um passo do "como funciona": a cena desenhada em cima (na cor do passo) e o numero, o titulo e o texto embaixo */
+  /* um passo do "como funciona": a cena desenhada em cima (na cor do passo) e, embaixo, o numero e o titulo numa linha e o texto
+     na largura toda (como nos cartoes de "O que o Ligeiro faz") */
   function passo(n, titulo, texto, cor, cena) {
     return el('div', { class: 'passo-venda cor-' + cor }, [
       el('div', { class: 'passo-cena', 'aria-hidden': 'true' }, cena),
-      el('div', { class: 'passo-corpo' }, [el('span', { class: 'n', text: n }), el('div', {}, [el('b', { text: titulo }), el('p', { text: texto })])]),
+      el('div', { class: 'passo-corpo' }, [el('span', { class: 'n', text: n }), el('b', { text: titulo }), el('p', { text: texto })]),
     ]);
   }
   /* As cenas dos passos (desenhadas, na letra do celular, como a conversa do "a gente monta" e com a mesma loja de exemplo).

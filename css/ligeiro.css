@@ -1813,11 +1813,21 @@ a.selo-google:hover { background: var(--lime-suave); }
 .calc-fonte { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 .passos-venda { display: flex; flex-direction: column; gap: 12px; }
 .passo-venda { display: flex; flex-direction: column; overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
-.passo-corpo { display: flex; gap: 14px; padding: 14px 16px; }
+/* o corpo do passo pela regua, medido na letra (text-box: a caixa do texto vai da altura das maiusculas a linha de base): 16 em
+   volta; o numero e o titulo numa linha (o titulo no meio do numero, 12 entre eles) e o texto na largura toda, 12 abaixo do
+   numero. Igual aos cartoes de "O que o Ligeiro faz", no celular e no computador (no computador, 8 do titulo ao texto ficava
+   menor que o espaco entre as linhas do proprio texto) */
+.passo-corpo { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 12px; padding: 16px; }
+.passo-corpo p { grid-column: 1 / -1; margin: 0; }
 .passo-venda .n { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--deep); color: var(--lime); font-family: var(--display); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.passo-venda b { display: block; font-family: var(--display); font-size: 18px; margin-bottom: 4px; }
+.passo-venda b { display: block; font-family: var(--display); font-size: 18px; line-height: 1.2; }
 .passo-venda p { color: var(--body); font-size: 15px; text-wrap: pretty; }
 .passo-venda b { text-wrap: balance; } /* sem palavra sozinha na ultima linha ("minutos" no 320) */
+@supports (text-box: trim-both cap alphabetic) {
+  .passo-corpo b, .passo-corpo p { text-box: trim-both cap alphabetic; }
+  /* o numero no meio do quadrado pela tinta (o flex centraliza a linha inteira, com o espaco de baixo das letras) */
+  .passo-venda .n { display: block; box-sizing: border-box; line-height: 1; text-align: center; text-box: trim-both cap alphabetic; padding-top: calc((40px - 1cap) / 2); }
+}
 /* as cenas dos passos (07/10/2026): um desenho pequeno em cima de cada passo, no fundo da cor dele (as cores das funcoes), na letra
    do celular e com a mesma loja de exemplo da conversa do "a gente monta". 160 de altura: o desenho maior (o cardapio) com 16 de
    folga em cima e embaixo */
@@ -2456,7 +2466,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .vender-calc { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .passos-venda { flex-direction: row; align-items: stretch; }
   .passo-venda { flex: 1; }
-  .passo-corpo { flex-direction: column; gap: 12px; }
+  .passo-corpo { align-content: start; } /* lado a lado: o texto comeca na mesma altura nos tres (a linha do numero tem 40 mesmo com o titulo em duas linhas) */
   .vender-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } /* 6 cartoes: 3 x 2 no computador, 2 x 3 no celular */
   .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .duvida { align-self: start; }
