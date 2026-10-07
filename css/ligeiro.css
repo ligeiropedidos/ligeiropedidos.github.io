@@ -2478,6 +2478,11 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .adm-capacidade-situacao { grid-area: situacao; font-size: 14px; color: var(--deep2); white-space: nowrap; }
 .adm-capacidade-nota { grid-area: nota; font-size: 13px; line-height: 1.4; color: var(--muted); margin-top: -4px; }
 .adm-capacidade-acoes { grid-area: acoes; display: flex; gap: 12px; flex-wrap: wrap; }
+/* o aviso do indice do banco (so quando falta): faixa propria entre a nota e as acoes */
+.adm-capacidade.com-indice { grid-template-areas: "texto barra situacao" "nota nota nota" "indice indice indice" "acoes acoes acoes"; }
+.adm-capacidade-indice { grid-area: indice; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; font-size: 14px; line-height: 1.4; color: var(--deep2); }
+.adm-capacidade-indice span { flex: 1 1 260px; min-width: 0; }
+.adm-capacidade-indice .btn { flex: none; }
 .adm-capacidade.perto { background: #FFF4E5; border-color: #F7D2B8; }
 .adm-capacidade.perto .adm-capacidade-barra i { background: var(--orange); }
 .adm-capacidade.cheio { background: var(--erro-suave); border-color: #F3B8B0; }
@@ -2488,7 +2493,9 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .adm-luz.ok i { background: var(--lime-escuro); box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.25); }
 .adm-luz.fora i { background: var(--erro); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.2); }
 @media (max-width: 900px) { .adm-capacidade { grid-template-columns: minmax(0, 1fr); grid-template-areas: "texto" "barra" "situacao" "nota" "acoes"; } .adm-capacidade-texto, .adm-capacidade-situacao { white-space: normal; } }
+@media (max-width: 900px) { .adm-capacidade.com-indice { grid-template-areas: "texto" "barra" "situacao" "nota" "indice" "acoes"; } }
 @media (max-width: 480px) { .adm-capacidade-acoes .btn { flex: 1 1 0; min-width: 0; white-space: nowrap; } }
+@media (max-width: 480px) { .adm-capacidade-indice .btn { flex: 1 1 100%; } }
 @media (max-width: 400px) { .adm-capacidade-acoes .btn { flex-basis: 100%; } } /* tela pequena: um botao por linha, texto inteiro */
 .adm-fundadores-livres { grid-area: livres; font-size: 14px; color: #6B4A00; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {

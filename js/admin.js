@@ -441,16 +441,18 @@
       var situacao = n == null ? 'Somando os pedidos de hoje…' : (pct >= 70 ? 'Hora de subir o plano do banco' : pct + '% do que cabe no plano grátis');
       var b = estado.borda;
       var textoLuz = b === 'ok' ? 'funcionando' : (b === 'fora' ? 'fora do ar, o site está usando o Firebase' : (b === 'demo' ? 'não se aplica na demonstração' : 'conferindo…'));
-      return el('div', { class: 'adm-capacidade adm-sistema' + classe }, [
+      var linkIndice = estado.indiceHoje && /^https:\/\/console\.firebase\.google\.com\//.test(estado.indiceHoje) ? estado.indiceHoje : '';
+      return el('div', { class: 'adm-capacidade adm-sistema' + classe + (linkIndice ? ' com-indice' : '') }, [
         el('div', { class: 'adm-capacidade-texto' }, ['Pedidos hoje no banco: ', el('b', { text: n == null ? '…' : n.toLocaleString('pt-BR') + ' de ~' + cabe.toLocaleString('pt-BR') })]),
         el('div', { class: 'adm-capacidade-barra', role: 'progressbar', 'aria-label': 'Uso do banco hoje', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct) }, el('i', { style: { width: pct + '%' } })),
         el('div', { class: 'adm-capacidade-situacao', text: situacao }),
         el('div', { class: 'adm-capacidade-nota', text: 'Todos os pedidos de hoje, de todas as lojas. Passando de 70% em algum dia, é hora de subir o plano do banco.' }),
-        /* falta o indice que deixa a soma do dia quase de graca: o link vem do proprio banco (console do Firebase) */
-        estado.indiceHoje && /^https:\/\/console\.firebase\.google\.com\//.test(estado.indiceHoje)
-          ? el('div', { class: 'adm-capacidade-nota' }, ['Para a Central somar o dia sem ler pedido por pedido, crie o índice do banco uma vez: ',
-            el('a', { href: estado.indiceHoje, target: '_blank', rel: 'noopener', text: 'criar o índice' }), '. Fica pronto em alguns minutos.'])
-          : null,
+        /* falta o indice que deixa a soma do dia quase de graca: o link vem do proprio banco (console do Firebase). Linha
+           propria no quadro (com.indice): na mesma faixa da nota, um texto caia em cima do outro */
+        linkIndice ? el('div', { class: 'adm-capacidade-indice' }, [
+          el('span', { text: 'Falta um passo, uma vez só: o índice que deixa a Central somar o dia sem ler pedido por pedido. Fica pronto em alguns minutos.' }),
+          el('a', { class: 'btn btn-principal btn-pequeno', href: linkIndice, target: '_blank', rel: 'noopener', text: 'Criar o índice' }),
+        ]) : null,
         el('div', { class: 'adm-capacidade-acoes' }, el('div', { class: 'adm-luz' + (b === 'ok' ? ' ok' : (b === 'fora' ? ' fora' : '')), role: 'status' }, [el('i', { 'aria-hidden': 'true' }), el('span', {}, ['Cardápio pelo Cloudflare: ', el('b', { text: textoLuz })])])),
       ]);
     }
