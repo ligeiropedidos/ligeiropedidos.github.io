@@ -1647,7 +1647,9 @@
         var sobra = grupo.tipo === 'unico' ? sobraDoTamanho(m.produto, opcao.id) : 99;
         var acabou = sobra <= 0, poucos = sobra > 0 && sobra <= R.ESTOQUE_POUCO;
         if (acabou) campo.disabled = true;
-        var preco = opcao.preco > 0 ? '+ ' + dinheiro(opcao.preco) : (obrigatorio ? '' : 'grátis');
+        /* "grátis" so nos adicionais (marcar mais de um): no tamanho ou em outra escolha unica, a opcao sem acrescimo e o preco do
+           item (o "a partir de" em cima), e "Pequena — grátis" parecia de graca (07/10/2026) */
+        var preco = opcao.preco > 0 ? '+ ' + dinheiro(opcao.preco) : (grupo.tipo === 'unico' ? '' : 'grátis');
         /* a situacao do estoque fica na direita da linha, sempre no mesmo lugar (como na Zara e na Renner): "Esgotado"
            sozinho, ou o preco a mais com "Só resta 1" / "Últimas 3" embaixo */
         var situacao = acabou ? el('span', { class: 'valor-estoque esgotado', text: 'Esgotado' })
