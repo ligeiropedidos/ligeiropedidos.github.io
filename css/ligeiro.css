@@ -2097,6 +2097,49 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-lado { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .zap-hora { font-size: 10.5px; font-weight: 600; color: #1DAA61; }
 .zap-naolidas { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #25D366; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+/* "A gente monta" com o celular da conversa (07/10/2026): no celular ele vem em cima das duas listas; no tablet ocupa a largura
+   toda em cima delas; no computador fica a esquerda, da altura das duas listas empilhadas (contain: size: o celular, mais alto,
+   nao estica as listas). 380: a conversa inteira, com a mesma folga de 23 antes do corte que ela tem no computador */
+.antes-depois.monta { grid-template-columns: 1fr; }
+.monta-cena { display: flex; justify-content: center; height: 380px; padding-top: 24px; overflow: hidden; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio); }
+.monta-cena .loja-real-cel { width: 232px; }
+.monta-cena .loja-real-tela { height: 480px; background: #fff; }
+@media (min-width: 560px) { .antes-depois.monta { grid-template-columns: 1fr 1fr; } .antes-depois.monta > .monta-cena { grid-column: 1 / -1; } }
+@media (min-width: 900px) {
+  .antes-depois.monta { grid-template-areas: "cena manda" "cena com"; }
+  .antes-depois.monta > .monta-cena { grid-area: cena; height: auto; contain: size; }
+  .antes-depois.monta > .manda { grid-area: manda; }
+  .antes-depois.monta > .com { grid-area: com; }
+}
+/* a conversa (desenhada, na letra do celular): o fundo do WhatsApp, baloes verdes de quem manda e brancos de quem responde.
+   O mascotinho do topo com dois nomes na regra: a das fotos do celular (.loja-real-tela img, largura toda) ganhava dele */
+.zap-chat { display: flex; flex-direction: column; height: 100%; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; background: #EFEAE2; }
+.zap-chat-topo { display: flex; align-items: center; gap: 8px; padding: 4px 12px 6px; background: #fff; border-bottom: 1px solid #E9EDEF; }
+.zap-chat-topo .zap-chat-avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lime-suave); object-fit: contain; }
+.zap-chat-quem { display: flex; flex-direction: column; gap: 2px; }
+.zap-chat-quem b { font-size: 13px; font-weight: 700; line-height: 1.2; color: #111B21; }
+.zap-chat-quem small { font-size: 10.5px; line-height: 1.2; color: #1DAA61; }
+.zap-chat-corpo { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 0; }
+.zap-balao { max-width: 86%; display: flex; flex-direction: column; gap: 6px; padding: 6px 9px; border-radius: 10px; font-size: 11.5px; line-height: 1.3; color: #111B21; box-shadow: 0 1px 1px rgba(11, 20, 26, 0.1); }
+.zap-balao.sai { align-self: flex-end; background: #D9FDD3; border-top-right-radius: 3px; }
+.zap-balao.chega { align-self: flex-start; background: #fff; border-top-left-radius: 3px; }
+/* as tres fotos do cardapio de papel: folhas com o titulo vermelho e as linhas dos itens */
+.zap-fotos { display: flex; gap: 4px; padding: 1px; } /* 1 px: o canto das folhas tortas (2 graus) fica dentro */
+.zap-folha { width: 40px; height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 0 6px; border-radius: 4px; background: #FFFDF6; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); transform: rotate(-2deg); }
+.zap-folha:nth-child(2) { transform: rotate(2deg); }
+.zap-folha:nth-child(3) { transform: rotate(-1deg); }
+.zap-folha i { display: block; height: 3px; border-radius: 2px; background: #C9C2B4; }
+.zap-folha i:first-child { width: 70%; height: 4px; background: #B4492F; }
+.zap-folha i:nth-child(3) { width: 80%; }
+.zap-folha i:nth-child(5) { width: 60%; }
+/* a previa do link: a logo da loja, o nome e o dominio, no cinza do WhatsApp, no balao mais largo (como o do WhatsApp): o dominio
+   cabe com a letra do iPhone, 8% mais larga */
+.zap-balao.com-link { max-width: 94%; }
+.zap-link { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; background: #F0F2F5; }
+.zap-logo { flex: none; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #E8833A; color: #fff; font-size: 14px; font-weight: 800; }
+.zap-link-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.zap-link-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; color: #111B21; white-space: nowrap; }
+.zap-link-texto small { font-size: 10.5px; line-height: 1.2; color: #667781; }
 .monta-cta { width: 100%; }
 /* do tamanho do texto so no computador: de 560 a 899 os dois cartoes ficam lado a lado e o botao (309) passava do cartao de cima (278)
    sem chegar na largura toda: a borda direita nao batia com nada. Ali ele vai na largura toda, como no celular */

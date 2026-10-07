@@ -591,6 +591,8 @@
       el('h2', { text: 'A gente monta a loja para você' }),
       el('p', { class: 'muted', text: 'Você manda pelo WhatsApp o que já tem. A gente cadastra tudo e devolve a loja pronta para vender.' }),
       el('div', { class: 'antes-depois monta' }, [
+        /* a conversa no WhatsApp: o dono manda as fotos do cardapio e recebe a loja pronta (sem horario nos baloes: nada de prazo) */
+        el('div', { class: 'monta-cena', 'aria-hidden': 'true' }, celularAberto('ad-cel ad-cel-chat', [telaConversaMonta()])),
         el('div', { class: 'cartao lado manda' }, [el('b', { text: 'Você manda' })].concat([['camera', 'Fotos do cardápio ou dos produtos'], ['dinheiro', 'Os preços (e os tamanhos, se tiver)'], ['imagem', 'Sua logo, se tiver'], ['relogio', 'Horário e taxa de entrega']].map(function (x) { return el('p', {}, [UI.iconeLinha(x[0]), x[1]]); }))),
         el('div', { class: 'cartao lado com' }, [el('b', { text: 'Você recebe' })].concat(['A loja montada, com fotos e categorias', 'O link para a bio do Instagram e o status', 'O QR code para imprimir no balcão', 'Ajuda para ligar o Pix do Mercado Pago'].map(function (x) { return el('p', {}, [UI.iconeLinha('check'), x]); }))),
       ]),
@@ -1068,6 +1070,31 @@
         el('span', { class: 'zap-lado' }, [el('span', { class: 'zap-hora', text: c[4] }), el('span', { class: 'zap-naolidas', text: String(c[5]) })]),
       ]);
     })));
+  }
+
+  /* A conversa do "a gente monta" (desenhada): o dono manda as fotos do cardapio de papel, a taxa e o horario; a equipe
+     devolve a loja pronta, com a previa do link como o WhatsApp mostra (logo, nome e dominio; o endereco de verdade leva a
+     cidade, por isso so o dominio). Sem horario nos baloes: nada de prazo */
+  function telaConversaMonta() {
+    function folha() { return el('span', { class: 'zap-folha' }, [el('i'), el('i'), el('i'), el('i'), el('i')]); }
+    return el('span', { class: 'zap-chat' }, [
+      el('span', { class: 'zap-chat-topo' }, [
+        el('img', { class: 'zap-chat-avatar', src: 'img/mascote-192.webp', alt: '', width: '30', height: '30', loading: 'lazy', decoding: 'async' }),
+        el('span', { class: 'zap-chat-quem' }, [el('b', { text: 'Ligeiro' }), el('small', { text: 'online' })]),
+      ]),
+      el('span', { class: 'zap-chat-corpo' }, [
+        el('span', { class: 'zap-balao sai' }, [el('span', { class: 'zap-fotos' }, [folha(), folha(), folha()]), el('span', { text: 'Segue o cardápio' })]),
+        el('span', { class: 'zap-balao sai', text: 'Entrega R$ 5, abro às 18h' }),
+        el('span', { class: 'zap-balao chega', text: 'Recebido! A gente monta tudo e manda o link aqui.' }),
+        el('span', { class: 'zap-balao chega com-link' }, [
+          el('span', { class: 'zap-link' }, [
+            el('span', { class: 'zap-logo', text: 'Zé' }),
+            el('span', { class: 'zap-link-texto' }, [el('b', { text: 'Lanchonete do Zé' }), el('small', { text: 'ligeiropedidos.com.br' })]),
+          ]),
+          el('span', { text: 'Sua loja está pronta!' }),
+        ]),
+      ]),
+    ]);
   }
 
   /* As funcoes da pagina de vendas em abas. Cada cartao: [icone, cor do quadrado, titulo, texto] */
