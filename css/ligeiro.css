@@ -1820,67 +1820,76 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passo-corpo { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 12px; padding: 16px; }
 .passo-corpo p { grid-column: 1 / -1; margin: 0; }
 .passo-venda .n { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--deep); color: var(--lime); font-family: var(--display); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.passo-venda b { display: block; font-family: var(--display); font-size: 18px; line-height: 1.2; }
-.passo-venda p { color: var(--body); font-size: 15px; text-wrap: pretty; }
-.passo-venda b { text-wrap: balance; } /* sem palavra sozinha na ultima linha ("minutos" no 320) */
+.passo-corpo b { display: block; font-family: var(--display); font-size: 18px; line-height: 1.2; }
+.passo-corpo p { color: var(--body); font-size: 15px; text-wrap: pretty; }
+.passo-corpo b { text-wrap: balance; } /* sem palavra sozinha na ultima linha ("minutos" no 320) */
 @supports (text-box: trim-both cap alphabetic) {
   .passo-corpo b, .passo-corpo p { text-box: trim-both cap alphabetic; }
   /* o numero no meio do quadrado pela tinta (o flex centraliza a linha inteira, com o espaco de baixo das letras) */
   .passo-venda .n { display: block; box-sizing: border-box; line-height: 1; text-align: center; text-box: trim-both cap alphabetic; padding-top: calc((40px - 1cap) / 2); }
 }
-/* as cenas dos passos (07/10/2026): um desenho pequeno em cima de cada passo, no fundo da cor dele (as cores das funcoes), na letra
-   do celular e com a mesma loja de exemplo da conversa do "a gente monta". 160 de altura: o desenho maior (o cardapio) com 16 de
-   folga em cima e embaixo */
+/* as cenas dos passos (07/10/2026): pedacos das telas de verdade em miniatura, com as fotos da loja de exemplo, no fundo da cor
+   do passo (as cores das funcoes), na letra do celular. 168 de altura: a mais alta (a placa do QR) com 16 de folga em cima e
+   embaixo */
 .passo-venda.cor-lima { --tinta-fundo: #ECF7D9; --tinta-borda: #D5EBB4; }
 .passo-venda.cor-azul { --tinta-fundo: #E5EEFF; --tinta-borda: #CCDCFB; }
 .passo-venda.cor-laranja { --tinta-fundo: #FFF0DC; --tinta-borda: #F6DBB8; }
-.passo-cena { flex: none; display: flex; align-items: center; justify-content: center; height: 160px; padding: 0 12px; overflow: hidden; background: var(--tinta-fundo); border-bottom: 1px solid var(--tinta-borda); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #111B21; }
-.mini-loja, .mini-bio, .mini-qr, .mini-aviso { background: #fff; box-shadow: 0 8px 24px rgba(14, 31, 20, 0.12); }
-/* 1) o cardapio ja montado, com um preco sendo ajustado */
-.mini-loja { width: 220px; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 14px; }
-.mini-loja-topo { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #EEF1EC; }
-.mini-loja-topo .zap-logo { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
-.mini-loja-topo b { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
-.mini-aberta { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; line-height: 1; color: #15803D; }
-.mini-aberta::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #22C55E; }
-.mini-item { display: flex; align-items: center; gap: 8px; height: 22px; }
-.mini-foto { flex: none; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFF4E5; }
-.mini-foto svg { display: block; width: 18px; height: 18px; }
-.mini-nome { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
-.mini-preco { flex: none; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; font-size: 11px; font-weight: 700; line-height: 1.2; color: #3B4A3F; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mini-preco.editando { border-color: var(--lime); background: #fff; box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.25); color: #0E1F14; }
-.mini-cursor { display: inline-block; width: 1px; height: 11px; margin-left: 1px; vertical-align: -1px; background: #0E1F14; }
-@media (prefers-reduced-motion: no-preference) { .mini-cursor { animation: mini-cursor-piscar 1.1s steps(1) infinite; } }
-@keyframes mini-cursor-piscar { 50% { opacity: 0; } }
-/* 2) o link espalhado: a bio do perfil e o QR do balcao (o QR e de verdade, 29 modulos com a margem: 2,5 px cada) */
-.mini-divulga { display: flex; align-items: center; gap: 10px; }
-.mini-bio { width: 168px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; }
-.mini-bio-topo { display: flex; align-items: center; gap: 8px; }
-.mini-bio-topo .zap-logo { width: 30px; height: 30px; border-radius: 50%; font-size: 12px; }
-.mini-bio-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mini-bio-nome b { font-size: 11.5px; font-weight: 700; line-height: 1.2; }
-.mini-bio-nome small { font-size: 10px; line-height: 1.2; color: #667781; white-space: nowrap; }
-.mini-bio-texto { font-size: 11px; line-height: 1.2; }
-.mini-bio-link { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; line-height: 1.2; color: #1D4ED8; white-space: nowrap; }
-.mini-bio-link .ico-traco { flex: none; display: inline-flex; }
-.mini-bio-link .ico-traco svg { width: 12px; height: 12px; }
-.mini-qr { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 8px 9px; border-radius: 12px; }
+.passo-cena { flex: none; display: flex; align-items: center; justify-content: center; height: 168px; padding: 0 12px; overflow: hidden; background: var(--tinta-fundo); border-bottom: 1px solid var(--tinta-borda); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #111B21; }
+.passo-cena img { display: block; object-fit: cover; }
+.mini-vitrine, .mini-perfil, .mini-placa-papel { background: #fff; box-shadow: 0 8px 24px rgba(14, 31, 20, 0.12); }
+/* 1) a loja pronta como o cliente ve: a capa, a logo por cima dela, o nome com o "Aberto" e um produto com o botao PEDIR (o nome e o
+   "Aberto" cabem na mesma linha com a letra do iPhone, 8% mais larga) */
+.mini-vitrine { width: 240px; display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; }
+.mini-vitrine-capa { width: 100%; height: 44px; }
+.mini-vitrine-topo { display: flex; align-items: flex-end; gap: 8px; margin-top: -16px; padding: 0 10px; }
+.mini-vitrine-logo { flex: none; width: 36px; height: 36px; border-radius: 9px; box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(0, 0, 0, 0.2); }
+.mini-vitrine-nome { flex: 1; min-width: 0; height: 20px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mini-vitrine-nome b { font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-aberta { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 999px; background: #EAF6DD; font-size: 9.5px; font-weight: 700; line-height: 1; color: #2F6B0F; white-space: nowrap; }
+.mini-aberta::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #4CAF20; }
+.mini-produto { display: flex; align-items: center; gap: 8px; margin: 8px 10px 10px; padding: 6px; border: 1px solid #E6ECE1; border-radius: 10px; }
+.mini-produto-foto { flex: none; width: 40px; height: 40px; border-radius: 8px; }
+.mini-produto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mini-produto-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-produto-texto strong { font-size: 11px; font-weight: 800; line-height: 1.2; color: #0E1F14; white-space: nowrap; }
+/* na loja de verdade o nome, o produto, o preco e o PEDIR vao na letra da marca; o resto das cenas, na letra do celular */
+.mini-vitrine-nome b, .mini-produto-texto b, .mini-produto-texto strong, .mini-pedir { font-family: var(--display); }
+.mini-pedir { flex: none; padding: 6px 9px; border-radius: 7px; background: var(--lime); font-size: 9.5px; font-weight: 800; line-height: 1; letter-spacing: 0.02em; color: #0E1F14; }
+/* 2) o perfil da loja com o link na bio e a placa do balcao (papel branco num suporte de acrilico) com o QR, o nome e a frase do
+   QR que o painel baixa. O QR e de verdade, 29 modulos com a margem: 2,5 px cada (2 px onde o cartao e estreito) */
+.mini-divulga { display: flex; align-items: center; gap: 12px; }
+.mini-perfil { width: 156px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; }
+.mini-perfil-topo { display: flex; align-items: center; gap: 8px; }
+.mini-perfil-foto { flex: none; width: 34px; height: 34px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #DDE3EA; }
+.mini-perfil-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mini-perfil-nome b { font-size: 11px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-perfil-nome small { font-size: 9.5px; line-height: 1.2; color: #737373; white-space: nowrap; }
+.mini-perfil-bio { font-size: 10.5px; line-height: 1.3; text-wrap: balance; }
+.mini-perfil-link { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; line-height: 1.2; color: #00376B; white-space: nowrap; }
+.mini-perfil-link .ico-traco { flex: none; display: inline-flex; }
+.mini-perfil-link .ico-traco svg { width: 11px; height: 11px; }
+.mini-placa { flex: none; position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 6px; }
+.mini-placa-papel { position: relative; z-index: 1; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 9px; border-radius: 4px; text-align: center; }
+.mini-placa-papel b { margin-top: 4px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-placa-papel small { font-size: 8px; line-height: 1.2; color: #4B5A4F; text-wrap: balance; }
 .mini-qr-codigo svg { display: block; width: 72.5px; height: 72.5px; }
-.mini-qr small { font-size: 10px; font-weight: 700; line-height: 1; color: #0E1F14; }
-@media (max-width: 359px), (min-width: 900px) and (max-width: 979px) { .mini-qr-codigo svg { width: 58px; height: 58px; } } /* 2 px por modulo: a bio e o QR com folga
-   dos lados onde o cartao e estreito (celular de 320 e os tres cartoes lado a lado logo depois de 900) */
-/* 3) o sino apitando e o aviso do celular, igual ao de verdade, com mais dois atras (a pilha de avisos) */
-.mini-avisos { position: relative; width: 100%; max-width: 286px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-bottom: 12px; }
-.mini-sino svg { display: block; width: 64px; height: 36px; }
-.mini-aviso { align-self: stretch; }
-.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; }
-.mini-aviso img { flex: none; width: 34px; height: 34px; border-radius: 9px; object-fit: contain; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.mini-placa-base { position: absolute; z-index: 2; left: -8px; right: -8px; bottom: 0; height: 12px; border-radius: 3px 3px 6px 6px; background: linear-gradient(rgba(255, 255, 255, 0.75), rgba(232, 238, 246, 0.9)); box-shadow: inset 0 1px 0 #fff, 0 6px 12px rgba(14, 31, 20, 0.14); }
+/* onde o cartao e estreito (celular de 320 e os tres lado a lado logo depois de 900) o perfil e a placa diminuem juntos, na mesma
+   proporcao: as letras continuam cabendo como no tamanho cheio */
+@media (max-width: 359px), (min-width: 900px) and (max-width: 979px) { .mini-divulga { zoom: 0.92; } }
+/* 3) o celular bloqueado: a hora grande e o aviso igual ao de verdade (icone do app, titulo e texto do mensageiro) num vidro
+   fosco, com mais avisos empilhados atras */
+.mini-bloqueio { width: 100%; max-width: 286px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.mini-bloqueio-hora { font-size: 40px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: #7C3A0E; font-variant-numeric: tabular-nums; }
+.mini-avisos { position: relative; align-self: stretch; padding-bottom: 12px; }
+.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 10px 28px rgba(124, 58, 14, 0.16); }
+.mini-aviso-icone { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
 .mini-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .mini-aviso-texto b { font-size: 12.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-aviso-texto span { font-size: 11px; line-height: 1.3; color: #3C3C43; text-wrap: balance; }
 .mini-aviso small { flex: none; align-self: flex-start; font-size: 10px; line-height: 1.25; color: #8A8A8E; }
-.mini-aviso-pilha { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 24px; border-radius: 0 0 16px 16px; background: rgba(255, 255, 255, 0.7); box-shadow: 0 6px 16px rgba(14, 31, 20, 0.08); }
-.mini-aviso-pilha::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 12px; border-radius: 0 0 12px 12px; background: rgba(255, 255, 255, 0.45); }
+.mini-aviso-pilha { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 24px; border-radius: 0 0 16px 16px; background: rgba(255, 255, 255, 0.6); box-shadow: 0 6px 16px rgba(124, 58, 14, 0.08); }
+.mini-aviso-pilha::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 12px; border-radius: 0 0 12px 12px; background: rgba(255, 255, 255, 0.4); }
 /* As funcoes em abas (07/10/2026, como as do Anota AI): o seletor de assunto e 4 cartoes com o icone num quadrado colorido e
    o titulo do lado. 1 coluna no celular, 2 x 2 no tablet, 4 numa linha no computador */
 .funcoes-abas { display: flex; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; }
@@ -2201,7 +2210,7 @@ a.selo-google:hover { background: var(--lime-suave); }
    cabe com a letra do iPhone, 8% mais larga */
 .zap-balao.com-link { max-width: 94%; }
 .zap-link { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; background: #F0F2F5; }
-.zap-logo { flex: none; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #E8833A; color: #fff; font-size: 14px; font-weight: 800; }
+.zap-link .zap-logo { flex: none; display: block; width: 32px; height: 32px; border-radius: 8px; object-fit: cover; } /* a logo de foto da loja de exemplo (dois nomes: a regra das fotos do celular, largura toda, ganhava) */
 .zap-link-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zap-link-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; color: #111B21; white-space: nowrap; }
 .zap-link-texto small { font-size: 10.5px; line-height: 1.2; color: #667781; }

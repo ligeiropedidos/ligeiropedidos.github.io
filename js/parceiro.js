@@ -1038,58 +1038,62 @@
       el('div', { class: 'passo-corpo' }, [el('span', { class: 'n', text: n }), el('b', { text: titulo }), el('p', { text: texto })]),
     ]);
   }
-  /* As cenas dos passos (desenhadas, na letra do celular, como a conversa do "a gente monta" e com a mesma loja de exemplo).
-     1) a loja ja montada: o cardapio pronto e um preco sendo ajustado */
+  /* As cenas dos passos: pedacos das telas de verdade em miniatura (na letra do celular), com a loja de exemplo da cópia de
+     demonstracao: a mesma capa, a mesma logo e os mesmos produtos, precos e fotos (Pexels, licenca livre: ver
+     ligeiro/comercial/assets/fotos/CREDITOS.txt). 1) a loja pronta como o cliente ve: capa, logo, "Aberto" e um produto */
+  function fotoDoExemplo(arquivo, classe, lado) {
+    return el('img', { class: classe, src: 'img/venda/' + arquivo + '.webp', alt: '', width: String(lado[0]), height: String(lado[1]), loading: 'lazy', decoding: 'async' });
+  }
   function cenaPassoLoja() {
-    var LANCHE = '<svg viewBox="0 0 24 24"><path d="M3.5 11a8.5 6.5 0 0 1 17 0z" fill="#E9A04B"/><ellipse cx="9" cy="7.6" rx="0.9" ry="0.5" fill="#FFF3D6"/><ellipse cx="12.5" cy="6.6" rx="0.9" ry="0.5" fill="#FFF3D6"/><ellipse cx="15.5" cy="8.2" rx="0.9" ry="0.5" fill="#FFF3D6"/>';
-    var BASE = '<rect x="3.5" y="14.5" width="17" height="3" rx="1.5" fill="#6D4C41"/><rect x="3.5" y="18" width="17" height="3" rx="1.5" fill="#E9A04B"/></svg>';
-    var FOTOS = {
-      burguer: LANCHE + '<rect x="3" y="11.5" width="18" height="2.5" rx="1.25" fill="#F4C430"/>' + BASE,
-      salada: LANCHE + '<rect x="3" y="11.4" width="18" height="1.6" rx="0.8" fill="#E53935"/><rect x="2.5" y="12.8" width="19" height="1.8" rx="0.9" fill="#7CB342"/>' + BASE,
-      batata: '<svg viewBox="0 0 24 24"><rect x="7" y="4" width="2.2" height="10" rx="1" fill="#FFC93C" transform="rotate(-8 8 9)"/><rect x="10.2" y="3" width="2.2" height="10" rx="1" fill="#FFD54F"/><rect x="13.4" y="3.6" width="2.2" height="10" rx="1" fill="#FFC93C" transform="rotate(7 14.5 8.6)"/><path d="M5.5 10.5h13l-1.6 10.5h-9.8z" fill="#E53935"/><path d="M9.6 14.6a2.4 2.4 0 0 0 4.8 0" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>',
-    };
-    function item(nome, preco, foto, editando) {
-      return el('span', { class: 'mini-item' }, [
-        el('span', { class: 'mini-foto', html: FOTOS[foto] }),
-        el('span', { class: 'mini-nome', text: nome }),
-        el('span', { class: 'mini-preco' + (editando ? ' editando' : '') }, editando ? [preco, el('i', { class: 'mini-cursor' })] : [preco]),
-      ]);
-    }
-    return el('span', { class: 'mini-loja' }, [
-      el('span', { class: 'mini-loja-topo' }, [el('span', { class: 'zap-logo', text: 'Zé' }), el('b', { text: 'Lanchonete do Zé' }), el('span', { class: 'mini-aberta', text: 'Aberta' })]),
-      item('X-Burguer', 'R$ 22,00', 'burguer'),
-      item('X-Salada', 'R$ 24,00', 'salada', true),
-      item('Batata frita', 'R$ 15,00', 'batata'),
+    return el('span', { class: 'mini-vitrine' }, [
+      fotoDoExemplo('exemplo-capa', 'mini-vitrine-capa', [464, 116]),
+      el('span', { class: 'mini-vitrine-topo' }, [
+        fotoDoExemplo('exemplo-logo', 'mini-vitrine-logo', [96, 96]),
+        el('span', { class: 'mini-vitrine-nome' }, [el('b', { text: 'Lanchonete do Zé' }), el('span', { class: 'mini-aberta', text: 'Aberto' })]),
+      ]),
+      el('span', { class: 'mini-produto' }, [
+        fotoDoExemplo('exemplo-x-burguer', 'mini-produto-foto', [112, 112]),
+        el('span', { class: 'mini-produto-texto' }, [el('b', { text: 'X-Burguer' }), el('strong', { text: 'R$ 18,00' })]),
+        el('span', { class: 'mini-pedir', text: 'PEDIR' }),
+      ]),
     ]);
   }
-  /* 2) o link espalhado: a bio do perfil com o link e o QR do balcao (de verdade: abre ligeiropedidos.com.br) */
+  /* 2) o link espalhado: o perfil da loja com o link na bio e a placa do balcao com o QR igual ao que o painel baixa para imprimir
+     (o QR, o nome da loja e "Aponte a camera para pedir"); o QR e de verdade e abre ligeiropedidos.com.br */
   var QR_DO_SITE = 'M0 0h7v1h-7zM8 0h1v1h-1zM10 0h5v1h-5zM18 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM9 1h2v1h-2zM12 1h2v1h-2zM16 1h1v1h-1zM18 1h1v1h-1zM24 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM10 2h4v1h-4zM15 2h1v1h-1zM18 2h1v1h-1zM20 2h3v1h-3zM24 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM18 3h1v1h-1zM20 3h3v1h-3zM24 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM9 4h1v1h-1zM13 4h2v1h-2zM16 4h1v1h-1zM18 4h1v1h-1zM20 4h3v1h-3zM24 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM10 5h3v1h-3zM16 5h1v1h-1zM18 5h1v1h-1zM24 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h7v1h-7zM8 7h1v1h-1zM10 7h4v1h-4zM0 8h2v1h-2zM3 8h2v1h-2zM6 8h1v1h-1zM9 8h2v1h-2zM12 8h1v1h-1zM14 8h2v1h-2zM18 8h1v1h-1zM24 8h1v1h-1zM5 9h1v1h-1zM7 9h3v1h-3zM11 9h1v1h-1zM14 9h2v1h-2zM19 9h5v1h-5zM2 10h2v1h-2zM5 10h3v1h-3zM10 10h3v1h-3zM15 10h3v1h-3zM20 10h2v1h-2zM24 10h1v1h-1zM0 11h1v1h-1zM2 11h3v1h-3zM7 11h4v1h-4zM15 11h1v1h-1zM18 11h7v1h-7zM0 12h1v1h-1zM2 12h1v1h-1zM6 12h1v1h-1zM8 12h2v1h-2zM12 12h1v1h-1zM16 12h1v1h-1zM18 12h2v1h-2zM24 12h1v1h-1zM0 13h1v1h-1zM3 13h1v1h-1zM8 13h1v1h-1zM11 13h2v1h-2zM14 13h3v1h-3zM20 13h1v1h-1zM23 13h1v1h-1zM0 14h4v1h-4zM6 14h2v1h-2zM10 14h1v1h-1zM14 14h5v1h-5zM20 14h5v1h-5zM0 15h1v1h-1zM2 15h3v1h-3zM9 15h2v1h-2zM15 15h3v1h-3zM19 15h1v1h-1zM21 15h2v1h-2zM24 15h1v1h-1zM0 16h1v1h-1zM3 16h1v1h-1zM6 16h3v1h-3zM10 16h1v1h-1zM12 16h2v1h-2zM15 16h6v1h-6zM22 16h2v1h-2zM8 17h3v1h-3zM14 17h3v1h-3zM20 17h1v1h-1zM22 17h2v1h-2zM0 18h7v1h-7zM10 18h2v1h-2zM14 18h1v1h-1zM16 18h1v1h-1zM18 18h1v1h-1zM20 18h1v1h-1zM24 18h1v1h-1zM0 19h1v1h-1zM6 19h1v1h-1zM9 19h3v1h-3zM13 19h1v1h-1zM15 19h2v1h-2zM20 19h1v1h-1zM23 19h2v1h-2zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM8 20h1v1h-1zM10 20h3v1h-3zM15 20h6v1h-6zM23 20h1v1h-1zM0 21h1v1h-1zM2 21h3v1h-3zM6 21h1v1h-1zM8 21h4v1h-4zM13 21h6v1h-6zM23 21h2v1h-2zM0 22h1v1h-1zM2 22h3v1h-3zM6 22h1v1h-1zM11 22h1v1h-1zM13 22h1v1h-1zM15 22h3v1h-3zM20 22h5v1h-5zM0 23h1v1h-1zM6 23h1v1h-1zM8 23h1v1h-1zM10 23h1v1h-1zM12 23h1v1h-1zM18 23h3v1h-3zM22 23h3v1h-3zM0 24h7v1h-7zM8 24h2v1h-2zM11 24h2v1h-2zM16 24h1v1h-1zM18 24h1v1h-1zM21 24h1v1h-1zM24 24h1v1h-1z';
   function cenaPassoLink() {
     return el('span', { class: 'mini-divulga' }, [
-      el('span', { class: 'mini-bio' }, [
-        el('span', { class: 'mini-bio-topo' }, [el('span', { class: 'zap-logo', text: 'Zé' }), el('span', { class: 'mini-bio-nome' }, [el('b', { text: 'lanchonetedoze' }), el('small', { text: 'Lanches e porções' })])]),
-        el('span', { class: 'mini-bio-texto', text: 'Peça pelo link:' }),
-        el('span', { class: 'mini-bio-link' }, [UI.iconeLinha('link'), el('span', { text: 'ligeiropedidos.com.br' })]),
+      el('span', { class: 'mini-perfil' }, [
+        el('span', { class: 'mini-perfil-topo' }, [
+          fotoDoExemplo('exemplo-logo', 'mini-perfil-foto', [96, 96]),
+          el('span', { class: 'mini-perfil-nome' }, [el('b', { text: 'lanchonetedoze' }), el('small', { text: 'Lanchonete' })]),
+        ]),
+        el('span', { class: 'mini-perfil-bio', text: 'Lanche bem servido, feito na hora.' }),
+        el('span', { class: 'mini-perfil-link' }, [UI.iconeLinha('link'), el('span', { text: 'ligeiropedidos.com.br' })]),
       ]),
-      el('span', { class: 'mini-qr' }, [
-        el('span', { class: 'mini-qr-codigo', html: '<svg viewBox="-2 -2 29 29" shape-rendering="crispEdges"><rect x="-2" y="-2" width="29" height="29" fill="#fff"/><path d="' + QR_DO_SITE + '" fill="#0E1F14"/></svg>' }),
-        el('small', { text: 'Peça aqui' }),
+      el('span', { class: 'mini-placa' }, [
+        el('span', { class: 'mini-placa-papel' }, [
+          el('span', { class: 'mini-qr-codigo', html: '<svg viewBox="-2 -2 29 29" shape-rendering="crispEdges"><rect x="-2" y="-2" width="29" height="29" fill="#fff"/><path d="' + QR_DO_SITE + '" fill="#0E1F14"/></svg>' }),
+          el('b', { text: 'Lanchonete do Zé' }),
+          el('small', { text: 'Aponte a câmera para pedir' }),
+        ]),
+        el('span', { class: 'mini-placa-base' }),
       ]),
     ]);
   }
-  /* 3) o pedido chegando apitando: o sino com o som e o aviso do celular igual ao de verdade (titulo e texto como o mensageiro manda) */
+  /* 3) o pedido chegando com o celular bloqueado: a hora grande e o aviso igual ao de verdade (o icone do app, o titulo e o texto
+     como o mensageiro manda), com mais avisos empilhados atras */
   function cenaPassoAviso() {
-    return el('span', { class: 'mini-avisos' }, [
-      el('span', { class: 'mini-sino', html: '<svg viewBox="0 0 64 36" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
-        '<path d="M15 11a10 10 0 0 0 0 14M10 7a15 15 0 0 0 0 22M49 11a10 10 0 0 1 0 14M54 7a15 15 0 0 1 0 22" stroke="#F2A541" stroke-width="2"/>' +
-        '<circle cx="32" cy="18" r="17" fill="#fff"/>' +
-        '<g transform="translate(21.8 7.8) scale(0.85)" stroke="#B45309" stroke-width="2.3"><g transform="translate(0 -1.8)"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g></g></svg>' }),
-      el('span', { class: 'mini-aviso' }, [
-        el('img', { src: 'img/mascote-192.webp', alt: '', width: '34', height: '34', loading: 'lazy', decoding: 'async' }),
-        el('span', { class: 'mini-aviso-texto' }, [el('b', { text: 'Pix pago! Senha 42' }), el('span', { text: 'R$ 46,00 · Entrega · Toque para abrir' })]),
-        el('small', { text: 'agora' }),
+    return el('span', { class: 'mini-bloqueio' }, [
+      el('span', { class: 'mini-bloqueio-hora', text: '19:42' }),
+      el('span', { class: 'mini-avisos' }, [
+        el('span', { class: 'mini-aviso' }, [
+          fotoDoExemplo('aviso-icone', 'mini-aviso-icone', [72, 72]),
+          el('span', { class: 'mini-aviso-texto' }, [el('b', { text: 'Pix pago! Senha 42' }), el('span', { text: 'R$ 46,00 · Entrega · Toque para abrir' })]),
+          el('small', { text: 'agora' }),
+        ]),
+        el('span', { class: 'mini-aviso-pilha' }),
       ]),
-      el('span', { class: 'mini-aviso-pilha' }),
     ]);
   }
   /* para quem e: o icone e o titulo numa linha, o texto e os tipos de loja embaixo, na largura toda */
@@ -1147,7 +1151,7 @@
         el('span', { class: 'zap-balao chega', text: 'Recebido! A gente monta tudo e manda o link aqui.' }),
         el('span', { class: 'zap-balao chega com-link' }, [
           el('span', { class: 'zap-link' }, [
-            el('span', { class: 'zap-logo', text: 'Zé' }),
+            fotoDoExemplo('exemplo-logo', 'zap-logo', [96, 96]),
             el('span', { class: 'zap-link-texto' }, [el('b', { text: 'Lanchonete do Zé' }), el('small', { text: 'ligeiropedidos.com.br' })]),
           ]),
           el('span', { text: 'Sua loja está pronta!' }),
