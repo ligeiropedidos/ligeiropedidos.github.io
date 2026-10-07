@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-06c';
+const VERSAO_MENSAGEIRO = '2026-10-07a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -90,6 +90,9 @@ const emailPagador = (senha, loja) => 'cliente' + (senha || '0') + '@' + loja + 
    refaz a loja. O prazo so cobre o que mudou por fora (na mao, pelo console). Antes: 20 e 15 min, o que gastava
    leitura do banco e gravacao do KV (1 mil por dia no gratis) sem nada ter mudado */
 const LOJA_VALE = 6 * 3600 * 1000;
+/* a loja guardada na memoria de cada copia do worker vale 15 s (era 1 min): o dono abre ou fecha e o site do cliente
+   muda em segundos. Leitura do KV a mais so para loja com visita seguida, e o limite gratis do KV e o mesmo das chamadas */
+const LOJA_NA_MEMORIA = 15 * 1000;
 const VITRINE_VALE = 3 * 3600 * 1000;
 /* Contato novo (leads): e-mail para o admin com o botao do WhatsApp e a mensagem de resposta pronta. Mesmo Apps Script do mensageiro
    do Asaas (EMAIL_URL e EMAIL_TOKEN como Secret tambem aqui); sem eles configurados, nao faz nada. Teto de 30 por dia para um
@@ -324,6 +327,13 @@ const REGRAS = (function () {
    * "aberta" e o interruptor manual do painel. Se a loja cadastrou
    * horarios, eles mandam junto: aberta so quando o interruptor esta
    * ligado E o relogio esta dentro do horario.
+   *
+   * "Abrir agora" fora do horario: o dono liga a loja antes (ou depois)
+   * do horario cadastrado e ela abre na hora. Vale ate loja.abertaAte
+   * (ISO): o comeco da proxima faixa do dia, que dali segue sozinha, ou
+   * a virada do dia de trabalho (5 h) se nao tem mais faixa. Antes a
+   * chave ligada fora do horario nao abria nada (Dom Conizza, 07/10/2026,
+   * na frente de um cliente).
    * ---------------------------------------------------------- */
 
   var DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
@@ -383,23 +393,59 @@ const REGRAS = (function () {
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
-     Faixas que se cruzam ou se encostam (11:00-15:00 e 14:00-23:00) contam como uma so: fecha as 23:00, nao as 15:00.
-     null se nao usa horario ou se esta fora de qualquer faixa. */
-  function fechamentoDeHoje(loja, agora) {
-    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
-    var data = agora || new Date();
-    var atual = data.getHours() * 60 + data.getMinutes();
-    /* as faixas de ontem, de hoje e de amanha em minutos contados da meia-noite de hoje (a que vira a noite passa das 24 h) */
-    var faixas = [], fim = null, i, k, f, lista, mudou;
+  /* as faixas de ontem, de hoje e de amanha em minutos contados da meia-noite de hoje (a que vira a noite passa das 24 h) */
+  function faixasEmVolta(horarios, data) {
+    var faixas = [], i, k, f, lista;
     for (k = -1; k <= 1; k++) {
-      lista = loja.horarios[DIAS[(data.getDay() + k + 7) % 7]];
+      lista = horarios[DIAS[(data.getDay() + k + 7) % 7]];
       if (!Array.isArray(lista)) continue;
       for (i = 0; i < lista.length; i++) {
         f = faixaMinutos(lista[i]);
         if (f) faixas.push([f[0] + k * 1440, f[1] + k * 1440 + (f[1] <= f[0] ? 1440 : 0)]);
       }
     }
+    return faixas;
+  }
+
+  /* Quantos minutos ainda faltam do "Abrir agora" (0 = nao esta aberta fora do horario). instante: o momento de verdade.
+     O mensageiro passa no agora a hora de Brasilia (ele roda em UTC) e manda o instante a parte; no site e o mesmo relogio */
+  function minutosAbertaForaDoHorario(loja, agora, instante) {
+    if (!loja || !loja.abertaAte || typeof loja.abertaAte !== 'string') return 0;
+    var ate = Date.parse(loja.abertaAte);
+    if (isNaN(ate)) return 0;
+    var falta = ate - instanteDe(instante || agora);
+    return falta > 0 ? Math.ceil(falta / 60000) : 0;
+  }
+  function abertaForaDoHorario(loja, agora, instante) { return minutosAbertaForaDoHorario(loja, agora, instante) > 0; }
+
+  /* O dono liga a loja fora do horario: ate quando ela fica aberta. O comeco da proxima faixa do mesmo dia de trabalho (abriu
+     as 17:00 com o horario das 18:00 as 23:00: vai ate as 18:00 e dali o horario segue, fechando as 23:00) ou, sem faixa
+     pela frente, a virada do dia de trabalho (5 h da manha, a mesma da fila e das vendas). null se nao precisa: sem horario
+     cadastrado ou ja dentro dele. Devolve a hora de verdade (Date), feita no relogio do aparelho do dono */
+  var VIRADA_MIN = 5 * 60;
+  function fimDeAbrirAgora(loja, agora) {
+    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
+    var data = agora || new Date();
+    if (dentroDoHorario(loja.horarios, data)) return null;
+    var atual = data.getHours() * 60 + data.getMinutes();
+    /* o dia de trabalho que esta correndo acaba na proxima virada: hoje as 5 h (de madrugada) ou amanha as 5 h */
+    var virada = atual < VIRADA_MIN ? VIRADA_MIN : 1440 + VIRADA_MIN;
+    var faixas = faixasEmVolta(loja.horarios, data), ate = virada;
+    for (var i = 0; i < faixas.length; i++) if (faixas[i][0] > atual && faixas[i][0] < ate) ate = faixas[i][0];
+    return new Date(data.getFullYear(), data.getMonth(), data.getDate(), 0, ate, 0, 0);
+  }
+
+  /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
+     Faixas que se cruzam ou se encostam (11:00-15:00 e 14:00-23:00) contam como uma so: fecha as 23:00, nao as 15:00.
+     O "Abrir agora" conta como uma faixa de agora ate o fim dele (abriu as 17:00 antes da faixa das 18:00: fecha as 23:00).
+     null se nao usa horario ou se esta fora de qualquer faixa. */
+  function fechamentoDeHoje(loja, agora, instante) {
+    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
+    var data = agora || new Date();
+    var atual = data.getHours() * 60 + data.getMinutes();
+    var faixas = faixasEmVolta(loja.horarios, data), fim = null, i, mudou;
+    var extra = loja.aberta === false ? 0 : minutosAbertaForaDoHorario(loja, agora, instante);
+    if (extra > 0) faixas.push([atual, atual + extra]);
     for (i = 0; i < faixas.length; i++) {
       if (faixas[i][0] <= atual && atual < faixas[i][1] && (fim === null || faixas[i][1] > fim)) fim = faixas[i][1];
     }
@@ -413,10 +459,10 @@ const REGRAS = (function () {
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  function lojaAberta(loja, agora) {
+  function lojaAberta(loja, agora, instante) {
     if (!loja) return false;
     if (loja.aberta === false) return false;
-    if (loja.usarHorarios && loja.horarios) return dentroDoHorario(loja.horarios, agora);
+    if (loja.usarHorarios && loja.horarios) return dentroDoHorario(loja.horarios, agora) || abertaForaDoHorario(loja, agora, instante);
     return true;
   }
 
@@ -768,7 +814,7 @@ const REGRAS = (function () {
    * ---------------------------------------------------------- */
 
   function montarPedido(loja, dados, agora, instante) {
-    if (!lojaAberta(loja, agora)) {
+    if (!lojaAberta(loja, agora, instante)) {
       throw ErroDoCliente('A loja está fechada no momento. Volte mais tarde!');
     }
 
@@ -1939,6 +1985,8 @@ const REGRAS = (function () {
     lojaAberta: lojaAberta,
     proximaAbertura: proximaAbertura,
     fechamentoDeHoje: fechamentoDeHoje,
+    fimDeAbrirAgora: fimDeAbrirAgora,
+    abertaForaDoHorario: abertaForaDoHorario,
     assinatura: assinatura,
     lojaBloqueada: lojaBloqueada,
     planos: planos,
@@ -2133,7 +2181,7 @@ export default {
           /* quem inventa endereco de loja para gastar o banco gratis: depois de 30 "nao existe" em 10 min, para de ler */
           const ipL = request.headers.get('CF-Connecting-IP');
           if (!MEM.lojas[m[1]] && faltasDemais(ipL)) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
-          const item = await lerLoja(env, ctx, m[1]);
+          const item = await lerLoja(env, ctx, m[1], { versao: Number(url.searchParams.get('v')) || 0 });
           if (!item.existe) contarFalta(ipL);
           if (!item.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
           /* banco no limite de hoje: a loja manda o pedido pelo WhatsApp ate zerar */
@@ -2189,7 +2237,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho', 'abrir-agora'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -2684,6 +2732,12 @@ export default {
         let l = null;
         if (env.CARDAPIO) { const item = await lerLoja(env, ctx, loja); if (item.existe) { try { l = JSON.parse(item.corpo).loja; } catch (_) { l = null; } } }
         else l = await fb.get('lojas/' + loja);
+        /* fechada pela copia da memoria (ate 15 s): pode ser de antes do dono abrir a loja agora. Confere a do KV antes de
+           recusar (so quando ia recusar: pedido de loja aberta nao paga leitura a mais) */
+        if (l && env.CARDAPIO && !REGRAS.lojaAberta(l, new Date(Date.now() - horasAtrasDeLondres(l.uf) * 3600 * 1000), new Date())) {
+          const fresca = await lerLoja(env, ctx, loja, { doKv: true });
+          if (fresca.existe) { try { l = JSON.parse(fresca.corpo).loja; } catch (_) { /* fica a de antes */ } }
+        }
         if (!l) return json({ erro: 'Essa loja não existe mais.' }, 404);
         if (l.ativa === false) return json({ erro: 'Esta loja não está recebendo pedidos pelo site.' }, 409);
         /* loja AMOSTRA (a que o Ligeiro mostra para o dono): o site ja nao deixa pedir; aqui fecha para quem chama direto */
@@ -3146,10 +3200,15 @@ async function gravarKv(env, chave, valor, metadata, validadeSegundos) {
   try { await env.CARDAPIO.put(chave, valor, op); return true; } catch (_) { return false; }
 }
 
-/* A loja pronta para o site: da memoria (1 min), do KV (e confere o banco por tras se passou de 6 h) ou do banco. */
-async function lerLoja(env, ctx, slug) {
+/* A loja pronta para o site: da memoria (15 s), do KV (e confere o banco por tras se passou de 6 h) ou do banco.
+   opcoes.versao: o aparelho que acabou de publicar pede a copia dessa versao (a hora da copia) ou mais nova; a memoria mais
+   velha que isso vai ao KV (no maximo uma vez a cada 2 s por loja: ninguem gasta o KV pedindo versao do futuro).
+   opcoes.doKv: le o KV mesmo com a memoria nova (o pedido que ia ser recusado por loja fechada confere antes) */
+async function lerLoja(env, ctx, slug, opcoes) {
+  const o = opcoes || {};
   const mem = MEM.lojas[slug];
-  if (mem && Date.now() - mem.lida < 60 * 1000) return mem;
+  const atrasada = !!(mem && mem.existe && (o.doKv || (o.versao && Number((mem.meta || {}).em || 0) < o.versao && Date.now() - mem.lida > 2000)));
+  if (mem && Date.now() - mem.lida < LOJA_NA_MEMORIA && !atrasada) return mem;
   const g = await lerKv(env, 'loja:' + slug, 'text');
   if (g && g.value && g.metadata && g.metadata.em) {
     const item = { existe: true, corpo: g.value, meta: g.metadata, lida: Date.now() };
@@ -3381,7 +3440,7 @@ async function servirFoto(env, ctx, slug, id) {
 function camposDaVitrine(texto) {
   try {
     const x = JSON.parse(texto).loja || {};
-    return JSON.stringify([x.aberta, x.usarHorarios, x.horarios, x.nome, x.tipo, x.tipoNome, x.emoji, x.descricao, x.logoDados, x.logoUrl, x.capa, x.capaUrl, x.cor,
+    return JSON.stringify([x.aberta, x.abertaAte, x.usarHorarios, x.horarios, x.nome, x.tipo, x.tipoNome, x.emoji, x.descricao, x.logoDados, x.logoUrl, x.capa, x.capaUrl, x.cor,
       x.tempoEntrega, x.tempoPreparo, x.aceitaEntrega, x.aceitaRetirada, x.freteGratis, x.taxaEntrega, x.entregaGratisAcima, x.ativa, x.cidadeSlug, x.plano]);
   } catch (_) { return ''; }
 }

@@ -150,6 +150,13 @@
    * "aberta" e o interruptor manual do painel. Se a loja cadastrou
    * horarios, eles mandam junto: aberta so quando o interruptor esta
    * ligado E o relogio esta dentro do horario.
+   *
+   * "Abrir agora" fora do horario: o dono liga a loja antes (ou depois)
+   * do horario cadastrado e ela abre na hora. Vale ate loja.abertaAte
+   * (ISO): o comeco da proxima faixa do dia, que dali segue sozinha, ou
+   * a virada do dia de trabalho (5 h) se nao tem mais faixa. Antes a
+   * chave ligada fora do horario nao abria nada (Dom Conizza, 07/10/2026,
+   * na frente de um cliente).
    * ---------------------------------------------------------- */
 
   var DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
@@ -209,23 +216,59 @@
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
-     Faixas que se cruzam ou se encostam (11:00-15:00 e 14:00-23:00) contam como uma so: fecha as 23:00, nao as 15:00.
-     null se nao usa horario ou se esta fora de qualquer faixa. */
-  function fechamentoDeHoje(loja, agora) {
-    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
-    var data = agora || new Date();
-    var atual = data.getHours() * 60 + data.getMinutes();
-    /* as faixas de ontem, de hoje e de amanha em minutos contados da meia-noite de hoje (a que vira a noite passa das 24 h) */
-    var faixas = [], fim = null, i, k, f, lista, mudou;
+  /* as faixas de ontem, de hoje e de amanha em minutos contados da meia-noite de hoje (a que vira a noite passa das 24 h) */
+  function faixasEmVolta(horarios, data) {
+    var faixas = [], i, k, f, lista;
     for (k = -1; k <= 1; k++) {
-      lista = loja.horarios[DIAS[(data.getDay() + k + 7) % 7]];
+      lista = horarios[DIAS[(data.getDay() + k + 7) % 7]];
       if (!Array.isArray(lista)) continue;
       for (i = 0; i < lista.length; i++) {
         f = faixaMinutos(lista[i]);
         if (f) faixas.push([f[0] + k * 1440, f[1] + k * 1440 + (f[1] <= f[0] ? 1440 : 0)]);
       }
     }
+    return faixas;
+  }
+
+  /* Quantos minutos ainda faltam do "Abrir agora" (0 = nao esta aberta fora do horario). instante: o momento de verdade.
+     O mensageiro passa no agora a hora de Brasilia (ele roda em UTC) e manda o instante a parte; no site e o mesmo relogio */
+  function minutosAbertaForaDoHorario(loja, agora, instante) {
+    if (!loja || !loja.abertaAte || typeof loja.abertaAte !== 'string') return 0;
+    var ate = Date.parse(loja.abertaAte);
+    if (isNaN(ate)) return 0;
+    var falta = ate - instanteDe(instante || agora);
+    return falta > 0 ? Math.ceil(falta / 60000) : 0;
+  }
+  function abertaForaDoHorario(loja, agora, instante) { return minutosAbertaForaDoHorario(loja, agora, instante) > 0; }
+
+  /* O dono liga a loja fora do horario: ate quando ela fica aberta. O comeco da proxima faixa do mesmo dia de trabalho (abriu
+     as 17:00 com o horario das 18:00 as 23:00: vai ate as 18:00 e dali o horario segue, fechando as 23:00) ou, sem faixa
+     pela frente, a virada do dia de trabalho (5 h da manha, a mesma da fila e das vendas). null se nao precisa: sem horario
+     cadastrado ou ja dentro dele. Devolve a hora de verdade (Date), feita no relogio do aparelho do dono */
+  var VIRADA_MIN = 5 * 60;
+  function fimDeAbrirAgora(loja, agora) {
+    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
+    var data = agora || new Date();
+    if (dentroDoHorario(loja.horarios, data)) return null;
+    var atual = data.getHours() * 60 + data.getMinutes();
+    /* o dia de trabalho que esta correndo acaba na proxima virada: hoje as 5 h (de madrugada) ou amanha as 5 h */
+    var virada = atual < VIRADA_MIN ? VIRADA_MIN : 1440 + VIRADA_MIN;
+    var faixas = faixasEmVolta(loja.horarios, data), ate = virada;
+    for (var i = 0; i < faixas.length; i++) if (faixas[i][0] > atual && faixas[i][0] < ate) ate = faixas[i][0];
+    return new Date(data.getFullYear(), data.getMonth(), data.getDate(), 0, ate, 0, 0);
+  }
+
+  /* "Fecha às 23:00": o fim da faixa em que a loja esta agora (faixa que vira a noite, 18:00 as 02:00, tambem).
+     Faixas que se cruzam ou se encostam (11:00-15:00 e 14:00-23:00) contam como uma so: fecha as 23:00, nao as 15:00.
+     O "Abrir agora" conta como uma faixa de agora ate o fim dele (abriu as 17:00 antes da faixa das 18:00: fecha as 23:00).
+     null se nao usa horario ou se esta fora de qualquer faixa. */
+  function fechamentoDeHoje(loja, agora, instante) {
+    if (!loja || !loja.usarHorarios || !loja.horarios) return null;
+    var data = agora || new Date();
+    var atual = data.getHours() * 60 + data.getMinutes();
+    var faixas = faixasEmVolta(loja.horarios, data), fim = null, i, mudou;
+    var extra = loja.aberta === false ? 0 : minutosAbertaForaDoHorario(loja, agora, instante);
+    if (extra > 0) faixas.push([atual, atual + extra]);
     for (i = 0; i < faixas.length; i++) {
       if (faixas[i][0] <= atual && atual < faixas[i][1] && (fim === null || faixas[i][1] > fim)) fim = faixas[i][1];
     }
@@ -239,10 +282,10 @@
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  function lojaAberta(loja, agora) {
+  function lojaAberta(loja, agora, instante) {
     if (!loja) return false;
     if (loja.aberta === false) return false;
-    if (loja.usarHorarios && loja.horarios) return dentroDoHorario(loja.horarios, agora);
+    if (loja.usarHorarios && loja.horarios) return dentroDoHorario(loja.horarios, agora) || abertaForaDoHorario(loja, agora, instante);
     return true;
   }
 
@@ -594,7 +637,7 @@
    * ---------------------------------------------------------- */
 
   function montarPedido(loja, dados, agora, instante) {
-    if (!lojaAberta(loja, agora)) {
+    if (!lojaAberta(loja, agora, instante)) {
       throw ErroDoCliente('A loja está fechada no momento. Volte mais tarde!');
     }
 
@@ -1765,6 +1808,8 @@
     lojaAberta: lojaAberta,
     proximaAbertura: proximaAbertura,
     fechamentoDeHoje: fechamentoDeHoje,
+    fimDeAbrirAgora: fimDeAbrirAgora,
+    abertaForaDoHorario: abertaForaDoHorario,
     assinatura: assinatura,
     lojaBloqueada: lojaBloqueada,
     planos: planos,

@@ -778,6 +778,67 @@ test('fecha as: fim da faixa de agora, inclusive a que vira a noite', () => {
   assert.equal(R.fechamentoDeHoje({ usarHorarios: false, horarios: todos(['18:00-23:00']) }, as(20, 0)), null);
 });
 
+test('abrir agora: fora do horario a chave abre na hora e o horario segue depois (Dom Conizza, 07/10/2026)', () => {
+  const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  const todos = (faixas) => { const h = {}; DIAS.forEach((d) => { h[d] = faixas; }); return h; };
+  const as = (dia, hh, mm) => new Date(2026, 9, dia, hh, mm); /* outubro de 2026: o dia 7 e uma quarta */
+  const loja = { aberta: true, usarHorarios: true, horarios: todos(['18:00-23:00']) };
+  /* 17:00, horario das 18:00 as 23:00: fechada; o "Abrir agora" vai ate as 18:00 e dali o horario segue ate as 23:00 */
+  assert.equal(R.lojaAberta(loja, as(7, 17, 0)), false);
+  assert.equal(R.proximaAbertura(loja, as(7, 17, 0)), '18:00');
+  const fim = R.fimDeAbrirAgora(loja, as(7, 17, 0));
+  assert.equal(fim.getTime(), as(7, 18, 0).getTime());
+  const aberta = Object.assign({}, loja, { abertaAte: fim.toISOString() });
+  assert.equal(R.lojaAberta(aberta, as(7, 17, 0)), true);
+  assert.equal(R.lojaAberta(aberta, as(7, 17, 59)), true);
+  assert.equal(R.lojaAberta(aberta, as(7, 18, 30)), true, 'dali em diante, o horario de sempre');
+  assert.equal(R.lojaAberta(aberta, as(7, 23, 10)), false, 'fecha no fim do horario, como sempre');
+  assert.equal(R.fechamentoDeHoje(aberta, as(7, 17, 0)), '23:00');
+  assert.equal(R.abertaForaDoHorario(aberta, as(7, 17, 0)), true);
+  assert.equal(R.abertaForaDoHorario(aberta, as(7, 18, 0)), false);
+  /* a chave desligada manda mais que tudo */
+  assert.equal(R.lojaAberta(Object.assign({}, aberta, { aberta: false }), as(7, 17, 0)), false);
+  assert.equal(R.fechamentoDeHoje(Object.assign({}, aberta, { aberta: false }), as(7, 17, 0)), null);
+  /* dentro do horario ou sem horario cadastrado: a chave ja abre sozinha, nao precisa */
+  assert.equal(R.fimDeAbrirAgora(loja, as(7, 19, 0)), null);
+  assert.equal(R.fimDeAbrirAgora({ aberta: true, usarHorarios: false, horarios: todos(['18:00-23:00']) }, as(7, 17, 0)), null);
+  /* depois do horario, sem faixa pela frente no mesmo dia de trabalho: ate a virada das 5 h */
+  const tarde = R.fimDeAbrirAgora(loja, as(7, 23, 30));
+  assert.equal(tarde.getTime(), as(8, 5, 0).getTime());
+  assert.equal(R.fechamentoDeHoje(Object.assign({}, loja, { abertaAte: tarde.toISOString() }), as(7, 23, 30)), '05:00');
+  assert.equal(R.fimDeAbrirAgora(loja, as(8, 2, 0)).getTime(), as(8, 5, 0).getTime(), 'de madrugada a virada e a das 5 h de hoje');
+  /* faixa que vira a noite: abre antes e segue ate o fim dela */
+  const noite = { aberta: true, usarHorarios: true, horarios: todos(['18:00-02:00']) };
+  const n = Object.assign({}, noite, { abertaAte: R.fimDeAbrirAgora(noite, as(7, 17, 0)).toISOString() });
+  assert.equal(R.fechamentoDeHoje(n, as(7, 17, 0)), '02:00');
+  /* faixa que comeca de madrugada (padaria das 04:00): vai ate ela, e ela segue */
+  const padaria = { aberta: true, usarHorarios: true, horarios: todos(['04:00-12:00']) };
+  assert.equal(R.fimDeAbrirAgora(padaria, as(7, 23, 0)).getTime(), as(8, 4, 0).getTime());
+  /* dia de folga (sem faixa hoje): ate a virada */
+  const folga = { aberta: true, usarHorarios: true, horarios: { qui: ['18:00-23:00'] } };
+  assert.equal(R.fimDeAbrirAgora(folga, as(7, 14, 0)).getTime(), as(8, 5, 0).getTime());
+  /* passou da hora: volta para o horario de sempre; valor torto nao abre nada */
+  assert.equal(R.lojaAberta(Object.assign({}, loja, { abertaAte: as(7, 16, 0).toISOString() }), as(7, 17, 0)), false);
+  assert.equal(R.lojaAberta(Object.assign({}, loja, { abertaAte: 'amanha' }), as(7, 17, 0)), false);
+  assert.equal(R.lojaAberta(Object.assign({}, loja, { abertaAte: 123 }), as(7, 17, 0)), false);
+});
+
+test('abrir agora no mensageiro: o horario pela hora da loja (agora) e o "Abrir agora" pelo instante de verdade', () => {
+  const as = (hh, mm) => new Date(2026, 9, 7, hh, mm);
+  const loja = Object.assign(lojaDeTeste(), { usarHorarios: true, horarios: { qua: ['18:00-23:00'] }, abertaAte: as(18, 0).toISOString() });
+  const dados = {
+    nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', formaPagamento: 'pix',
+    endereco: { rua: 'Rua A', numero: '10', bairro: 'Centro', referencia: 'perto da praça' },
+    itens: [{ produtoId: 'x', quantidade: 1 }],
+  };
+  assert.equal(R.montarPedido(loja, dados, as(17, 0), as(17, 0)).status, R.STATUS.AGUARDANDO);
+  /* sem o instante (no site), o agora vale para os dois */
+  assert.equal(R.montarPedido(loja, dados, as(17, 30)).status, R.STATUS.AGUARDANDO);
+  /* o "Abrir agora" conta pelo instante: ja passou dele, e fora do horario a loja recusa */
+  assert.throws(() => R.montarPedido(loja, dados, as(17, 0), as(18, 30)), /fechada/);
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { abertaAte: '' }), dados, as(17, 0), as(17, 0)), /fechada/);
+});
+
 test('texto que ja fala da cidade: palavra inteira, sem acento e sem maiuscula', () => {
   assert.equal(R.mencionaCidade('Lanchonete em Juquiá', 'Juquiá'), true);
   assert.equal(R.mencionaCidade('PIZZARIA EM JUQUIA', 'Juquiá'), true);

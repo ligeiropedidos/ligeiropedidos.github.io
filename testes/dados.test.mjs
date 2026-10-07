@@ -81,6 +81,7 @@ function navegador(config, rel) {
     janela, chamadas, respostas,
     esconder() { documento.hidden = true; documento.visibilityState = 'hidden'; (ouvintesDoc.visibilitychange || []).forEach((f) => f()); },
     sair() { (ouvintesJanela.pagehide || []).forEach((f) => f()); },
+    disparar(nome, ev) { (ouvintesJanela[nome] || []).forEach((f) => f(ev)); },
   };
 }
 
@@ -106,6 +107,32 @@ console.log('publicarLoja: a loja do cliente muda na hora');
   ok(c && c.opcoes.headers.Authorization === 'Bearer tok-dono', 'com o login do dono');
   ok(c && c.opcoes.keepalive === true, 'com keepalive (sai mesmo se a pagina for embora)');
   ok(rel.pendentes().length === 0, 'deu certo: nada fica esperando');
+}
+
+console.log('publicarLoja: o site aberto neste aparelho pede a copia nova (o dono abriu a loja e o site seguia "Fechada")');
+{
+  const { n, store } = lojaNaNuvem();
+  n.respostas.push({ status: 200, corpo: { ok: true, versao: 1760000000123 } });
+  store.publicarLoja('loja', { agora: true });
+  await assentar();
+  const marca = JSON.parse(n.janela.localStorage.getItem('ligeiro:publicou:loja') || 'null');
+  ok(marca && marca.v === 1760000000123, 'publicou: guarda neste aparelho a versao da copia nova');
+  n.respostas.push({ status: 200, corpo: { borda: 1, loja: { nome: 'Loja', aberta: false } } });
+  const pub = store.lojaPublica('loja');
+  const l = await pub.primeira;
+  const lojaPedidas = () => n.chamadas.filter((c) => c.endereco.indexOf('https://borda.teste/loja/loja') === 0);
+  const pedido = lojaPedidas().pop();
+  ok(l && l.nome === 'Loja' && pedido && /\?v=1760000000123$/.test(pedido.endereco) && pedido.opcoes.cache === 'no-store', 'o site pede a versao nova, sem o cache do navegador');
+  let viu = null;
+  pub.assistir((x) => { viu = x; });
+  n.respostas.push({ status: 200, corpo: { borda: 1, loja: { nome: 'Loja', aberta: true } } });
+  n.disparar('storage', { key: 'ligeiro:publicou:loja' });
+  await assentar();
+  ok(lojaPedidas().length === 2 && viu && viu.aberta === true, 'o painel publicou em outra aba: o site confere na hora (sem esperar o minuto)');
+  n.disparar('storage', { key: 'ligeiro:publicou:outra-loja' });
+  await assentar();
+  ok(lojaPedidas().length === 2, 'publicacao de outra loja nao faz esta conferir');
+  pub.parar();
 }
 
 console.log('publicarLoja: preco e texto esperam a folga de 1,5 s e saem uma vez so');

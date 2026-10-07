@@ -595,12 +595,12 @@
     }
 
     /* ---------------------------------------------------------- pedidos */
-    /* O que o cliente ve agora: aberta (recebendo pedidos), fechada na chave, ou fechada pelo horario cadastrado
-       (a chave ligada, mas fora da faixa: abre sozinha na proxima). */
+    /* O que o cliente ve agora: aberta (recebendo pedidos, inclusive aberta antes do horario pelo "Abrir agora"), fechada
+       na chave, ou fechada pelo horario cadastrado (abre sozinha na proxima faixa). */
     /* frases curtas de proposito: uma linha so ate no celular de 320 px (a coluna do texto tem 160 px), em qualquer fonte */
     function situacaoDaLoja(l) {
       if (l.aberta === false) return { classe: 'fechada', titulo: 'Loja fechada', sub: 'Não recebe pedidos' };
-      if (l.usarHorarios && l.horarios && !R.dentroDoHorario(l.horarios)) {
+      if (l.usarHorarios && l.horarios && !R.dentroDoHorario(l.horarios) && !R.abertaForaDoHorario(l)) {
         var abre = R.proximaAbertura(l);
         return { classe: 'horario', titulo: 'Fora do horário', sub: abre ? 'Abre sozinha às ' + abre : 'Hoje não abre mais' };
       }
@@ -609,14 +609,46 @@
       return { classe: 'aberta', titulo: 'Loja aberta', sub: l.amostra === true ? 'Aparece aberta no site da amostra' : fecha ? 'Fecha sozinha às ' + fecha : 'Recebendo pedidos' };
     }
 
+    /* "Abrir agora" fora do horario: precisa do mensageiro que aceita o pedido nessa hora (o antigo recusaria no pagamento) */
+    function abrirAgoraPossivel() { return recursoNoAr('abrir-agora'); }
+
+    /* A chave e o que o cliente ve: ligada = recebendo pedidos agora. Fora do horario ela fica desligada, e ligar abre a loja
+       na hora (antes so mudava para "Fora do horario" e o site continuava fechado). Desligar o que foi aberto antes do
+       horario volta para o horario de sempre; desligar dentro do horario fecha ate o dono ligar de novo, como sempre foi */
+    function abrirLoja() {
+      var l = estado.loja;
+      var fim = R.fimDeAbrirAgora(l);
+      var falhou = function () { /* ja avisou */ };
+      if (!fim) { salvarLoja(l.abertaAte ? { aberta: true, abertaAte: '' } : { aberta: true }, 'Loja aberta para pedidos').catch(falhou); return; }
+      abrirAgoraPossivel().then(function (pode) {
+        if (!pode) {
+          /* mensageiro antigo: liga a chave (a loja abre sozinha no horario) e explica o que da para fazer */
+          var abre = R.proximaAbertura(Object.assign({}, l, { aberta: true }));
+          var texto = abre ? 'A loja abre sozinha às ' + abre + ', no horário cadastrado. Para abrir antes, mude o horário em Ajustes.' : 'Hoje a loja não abre mais pelo horário cadastrado. Para abrir agora, mude o horário em Ajustes.';
+          if (l.aberta === false) salvarLoja({ aberta: true }).then(function () { UI.avisar(texto); }, falhou);
+          else UI.avisar(texto);
+          return;
+        }
+        var mudancas = { aberta: true, abertaAte: fim.toISOString() };
+        var fecha = R.fechamentoDeHoje(Object.assign({}, l, mudancas));
+        salvarLoja(mudancas, fecha ? 'Loja aberta agora. Fecha sozinha às ' + fecha + '.' : 'Loja aberta agora.').catch(falhou);
+      });
+    }
+
     function interruptorLoja() {
       var l = estado.loja;
-      var aberta = l.aberta !== false;
+      var s = situacaoDaLoja(l);
+      var aberta = s.classe === 'aberta';
+      /* fora do horario, a pergunta ao mensageiro ja sai agora: o toque na chave abre sem esperar */
+      if (s.classe === 'horario') abrirAgoraPossivel();
       var chave = el('button', { class: 'chave' + (aberta ? ' on' : ''), type: 'button', role: 'switch', 'aria-checked': aberta ? 'true' : 'false', 'aria-label': 'Receber pedidos' });
       chave.addEventListener('click', function () {
-        var nova = !(estado.loja.aberta !== false);
-        var trocar = function () { salvarLoja({ aberta: nova }, nova ? 'Loja aberta para pedidos' : 'Loja fechada: pedidos novos pararam de entrar').catch(function () { /* ja avisou */ }); };
-        if (nova) { trocar(); return; }
+        var atual = estado.loja;
+        if (!R.lojaAberta(atual)) { abrirLoja(); return; }
+        /* aberta antes do horario: desligar so tira o "Abrir agora" (e a loja abre sozinha no horario, como antes) */
+        var soAgora = !!(atual.usarHorarios && atual.horarios && !R.dentroDoHorario(atual.horarios));
+        var fechar = soAgora ? { abertaAte: '' } : (atual.abertaAte ? { aberta: false, abertaAte: '' } : { aberta: false });
+        var trocar = function () { salvarLoja(fechar, 'Loja fechada: pedidos novos pararam de entrar').catch(function () { /* ja avisou */ }); };
         /* fechar = parar de receber pedido NOVO. O que ja entrou continua aqui ate concluir (Pix vencido nao conta:
            ele sai da fila sozinho) */
         var andando = estado.pedidos.filter(function (p) {
@@ -630,7 +662,6 @@
         UI.perguntar(texto, { titulo: 'Fechar a loja?', sim: 'Fechar', nao: 'Voltar' }).then(function (sim) { if (sim) trocar(); });
       });
       /* cartao na cor do estado, bolinha "ao vivo" quando esta recebendo pedidos */
-      var s = situacaoDaLoja(l);
       var cartao = el('div', { class: 'interruptor status-loja ' + s.classe, role: 'status' }, [
         el('span', { class: 'status-ponto', 'aria-hidden': 'true' }),
         el('b', { class: 'status-titulo', text: s.titulo }),
@@ -1553,7 +1584,7 @@
     /* ---------------------------------------------------------- cardapio */
     /* O que o cliente precisa ver na hora (a loja fechou, o item acabou, o cupom ou o cartao desligou): a copia da
        loja na borda sai sem esperar a folga de 1,5 s. Preco e texto seguem com a folga (10 edicoes seguidas, um aviso) */
-    var CAMPOS_NA_HORA = ['aberta', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaPixCombinado', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
+    var CAMPOS_NA_HORA = ['aberta', 'abertaAte', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaPixCombinado', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
     function ligados(lista, campo) { return (lista || []).map(function (x) { return x ? String(x.id) + (x[campo] === false ? ':0' : ':1') : ''; }).join(','); }
     function opcoesLigadas(grupos) {
       return Object.keys(grupos || {}).sort().map(function (k) { return k + '[' + ((grupos[k] && grupos[k].opcoes) || []).map(function (o) { return o && o.ativo === false ? '0' : '1'; }).join('') + ']'; }).join(',');
@@ -3315,7 +3346,7 @@
 
       var funcionamento = el('div', { class: 'bloco-form', id: 'aj-funcionamento' }, [el('div', { class: 'bloco-titulo', text: 'Funcionamento' })]);
       f.aberta = interruptorCampo('Loja aberta para pedidos', 'Interruptor manual. Desligado, ninguém consegue pedir.', l.aberta !== false);
-      f.usarHorarios = interruptorCampo('Fechar sozinha fora do horário', 'Além do interruptor, respeita os horários abaixo.', !!l.usarHorarios);
+      f.usarHorarios = interruptorCampo('Fechar sozinha fora do horário', 'Além do interruptor, respeita os horários abaixo. Para abrir fora do horário, ligue a loja na tela Pedidos.', !!l.usarHorarios);
       funcionamento.appendChild(f.aberta);
       funcionamento.appendChild(f.usarHorarios);
       var dias = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sab', 'Sábado'], ['dom', 'Domingo']];
@@ -3919,6 +3950,8 @@
         mostrarOutras: f.mostrarOutras.chave.ligado,
         jogoDesligado: !f.jogo.chave.ligado,
       };
+      /* desligou a loja aqui: o "Abrir agora" que estivesse valendo sai junto (religar depois nao traz ele de volta) */
+      if (!mudancas.aberta && estado.loja.abertaAte) mudancas.abertaAte = '';
       /* so grava o Pix combinado quando o interruptor apareceu (mensageiro antigo: fica como estava) */
       if (f.aceitaPixCombinado.oferecido) mudancas.aceitaPixCombinado = f.aceitaPixCombinado.chave.ligado;
       var logo = f.logo.valor();

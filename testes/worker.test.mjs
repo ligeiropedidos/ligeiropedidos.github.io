@@ -677,6 +677,54 @@ console.log('Pedido criado pelo servidor');
     ok(r.status === 422 && /fechada/.test(j.erro || ''), 'a mesma faixa numa loja de SP: em Brasilia ja fechou');
     Object.assign(loja, { usarHorarios: false, uf: ufAntes }); delete loja.horarios; await recarregar();
   }
+  /* "Abrir agora" fora do horario (Dom Conizza, 07/10/2026: a chave ligada as 17:00 nao abria a loja das 18:00 as 23:00) */
+  {
+    const DONO = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura';
+    const hm = (m) => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+    const sp = new Date(Date.now() - 3 * 3600e3), m = sp.getHours() * 60 + sp.getMinutes();
+    const horarios = {};
+    ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'].forEach((d) => { horarios[d] = [hm(m + 120) + '-' + hm(m + 180)]; }); /* a faixa comeca daqui a 2 h */
+    const ufAntes = loja.uf;
+    Object.assign(loja, { usarHorarios: true, horarios, uf: 'SP' }); await recarregar();
+    r = await pedir(dados({ telefone: '13944440001' })); j = await r.json();
+    ok(r.status === 422 && /fechada/.test(j.erro || ''), 'fora do horario, sem "Abrir agora": fechada');
+    loja.abertaAte = new Date(Date.now() + 3600e3).toISOString(); await recarregar();
+    r = await pedir(dados({ telefone: '13944440002' })); j = await r.json();
+    ok(r.status === 200, '"Abrir agora" fora do horario: o pedido nasce');
+    loja.abertaAte = new Date(Date.now() - 60e3).toISOString(); await recarregar();
+    r = await pedir(dados({ telefone: '13944440003' })); j = await r.json();
+    ok(r.status === 422 && /fechada/.test(j.erro || ''), 'passou da hora do "Abrir agora": fechada de novo pelo horario');
+    /* esta copia do worker guardou na memoria a loja fechada; o dono abre e publica por outra copia (so o KV muda) */
+    loja.abertaAte = ''; await recarregar();
+    r = await chamar(w, '/loja/dom-conizza'); j = await r.json();
+    ok(j.loja.abertaAte === '', 'memoria desta copia: a loja fechada');
+    loja.abertaAte = new Date(Date.now() + 3600e3).toISOString();
+    r = await chamar(await workerNovo(), '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: DONO } }); const pub = await r.json();
+    await esperarFundo();
+    ok(r.status === 200 && pub.versao > 0, 'o dono publica e recebe a versao da copia nova');
+    zerar(); kv.leituras = 0;
+    r = await pedir(dados({ telefone: '13944440004' })); j = await r.json();
+    ok(r.status === 200 && kv.leituras > 0, 'a memoria dizia fechada: o mensageiro confere o KV e o pedido nasce (antes recusava por ate 1 min)');
+    /* o site do aparelho que publicou pede a versao nova: a memoria velha nao responde */
+    const w2 = await workerNovo();
+    loja.abertaAte = ''; kv.mapa.delete('loja:dom-conizza');
+    r = await chamar(w2, '/loja/dom-conizza'); j = await r.json();
+    ok(j.loja.abertaAte === '', 'outra copia guarda na memoria a loja fechada');
+    loja.abertaAte = new Date(Date.now() + 3600e3).toISOString();
+    r = await chamar(await workerNovo(), '/publicar', { metodo: 'POST', corpo: { loja: 'dom-conizza' }, headers: { Authorization: DONO } }); const pub2 = await r.json();
+    await esperarFundo();
+    r = await chamar(w2, '/loja/dom-conizza'); j = await r.json();
+    ok(j.loja.abertaAte === '', 'sem pedir versao, a memoria (15 s) ainda responde');
+    await new Promise((ok2) => setTimeout(ok2, 2100));
+    r = await chamar(w2, '/loja/dom-conizza?v=' + pub2.versao); j = await r.json();
+    ok(j.loja.abertaAte === loja.abertaAte, 'pedindo a versao que acabou de publicar: vem a copia nova');
+    kv.leituras = 0;
+    for (let i = 0; i < 5; i++) await chamar(w2, '/loja/dom-conizza?v=' + (Date.now() + 9e9));
+    ok(kv.leituras <= 1, 'versao do futuro em sequencia nao gasta o KV a cada chamada');
+    r = await chamar(w, '/recursos'); j = await r.json();
+    ok((j.recursos || []).indexOf('abrir-agora') >= 0, '/recursos diz que este mensageiro aceita o "Abrir agora" (o painel so oferece com ele)');
+    Object.assign(loja, { usarHorarios: false, uf: ufAntes }); delete loja.horarios; delete loja.abertaAte; await recarregar();
+  }
   /* loja AMOSTRA: nem chamando direto */
   loja.amostra = true; await recarregar();
   r = await pedir(dados({ telefone: '13944441111' })); j = await r.json();

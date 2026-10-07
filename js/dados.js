@@ -67,6 +67,8 @@
     ['nome', 'descricao', 'cidade', 'cidadeSlug', 'tipo', 'tipoNome', 'emoji', 'uf', 'avisoTopo'].forEach(function (k) {
       if (k in dados && dados[k] != null && typeof dados[k] !== 'string') dados[k] = String(dados[k]);
     });
+    /* "Abrir agora" (ISO): so texto; qualquer outra coisa vira nada (a loja segue o horario) */
+    if ('abertaAte' in dados && typeof dados.abertaAte !== 'string') dados.abertaAte = '';
     if (dados.cidadeSlug && !/^[a-z0-9-]{1,60}$/.test(dados.cidadeSlug)) dados.cidadeSlug = '';
     /* imagem so do proprio site ou em dados (nada de endereco de fora para rastrear quem abre a loja) */
     ['logoUrl', 'capaUrl', 'logoDados'].forEach(function (k) { if (dados[k] && !imagemSegura(dados[k])) dados[k] = ''; });
@@ -115,7 +117,7 @@
       slug: l.slug, nome: l.nome || '', tipo: l.tipo || '', tipoNome: String(l.tipoNome || '').slice(0, 24), emoji: l.emoji || '', descricao: (l.descricao || '').slice(0, 120),
       cidade: l.cidade || '', cidadeSlug: l.cidadeSlug || '', uf: l.uf || '',
       logoDados: l.logoDados || '', logoUrl: l.logoUrl || '', capa: l.capa || '', capaUrl: l.capaUrl || '', cor: l.cor || '',
-      aberta: l.aberta !== false, usarHorarios: !!l.usarHorarios, horarios: l.horarios || {},
+      aberta: l.aberta !== false, abertaAte: typeof l.abertaAte === 'string' ? l.abertaAte : '', usarHorarios: !!l.usarHorarios, horarios: l.horarios || {},
       tempoEntrega: l.tempoEntrega || 40, tempoPreparo: l.tempoPreparo || 20,
       aceitaEntrega: l.aceitaEntrega !== false, aceitaRetirada: l.aceitaRetirada !== false,
       freteGratis: !!l.freteGratis, taxaEntrega: l.taxaEntrega || 0, entregaGratisAcima: l.entregaGratisAcima || 0,
@@ -998,6 +1000,23 @@
    * (ou esta fora do ar), tudo volta sozinho para o Firestore, como era antes.
    */
   var CHAVE_BORDA_FORA = 'ligeiro:borda-fora';
+  /* Este aparelho acabou de publicar a loja (o painel salvou): a aba do site aberta nele confere na hora, e pede a copia
+     nova pela versao da resposta, para a borda nao responder com a que guardou de antes (o dono abria a loja e o site
+     dele seguia "Fechada" por ate um minuto). Vale 10 min */
+  var CHAVE_PUBLICOU = 'ligeiro:publicou:';
+  function marcarPublicada(slug, versao) {
+    try { localStorage.setItem(CHAVE_PUBLICOU + slug, JSON.stringify({ v: Number(versao) || 0, em: Date.now() })); } catch (_) { /* segue */ }
+  }
+  /* a versao da copia que o /publicar devolve (resposta sem corpo ou torta: 0, e o site confere sem pedir versao) */
+  function versaoDaResposta(r) {
+    try { return Promise.resolve(r.json()).then(function (j) { return j && j.versao; }, function () { return 0; }); } catch (_) { return Promise.resolve(0); }
+  }
+  function publicadaAqui(slug) {
+    try {
+      var m = JSON.parse(localStorage.getItem(CHAVE_PUBLICOU + slug) || 'null');
+      return m && typeof m === 'object' && Date.now() - Number(m.em || 0) < 10 * 60 * 1000 ? m : null;
+    } catch (_) { return null; }
+  }
   function enderecoBorda() {
     var c = window.LIGEIRO_CONFIG || {};
     if (!c.firebase || !c.proxyMercadoPago) return '';
@@ -1170,7 +1189,9 @@
     var eu = this, ouvintes = [], ultimoJson = '', parado = false, relogio = null, viva = null, conferidaEm = 0;
     var intervalo = Math.max(60000, Number((opcoes || {}).intervalo) || 60000);
     function buscar(fresco) {
-      return pegarBorda('/loja/' + encodeURIComponent(slug), fresco).then(function (x) {
+      var marca = publicadaAqui(slug);
+      var v = marca && marca.v > 0 ? '?v=' + Math.round(marca.v) : '';
+      return pegarBorda('/loja/' + encodeURIComponent(slug) + v, fresco || !!marca).then(function (x) {
         if (x.status === 404) return null;
         if (x.status !== 200 || !x.dados.loja) throw erroBorda();
         var l = daNuvem(x.dados.loja, slug);
@@ -1193,9 +1214,11 @@
       buscar(true).then(function (l) { if (!parado) avisar(l); }).catch(function () { /* sem internet agora: tenta no proximo minuto */ });
     }
     function aoVoltar() { if (!document.hidden) conferir(); }
+    /* o painel aberto em outra aba deste aparelho publicou a loja: confere ja (ou assim que esta aba aparecer) */
+    function aoPublicar(e) { if (e && e.key === CHAVE_PUBLICOU + slug) { conferidaEm = 0; conferir(); } }
     var primeira = buscar(false).then(function (l) {
       ultimoJson = JSON.stringify(l);
-      if (l && !parado) { relogio = setInterval(conferir, intervalo); document.addEventListener('visibilitychange', aoVoltar); }
+      if (l && !parado) { relogio = setInterval(conferir, intervalo); document.addEventListener('visibilitychange', aoVoltar); window.addEventListener('storage', aoPublicar); }
       return l;
     }, function () {
       if (parado) return null;
@@ -1216,6 +1239,7 @@
       parar: function () {
         parado = true; ouvintes = []; clearInterval(relogio);
         document.removeEventListener('visibilitychange', aoVoltar);
+        window.removeEventListener('storage', aoPublicar);
         if (viva) viva.parar();
       },
     };
@@ -1304,6 +1328,7 @@
     }).then(function (x) {
       var r = x.r;
       var deu = !!(r && r.ok);
+      if (deu) versaoDaResposta(r).then(function (v) { marcarPublicada(slug, v); });
       avisos.forEach(function (f) { try { f(deu); } catch (_) { /* segue */ } });
       if (deu || x.semLogin) { item.tentativa = 0; return; }
       /* 401 (token velho): pega outro na proxima tentativa */
