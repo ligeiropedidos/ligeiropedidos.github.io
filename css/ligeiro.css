@@ -1391,7 +1391,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .divulgar-onde li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 20px; color: var(--muted); text-wrap: pretty; }
 .divulgar-onde li strong { color: var(--ink); font-weight: 700; }
 .divulgar-onde li > .ico-traco, .divulgar-onde li > .icone-zap, .divulgar-onde li > .icone-insta { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--deep2); display: inline-flex; align-items: center; justify-content: center; }
-.divulgar-onde li > .ico-traco svg { width: 18px; height: 18px; }
+/* o DESENHO de todos com 16 px (medido com medir_icones_dicas.mjs): o traco do relogio e da impressora ocupa 14,3 de 18, o logo do
+   WhatsApp ocupa a caixa toda e o do Instagram 15,7. A caixa continua 18, entao o meio e o vao ate o texto ficam iguais */
+.divulgar-onde li > .ico-traco svg { width: 20px; height: 20px; flex: none; }
+.divulgar-onde li > .icone-zap { -webkit-mask-size: 16px; mask-size: 16px; }
+.divulgar-onde li > .icone-insta { -webkit-mask-size: 18.3px; mask-size: 18.3px; }
 /* 480+: o link e o botao numa linha so (o link longo termina em "..."), e os dois botoes lado a lado */
 @media (min-width: 480px) {
   .link-grupo { flex-direction: row; align-items: stretch; }
