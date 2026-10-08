@@ -1863,7 +1863,8 @@ a.selo-google:hover { background: var(--lime-suave); }
    de acrilico, com o QR, o nome e a frase do QR que o painel baixa. O QR e de verdade (25 modulos de 2,5 px) e o papel em volta
    dele e a margem branca que a camera pede: a mesma folga em cima, embaixo e dos lados */
 .mini-divulga { display: flex; align-items: center; gap: 12px; }
-.mini-perfil { width: 156px; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 14px; }
+/* 160 (08/10/2026): com a letra do iPhone (SF, ~8% mais larga) o "lanchonetedoze" ficava a 1,6 da borda; agora sobra 5 */
+.mini-perfil { width: 160px; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 14px; }
 .mini-perfil-topo { display: flex; align-items: center; gap: 8px; }
 /* a foto com o anel do story: 2 do degrade do Instagram, 2 de branco e a foto (38 por fora) */
 .mini-perfil-anel { flex: none; display: flex; width: 38px; height: 38px; padding: 2px; box-sizing: border-box; border-radius: 50%; background: linear-gradient(45deg, #FEDA75, #FA7E1E 28%, #D62976 55%, #962FBF 78%, #4F5BD5); }
@@ -1880,7 +1881,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .mini-perfil-seguir { background: #0095F6; color: #fff; }
 .mini-perfil-mensagem { background: #EFEFEF; color: #000; }
 .mini-placa { flex: none; position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 6px; }
-.mini-placa-papel { position: relative; z-index: 1; width: 96px; display: flex; flex-direction: column; align-items: center; padding: 16.75px 6px; border-radius: 4px; text-align: center; } /* 16,75: a folga do QR dos lados ((96 - 62,5) / 2) tambem em cima e embaixo */
+.mini-placa-papel { position: relative; z-index: 1; width: 100px; display: flex; flex-direction: column; align-items: center; padding: 18.75px 5px; border-radius: 4px; text-align: center; } /* 18,75: a folga do QR dos lados ((100 - 62,5) / 2) tambem em cima e embaixo. 100 (08/10/2026): com a letra do iPhone o nome da loja ficava a 1,4 da borda; agora sobra 4 */
 .mini-placa-papel b { margin-top: 8px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .mini-placa-papel small { margin-top: 4px; font-size: 8px; line-height: 1.2; color: #4B5A4F; text-wrap: balance; }
 .mini-qr-codigo svg { display: block; width: 62.5px; height: 62.5px; }
@@ -1921,11 +1922,21 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (hover: hover) { .funcoes-aba[aria-selected="false"]:hover { background: var(--lime-suave); } }
 .funcoes-aba:focus-visible { outline: 2px solid var(--lime-escuro); outline-offset: 2px; }
 @media (max-width: 559px) { .funcoes-abas { width: 100%; } .funcoes-aba { flex: 1 1 0; padding: 0 8px; } }
-.funcoes-painel { display: grid; grid-template-columns: 1fr; gap: 12px; animation: entrar 0.3s ease-out both; }
+/* os paineis um em cima do outro, na mesma celula (08/10/2026: trocar de aba mudava a altura da secao e a pagina pulava): a area tem
+   a altura do maior e o escondido fica no lugar, invisivel (fora da leitura de tela e do toque). No celular cada cartao na sua
+   altura; do tablet para cima as linhas preenchem a area, e os cartoes ficam do mesmo tamanho em todas as abas */
+.funcoes-paineis { display: grid; }
+.funcoes-paineis > .funcoes-painel { grid-area: 1 / 1; align-content: start; }
+.funcoes-paineis > .funcoes-painel[hidden] { display: grid !important; visibility: hidden; pointer-events: none; } /* !important: vence o [hidden] global */
+/* do tablet para cima, as linhas dos 3 paineis sao as MESMAS (subgrid; cada aba tem 4 cartoes: 2 linhas no tablet, 1 no PC): cada
+   linha tem a altura do cartao mais alto daquela linha nas 3 abas, e a outra linha nao estica junto */
+@media (min-width: 560px) { .funcoes-paineis { row-gap: 12px; } .funcoes-paineis > .funcoes-painel { grid-row: 1 / span 2; grid-template-rows: subgrid; } }
+@media (min-width: 900px) { .funcoes-paineis > .funcoes-painel { grid-row: 1 / span 1; } }
+.funcoes-painel { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.funcoes-painel.entrando { animation: entrar 0.3s ease-out both; }
 @media (min-width: 560px) { .funcoes-painel { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .funcoes-painel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.funcao { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s; }
-@media (hover: hover) { .funcao:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(14, 31, 20, 0.1); } }
+.funcao { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); } /* sem subir no hover: o cartao nao e clicavel (08/10/2026) */
 .funcao-topo { display: flex; align-items: center; gap: 12px; }
 .funcao-icone { flex: none; width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--tinta-fundo); color: var(--tinta); }
 .funcao-icone .ico-traco svg { width: 22px; height: 22px; }
@@ -1943,7 +1954,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .funcao.cor-azul { --tinta: #1D4ED8; --tinta-fundo: #E5EEFF; }
 .funcao.cor-laranja { --tinta: #B45309; --tinta-fundo: #FFF0DC; }
 .funcao.cor-roxo { --tinta: #6D28D9; --tinta-fundo: #F0E8FF; }
-@media (prefers-reduced-motion: reduce) { .funcoes-painel { animation: none; } .funcao, .funcoes-aba { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .funcoes-painel.entrando { animation: none; } .funcoes-aba { transition: none; } }
 .vender-grade { display: grid; grid-template-columns: 1fr; gap: 10px; }
 @media (min-width: 560px) { .vender-grade { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; } } /* lado a lado: todas as linhas da altura da mais alta */
 .item-venda { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }

@@ -1260,6 +1260,8 @@
     function escolher(i, foco) {
       abas.forEach(function (a, k) { a.setAttribute('aria-selected', k === i ? 'true' : 'false'); a.tabIndex = k === i ? 0 : -1; });
       paineis.forEach(function (p, k) { p.hidden = k !== i; });
+      /* o painel que aparece entra de novo (os tres ficam sempre montados, um em cima do outro: a animacao nao recomeca sozinha) */
+      paineis[i].classList.remove('entrando'); void paineis[i].offsetWidth; paineis[i].classList.add('entrando');
       if (foco) abas[i].focus();
     }
     FUNCOES.forEach(function (f, i) {
@@ -1270,7 +1272,7 @@
           /* setas trocam de aba (o padrao das abas): da ultima volta para a primeira */
           if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); escolher((i + (e.key === 'ArrowRight' ? 1 : FUNCOES.length - 1)) % FUNCOES.length, true); }
         } }));
-      paineis.push(el('div', { class: 'funcoes-painel', role: 'tabpanel', id: idPainel, 'aria-labelledby': idAba, hidden: i !== 0 }, f.itens.map(function (x) {
+      paineis.push(el('div', { class: 'funcoes-painel' + (i === 0 ? ' entrando' : ''), role: 'tabpanel', id: idPainel, 'aria-labelledby': idAba, hidden: i !== 0 }, f.itens.map(function (x) {
         return el('div', { class: 'funcao cor-' + x[1] }, [
           el('div', { class: 'funcao-topo' }, [el('span', { class: 'funcao-icone', 'aria-hidden': 'true' }, [UI.iconeLinha(x[0])]), el('b', { text: x[2] })]),
           el('p', { text: x[3] }),
@@ -1282,7 +1284,9 @@
       el('h2', { text: 'Do pedido ao Pix, sem você digitar nada' }),
       el('p', { class: 'muted', text: 'Tudo isso já vem no mesmo plano, sem comissão. Toque nos assuntos para ver.' }),
       el('div', { class: 'funcoes-abas', role: 'tablist', 'aria-label': 'Funções do Ligeiro' }, abas),
-    ].concat(paineis));
+      /* os tres paineis no mesmo lugar: a area tem sempre a altura do maior (trocar de aba nao empurra mais a pagina) */
+      el('div', { class: 'funcoes-paineis' }, paineis),
+    ]);
   }
 
   /* Comparativo com os concorrentes. Valores publicos conferidos em setembro de 2026 (sites e blogs do setor). */
