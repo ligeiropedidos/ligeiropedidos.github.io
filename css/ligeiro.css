@@ -1865,7 +1865,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .mini-divulga { display: flex; align-items: center; gap: 12px; }
 .mini-perfil { width: 156px; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 14px; }
 .mini-perfil-topo { display: flex; align-items: center; gap: 8px; }
-.mini-perfil-foto { flex: none; width: 34px; height: 34px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #DDE3EA; }
+/* a foto com o anel do story: 2 do degrade do Instagram, 2 de branco e a foto (38 por fora) */
+.mini-perfil-anel { flex: none; display: flex; width: 38px; height: 38px; padding: 2px; box-sizing: border-box; border-radius: 50%; background: linear-gradient(45deg, #FEDA75, #FA7E1E 28%, #D62976 55%, #962FBF 78%, #4F5BD5); }
+.mini-perfil .mini-perfil-foto { display: block; width: 100%; height: 100%; box-sizing: border-box; border: 2px solid #fff; border-radius: 50%; object-fit: cover; }
 .mini-perfil-nome { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .mini-perfil-nome b { font-size: 11px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .mini-perfil-nome small { font-size: 9.5px; line-height: 1.2; color: #737373; white-space: nowrap; }
@@ -1873,6 +1875,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .mini-perfil-link { display: flex; align-items: center; gap: 4px; margin-top: -2px; font-size: 10.5px; font-weight: 600; line-height: 1.2; color: #00376B; white-space: nowrap; } /* 8 da bio (os 10 do vao menos 2) */
 .mini-perfil-link .ico-traco { flex: none; display: inline-flex; }
 .mini-perfil-link .ico-traco svg { width: 11px; height: 11px; }
+.mini-perfil-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.mini-perfil-seguir, .mini-perfil-mensagem { padding: 6px 0; border-radius: 6px; font-size: 9.5px; font-weight: 600; line-height: 1.2; text-align: center; white-space: nowrap; }
+.mini-perfil-seguir { background: #0095F6; color: #fff; }
+.mini-perfil-mensagem { background: #EFEFEF; color: #000; }
 .mini-placa { flex: none; position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 6px; }
 .mini-placa-papel { position: relative; z-index: 1; width: 96px; display: flex; flex-direction: column; align-items: center; padding: 16.75px 6px; border-radius: 4px; text-align: center; } /* 16,75: a folga do QR dos lados ((96 - 62,5) / 2) tambem em cima e embaixo */
 .mini-placa-papel b { margin-top: 8px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
@@ -1904,7 +1910,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .mini-aviso-pilha::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -5px; height: 10px; border-radius: 0 0 12px 12px; background: rgba(246, 246, 246, 0.35); }
 @supports (text-box: trim-both cap alphabetic) {
   .mini-loja-nome, .mini-loja-aberta, .mini-loja-pedir b, .mini-loja-pedir small, .mini-bloqueio-data,
-  .mini-perfil-nome b, .mini-perfil-nome small, .mini-perfil-bio, .mini-perfil-link span, .mini-placa-papel b, .mini-placa-papel small,
+  .mini-perfil-nome b, .mini-perfil-nome small, .mini-perfil-bio, .mini-perfil-link span, .mini-perfil-seguir, .mini-perfil-mensagem, .mini-placa-papel b, .mini-placa-papel small,
   .mini-bloqueio-hora, .mini-aviso-linha b, .mini-aviso-linha small, .mini-aviso-corpo { text-box: trim-both cap alphabetic; }
 }
 /* As funcoes em abas (07/10/2026, como as do Anota AI): o seletor de assunto e 4 cartoes com o icone num quadrado colorido e
@@ -2186,14 +2192,21 @@ a.selo-google:hover { background: var(--lime-suave); }
 .antes-depois.com-celular .ad-lista p { margin: 0; }
 /* a tela do WhatsApp lotado (desenhada, na letra do celular) */
 .zap-lotado { display: block; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; }
-.zap-lotado-topo { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 14px 8px; }
-.zap-lotado-topo b { font-size: 18px; font-weight: 700; color: #1DAA61; }
-.zap-lotado-topo span { font-size: 11px; font-weight: 700; color: #1DAA61; }
-.zap-filtros { display: flex; gap: 6px; padding: 6px 14px; }
+/* as Conversas do iPhone: a barra dos botoes (mais opcoes; camera e conversa nova no verde), o titulo grande e os filtros */
+.zap-lotado-barra { display: flex; align-items: center; justify-content: space-between; height: 22px; padding: 0 14px; }
+.zap-redondo { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #F0F0F0; color: #111B21; }
+.zap-redondo svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+.zap-lotado-acoes { display: flex; align-items: center; gap: 12px; color: #111B21; }
+.zap-lotado-acoes .ico-traco { display: flex; }
+.zap-lotado-acoes .ico-traco svg { width: 17px; height: 17px; }
+.zap-redondo.zap-nova { background: #1DAA61; color: #fff; }
+.zap-lotado-titulo { display: block; padding: 3px 14px 0; font-size: 19px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: #000; }
+.zap-filtros { display: flex; gap: 6px; padding: 4px 14px 6px; }
 .zap-filtro { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 11px; background: #F0F2F5; font-size: 10.5px; font-weight: 600; line-height: 1; color: #54656F; white-space: nowrap; }
-.zap-filtro.ativo { background: #D9FDD3; color: #15803D; }
-.zap-conversa { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid #EEF1EF; }
-.zap-avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; }
+.zap-filtro.ativo { background: #D9FDD3; color: #15603E; }
+.zap-conversa { display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-top: 1px solid #EEF1EF; }
+.zap-avatar { flex: none; display: flex; width: 34px; height: 34px; }
+.zap-avatar svg { display: block; width: 100%; height: 100%; } /* a foto padrao do WhatsApp: a silhueta branca no cinza */
 .zap-meio { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .zap-meio b { font-size: 13px; font-weight: 700; line-height: 1.25; color: #111B21; }
 .zap-previa { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; line-height: 1.3; color: #54656F; }
@@ -2207,8 +2220,10 @@ a.selo-google:hover { background: var(--lime-suave); }
    toda em cima delas; no computador fica a esquerda, da altura das duas listas empilhadas (contain: size: o celular, mais alto,
    nao estica as listas). 380: a conversa inteira, com a mesma folga de 23 antes do corte que ela tem no computador */
 .antes-depois.monta { grid-template-columns: 1fr; }
-.monta-cena { display: flex; justify-content: center; height: 380px; padding-top: 24px; overflow: hidden; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio); }
-.monta-cena .loja-real-cel { width: 232px; }
+.monta-cena { display: flex; justify-content: center; height: 380px; padding-top: 16px; overflow: hidden; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio); }
+/* 0,8 do celular das outras secoes, 16 abaixo da borda como os dos passos (08/10/2026): a conversa do WhatsApp do iPhone inteira
+   a vista, ate o link pronto, com folga tambem na letra do iPhone */
+.monta-cena .loja-real-cel { width: 232px; zoom: 0.8; }
 .monta-cena .loja-real-tela { height: 480px; background: #fff; }
 @media (min-width: 560px) { .antes-depois.monta { grid-template-columns: 1fr 1fr; } .antes-depois.monta > .monta-cena { grid-column: 1 / -1; } }
 @media (min-width: 900px) {
@@ -2219,33 +2234,50 @@ a.selo-google:hover { background: var(--lime-suave); }
 }
 /* a conversa (desenhada, na letra do celular): o fundo do WhatsApp, baloes verdes de quem manda e brancos de quem responde.
    O mascotinho do topo com dois nomes na regra: a das fotos do celular (.loja-real-tela img, largura toda) ganhava dele */
+/* a conversa do WhatsApp do iPhone (08/10/2026): a barra de cima do iOS (fundo claro, linha fina embaixo) com a seta, os chats
+   nao lidos, a foto, o nome, "online" em cinza e os botoes de video e ligacao no verde do WhatsApp; o fundo bege do chat; o
+   "Hoje"; os baloes com o rabinho embaixo no ultimo de cada lado; o album 2 x 2 e a previa do link */
 .zap-chat { display: flex; flex-direction: column; height: 100%; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; background: #EFEAE2; }
-.zap-chat-topo { display: flex; align-items: center; gap: 8px; padding: 4px 12px 6px; background: #fff; border-bottom: 1px solid #E9EDEF; }
-.zap-chat-topo .zap-chat-avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lime-suave); object-fit: contain; }
-.zap-chat-quem { display: flex; flex-direction: column; gap: 2px; }
-.zap-chat-quem b { font-size: 13px; font-weight: 700; line-height: 1.2; color: #111B21; }
-.zap-chat-quem small { font-size: 10.5px; line-height: 1.2; color: #1DAA61; }
-.zap-chat-corpo { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 0; }
-.zap-balao { max-width: 86%; display: flex; flex-direction: column; gap: 6px; padding: 6px 9px; border-radius: 10px; font-size: 11.5px; line-height: 1.3; color: #111B21; box-shadow: 0 1px 1px rgba(11, 20, 26, 0.1); }
-.zap-balao.sai { align-self: flex-end; background: #D9FDD3; border-top-right-radius: 3px; }
-.zap-balao.chega { align-self: flex-start; background: #fff; border-top-left-radius: 3px; }
-/* as tres fotos do cardapio de papel: folhas com o titulo vermelho e as linhas dos itens */
-.zap-fotos { display: flex; gap: 4px; padding: 1px; } /* 1 px: o canto das folhas tortas (2 graus) fica dentro */
-.zap-folha { width: 40px; height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 0 6px; border-radius: 4px; background: #FFFDF6; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); transform: rotate(-2deg); }
-.zap-folha:nth-child(2) { transform: rotate(2deg); }
-.zap-folha:nth-child(3) { transform: rotate(-1deg); }
-.zap-folha i { display: block; height: 3px; border-radius: 2px; background: #C9C2B4; }
-.zap-folha i:first-child { width: 70%; height: 4px; background: #B4492F; }
-.zap-folha i:nth-child(3) { width: 80%; }
-.zap-folha i:nth-child(5) { width: 60%; }
-/* a previa do link: a logo da loja, o nome e o dominio, no cinza do WhatsApp, no balao mais largo (como o do WhatsApp): o dominio
-   cabe com a letra do iPhone, 8% mais larga */
-.zap-balao.com-link { max-width: 94%; }
-.zap-link { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; background: #F0F2F5; }
-.zap-link .zap-logo { flex: none; display: block; width: 32px; height: 32px; border-radius: 8px; object-fit: cover; } /* a logo de foto da loja de exemplo (dois nomes: a regra das fotos do celular, largura toda, ganhava) */
-.zap-link-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.zap-link-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; color: #111B21; white-space: nowrap; }
-.zap-link-texto small { font-size: 10.5px; line-height: 1.2; color: #667781; }
+.zap-chat-topo { display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 10px 0 7px; background: #F7F7F7; box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.18); color: #1DAA61; }
+.zap-voltar { flex: none; display: flex; align-items: center; gap: 3px; font-size: 12.5px; line-height: 1; }
+.zap-voltar-seta { display: flex; }
+.zap-voltar-seta svg { display: block; width: 8px; height: 13px; }
+.zap-chat-topo .zap-chat-avatar { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--lime-suave); object-fit: contain; }
+.zap-chat-quem { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.zap-chat-quem b { font-size: 12.5px; font-weight: 600; line-height: 1.2; color: #000; }
+.zap-chat-quem small { font-size: 9.5px; line-height: 1.2; color: #8E8E93; }
+.zap-chat-botoes { flex: none; display: flex; align-items: center; gap: 14px; }
+.zap-chat-botoes .ico-traco, .zap-botao { display: flex; }
+.zap-chat-botoes svg { width: 17px; height: 17px; }
+.zap-chat-corpo { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px 0; }
+.zap-dia { align-self: center; margin-bottom: 5px; padding: 3px 8px; border-radius: 7px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13); font-size: 9.5px; font-weight: 600; line-height: 1.2; color: #54656F; }
+.zap-balao { position: relative; max-width: 84%; text-wrap: balance; display: flex; flex-direction: column; gap: 5px; padding: 6px 9px; border-radius: 12px; font-size: 11.5px; line-height: 1.3; color: #111B21; box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13); }
+.zap-balao.sai { align-self: flex-end; background: #D9FDD3; }
+.zap-balao.chega { align-self: flex-start; background: #fff; }
+/* troca de quem fala: 8 entre os grupos (3 entre os baloes do mesmo lado) */
+.zap-balao.sai + .zap-balao.chega, .zap-balao.chega + .zap-balao.sai { margin-top: 5px; }
+/* o rabinho do iPhone, embaixo, no ultimo balao de cada lado (a mesma cor do balao) */
+.zap-balao.cauda::after { content: ""; position: absolute; bottom: 0; width: 8px; height: 12px; background: inherit; }
+.zap-balao.sai.cauda { border-bottom-right-radius: 3px; }
+.zap-balao.sai.cauda::after { right: -5px; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M0 0C0 6 2.5 10 8 12H0Z'/%3E%3C/svg%3E") no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M0 0C0 6 2.5 10 8 12H0Z'/%3E%3C/svg%3E") no-repeat; }
+.zap-balao.chega.cauda { border-bottom-left-radius: 3px; }
+.zap-balao.chega.cauda::after { left: -5px; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M8 0C8 6 5.5 10 0 12H8Z'/%3E%3C/svg%3E") no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M8 0C8 6 5.5 10 0 12H8Z'/%3E%3C/svg%3E") no-repeat; }
+/* o album: 4 fotos em 2 x 2 dentro do balao, a ultima com o "+3" das que nao couberam */
+.zap-balao.album { padding: 3px; }
+.zap-album { display: grid; grid-template-columns: repeat(2, 48px); gap: 2px; overflow: hidden; border-radius: 9px; }
+.zap-album .zap-album-foto { display: block; width: 48px; height: 48px; object-fit: cover; }
+.zap-album-mais { position: relative; display: block; }
+.zap-album-mais b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(11, 20, 26, 0.45); color: #fff; font-size: 15px; font-weight: 600; }
+/* o link: a previa (a logo quadrada na esquerda e, do lado, o nome, a frase e o endereco) e o texto com o endereco em azul */
+.zap-balao.com-link { max-width: 96%; padding: 4px 4px 6px; } /* largo como o do WhatsApp: o nome da loja cabe na previa ate com a letra do iPhone */
+.zap-link { display: flex; overflow: hidden; border-radius: 9px; background: #F0F2F5; }
+.zap-link .zap-logo { flex: none; align-self: stretch; display: block; width: 50px; height: auto; min-height: 50px; object-fit: cover; } /* a logo de foto da loja de exemplo (dois nomes: a regra das fotos do celular, largura toda, ganhava) */
+.zap-link-texto { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; padding: 5px 8px; } /* 5 em cima e embaixo: o endereco nao rasga na borda; a foto acompanha a altura */
+.zap-link-texto b { font-size: 11px; font-weight: 600; line-height: 1.2; color: #111B21; white-space: nowrap; }
+.zap-link-texto span { font-size: 9.5px; line-height: 1.2; color: #667781; text-wrap: balance; } /* a frase inteira em ate duas linhas, como o WhatsApp mostra (sem reticencias) */
+.zap-link-texto small { font-size: 9px; line-height: 1.2; color: #8696A0; white-space: nowrap; }
+.zap-texto { padding: 0 5px; }
+.zap-url { color: #027EB5; }
 .por-dia { color: var(--deep); }
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }

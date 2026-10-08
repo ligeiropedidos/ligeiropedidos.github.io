@@ -1087,11 +1087,14 @@
     return el('span', { class: 'mini-divulga' }, [
       el('span', { class: 'mini-perfil' }, [
         el('span', { class: 'mini-perfil-topo' }, [
-          fotoDoExemplo('exemplo-logo', 'mini-perfil-foto', [96, 96]),
+          /* o anel colorido do story do Instagram em volta da foto (08/10/2026, mais real) */
+          el('span', { class: 'mini-perfil-anel' }, [fotoDoExemplo('exemplo-logo', 'mini-perfil-foto', [96, 96])]),
           el('span', { class: 'mini-perfil-nome' }, [el('b', { text: 'lanchonetedoze' }), el('small', { text: 'Lanchonete' })]),
         ]),
         el('span', { class: 'mini-perfil-bio', text: 'Lanche bem servido, feito na hora.' }),
         el('span', { class: 'mini-perfil-link' }, [UI.iconeLinha('link'), el('span', { text: 'ligeiropedidos.com.br' })]),
+        /* os botoes do perfil de verdade: Seguir no azul do Instagram e Mensagem no cinza */
+        el('span', { class: 'mini-perfil-botoes' }, [el('span', { class: 'mini-perfil-seguir', text: 'Seguir' }), el('span', { class: 'mini-perfil-mensagem', text: 'Mensagem' })]),
       ]),
       el('span', { class: 'mini-placa' }, [
         el('span', { class: 'mini-placa-papel' }, [
@@ -1146,49 +1149,71 @@
   function celularAberto(classe, conteudo, semHora) {
     return el('span', { class: 'loja-real-cel ' + (classe || '') }, el('span', { class: 'loja-real-tela' }, [barraDoCelular(semHora)].concat(conteudo)));
   }
-  /* A tela do "sem Ligeiro": o WhatsApp do dono lotado na hora do pico, com as duvidas de sempre (o Pix falso primeiro) */
+  /* A tela do "sem Ligeiro": as Conversas do WhatsApp do iPhone lotadas na hora do pico, com as duvidas de sempre (o Pix falso
+     primeiro). Como o app mostra (08/10/2026; antes tinha o titulo verde "WhatsApp", que e do Android, e bolinhas com letra, que o
+     WhatsApp nao tem): em cima o botao de mais opcoes e, no verde, a camera e a conversa nova; o titulo grande "Conversas"; os
+     filtros (eles descem as conversas para a lista do cartao comecar logo depois da 3a); e cada conversa com a foto padrao de
+     quem nao pos foto (a silhueta cinza), o horario e o numero de nao lidas no verde */
+  var TRES_PONTOS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18" cy="12" r="1.9"/></svg>';
+  var MAIS_NOVA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  var SILHUETA = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#DFE5E7"/><circle cx="20" cy="15.5" r="6.8" fill="#fff"/><path d="M6.8 34.6C9 28.1 14 24.8 20 24.8s11 3.3 13.2 9.8A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-13.2-5.4z" fill="#fff"/></svg>';
   function telaWhatsLotado() {
     var conversas = [
-      ['Carla', '#E57373', 'Já fiz o Pix', true, '19:42', 2], /* com o icone da foto: o print do comprovante (o texto inteiro cortava no celular) */
-      ['Diego', '#64B5F6', 'Manda o cardápio?', false, '19:41', 3],
-      ['Seu Antônio', '#F2A541', 'Cadê meu pedido?', false, '19:40', 4],
-      ['Bruna', '#BA68C8', 'Tem no tamanho M?', false, '19:38', 1],
-      ['Patrícia', '#4DB6AC', 'Quanto é a entrega?', false, '19:37', 2],
-      ['Rafael', '#90A4AE', 'Aceita cartão?', false, '19:35', 1],
+      ['Carla', 'Já fiz o Pix', true, '19:42', 2], /* com o icone da foto: o print do comprovante, com a legenda */
+      ['Diego', 'Manda o cardápio?', false, '19:41', 3],
+      ['Seu Antônio', 'Cadê meu pedido?', false, '19:40', 4],
+      ['Bruna', 'Tem no tamanho M?', false, '19:38', 1],
+      ['Patrícia', 'Quanto é a entrega?', false, '19:37', 2],
+      ['Rafael', 'Aceita cartão?', false, '19:35', 1],
     ];
     return el('span', { class: 'zap-lotado' }, [
-      el('span', { class: 'zap-lotado-topo' }, [el('b', { text: 'WhatsApp' }), el('span', { text: '13 não lidas' })]),
-      /* os filtros do WhatsApp de verdade: descem as conversas para a lista do cartao comecar logo depois da 3a (sem cortar texto no meio) */
+      el('span', { class: 'zap-lotado-barra' }, [
+        el('span', { class: 'zap-redondo', html: TRES_PONTOS }),
+        el('span', { class: 'zap-lotado-acoes' }, [UI.iconeLinha('camera'), el('span', { class: 'zap-redondo zap-nova', html: MAIS_NOVA })]),
+      ]),
+      el('b', { class: 'zap-lotado-titulo', text: 'Conversas' }),
       el('span', { class: 'zap-filtros' }, ['Tudo', 'Não lidas', 'Favoritas'].map(function (x, i) { return el('span', { class: 'zap-filtro' + (i === 0 ? ' ativo' : ''), text: x }); })),
     ].concat(conversas.map(function (c) {
       return el('span', { class: 'zap-conversa' }, [
-        el('span', { class: 'zap-avatar', style: { background: c[1] }, text: c[0].replace(/^Seu /, '').charAt(0) }),
-        el('span', { class: 'zap-meio' }, [el('b', { text: c[0] }), el('span', { class: 'zap-previa' }, [c[3] ? UI.iconeLinha('camera') : null, el('span', { text: c[2] })])]),
-        el('span', { class: 'zap-lado' }, [el('span', { class: 'zap-hora', text: c[4] }), el('span', { class: 'zap-naolidas', text: String(c[5]) })]),
+        el('span', { class: 'zap-avatar', html: SILHUETA }),
+        el('span', { class: 'zap-meio' }, [el('b', { text: c[0] }), el('span', { class: 'zap-previa' }, [c[2] ? UI.iconeLinha('camera') : null, el('span', { text: c[1] })])]),
+        el('span', { class: 'zap-lado' }, [el('span', { class: 'zap-hora', text: c[3] }), el('span', { class: 'zap-naolidas', text: String(c[4]) })]),
       ]);
     })));
   }
 
-  /* A conversa do "a gente monta" (desenhada): o dono manda as fotos do cardapio de papel, a taxa e o horario; a equipe
-     devolve a loja pronta, com a previa do link como o WhatsApp mostra (logo, nome e dominio; o endereco de verdade leva a
-     cidade, por isso so o dominio). Sem horario nos baloes: nada de prazo */
+  /* A conversa como o WhatsApp do iPhone mostra (08/10/2026, ele pediu "mais igual um celular"): a barra de cima com a seta de
+     voltar e os chats nao lidos, a foto, o nome e "online", e os botoes de video e de ligacao no verde do WhatsApp de hoje (o
+     iPhone trocou o azul pelo verde em 2024); o "Hoje"; o album das fotos dos lanches (2 x 2, a ultima com "+3": as fotos da
+     loja de exemplo); os baloes com o rabinho embaixo no ultimo de cada lado; e o link como o WhatsApp mostra: a previa (a logo,
+     o nome, a frase da loja e o endereco) e o endereco azul no texto. Sem horario nos baloes: nada de prazo para montar */
+  /* a camera da chamada de video do WhatsApp (o corpo e a lente do lado); o icone 'video' do site e um player, outra coisa */
+  var CAMERA_VIDEO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M15.5 10.4 21 7.2v9.6l-5.5-3.2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>';
+  var SETA_VOLTAR = '<svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function telaConversaMonta() {
-    function folha() { return el('span', { class: 'zap-folha' }, [el('i'), el('i'), el('i'), el('i'), el('i')]); }
+    var foto = function (arquivo) { return fotoDoExemplo(arquivo, 'zap-album-foto', [112, 112]); };
     return el('span', { class: 'zap-chat' }, [
       el('span', { class: 'zap-chat-topo' }, [
+        el('span', { class: 'zap-voltar' }, [el('span', { class: 'zap-voltar-seta', html: SETA_VOLTAR }), el('span', { text: '3' })]),
         el('img', { class: 'zap-chat-avatar', src: 'img/mascote-192.webp', alt: '', width: '30', height: '30', loading: 'lazy', decoding: 'async' }),
         el('span', { class: 'zap-chat-quem' }, [el('b', { text: 'Ligeiro' }), el('small', { text: 'online' })]),
+        el('span', { class: 'zap-chat-botoes' }, [el('span', { class: 'zap-botao', html: CAMERA_VIDEO }), UI.iconeLinha('telefone')]),
       ]),
       el('span', { class: 'zap-chat-corpo' }, [
-        el('span', { class: 'zap-balao sai' }, [el('span', { class: 'zap-fotos' }, [folha(), folha(), folha()]), el('span', { text: 'Segue o cardápio' })]),
-        el('span', { class: 'zap-balao sai', text: 'Entrega R$ 5, abro às 18h' }),
+        el('span', { class: 'zap-dia', text: 'Hoje' }),
+        el('span', { class: 'zap-balao sai album' }, [el('span', { class: 'zap-album' }, [
+          foto('exemplo-x-burguer'), foto('exemplo-x-salada'), foto('exemplo-x-bacon'),
+          el('span', { class: 'zap-album-mais' }, [foto('exemplo-batata'), el('b', { text: '+3' })]),
+        ])]),
+        el('span', { class: 'zap-balao sai cauda', text: 'Entrega R$ 5, abro às 18h' }),
         el('span', { class: 'zap-balao chega', text: 'Recebido! A gente monta tudo e manda o link aqui.' }),
-        el('span', { class: 'zap-balao chega com-link' }, [
+        el('span', { class: 'zap-balao chega com-link cauda' }, [
           el('span', { class: 'zap-link' }, [
             fotoDoExemplo('exemplo-logo', 'zap-logo', [96, 96]),
-            el('span', { class: 'zap-link-texto' }, [el('b', { text: 'Lanchonete do Zé' }), el('small', { text: 'ligeiropedidos.com.br' })]),
+            el('span', { class: 'zap-link-texto' }, [el('b', { text: 'Lanchonete do Zé' }), el('span', { text: 'Lanche bem servido, feito na hora.' }), el('small', { text: 'ligeiropedidos.com.br' })]),
           ]),
-          el('span', { text: 'Sua loja está pronta!' }),
+          /* o endereco quebra so depois da barra (antes cortava no meio de "lanchonete") */
+          el('span', { class: 'zap-texto' }, ['Sua loja está pronta! ', el('span', { class: 'zap-url' }, ['ligeiropedidos.com.br/', el('wbr'), 'lanchonete-do-ze'])]),
         ]),
       ]),
     ]);
