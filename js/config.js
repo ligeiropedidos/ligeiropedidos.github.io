@@ -105,7 +105,7 @@ window.LIGEIRO_CONFIG = {
   analytics: { cloudflareToken: '', automatico: true,
     /* Pixel do Meta (anuncios no Instagram e no Facebook): o numero do pixel (so digitos) do Gerenciador de Anuncios. Vazio = desligado,
        nada do Meta e carregado. Manda PageView, Lead (contato ou "terminar pelo WhatsApp") e CompleteRegistration (loja criada) */
-    metaPixel: '' },
+    metaPixel: '1802219744433800' },
 
   /* App Check: chave do site do reCAPTCHA v3 (Firebase > App Check > Apps > Web > reCAPTCHA v3).
      Com ela, so o site do Ligeiro consegue falar com o banco (robo que tenta gastar as leituras gratis fica de fora).
