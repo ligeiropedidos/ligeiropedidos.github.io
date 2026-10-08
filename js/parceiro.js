@@ -257,7 +257,7 @@
       if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Loja pronta em 3 minutos, sem cartão de crédito e sem fidelidade.']));
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
-        el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '51 s' }),
+        el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '1 min' }), /* o video novo (08/10/2026): 62 s */
       ]));
       /* prova na hora, sem cadastro: uma loja de verdade para abrir e pedir (so no topo) */
       if (grande) lista.push(el('a', { class: 'link-loja-real', href: linkLojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ou abra uma loja de verdade']));
@@ -269,7 +269,7 @@
       var antes = document.activeElement;
       var origem = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget : null;
       var reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=5', poster: 'midia/comercial-ligeiro.jpg?v=4', controls: true, playsinline: true, preload: 'auto' });
+      var video = el('video', { class: 'video-comercial', src: 'midia/comercial-ligeiro.mp4?v=6', poster: 'midia/comercial-ligeiro.jpg?v=5', controls: true, playsinline: true, preload: 'auto' });
       var fim = el('div', { class: 'video-fim', hidden: true }, [
         el('a', { class: 'btn btn-principal', href: '#/comecar', text: 'Criar minha loja grátis', onclick: fechar }),
         el('button', { class: 'btn btn-contorno', type: 'button', text: 'Quero que montem para mim', onclick: function () { fechar(); abrirContato('video'); } }),
