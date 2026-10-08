@@ -1,5 +1,5 @@
 {
- "css/ligeiro.css": "19c6a64def4a5fc8",
+ "css/ligeiro.css": "c3869254e7ceed0c",
  "css/temas/burgerhouse.css": "8e4a1ee0a62b088d",
  "css/temas/conizza.css": "1c64a07cd8609fc6",
  "css/temas/kazoku.css": "2650e35820ef5013",
@@ -18,13 +18,13 @@
  "js/equipe.js": "107b8293e9d498a3",
  "js/jogo.js": "34f2d21073d6e830",
  "js/mp.js": "1ddf6f3f17799602",
- "js/painel.js": "af902219ea36733f",
- "js/parceiro.js": "1b4c14753d7b44c4",
+ "js/painel.js": "6fd412670d85df82",
+ "js/parceiro.js": "8052bc8f6616e0f3",
  "js/pix.js": "6a4aa54877e2ce26",
  "js/pulo.js": "22ec605cde6a9de5",
- "js/regras.js": "9c6710913d3b57b8",
+ "js/regras.js": "f702bf2237aa64c8",
  "js/seed.js": "de0302b89d5da75b",
  "js/servicos.js": "e45f7f3b616a82ed",
- "js/ui.js": "1ec93a0aeafec218",
+ "js/ui.js": "960eb24403b61600",
  "js/video-leve.js": "ed0a149d9a2f7e3e"
 }

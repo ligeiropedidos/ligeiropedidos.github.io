@@ -4151,12 +4151,15 @@
       var linkPainel = UI.linkDoPainel(l);
 
       function copiar(texto, aviso) { return function () { UI.copiar(texto).then(function () { UI.avisar(aviso || 'Link copiado.'); }); }; }
+      /* o cartao de uma tela da equipe: o mesmo cabecalho dos outros blocos da aba (icone ao lado do titulo, texto cinza embaixo; antes
+         o icone ficava em cima e o titulo menor) e os dois botoes no pe (na mesma altura nos dois cartoes lado a lado) */
       function tela(icone, titulo, texto, link, abrir) {
-        return el('div', { class: 'tela-card' }, [
-          el('span', { class: 'icone' }, [UI.iconeLinha(icone)]),
-          el('b', { text: titulo }),
-          el('p', { text: texto }),
-          el('div', { class: 'linha-botoes' }, [
+        return el('div', { class: 'bloco-form tela-card' }, [
+          el('div', { class: 'bloco-cabeca' }, [
+            el('div', { class: 'bloco-titulo' }, [UI.iconeLinha(icone), titulo]),
+            el('p', { class: 'muted pequeno', text: texto }),
+          ]),
+          el('div', { class: 'linha-botoes dupla' }, [
             el('a', { class: 'btn btn-principal btn-pequeno', href: link, target: '_blank', rel: 'noopener', text: abrir || 'Abrir', onclick: function (e) {
               /* demonstracao: a cozinha e o entregador de verdade pedem a senha da equipe (sairia da demonstracao para uma tela fechada) */
               if (estado.loja && estado.loja.demoPainel) { e.preventDefault(); UI.avisar('Na loja de verdade, a tela ' + ({ 'Cozinha': 'da cozinha', 'Separação': 'da separação', 'Entregador': 'do entregador' }[titulo] || 'da equipe') + ' abre por este link, num tablet ou celular.'); }
@@ -4188,7 +4191,7 @@
       /* o link do painel: um cartao como o da senha logo abaixo (antes era uma linha solta com um botao menor) */
       s.appendChild(el('div', { class: 'bloco-form senha-equipe' }, [
         el('div', { class: 'senha-equipe-texto' }, [
-          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Painel em outro aparelho']),
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Painel em outro\u00a0aparelho']),
           el('p', { class: 'muted pequeno', text: 'Mande o link para abrir este painel no tablet do balcão ou em outro celular.' }),
         ]),
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(linkPainel, 'Link do painel copiado.') }, [UI.iconeLinha('copiar'), 'Copiar link']),
@@ -4244,15 +4247,70 @@
               el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(linkLoja) }, [UI.iconeLinha('copiar'), 'Copiar link']),
             ]),
             el('div', { class: 'divulgar-botoes' }, [
-              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Cole em Ferramentas comerciais, Mensagem de saudação.') }, [UI.icone('zap'), 'Copiar a mensagem']),
+              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Mande para os clientes ou poste no status.') }, [UI.icone('zap'), 'Copiar a mensagem']),
               el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
             ]),
             /* onde usar: tres linhas curtas no lugar do paragrafo corrido (no PC cada uma cabe numa linha: a coluna tem altura fixa e o QR acompanha) */
             el('ul', { class: 'divulgar-onde' }, [
               el('li', {}, [UI.icone('insta'), el('span', {}, [el('strong', { text: 'Instagram: ' }), 'link na bio e nos stories.'])]),
-              el('li', {}, [UI.icone('zap'), el('span', {}, [el('strong', { text: 'WhatsApp Business: ' }), 'cole a mensagem na saudação automática.'])]),
+              el('li', {}, [UI.icone('zap'), el('span', {}, [el('strong', { text: 'WhatsApp Business: ' }), 'ligue a resposta automática aqui embaixo.'])]),
               el('li', {}, [UI.iconeLinha('imprimir'), el('span', {}, [el('strong', { text: 'Balcão e sacola: ' }), 'imprima o QR para o cliente apontar a câmera.'])]),
             ]),
+          ]),
+        ]),
+      ]));
+
+      /* 3. resposta automatica do WhatsApp (08/10/2026): as duas mensagens do proprio WhatsApp Business (Ferramentas comerciais),
+         prontas com o link e o horario da loja, para copiar e colar; e o passo a passo para ligar. De graca, sem robo e sem outro
+         chip: quem chama a loja recebe o link na hora */
+      var cat = R.catalogo(estado.loja);
+      /* o link no balao: quebra so depois de uma barra (nunca no meio do nome da loja, que fica inteiro na linha dele) */
+      function linkQuebravel(link) {
+        var fim = link.lastIndexOf('/') + 1, nos = [], pedaco = '';
+        for (var i = 0; i < fim; i++) {
+          pedaco += link[i];
+          if (link[i] === '/' && link[i + 1] !== '/' && link[i - 1] !== '/' && link[i - 1] !== ':') { nos.push(document.createTextNode(pedaco), el('wbr')); pedaco = ''; }
+        }
+        if (pedaco) nos.push(document.createTextNode(pedaco));
+        nos.push(el('span', { class: 'auto-link-fim', text: link.slice(fim) }));
+        return nos;
+      }
+      /* o balao verde do WhatsApp: cada linha da mensagem numa linha, o link em azul; na previa as duas ultimas palavras de cada
+         linha ficam presas (nunca uma sozinha embaixo). O que se copia e o texto normal */
+      function previa(texto) {
+        return el('div', { class: 'auto-bolha' }, texto.split('\n').map(function (linha) {
+          if (linha === linkLoja) return el('div', { class: 'auto-link' }, linkQuebravel(linha));
+          var k = linha.lastIndexOf(' ');
+          return el('div', { text: k > 0 ? linha.slice(0, k) + '\u00a0' + linha.slice(k + 1) : linha });
+        }));
+      }
+      function mensagem(titulo, paraQuem, texto, aviso) {
+        return el('div', { class: 'auto-card' }, [
+          el('div', { class: 'auto-card-cabeca' }, [el('b', { text: titulo }), el('p', { text: paraQuem })]),
+          previa(texto),
+          el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', onclick: copiar(texto, aviso) }, [UI.iconeLinha('copiar'), 'Copiar mensagem']),
+        ]);
+      }
+      var comHorario = !!(estado.loja.usarHorarios && R.horariosEmTexto(estado.loja.horarios));
+      s.appendChild(el('div', { class: 'bloco-form auto-resposta' }, [
+        el('div', { class: 'bloco-cabeca' }, [
+          el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('conversa'), 'Resposta automática no\u00a0WhatsApp']),
+          el('p', { class: 'muted pequeno', text: 'Quem chama a loja no WhatsApp recebe o link na hora, sem você digitar. É de graça e fica no seu próprio WhatsApp Business.' }),
+        ]),
+        el('div', { class: 'auto-grade' }, [
+          mensagem('Mensagem de saudação', 'Vai para quem chama pela primeira vez e para quem volta depois de 14 dias.', R.mensagemDeSaudacao(estado.loja, linkLoja), 'Saudação copiada. Cole no WhatsApp Business, em Mensagem de saudação.'),
+          mensagem('Mensagem de ausência', comHorario ? 'Vai quando a loja está fechada, com o seu horário.' : 'Vai quando a loja está fechada.', R.mensagemDeAusencia(estado.loja, linkLoja), 'Mensagem copiada. Cole no WhatsApp Business, em Mensagem de ausência.'),
+        ]),
+        el('div', { class: 'auto-como' }, [
+          el('b', { class: 'auto-como-titulo', text: 'Como ligar no WhatsApp\u00a0Business' }),
+          el('ol', { class: 'auto-passos' }, [
+            el('li', {}, [el('span', { class: 'num', text: '1' }), el('span', {}, ['Abra ', el('strong', { text: 'Ferramentas comerciais' }), ': no Android, nos três pontinhos; no iPhone, em Configurações.'])]),
+            el('li', {}, [el('span', { class: 'num', text: '2' }), el('span', {}, ['Em ', el('strong', { text: 'Mensagem de saudação' }), ', ligue, apague o exemplo e cole a sua. Em Destinatários, escolha Todos e salve.'])]),
+            el('li', {}, [el('span', { class: 'num', text: '3' }), el('span', {}, ['Em ', el('strong', { text: 'Mensagem de ausência' }), ', ligue e cole a sua. Em Programar, escolha Fora do horário comercial e salve.'])]),
+          ]),
+          el('ul', { class: 'divulgar-onde auto-dicas' }, [
+            el('li', {}, [UI.iconeLinha('relogio'), el('span', {}, [el('strong', { text: 'Horário: ' }), 'confira se o do Perfil comercial do WhatsApp é o mesmo da loja.'])]),
+            el('li', {}, [UI.icone('zap'), el('span', {}, [el('strong', { text: 'WhatsApp comum? ' }), 'O Business é grátis e usa o mesmo número.'])]),
           ]),
         ]),
       ]));

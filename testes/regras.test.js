@@ -1363,3 +1363,34 @@ test('Pix combinado com a loja (sem Mercado Pago): so com o interruptor e o What
   /* o Pix do Mercado Pago continua separado */
   assert.equal(R.montarPedido(Object.assign({}, loja, { mpAtivo: true }), Object.assign({}, base, { formaPagamento: 'pix' })).pagamentoStatus, 'pendente');
 });
+
+/* resposta automatica do WhatsApp (08/10/2026) */
+test('horario por extenso: todos os dias, grupos seguidos, dia fechado e meia-noite', () => {
+  const H = (x) => R.horariosEmTexto(x).replace(/ /g, ' '); /* a hora vem presa na palavra (espaco que nao quebra) */
+  const todo = { seg: ['18:00-23:00'], ter: ['18:00-23:00'], qua: ['18:00-23:00'], qui: ['18:00-23:00'], sex: ['18:00-23:00'], sab: ['18:00-23:00'], dom: ['18:00-23:00'] };
+  assert.equal(H(todo), 'todos os dias, das 18h às 23h');
+  assert.equal(H(Object.assign({}, todo, { seg: [] })), 'de terça a domingo, das 18h às 23h');
+  assert.equal(H({ seg: ['11:00-15:00'], ter: ['11:00-15:00'], qua: ['11:00-15:00'], qui: ['11:00-15:00'], sex: ['11:00-15:00'], sab: [['18:00', '00:00']], dom: [['18:00', '00:00']] }),
+    'de segunda a sexta, das 11h às 15h; sábado e domingo, das 18h à meia-noite');
+  assert.equal(H({ sex: ['18:30-23:00'], sab: ['18:30-23:00'], dom: ['18:30-23:00'], seg: ['18:30-23:00'] }), 'de sexta a segunda, das 18h30 às 23h');
+  assert.equal(H({ qua: ['11:00-14:00', '18:00-22:00'] }), 'quarta, das 11h às 14h e das 18h às 22h');
+  assert.equal(H({}), '');
+  assert.equal(H(null), '');
+});
+
+test('mensagens da resposta automatica: link numa linha, cardapio ou catalogo, horario so com horarios ligados', () => {
+  const loja = lojaDeTeste();
+  const link = 'https://ligeiropedidos.com.br/teste';
+  const s = R.mensagemDeSaudacao(loja, link);
+  assert.ok(s.split('\n').includes(link));
+  assert.match(s, /nosso cardápio:/);
+  assert.match(s, /paga no Pix/);
+  assert.ok(!/\bpra\b/.test(s));
+  const fechado = R.mensagemDeAusencia(Object.assign({}, loja, { usarHorarios: true, horarios: { ter: ['18:00-23:00'], qua: ['18:00-23:00'], qui: ['18:00-23:00'] } }), link);
+  assert.match(fechado.replace(/ /g, ' '), /Nosso horário: de terça a quinta, das 18h às 23h\./);
+  assert.match(fechado, /das 18h às 23h/);
+  assert.ok(fechado.split('\n').includes(link));
+  const semHora = R.mensagemDeAusencia(Object.assign({}, loja, { usarHorarios: false, horarios: { ter: ['18:00-23:00'] } }), link);
+  assert.ok(!/Nosso horário/.test(semHora));
+  assert.match(semHora, /Assim que der/);
+});

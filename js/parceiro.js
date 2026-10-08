@@ -1245,8 +1245,9 @@
     { aba: 'Vendas', itens: [
       ['link', 'lima', 'Sua loja num link', 'Com a sua logo, cor e fotos. O cliente pede sem precisar de cadastro.'],
       ['dinheiro', 'azul', 'Pix e cartão no automático', 'O cliente paga no Pix ou no cartão pelo Mercado Pago, e o pedido já cai pago no painel.'],
-      ['fogo', 'laranja', 'Oferta por tempo limitado', 'Um foguinho com quanto falta e o preço antigo riscado. Na hora marcada, o preço volta sozinho.'],
-      ['cupom', 'roxo', 'Cupom de desconto', 'Você cria o código, a porcentagem e o limite de usos, e o site confere tudo na hora do pedido.'],
+      /* oferta e cupom num cartao so (08/10/2026), para a resposta automatica entrar e a aba continuar com 4 */
+      ['fogo', 'laranja', 'Oferta e cupom', 'Um foguinho com quanto falta e o preço antigo riscado, ou um cupom com código e limite de usos.'],
+      ['conversa', 'roxo', 'Resposta automática no WhatsApp', 'Quem chama a loja recebe o link sozinho. A mensagem vem pronta para colar.'],
     ] },
     { aba: 'Pedidos', itens: [
       ['sino', 'laranja', 'Painel com apito', 'Cada pedido chega apitando, com endereço e WhatsApp do cliente.'],

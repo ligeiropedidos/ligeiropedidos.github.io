@@ -1028,6 +1028,7 @@
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5v.01"/>',
     voltar: '<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>',
     megafone: '<g transform="translate(0.6 -0.5)"><path d="M4 10v4h3l7 4V6l-7 4z"/><path d="M17.5 9a4 4 0 0 1 0 6"/><path d="M7 14l1.5 5h2L9.5 14"/></g>',
+    conversa: '<path d="M20.5 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-4.4A8 8 0 1 1 20.5 11.5z"/><path d="M8.6 11.6h.01M12.5 11.6h.01M16.4 11.6h.01" stroke-width="2.6"/>',
     relogio: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   };
   function iconeTraco(nome) { return el('span', { class: 'topo-ico', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }

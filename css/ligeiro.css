@@ -1345,19 +1345,36 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* aba "Minha loja" do painel: telas em cartoes iguais + bloco de divulgar */
 .telas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; } /* cartoes seguidos: so os 12 do gap da secao ate o cartao de baixo */
 @media (max-width: 760px) { .telas-grade { grid-template-columns: 1fr; } }
-.tela-card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); }
-.tela-card .icone { font-size: 28px; line-height: 1; margin-bottom: 8px; } /* icone ate o titulo: 12; titulo ate o texto: 4 */
-.tela-card b { font-size: 16px; }
-.tela-card p { margin: 0; font-size: 14px; color: var(--muted); flex: 1; }
-.tela-card .linha-botoes { margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tela-card .linha-botoes .btn { width: 100%; min-width: 0; min-height: 48px; padding: 0 6px; white-space: nowrap; font-size: 15px; }
+/* os cartoes da Cozinha e do Entregador sao blocos como os outros da aba (08/10/2026: mesmo cabecalho, icone ao lado do titulo); os
+   botoes no pe, na mesma altura nos dois cartoes lado a lado */
+.tela-card > .linha-botoes { margin-top: auto; }
 @media (max-width: 360px) {
-  .tela-card .linha-botoes { grid-template-columns: minmax(0, 1fr); } /* um botao por linha: "Copiar link" inteiro */
   .divulgar-acoes .btn { font-size: 14.5px; padding-left: 12px; padding-right: 12px; } /* .btn.btn: vale sobre o 15px padrao de mais abaixo */
   .aparencia-controles .estilo-linha .aba-painel { font-size: 13px; }
   .mp-conexao .btn { font-size: 15px; }
 }
-.divulgar { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 4px; } /* 12 do bloco + 4 = 16 do texto ao QR */
+.divulgar { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 4px; }
+/* resposta automatica do WhatsApp (08/10/2026): as duas mensagens lado a lado (uma embaixo da outra no celular), cada uma com o
+   titulo, para quem vai, a previa no balao verde do WhatsApp (abraca o texto) e o botao de copiar no pe (os dois na mesma altura);
+   depois os 3 passos numerados e as duas dicas. 16 do texto do bloco ate as mensagens, como no Divulgar */
+.auto-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 4px; }
+@media (min-width: 761px) { .auto-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.auto-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--bg); }
+.auto-card-cabeca { display: flex; flex-direction: column; gap: 4px; }
+.auto-card-cabeca b { font-family: var(--display); font-size: 16px; line-height: 1.25; color: var(--ink); }
+.auto-card-cabeca p { margin: 0; font-size: 14px; line-height: 19px; color: var(--muted); text-wrap: pretty; }
+.auto-bolha { padding: 10px 12px; border-radius: 4px 12px 12px 12px; background: #D9FDD3; color: #111B21; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; font-size: 14.5px; line-height: 1.45; overflow-wrap: anywhere; text-wrap: pretty; box-shadow: 0 1px 1px rgba(11, 20, 26, 0.12); }
+.auto-bolha .auto-link { color: #027EB5; }
+.auto-bolha .auto-link-fim { white-space: nowrap; }
+.auto-card > .btn { margin-top: auto; min-height: 48px; }
+.auto-como { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+.auto-como-titulo { font-family: var(--display); font-size: 16px; line-height: 1.25; color: var(--ink); }
+.auto-passos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.auto-passos li { display: flex; align-items: flex-start; gap: 12px; font-size: 14.5px; line-height: 20px; color: var(--body); text-wrap: pretty; }
+.auto-passos li strong { color: var(--ink); }
+/* o numero no circulo, no meio da primeira linha do texto (28 de circulo, linha de 20: sobe 4) */
+.auto-passos .num { flex: none; width: 28px; height: 28px; margin-top: -4px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.auto-dicas { margin-top: 4px; } /* 12 do bloco + 4 = 16 do texto ao QR */
 .divulgar-qr { width: 180px; height: 180px; margin: 0; flex: none; padding: 0; border-radius: 10px; } /* o QR vem justo (Pix.desenharQr com 'justo'), no meio, com 4 a 6 px de respiro: com canto de 10 ele nunca entra na curva */
 .divulgar-acoes { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .divulgar-acoes .btn { min-height: 48px; } /* 48, como os outros botoes desta aba */
@@ -3056,8 +3073,6 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .som-texto b .ico-traco svg { width: 18px; height: 18px; }
 .bloco-titulo .ico-traco { color: var(--deep2); }
 .bloco-titulo .ico-traco svg { width: 22px; height: 22px; }
-.tela-card .icone { display: inline-flex; color: var(--deep2); }
-.tela-card .icone .ico-traco svg { width: 28px; height: 28px; }
 .conta-painel-texto b { display: inline-flex; align-items: center; gap: 8px; }
 .plano-recado.com-alerta { display: flex; align-items: flex-start; gap: 8px; }
 .plano-recado.com-alerta .ico-traco { color: var(--erro); margin-top: 1px; }
