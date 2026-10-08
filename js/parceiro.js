@@ -461,15 +461,15 @@
     var corpo = el('div', { class: 'conteudo vender', hidden: true });
     raiz.appendChild(corpo);
 
-    /* ---------- para quem e: comida e comercio, com os tipos do cadastro ---------- */
-    var semOutro = function (lista) { return lista.map(function (x) { return x[0]; }).filter(function (n) { return !/^outr[oa] /i.test(n); }); };
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+    /* ---------- para quem e: comida e comercio (08/10/2026, enxuto para bater o olho: sem o paragrafo de abertura, que repetia os
+       cartoes, e sem a nuvem de 18 etiquetas; cada cartao com uma linha do que vem e uma dos tipos mais comuns). As duas
+       ultimas palavras de cada texto presas (espaco que nao quebra): onde quebra, nunca sobra uma sozinha ---------- */
+    corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'quem' }, [
       el('div', { class: 'kicker', text: 'Para quem é' }),
       el('h2', { text: 'Comida ou comércio, a loja fala a sua língua' }),
-      el('p', { class: 'muted segmentos-intro', text: 'Você escolhe o tipo no cadastro e o site se ajusta sozinho: cardápio com senha na lanchonete, catálogo com tamanho e estoque na loja de roupa.' }),
       el('div', { class: 'segmentos' }, [
-        segmento('cardapio', 'Comida', 'Cardápio com foto, adicionais e "tirar ingrediente", senha do pedido e tela da cozinha.', semOutro(R.TIPOS_DE_LOJA)),
-        segmento('sacola', 'Comércio', 'Catálogo com até 3 fotos por peça, tamanho com preço próprio, estoque que esgota sozinho e tela de separação.', semOutro(R.TIPOS_DE_COMERCIO)),
+        segmento('cardapio', 'Comida', 'Cardápio com adicionais e senha do pedido.', 'Lanchonete, pizzaria, açaí, marmitaria e outros'),
+        segmento('sacola', 'Comércio', 'Catálogo com tamanho, estoque e fotos.', 'Roupas, calçados, presentes, pet shop e outros'),
       ]),
     ]));
 
@@ -518,7 +518,7 @@
     pedidos.addEventListener('input', calcular);
     calcular();
 
-    corpo.appendChild(el('section', { class: 'vender-bloco vender-calc' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco vender-calc', 'data-secao': 'conta' }, [
       el('div', { class: 'calc-entrada' }, [
         el('div', { class: 'kicker', text: 'Faça a conta' }),
         el('h2', { text: 'Quanto você deixa na mesa hoje?' }),
@@ -534,7 +534,7 @@
     /* ---------- antes e depois: um celular em cada lado (07/10/2026, como o do Anota AI). Sem: o WhatsApp lotado, com as dores
        na ordem (o Pix falso primeiro). Com: o painel de verdade (a loja de exemplo da demonstracao) com o Pix confirmado. O
        celular e o mesmo da "loja de verdade" e a lista sobe por cima dele num cartao branco ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'antes' }, [
       el('div', { class: 'kicker', text: 'Antes e depois' }),
       el('h2', { text: 'Sem Ligeiro vs com Ligeiro' }),
       el('div', { class: 'antes-depois com-celular' }, [
@@ -550,7 +550,7 @@
     ]));
 
     /* ---------- como funciona ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'passos' }, [
       el('div', { class: 'kicker', text: 'Como funciona' }),
       el('h2', { text: 'Três passos, e o pedido cai' }),
       el('div', { class: 'passos-venda' }, [
@@ -561,7 +561,7 @@
     ]));
 
     /* ---------- loja de verdade: o que o cliente do dono vai ver ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco loja-real' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco loja-real', 'data-secao': 'loja' }, [
       /* no celular o texto vem primeiro, o celular no meio e o botao embaixo; no computador o texto fica ao lado */
       el('div', { class: 'loja-real-texto' }, [
         el('div', { class: 'kicker', text: 'Loja de verdade' }),
@@ -581,10 +581,12 @@
     /* ---------- o que vem: as funcoes em abas (07/10/2026, como as abas do Anota AI): 3 assuntos com 4 cartoes cada, icone
        em quadrado colorido com o titulo do lado. 4 por aba: 2 x 2 no tablet e 4 numa linha no PC (com 9 soltos, um sobrava
        sozinho na largura toda). So o que o Ligeiro tem de verdade ---------- */
-    corpo.appendChild(secaoFuncoes());
+    var funcoes = secaoFuncoes();
+    funcoes.setAttribute('data-secao', 'funcoes');
+    corpo.appendChild(funcoes);
 
     /* ---------- a gente monta: o que a pessoa manda e o que recebe (sem tempo de montar nao e motivo para ficar de fora) ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'monta' }, [
       el('div', { class: 'kicker', text: 'Sem tempo de montar?' }),
       el('h2', { text: 'A gente monta a loja para você' }),
       el('p', { class: 'muted', text: 'Você manda pelo WhatsApp o que já tem. A gente cadastra tudo e devolve a loja pronta para vender.' }),
@@ -598,7 +600,7 @@
 
     /* ---------- teste gratis ---------- */
     /* faixa escura da marca: selo, titulo, garantias e duas saidas (criar sozinho ou pedir para a gente montar) */
-    corpo.appendChild(el('section', { class: 'teste-banner' }, [
+    corpo.appendChild(el('section', { class: 'teste-banner', 'data-secao': 'teste' }, [
       el('div', { class: 'teste-texto' }, [
         el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Teste grátis por ' + pr.diasGratis + ' dias']),
         el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', já montada para o que você vende.']),
@@ -611,7 +613,7 @@
     ]));
 
     /* ---------- planos ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos', 'data-secao': 'preco' }, [
       el('div', { class: 'kicker', text: 'Preço' }),
       el('h2', { text: 'Um plano só. Tudo incluso.' }),
       el('p', { class: 'muted' }, [el('b', { class: 'por-dia', text: 'Menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' }), ' Com cardápio ou catálogo, estoque, ofertas, painel, cozinha e entregador, Pix e cartão automáticos.']), /* o resto esta na lista do lado (ilimitados, sem comissao, cartao, boleto ou Pix) e no cartao do plano (sem fidelidade) */
@@ -640,7 +642,7 @@
     ]));
 
     /* ---------- duvidas ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco' }, [
+    corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'duvidas' }, [
       el('div', { class: 'kicker', text: 'Dúvidas' }),
       el('h2', { text: 'O que todo dono pergunta' }),
       el('div', { class: 'faq' }, [
@@ -665,7 +667,7 @@
        cadastro. Ele mora na Loja do Ligeiro, dentro do painel, e aparece numa pergunta das duvidas */
 
     /* ---------- fechamento ---------- */
-    corpo.appendChild(el('section', { class: 'vender-final' }, [
+    corpo.appendChild(el('section', { class: 'vender-final', 'data-secao': 'final' }, [
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
       el('p', { class: 'muted', text: 'Comece grátis agora ou peça para a gente montar: cadastramos tudo e os primeiros dias são por nossa conta.' }),
@@ -675,6 +677,14 @@
         el('button', { class: 'btn btn-fantasma', type: 'button', text: 'Quero que montem para mim', onclick: function () { abrirContato('fechamento'); } }),
       ]),
     ]));
+    /* A ordem de quem le (08/10/2026): a dor e a virada (antes e depois, logo abaixo do titulo que fala dela), como funciona, a
+       loja de verdade, o que o Ligeiro faz, para quem e, o convite do teste gratis, a conta, o preco, a gente monta (para quem
+       nao tem tempo), as duvidas e o fechamento. Antes, "Para quem e" (texto e 18 etiquetas) e a calculadora vinham antes de a
+       pessoa entender o produto. Com o titulo da comissao, a conta vem logo depois do antes e depois: ela e a prova dele */
+    var ORDEM = porCardapio
+      ? ['antes', 'passos', 'loja', 'funcoes', 'quem', 'teste', 'conta', 'preco', 'monta', 'duvidas', 'final']
+      : ['antes', 'conta', 'passos', 'loja', 'funcoes', 'quem', 'teste', 'preco', 'monta', 'duvidas', 'final'];
+    ORDEM.forEach(function (nome) { var secao = corpo.querySelector('[data-secao="' + nome + '"]'); if (secao) corpo.appendChild(secao); });
     var rodapeDaPagina = rodape();
     rodapeDaPagina.hidden = true;
     raiz.appendChild(rodapeDaPagina);
@@ -1046,30 +1056,29 @@
   /* um passo do "como funciona": a cena desenhada em cima (na cor do passo) e, embaixo, o numero e o titulo numa linha e o texto
      na largura toda (como nos cartoes de "O que o Ligeiro faz") */
   function passo(n, titulo, texto, cor, cena) {
+    /* cena com o celular desenhado (a loja e a tela de bloqueio): ele sai de baixo, cortado na borda, como os das outras secoes */
+    var comCelular = /(^| )loja-real-cel( |$)/.test(cena.className || '');
     return el('div', { class: 'passo-venda cor-' + cor }, [
-      el('div', { class: 'passo-cena', 'aria-hidden': 'true' }, cena),
+      el('div', { class: 'passo-cena' + (comCelular ? ' com-celular' : ''), 'aria-hidden': 'true' }, cena),
       el('div', { class: 'passo-corpo' }, [el('span', { class: 'n', text: n }), el('b', { text: titulo }), el('p', { text: texto })]),
     ]);
   }
-  /* As cenas dos passos: pedacos das telas de verdade em miniatura (na letra do celular), com a loja de exemplo da cópia de
-     demonstracao: a mesma capa, a mesma logo e os mesmos produtos, precos e fotos (Pexels, licenca livre: ver
-     ligeiro/comercial/assets/fotos/CREDITOS.txt). 1) a loja pronta como o cliente ve: capa, logo, "Aberto" e um produto */
+  /* As cenas dos passos: as telas de verdade em miniatura (na letra do celular), com a loja de exemplo da copia de
+     demonstracao: a mesma capa, a mesma logo e as mesmas fotos (Pexels, licenca livre: ver ligeiro/comercial/assets/fotos/CREDITOS.txt).
+     1) a loja pronta como o cliente ve, no mesmo celular das outras secoes e no desenho da loja de verdade (08/10/2026): a capa,
+     a logo no meio por cima dela, o nome, o "Aberto agora" e o PEDIR AGORA, com as cores e as formas de la (so a capa mais
+     baixa, para caber). Antes era uma faixa de lado, com o "Aberto" encostado na capa */
   function fotoDoExemplo(arquivo, classe, lado) {
     return el('img', { class: classe, src: 'img/venda/' + arquivo + '.webp', alt: '', width: String(lado[0]), height: String(lado[1]), loading: 'lazy', decoding: 'async' });
   }
   function cenaPassoLoja() {
-    return el('span', { class: 'mini-vitrine' }, [
-      fotoDoExemplo('exemplo-capa', 'mini-vitrine-capa', [464, 116]),
-      el('span', { class: 'mini-vitrine-topo' }, [
-        fotoDoExemplo('exemplo-logo', 'mini-vitrine-logo', [96, 96]),
-        el('span', { class: 'mini-vitrine-nome' }, [el('b', { text: 'Lanchonete do Zé' }), el('span', { class: 'mini-aberta', text: 'Aberto' })]),
-      ]),
-      el('span', { class: 'mini-produto' }, [
-        fotoDoExemplo('exemplo-x-burguer', 'mini-produto-foto', [112, 112]),
-        el('span', { class: 'mini-produto-texto' }, [el('b', { text: 'X-Burguer' }), el('strong', { text: 'R$ 18,00' })]),
-        el('span', { class: 'mini-pedir', text: 'PEDIR' }),
-      ]),
-    ]);
+    return celularAberto('passo-cel passo-cel-loja', [el('span', { class: 'mini-loja' }, [
+      fotoDoExemplo('exemplo-capa', 'mini-loja-capa', [464, 116]),
+      fotoDoExemplo('exemplo-logo', 'mini-loja-logo', [96, 96]),
+      el('b', { class: 'mini-loja-nome', text: 'Lanchonete do Zé' }),
+      el('span', { class: 'mini-loja-aberta' }, [el('span', { class: 'mini-loja-bolinha' }), el('span', { text: 'Aberto agora' })]),
+      el('span', { class: 'mini-loja-pedir' }, [el('b', { text: 'PEDIR AGORA' }), el('small', { text: 'entrega em ~30 min' })]),
+    ])]);
   }
   /* 2) o link espalhado: o perfil da loja com o link na bio e a placa do balcao com o QR igual ao que o painel baixa para imprimir
      (o QR, o nome da loja e "Aponte a camera para pedir"); o QR e de verdade e abre ligeiropedidos.com.br */
@@ -1094,40 +1103,48 @@
       ]),
     ]);
   }
-  /* 3) o pedido chegando com o celular bloqueado: a hora grande e o aviso igual ao de verdade (o icone do app, o titulo e o texto
-     como o mensageiro manda), com mais avisos empilhados atras */
+  /* 3) o pedido chegando com o celular bloqueado, como o iPhone mostra (08/10/2026): o papel de parede, a data de hoje, a hora
+     grande em branco e, embaixo, o aviso no vidro fosco: o icone do app do Ligeiro, o titulo e o texto como o mensageiro manda
+     e o "agora", com mais avisos empilhados atras */
+  function dataDaTelaDeBloqueio() {
+    var t = '';
+    try { t = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (_) { t = ''; }
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Sexta-feira, 10 de outubro';
+  }
   function cenaPassoAviso() {
-    return el('span', { class: 'mini-bloqueio' }, [
+    return celularAberto('passo-cel passo-cel-bloqueio', [el('span', { class: 'mini-bloqueio' }, [
+      el('span', { class: 'mini-bloqueio-data', text: dataDaTelaDeBloqueio() }),
       el('span', { class: 'mini-bloqueio-hora', text: '19:42' }),
       el('span', { class: 'mini-avisos' }, [
         el('span', { class: 'mini-aviso' }, [
           fotoDoExemplo('aviso-icone', 'mini-aviso-icone', [72, 72]),
           el('span', { class: 'mini-aviso-texto' }, [
             el('span', { class: 'mini-aviso-linha' }, [el('b', { text: 'Pix pago! Senha 42' }), el('small', { text: 'agora' })]),
-            el('span', { class: 'mini-aviso-corpo', text: 'R$ 46,00 · Entrega · Toque para abrir' }),
+            /* o mesmo texto do mensageiro; o ponto do meio preso a palavra de antes (a linha nunca comeca com ele) */
+            el('span', { class: 'mini-aviso-corpo', text: 'R$ 46,00 · Entrega · Toque para abrir' }),
           ]),
         ]),
         el('span', { class: 'mini-aviso-pilha' }),
       ]),
-    ]);
+    ])], true);
   }
-  /* para quem e: o icone e o titulo numa linha, o texto e os tipos de loja embaixo, na largura toda */
+  /* para quem e: o icone e o titulo numa linha; embaixo, o que vem (uma linha) e os tipos de loja mais comuns, em texto */
   function segmento(icone, titulo, texto, tipos) {
     return el('div', { class: 'cartao segmento' }, [
       el('div', { class: 'segmento-cabeca' }, [el('span', { class: 'icone' }, [UI.iconeLinha(icone)]), el('b', { text: titulo })]),
-      el('p', { text: texto }),
-      el('ul', { class: 'segmento-tipos', 'aria-label': 'Tipos de loja de ' + titulo.toLowerCase() }, tipos.map(function (x) { return el('li', { text: x }); }).concat([el('li', { class: 'e-outros', text: 'e outros' })])),
+      el('div', { class: 'segmento-texto' }, [el('p', { text: texto }), el('p', { class: 'segmento-tipos', text: tipos })]),
     ]);
   }
-  /* A barra do celular desenhado (hora, ilha, sinal e bateria), igual nos celulares da pagina de vendas */
-  function barraDoCelular() {
-    return el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>19:30</b><i class="ilha"></i><span class="icones">' +
+  /* A barra do celular desenhado (hora, ilha, sinal e bateria), igual nos celulares da pagina de vendas. Na tela de bloqueio
+     (semHora) a hora e a grande, no meio da tela, e a barra fica so com a ilha, o sinal e a bateria, como no iPhone */
+  function barraDoCelular(semHora) {
+    return el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>' + (semHora ? '' : '19:30') + '</b><i class="ilha"></i><span class="icones">' +
       '<svg viewBox="0 0 18 12" width="16" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
       '<svg viewBox="0 0 27 13" width="24" height="12"><rect x="0.75" y="0.75" width="22" height="11.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"/><rect x="2.75" y="2.75" width="15" height="7.5" rx="2"/><path d="M24.5 4.5v4c.9-.3 1.5-1.1 1.5-2s-.6-1.7-1.5-2z" opacity="0.4"/></svg></span>' });
   }
   /* O celular aberto embaixo (a moldura da "loja de verdade"), com a barra em cima e o conteudo na tela */
-  function celularAberto(classe, conteudo) {
-    return el('span', { class: 'loja-real-cel ' + (classe || '') }, el('span', { class: 'loja-real-tela' }, [barraDoCelular()].concat(conteudo)));
+  function celularAberto(classe, conteudo, semHora) {
+    return el('span', { class: 'loja-real-cel ' + (classe || '') }, el('span', { class: 'loja-real-tela' }, [barraDoCelular(semHora)].concat(conteudo)));
   }
   /* A tela do "sem Ligeiro": o WhatsApp do dono lotado na hora do pico, com as duvidas de sempre (o Pix falso primeiro) */
   function telaWhatsLotado() {

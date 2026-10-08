@@ -1835,28 +1835,30 @@ a.selo-google:hover { background: var(--lime-suave); }
 .passo-venda.cor-lima { --tinta-fundo: #ECF7D9; --tinta-borda: #D5EBB4; }
 .passo-venda.cor-azul { --tinta-fundo: #E5EEFF; --tinta-borda: #CCDCFB; }
 .passo-venda.cor-laranja { --tinta-fundo: #FFF0DC; --tinta-borda: #F6DBB8; }
-.passo-cena { flex: none; display: flex; align-items: center; justify-content: center; height: 168px; padding: 0 12px; overflow: hidden; background: var(--tinta-fundo); border-bottom: 1px solid var(--tinta-borda); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #111B21; }
+.passo-cena { flex: none; display: flex; align-items: center; justify-content: center; height: 200px; padding: 0 12px; overflow: hidden; background: var(--tinta-fundo); border-bottom: 1px solid var(--tinta-borda); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #111B21; }
 .passo-cena img { display: block; object-fit: cover; }
-.mini-vitrine, .mini-perfil, .mini-placa-papel { background: #fff; box-shadow: 0 8px 24px rgba(14, 31, 20, 0.12); }
-/* 1) a loja pronta como o cliente ve. Esquerda (10): a logo e a foto do produto, as duas com 36, e os textos comecando juntos
-   (54); direita (10): o "Aberto" e o PEDIR. O nome no meio da faixa branca ao lado da logo (abaixo da capa); o produto no meio
-   da foto, 10 abaixo da linha que separa */
-.mini-vitrine { width: 240px; display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; }
-.mini-vitrine-capa { width: 100%; height: 44px; }
-.mini-vitrine-topo { display: flex; align-items: flex-end; gap: 8px; margin-top: -16px; padding: 0 10px; }
-.mini-vitrine-logo { flex: none; width: 36px; height: 36px; border-radius: 9px; box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(0, 0, 0, 0.2); }
-.mini-vitrine-nome { flex: 1; min-width: 0; height: 20px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.mini-vitrine-nome b { font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
-.mini-aberta { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 999px; background: #EAF6DD; font-size: 9.5px; font-weight: 700; line-height: 1.2; color: #2F6B0F; white-space: nowrap; }
-.mini-aberta::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: #4CAF20; }
-.mini-produto { display: flex; align-items: center; gap: 8px; margin: 10px; padding-top: 10px; border-top: 1px solid #EEF1EC; }
-.mini-produto-foto { flex: none; width: 36px; height: 36px; border-radius: 8px; }
-.mini-produto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.mini-produto-texto b { font-size: 11.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
-.mini-produto-texto strong { font-size: 11px; font-weight: 800; line-height: 1.2; color: #0E1F14; white-space: nowrap; }
-/* na loja de verdade o nome, o produto, o preco e o PEDIR vao na letra da marca; o resto das cenas, na letra do celular */
-.mini-vitrine-nome b, .mini-produto-texto b, .mini-produto-texto strong, .mini-pedir { font-family: var(--display); }
-.mini-pedir { flex: none; padding: 6px 9px; border-radius: 7px; background: var(--lime); font-size: 9.5px; font-weight: 800; line-height: 1.2; letter-spacing: 0.02em; color: #0E1F14; }
+.mini-perfil, .mini-placa-papel { background: #fff; box-shadow: 0 8px 24px rgba(14, 31, 20, 0.12); }
+/* 1 e 3) o celular desenhado das outras secoes (a mesma moldura, a mesma barra e a mesma ilha) em 0,78 do tamanho: sai de baixo,
+   16 abaixo da borda de cima da cena, e a tela continua para fora, cortada na borda de baixo (08/10/2026) */
+.passo-cena.com-celular { align-items: flex-start; padding-top: 16px; }
+.passo-cena .loja-real-cel { zoom: 0.78; }
+.passo-cena .loja-real-tela { height: 300px; }
+/* 1) a loja pronta como o cliente ve, no desenho da loja de verdade: a capa (mais baixa, para caber), a logo no meio por cima
+   dela (a borda branca, o canto e a sombra de la, 35% da logo sobre a capa), o nome na letra da marca, o "Aberto agora" com a
+   bolinha e o PEDIR AGORA com a auréola, nas cores de la. Tudo no meio, pela letra: 12 da logo ao nome, 10 do nome ao
+   "Aberto agora", 10 dele ao botao */
+.passo-cel-loja .loja-real-tela { background: #FAFDF6; }
+.passo-cel-loja .loja-real-status { color: #0E1F14; }
+.mini-loja { display: flex; flex-direction: column; align-items: center; }
+/* as fotos com dois nomes: a regra das fotos do celular (.loja-real-tela img, largura toda e altura solta, a da print da loja) ganhava */
+.mini-loja .mini-loja-capa { width: 100%; height: 40px; }
+.mini-loja .mini-loja-logo { flex: none; width: 46px; height: 46px; margin-top: -16px; box-sizing: border-box; border: 2px solid #fff; border-radius: 13px; background: #fff; box-shadow: 0 3px 10px rgba(14, 31, 20, 0.1); }
+.mini-loja-nome { margin-top: 12px; font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 1.2; letter-spacing: -0.1px; color: #0E1F14; white-space: nowrap; }
+.mini-loja-aberta { margin-top: 10px; display: flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; background: #EEF9DC; color: #1B6B4A; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.mini-loja-bolinha { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #5E9A0C; }
+.mini-loja-pedir { align-self: stretch; margin: 10px 11px 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 0; border-radius: 12px; background: #84CC16; box-shadow: 0 0 0 4px rgba(132, 204, 22, 0.14); color: #0E1F14; }
+.mini-loja-pedir b { font-family: var(--display); font-size: 12.5px; font-weight: 700; line-height: 1.2; letter-spacing: 0.05px; white-space: nowrap; }
+.mini-loja-pedir small { font-size: 8px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
 /* 2) o perfil da loja (a foto, a bio e o link na mesma borda da esquerda; o nome no meio da foto) e a placa do balcao num suporte
    de acrilico, com o QR, o nome e a frase do QR que o painel baixa. O QR e de verdade (25 modulos de 2,5 px) e o papel em volta
    dele e a margem branca que a camera pede: a mesma folga em cima, embaixo e dos lados */
@@ -1880,28 +1882,34 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* onde o cartao e estreito (celular de 320 e os tres lado a lado logo depois de 900) o perfil e a placa diminuem juntos, na mesma
    proporcao: as letras continuam cabendo como no tamanho cheio */
 @media (max-width: 359px), (min-width: 900px) and (max-width: 979px) { .mini-divulga { zoom: 0.92; } }
-/* 3) o celular bloqueado: a hora grande e, 10 abaixo, o aviso igual ao de verdade num vidro fosco (o icone do app; o titulo com o
-   "agora" na mesma linha de base; o texto do mensageiro), com mais avisos empilhados atras */
-.mini-bloqueio { width: 100%; max-width: 286px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.mini-bloqueio-hora { font-size: 40px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: #7C3A0E; font-variant-numeric: tabular-nums; }
-.mini-avisos { position: relative; align-self: stretch; padding-bottom: 12px; }
-.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 10px 28px rgba(124, 58, 14, 0.16); }
-.mini-aviso-icone { flex: none; width: 34px; height: 34px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
-.mini-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+/* 3) a tela de bloqueio do iPhone: o papel de parede (anoitecer: 19:42), a barra so com a ilha, o sinal e a bateria em branco, a
+   data e a hora grande no meio e, mais abaixo, o aviso no vidro fosco quase da largura da tela (6 de cada lado): o icone do
+   app, o titulo em negrito com o "agora" na mesma linha de base, o texto do mensageiro do mesmo tamanho do titulo, e mais
+   avisos empilhados atras */
+.passo-cel-bloqueio .loja-real-tela { background: radial-gradient(120% 60% at 90% 100%, rgba(255, 170, 84, 0.95) 0%, rgba(255, 170, 84, 0) 62%), radial-gradient(110% 70% at 0% 0%, #3A3584 0%, rgba(58, 53, 132, 0) 72%), linear-gradient(172deg, #2B2766 0%, #6E3A8E 42%, #D9604F 78%, #F39A4C 100%); }
+.passo-cel-bloqueio .loja-real-status { color: #fff; }
+.mini-bloqueio { display: flex; flex-direction: column; align-items: center; padding: 0 6px; }
+.mini-bloqueio-data { margin-top: 12px; font-size: 11.5px; font-weight: 600; line-height: 1.2; color: rgba(255, 255, 255, 0.92); white-space: nowrap; }
+.mini-bloqueio-hora { margin-top: 8px; font-size: 58px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; color: #fff; font-variant-numeric: tabular-nums; }
+.mini-avisos { position: relative; align-self: stretch; margin-top: 34px; padding-bottom: 11px; }
+.mini-aviso { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 17px; background: rgba(246, 246, 246, 0.82); -webkit-backdrop-filter: blur(18px) saturate(1.8); backdrop-filter: blur(18px) saturate(1.8); box-shadow: 0 6px 18px rgba(30, 16, 50, 0.2); }
+.mini-aviso .mini-aviso-icone { flex: none; width: 26px; height: 26px; border-radius: 6px; background: #fff; }
+.mini-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .mini-aviso-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.mini-aviso-linha b { min-width: 0; font-size: 12.5px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mini-aviso-linha small { flex: none; font-size: 10px; line-height: 1.25; color: #8A8A8E; }
-.mini-aviso-corpo { font-size: 11px; line-height: 1.3; color: #3C3C43; text-wrap: balance; }
-.mini-aviso-pilha { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 24px; border-radius: 0 0 16px 16px; background: rgba(255, 255, 255, 0.6); box-shadow: 0 6px 16px rgba(124, 58, 14, 0.08); }
-.mini-aviso-pilha::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 12px; border-radius: 0 0 12px 12px; background: rgba(255, 255, 255, 0.4); }
+/* sem o corte de texto comprido (overflow): com o corte na letra ele comia a perna do g de "pago". O titulo cabe (medido) */
+.mini-aviso-linha b { min-width: 0; font-size: 12px; font-weight: 600; line-height: 1.25; color: #000; white-space: nowrap; }
+.mini-aviso-linha small { flex: none; font-size: 10.5px; line-height: 1.25; color: rgba(60, 60, 67, 0.6); }
+.mini-aviso-corpo { font-size: 12px; line-height: 1.3; color: #000; text-wrap: balance; }
+.mini-aviso-pilha { position: absolute; left: 8px; right: 8px; bottom: 5px; height: 20px; border-radius: 0 0 15px 15px; background: rgba(246, 246, 246, 0.55); }
+.mini-aviso-pilha::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -5px; height: 10px; border-radius: 0 0 12px 12px; background: rgba(246, 246, 246, 0.35); }
 @supports (text-box: trim-both cap alphabetic) {
-  .mini-vitrine-nome b, .mini-aberta, .mini-produto-texto b, .mini-produto-texto strong, .mini-pedir,
+  .mini-loja-nome, .mini-loja-aberta, .mini-loja-pedir b, .mini-loja-pedir small, .mini-bloqueio-data,
   .mini-perfil-nome b, .mini-perfil-nome small, .mini-perfil-bio, .mini-perfil-link span, .mini-placa-papel b, .mini-placa-papel small,
   .mini-bloqueio-hora, .mini-aviso-linha b, .mini-aviso-linha small, .mini-aviso-corpo { text-box: trim-both cap alphabetic; }
 }
 /* As funcoes em abas (07/10/2026, como as do Anota AI): o seletor de assunto e 4 cartoes com o icone num quadrado colorido e
    o titulo do lado. 1 coluna no celular, 2 x 2 no tablet, 4 numa linha no computador */
-.funcoes-abas { display: flex; align-self: center; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; } /* no meio, em cima dos cartoes (07/10/2026; encostada na esquerda sobrava espaco do lado); no celular, a largura toda */
+.funcoes-abas { display: flex; align-self: flex-start; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; } /* na esquerda, na mesma linha do titulo, do texto e do primeiro cartao (08/10/2026: no meio, com o titulo na esquerda, ficava solta numa segunda linha de alinhamento); no celular, a largura toda */
 .funcoes-aba { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 700; font-size: 15px; color: var(--deep2); cursor: pointer; transition: background 0.16s, color 0.16s; }
 .funcoes-aba[aria-selected="true"] { background: var(--deep); color: #fff; }
 @media (hover: hover) { .funcoes-aba[aria-selected="false"]:hover { background: var(--lime-suave); } }
@@ -1938,7 +1946,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* para quem e: comida e comercio lado a lado do 560 para cima; o icone e o titulo numa linha, o texto e os tipos embaixo */
 .vender-bloco > p.muted, .segmento p, .item-venda p { text-wrap: pretty; } /* sem palavra sozinha na ultima linha */
 .segmentos { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.segmentos-intro { max-width: 720px; } /* PC: duas linhas parecidas, sem o "de roupa." sozinho embaixo */
 @media (min-width: 560px) { .segmentos { grid-template-columns: 1fr 1fr; } }
 .segmento { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .segmento-cabeca { display: flex; align-items: center; gap: 12px; }
@@ -1946,9 +1953,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .segmento-cabeca .icone .ico-traco svg { width: 22px; height: 22px; }
 .segmento-cabeca b { font-family: var(--display); font-size: 19px; line-height: 1.2; }
 .segmento p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--body); }
-.segmento-tipos { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.segmento-tipos li { padding: 6px 12px; border-radius: 999px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--ink); white-space: nowrap; }
-.segmento-tipos li.e-outros { background: none; box-shadow: none; padding-left: 4px; padding-right: 4px; color: var(--muted); }
+/* o que vem e, embaixo, os tipos de loja em texto (08/10/2026: a nuvem de 18 etiquetas cansava so de olhar) */
+.segmento-texto { display: flex; flex-direction: column; gap: 8px; }
+.segmento .segmento-tipos { font-size: 14px; font-weight: 600; color: var(--muted); }
+/* pela letra, como os cartoes de "O que o Ligeiro faz": 16 do icone ao texto, 12 entre as duas linhas de texto */
+@supports (text-box: trim-both cap alphabetic) {
+  .segmento-cabeca b, .segmento p { text-box: trim-both cap alphabetic; }
+  .segmento { gap: 16px; }
+  .segmento-texto { gap: 12px; }
+}
 .item-venda .icone { font-size: 26px; }
 .item-venda b { font-family: var(--display); font-size: 17px; }
 .item-venda p { font-size: 14.5px; color: var(--body); }
