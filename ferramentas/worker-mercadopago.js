@@ -1219,6 +1219,59 @@ const REGRAS = (function () {
   }
 
   /*
+   * Resposta automatica do WhatsApp Business (08/10/2026): o painel monta as duas mensagens que o dono cola no proprio WhatsApp
+   * (Ferramentas comerciais): a de saudacao (vai para quem chama pela primeira vez e para quem volta depois de 14 dias) e a de
+   * ausencia (vai fora do horario comercial). As duas levam o link da loja numa linha so (o WhatsApp mostra a previa).
+   */
+  var DIAS_DA_SEMANA = [['seg', 'segunda'], ['ter', 'terça'], ['qua', 'quarta'], ['qui', 'quinta'], ['sex', 'sexta'], ['sab', 'sábado'], ['dom', 'domingo']];
+  function horaEmTexto(m) {
+    var h = Math.floor(m / 60) % 24, r = m % 60;
+    return h + 'h' + (r ? (r < 10 ? '0' : '') + r : '');
+  }
+  /* uma faixa: "das 18h às 23h" (fecha a meia-noite: "das 18h à meia-noite"). A palavra presa na hora (espaco que nao quebra):
+     onde a linha quebrar, "das" nunca fica sozinho no fim e "11h" no comeco da outra */
+  function faixaEmTexto(f) {
+    return 'das ' + horaEmTexto(f[0]) + (f[1] % 1440 === 0 ? ' à meia-noite' : ' às ' + horaEmTexto(f[1]));
+  }
+  /* o horario da semana por extenso: "de terça a domingo, das 18h às 23h"; dias iguais seguidos viram um grupo (de segunda a sexta),
+     dias diferentes ficam separados por ponto e virgula, dia fechado nao aparece. Sem nenhum dia aberto: '' */
+  function horariosEmTexto(horarios) {
+    if (!horarios || typeof horarios !== 'object') return '';
+    var chaves = DIAS_DA_SEMANA.map(function (d) {
+      var lista = Array.isArray(horarios[d[0]]) ? horarios[d[0]] : [];
+      var fs = lista.map(faixaMinutos).filter(function (f) { return f && f[0] !== f[1]; }).sort(function (a, b) { return a[0] - b[0]; });
+      return { fs: fs, chave: fs.map(function (f) { return f[0] + '-' + f[1]; }).join(',') };
+    });
+    if (!chaves.some(function (c) { return c.chave; })) return '';
+    var faixas = function (fs) { var t = fs.map(faixaEmTexto); return t.length > 1 ? t.slice(0, -1).join(', ') + ' e ' + t[t.length - 1] : t[0]; };
+    if (chaves.every(function (c) { return c.chave === chaves[0].chave; })) return 'todos os dias, ' + faixas(chaves[0].fs);
+    /* comeca a contar num dia que muda (um grupo que passa do domingo para a segunda fica inteiro: "de sexta a segunda") */
+    var ini = 0;
+    for (var k = 0; k < 7; k++) if (chaves[k].chave !== chaves[(k + 6) % 7].chave) { ini = k; break; }
+    var grupos = [];
+    for (var i = 0; i < 7; i++) {
+      var d = (ini + i) % 7, ult = grupos[grupos.length - 1];
+      if (ult && ult.chave === chaves[d].chave) ult.dias.push(d);
+      else grupos.push({ chave: chaves[d].chave, fs: chaves[d].fs, dias: [d] });
+    }
+    return grupos.filter(function (g) { return g.chave; }).map(function (g) {
+      var n = g.dias.length, a = DIAS_DA_SEMANA[g.dias[0]][1], b = DIAS_DA_SEMANA[g.dias[n - 1]][1];
+      var dias = n === 1 ? a : n === 2 ? a + ' e ' + b : 'de ' + a + ' a ' + b;
+      return dias + ', ' + faixas(g.fs);
+    }).join('; ');
+  }
+  function mensagemDeSaudacao(loja, link) {
+    return ['Oi! Que bom falar com você. 😊', 'Para pedir, é só abrir o nosso ' + catalogo(loja).nome + ':', link,
+      'Você escolhe, ' + frasePagamento(loja) + ' e acompanha tudo por lá.'].join('\n');
+  }
+  function mensagemDeAusencia(loja, link) {
+    var horas = loja && loja.usarHorarios ? horariosEmTexto(loja.horarios) : '';
+    return (horas ? ['Oi! Agora estamos fechados.', 'Nosso horário: ' + horas + '.']
+      : ['Oi! Agora não conseguimos responder. Assim que der, falamos com você.'])
+      .concat(['Enquanto isso, o ' + catalogo(loja).nome + ' está aqui:', link]).join('\n');
+  }
+
+  /*
    * Cardapio inteiro em texto, pra colar no WhatsApp quando o cliente pergunta
    * "o que tem?". Vem com link no fim; a loja copia no painel em um toque.
    */
@@ -2034,6 +2087,9 @@ const REGRAS = (function () {
     linkWhatsapp: linkWhatsapp,
     pedidoParaWhatsapp: pedidoParaWhatsapp,
     cardapioEmTexto: cardapioEmTexto,
+    horariosEmTexto: horariosEmTexto,
+    mensagemDeSaudacao: mensagemDeSaudacao,
+    mensagemDeAusencia: mensagemDeAusencia,
     proximaSenha: proximaSenha,
     diaLocal: diaLocal,
     txidPix: txidPix,
