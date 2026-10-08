@@ -593,8 +593,12 @@
       el('div', { class: 'antes-depois monta' }, [
         /* a conversa no WhatsApp: o dono manda as fotos do cardapio e recebe a loja pronta (sem horario nos baloes: nada de prazo) */
         el('div', { class: 'monta-cena', 'aria-hidden': 'true' }, celularAberto('ad-cel ad-cel-chat', [telaConversaMonta()])),
-        el('div', { class: 'cartao lado manda' }, [el('b', { text: 'Você manda' })].concat([['camera', 'Fotos do cardápio ou dos produtos'], ['dinheiro', 'Os preços (e os tamanhos, se tiver)'], ['imagem', 'Sua logo, se tiver'], ['relogio', 'Horário e taxa de entrega']].map(function (x) { return el('p', {}, [UI.iconeLinha(x[0]), x[1]]); }))),
-        el('div', { class: 'cartao lado com' }, [el('b', { text: 'Você recebe' })].concat(['A loja montada, com fotos e categorias', 'O link para a bio do Instagram e o status', 'O QR code para imprimir no balcão', 'Ajuda para ligar o Pix do Mercado Pago'].map(function (x) { return el('p', {}, [UI.iconeLinha('check'), x]); }))),
+        /* as duas listas juntas: no computador, no meio da altura do celular (como o texto da "Loja de verdade"); no tablet, lado a
+           lado embaixo dele */
+        el('div', { class: 'monta-listas' }, [
+          el('div', { class: 'cartao lado manda' }, [el('b', { text: 'Você manda' })].concat([['camera', 'Fotos do cardápio ou dos produtos'], ['dinheiro', 'Os preços (e os tamanhos, se tiver)'], ['imagem', 'Sua logo, se tiver'], ['relogio', 'Horário e taxa de entrega']].map(function (x) { return el('p', {}, [UI.iconeLinha(x[0]), x[1]]); }))),
+          el('div', { class: 'cartao lado com' }, [el('b', { text: 'Você recebe' })].concat(['A loja montada, com fotos e categorias', 'O link para a bio do Instagram e o status', 'O QR code para imprimir no balcão', 'Ajuda para ligar o Pix do Mercado Pago'].map(function (x) { return el('p', {}, [UI.iconeLinha('check'), x]); }))),
+        ]),
       ]),
     ]));
 
@@ -1172,6 +1176,8 @@
         el('span', { class: 'zap-lotado-acoes' }, [UI.iconeLinha('camera'), el('span', { class: 'zap-redondo zap-nova', html: MAIS_NOVA })]),
       ]),
       el('b', { class: 'zap-lotado-titulo', text: 'Conversas' }),
+      /* a busca embaixo do titulo, como no iPhone */
+      el('span', { class: 'zap-busca' }, [UI.iconeLinha('busca'), el('span', { text: 'Pesquisar' })]),
       el('span', { class: 'zap-filtros' }, ['Tudo', 'Não lidas', 'Favoritas'].map(function (x, i) { return el('span', { class: 'zap-filtro' + (i === 0 ? ' ativo' : ''), text: x }); })),
     ].concat(conversas.map(function (c) {
       return el('span', { class: 'zap-conversa' }, [

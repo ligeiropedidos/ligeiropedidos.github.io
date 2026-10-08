@@ -2181,9 +2181,11 @@ a.selo-google:hover { background: var(--lime-suave); }
    fundo do cartao e a lista sobe por cima dele num cartao branco. A area do celular (344) mostra o "Pix confirmado" do painel e
    as primeiras conversas do WhatsApp antes da lista */
 .antes-depois.com-celular .lado { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-.ad-cena { display: flex; justify-content: center; height: 344px; padding-top: 24px; overflow: hidden; } /* 344: o "Pix confirmado" com folga acima da lista (com 320 ficava a 3 px) */
-.ad-cena .loja-real-cel { width: 232px; }
+.ad-cena { display: flex; justify-content: center; height: 367px; padding-top: 24px; overflow: hidden; } /* 367: o "Pix confirmado" com folga acima da lista tambem no celular de 256 do computador (a foto do painel cresce com ele); os 23 a mais sao os da busca das Conversas, e a lista do WhatsApp continua comecando logo depois da 3a conversa */
+/* o celular do tamanho do da "Loja de verdade" (232 no celular, 256 no computador), como todos os celulares grandes da pagina */
 .ad-cena .loja-real-tela { height: 480px; }
+/* no computador (celular de 256) a lista sobe 4: a borda passa logo abaixo do nome do cliente no painel (e nao no meio da linha de baixo) e logo depois da 3a conversa do WhatsApp */
+@media (min-width: 900px) { .ad-cena { height: 363px; } }
 .ad-cel-zap .loja-real-tela { background: #fff; }
 .ad-cel-painel .loja-real-tela { background: #0F3D2E; } /* o verde do topo do painel */
 .ad-cel-painel .loja-real-status { color: #fff; }
@@ -2201,6 +2203,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-lotado-acoes .ico-traco svg { width: 17px; height: 17px; }
 .zap-redondo.zap-nova { background: #1DAA61; color: #fff; }
 .zap-lotado-titulo { display: block; padding: 3px 14px 0; font-size: 19px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: #000; }
+.zap-busca { display: flex; align-items: center; gap: 5px; height: 21px; margin: 2px 14px 0; padding: 0 8px; border-radius: 8px; background: #EFEFF0; font-size: 10.5px; line-height: 1; color: #8E8E93; } /* 23 de altura com a margem */
+.zap-busca .ico-traco { display: flex; }
+.zap-busca .ico-traco svg { width: 11px; height: 11px; }
 .zap-filtros { display: flex; gap: 6px; padding: 4px 14px 6px; }
 .zap-filtro { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 11px; background: #F0F2F5; font-size: 10.5px; font-weight: 600; line-height: 1; color: #54656F; white-space: nowrap; }
 .zap-filtro.ativo { background: #D9FDD3; color: #15603E; }
@@ -2220,17 +2225,17 @@ a.selo-google:hover { background: var(--lime-suave); }
    toda em cima delas; no computador fica a esquerda, da altura das duas listas empilhadas (contain: size: o celular, mais alto,
    nao estica as listas). 380: a conversa inteira, com a mesma folga de 23 antes do corte que ela tem no computador */
 .antes-depois.monta { grid-template-columns: 1fr; }
-.monta-cena { display: flex; justify-content: center; height: 380px; padding-top: 16px; overflow: hidden; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio); }
-/* 0,8 do celular das outras secoes, 16 abaixo da borda como os dos passos (08/10/2026): a conversa do WhatsApp do iPhone inteira
-   a vista, ate o link pronto, com folga tambem na letra do iPhone */
-.monta-cena .loja-real-cel { width: 232px; zoom: 0.8; }
-.monta-cena .loja-real-tela { height: 480px; background: #fff; }
-@media (min-width: 560px) { .antes-depois.monta { grid-template-columns: 1fr 1fr; } .antes-depois.monta > .monta-cena { grid-column: 1 / -1; } }
+.monta-cena { display: flex; justify-content: center; height: 470px; padding-top: 16px; overflow: hidden; background: var(--lime-suave); border: 1px solid #CFE3B4; border-radius: var(--raio); }
+/* o celular do tamanho do da "Loja de verdade" (232 no celular, 256 no computador; 08/10/2026: em 0,8 ele parecia fino), 16 abaixo
+   da borda como os dos passos, com a conversa do WhatsApp do iPhone inteira a vista, ate o link pronto */
+.monta-cena .loja-real-tela { height: 560px; background: #fff; }
+/* as listas: empilhadas no celular, lado a lado no tablet (embaixo do celular) e, no computador, uma em cima da outra ao lado
+   dele, no meio da altura */
+.monta-listas { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 560px) { .monta-listas { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) {
-  .antes-depois.monta { grid-template-areas: "cena manda" "cena com"; }
-  .antes-depois.monta > .monta-cena { grid-area: cena; height: auto; contain: size; }
-  .antes-depois.monta > .manda { grid-area: manda; }
-  .antes-depois.monta > .com { grid-area: com; }
+  .antes-depois.monta { grid-template-columns: 1fr 1fr; align-items: center; }
+  .monta-listas { grid-template-columns: 1fr; }
 }
 /* a conversa (desenhada, na letra do celular): o fundo do WhatsApp, baloes verdes de quem manda e brancos de quem responde.
    O mascotinho do topo com dois nomes na regra: a das fotos do celular (.loja-real-tela img, largura toda) ganhava dele */
