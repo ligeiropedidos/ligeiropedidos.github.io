@@ -122,10 +122,16 @@
   }
 
   /* ---------- contato: WhatsApp na hora ou "me chama" (vira lista no admin) ---------- */
+  /* o.icone: o icone do rotulo ('zap' e o do WhatsApp); o.ajuda: a frase embaixo do campo (pecas de el) */
   function campoSimples(rotulo, opcoes) {
     var o = opcoes || {};
     var input = el('input', { type: o.tipo || 'text', maxlength: o.max || 80, placeholder: o.placeholder || '', inputmode: o.inputmode || null, autocomplete: o.autocomplete || null });
-    var b = el('div', { class: 'campo' + (o.largo ? ' largo' : '') }, [el('label', {}, [rotulo, o.opcional ? el('span', { class: 'opcional', text: 'opcional' }) : null]), input]);
+    var marca = o.icone ? (o.icone === 'zap' ? UI.icone('zap') : UI.iconeLinha(o.icone)) : null;
+    var b = el('div', { class: 'campo' + (o.largo ? ' largo' : '') + (marca ? ' com-icone' : '') }, [
+      el('label', {}, [marca, rotulo, o.opcional ? el('span', { class: 'opcional', text: 'opcional' }) : null]),
+      input,
+      o.ajuda ? el('p', { class: 'campo-ajuda' }, o.ajuda) : null,
+    ]);
     b.input = input;
     return b;
   }
@@ -371,9 +377,11 @@
       var c = cfg();
       var cartao = el('section', { class: 'cartao-montamos', 'aria-labelledby': 'montamosTitulo' });
       var f = {
-        nome: campoSimples('Seu nome', { max: 60, autocomplete: 'name' }),
-        whatsapp: campoSimples('Seu WhatsApp', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', autocomplete: 'tel' }),
-        loja: campoSimples('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', autocomplete: 'organization' }),
+        /* 08/10/2026 (ideia dele, sem sair do desenho): um icone em cada rotulo, exemplo nos tres campos e o cadeado junto do
+           WhatsApp, onde a pessoa pensa duas vezes antes de dar o numero */
+        nome: campoSimples('Seu nome', { max: 60, placeholder: 'Ex: Maria', autocomplete: 'name', icone: 'pessoa' }),
+        whatsapp: campoSimples('Seu WhatsApp', { max: 16, inputmode: 'numeric', placeholder: '(13) 99999-9999', autocomplete: 'tel', icone: 'zap', ajuda: [UI.iconeLinha('cadeado'), 'Só para a gente falar com você.'] }),
+        loja: campoSimples('Nome da loja', { max: 60, placeholder: 'Ex: Lanchonete do Zé', autocomplete: 'organization', icone: 'loja' }),
       };
       UI.mascaraTelefone(f.whatsapp.input);
       function enviar() {
@@ -410,11 +418,12 @@
           });
       }
       var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: enviar, text: 'Quero minha loja pronta' });
-      var seguro = el('p', { class: 'contato-seguro' }, [UI.iconeLinha('cadeado'), 'Sem compromisso. Seu número só é usado para a gente falar com você.']);
+      /* embaixo do botao, o que tira o medo de pedir (o cadeado foi para junto do WhatsApp) */
+      var seguro = el('p', { class: 'contato-seguro' }, 'Sem compromisso. Atendimento pelo WhatsApp.');
       [f.nome, f.whatsapp, f.loja].forEach(function (x) { x.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } }); });
       /* o topo do formulario, limpo como nos sites profissionais (07/10/2026: ele nao gostou da faixa verde com o mascotinho
          dentro do cartao): titulo e frase de apoio no proprio cartao, no meio */
-      cartao.appendChild(el('div', { class: 'montamos-topo' }, [el('h2', { id: 'montamosTitulo', text: 'Quer a sua loja pronta?' }), el('p', { text: 'A gente monta tudo e chama você no WhatsApp.' })]));
+      cartao.appendChild(el('div', { class: 'montamos-topo' }, [el('h2', { id: 'montamosTitulo' }, ['Quer a sua loja ', el('span', { text: 'pronta' }), '?']), el('p', { text: 'A gente monta tudo e chama você no WhatsApp.' })]));
       cartao.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja]));
       cartao.appendChild(botao);
       cartao.appendChild(seguro);
