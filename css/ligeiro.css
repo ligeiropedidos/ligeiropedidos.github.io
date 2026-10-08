@@ -1670,36 +1670,6 @@ a.selo-google:hover { background: var(--lime-suave); }
 .fatura-cartao.vencida { background: var(--erro-suave); border-color: #F3C2BB; }
 .fatura-cartao.vencida .fatura-quando { color: var(--erro); }
 .fatura-cartao.vencida .fatura-forma { border-color: #F3C2BB; }
-/* comparativo com concorrentes (pagina de vendas) */
-.comparativo { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
-.comparativo .rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--raio-p); }
-.tabela-concorrentes { min-width: 480px; }
-.tabela-concorrentes th, .tabela-concorrentes td { padding: 12px 16px; vertical-align: top; } /* o texto a 16 da borda, como nos cartoes da pagina; linha que quebra comeca no topo, como as outras */
-.tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: nowrap; }
-.tabela-concorrentes td:first-child b { white-space: nowrap; } /* nome do concorrente inteiro ("Delivery Direto") */
-.tabela-concorrentes tr.destaque td { background: var(--lime-suave); }
-.tabela-concorrentes tr.destaque td:first-child { box-shadow: inset 4px 0 0 var(--lime); }
-@media (max-width: 759px) {
-  /* no celular e no tablet a tabela vira lista: nome em cima, preco e comissao embaixo, sem rolagem lateral (o limite era 520: de
-     521 a 759 a tabela rolava de lado e as linhas ficavam altas, com vao em cima) */
-  .comparativo .rolagem { overflow: visible; background: var(--card); border: 1px solid var(--line); }
-  .tabela-concorrentes { min-width: 0; border: 0; }
-  .tabela-concorrentes thead { display: none; }
-  .tabela-concorrentes tbody, .tabela-concorrentes tr, .tabela-concorrentes td { display: block; }
-  .tabela-concorrentes tr { padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .tabela-concorrentes tr:last-child { border-bottom: 0; }
-  .tabela-concorrentes td { padding: 0; border: 0; white-space: normal; font-size: 14px; }
-  /* a regra do computador (preco em uma linha so, com mais forca que a de cima) deixava "R$ 99,99 ate 150 pedidos; sobe para..." numa linha de 450 px:
-     a tabela esticava a pagina inteira e o celular dava zoom para fora (02/10 a 03/10) */
-  .tabela-concorrentes td:nth-child(2), .tabela-concorrentes th:nth-child(2) { white-space: normal; }
-  .tabela-concorrentes td { overflow-wrap: anywhere; }
-  .tabela-concorrentes td:first-child { font-size: 15px; margin-bottom: 4px; }
-  .tabela-concorrentes td:nth-child(2)::before { content: 'Por mês: '; color: var(--muted); }
-  .tabela-concorrentes td:nth-child(3)::before { content: 'Comissão: '; color: var(--muted); }
-  .tabela-concorrentes tr.destaque { background: var(--lime-suave); box-shadow: inset 4px 0 0 var(--lime); }
-  /* td:first-child junto: a barra do computador (td:first-child) tem mais forca que so "td" e voltava no nome */
-  .tabela-concorrentes tr.destaque td, .tabela-concorrentes tr.destaque td:first-child { background: transparent; box-shadow: none; }
-}
 .caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; } /* quebra depois das "/" (UI.pedacosDeLink); no meio so se um pedaco nao couber */
 .grade-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
@@ -1928,19 +1898,22 @@ a.selo-google:hover { background: var(--lime-suave); }
 .funcoes-paineis { display: grid; }
 .funcoes-paineis > .funcoes-painel { grid-area: 1 / 1; align-content: start; }
 .funcoes-paineis > .funcoes-painel[hidden] { display: grid !important; visibility: hidden; pointer-events: none; } /* !important: vence o [hidden] global */
-/* do tablet para cima, as linhas dos 3 paineis sao as MESMAS (subgrid; cada aba tem 4 cartoes: 2 linhas no tablet, 1 no PC): cada
-   linha tem a altura do cartao mais alto daquela linha nas 3 abas, e a outra linha nao estica junto */
+/* do tablet para cima, as linhas dos 3 paineis sao as MESMAS (subgrid; cada aba tem 4 cartoes: 2 linhas ate 1099, 1 dai para cima):
+   cada linha tem a altura do cartao mais alto daquela linha nas 3 abas, e a outra linha nao estica junto */
 @media (min-width: 560px) { .funcoes-paineis { row-gap: 12px; } .funcoes-paineis > .funcoes-painel { grid-row: 1 / span 2; grid-template-rows: subgrid; } }
-@media (min-width: 900px) { .funcoes-paineis > .funcoes-painel { grid-row: 1 / span 1; } }
+@media (min-width: 1100px) { .funcoes-paineis > .funcoes-painel { grid-row: 1 / span 1; } }
 .funcoes-painel { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .funcoes-painel.entrando { animation: entrar 0.3s ease-out both; }
 @media (min-width: 560px) { .funcoes-painel { grid-template-columns: 1fr 1fr; } }
-@media (min-width: 900px) { .funcoes-painel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* 4 numa linha so a partir de 1100 (08/10/2026): de 900 a 1099 o titulo tinha 122 a 153 do lado do icone e "Cozinha, separacao e
+   entregador" ia a 3 linhas; em 2 x 2 todo titulo cabe numa linha. De 1100 para cima sao 162: os titulos maiores quebram em 2
+   linhas, no meio do icone, com as duas ultimas palavras presas */
+@media (min-width: 1100px) { .funcoes-painel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .funcao { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); } /* sem subir no hover: o cartao nao e clicavel (08/10/2026) */
 .funcao-topo { display: flex; align-items: center; gap: 12px; }
 .funcao-icone { flex: none; width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--tinta-fundo); color: var(--tinta); }
 .funcao-icone .ico-traco svg { width: 22px; height: 22px; }
-.funcao b { font-family: var(--display); font-size: 16.5px; line-height: 1.25; color: var(--ink); text-wrap: pretty; } /* balance quebrava "Pix e / cartao automaticos" */
+.funcao b { font-family: var(--display); font-size: 16.5px; line-height: 1.25; color: var(--ink); text-wrap: pretty; } /* as duas ultimas palavras vem presas (juntarFim): nunca uma sozinha */
 .funcao p { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--body); text-wrap: pretty; }
 /* o cartao pela letra, igual aos dos "Tres passos" (07/10/2026): a caixa do titulo e do texto vai do topo das maiusculas ate a
    linha de base, entao 16 em volta, o titulo no meio do icone e o texto 16 abaixo do icone sao o que o olho ve (antes, com a
@@ -2131,12 +2104,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .planos-caixa { width: 100%; }
 /* pagina de vendas: cartoes, incluso e o botao grande na largura de um celular grande, no meio. Blocos a 12 na secao:
    texto ate a faixa 24 (igual a faixa ate os cartoes) e 24 ate a tabela */
-#planos > .planos-venda { max-width: 560px; width: 100%; margin: 0 auto 12px; } /* 12 do texto ate os cartoes, como nas outras secoes; 24 ate o comparativo (que tem titulo) */
+#planos > .planos-venda { max-width: 560px; width: 100%; margin: 0 auto; } /* 12 do texto ate os cartoes, como nas outras secoes */
 /* computador: a secao de preco em duas colunas, alinhada com o titulo e com a tabela de baixo (antes era uma coluna de 560
    no meio, com sobra branca dos dois lados). A faixa do fundador na largura toda; os cartoes e o botao na esquerda; o que
    vem incluso na direita, do topo dos cartoes ao fim do botao */
 @media (min-width: 900px) {
-  #planos > .planos-venda { max-width: none; margin: 0 0 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); grid-template-areas: "faixa faixa" "cartoes incluso" "botao incluso"; column-gap: 24px; row-gap: 12px; }
+  #planos > .planos-venda { max-width: none; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); grid-template-areas: "faixa faixa" "cartoes incluso" "botao incluso"; column-gap: 24px; row-gap: 12px; }
   #planos > .planos-venda > .fundador { grid-area: faixa; }
   #planos > .planos-venda > .planos-caixa { grid-area: cartoes; }
   #planos > .planos-venda > .btn { grid-area: botao; }
