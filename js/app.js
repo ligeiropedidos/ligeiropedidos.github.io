@@ -58,17 +58,28 @@
     if (!/^\d{8,20}$/.test(id) || location.protocol === 'file:' || /^(localhost|127\.)/.test(location.hostname)) return;
     /* so nas paginas de venda (o dono que veio do anuncio): nunca na loja, no pedido nem no painel. Quem chega por um link de loja
        (o cliente) nao carrega nada do Meta */
-    var p0 = partes()[0] || '';
-    if (['', 'lojas', 'comecar', 'assinar', 'entrar', 'servicos', 'termos', 'privacidade'].indexOf(p0) < 0) return;
+    /* 08/10/2026: sem "entrar" e "servicos" (telas de quem ja tem loja: ligariam a pessoa do Facebook a uma loja) */
+    var vendas = ['', 'lojas', 'comecar', 'assinar', 'termos', 'privacidade'];
+    if (vendas.indexOf(partes()[0] || '') < 0) return;
     /* o trecho oficial do pixel, sem mudar nada */
     !function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+    /* o site troca de tela sem recarregar: sem isto o Meta mandava sozinho um PageView a cada troca de endereco, inclusive
+       da loja, do pedido e do painel (pentest de 08/10/2026). So vale o PageView que o site manda */
+    window.fbq.disablePushState = true;
     window.fbq('set', 'autoConfig', false, id); /* sem os eventos automaticos do Meta (cliques, dados da pagina): so os 3 de baixo */
     window.fbq('init', id);
     window.fbq('track', 'PageView');
-    var ultima = location.pathname + location.hash;
-    var vendas = ['', 'lojas', 'comecar', 'assinar', 'entrar', 'servicos', 'termos', 'privacidade'];
-    window.addEventListener('hashchange', function () { var agora = location.pathname + location.hash; if (agora !== ultima) { ultima = agora; if (vendas.indexOf(partes()[0] || '') >= 0) window.fbq('track', 'PageView'); } });
-    window.LigeiroMeta = { evento: function (nome) { try { window.fbq('track', nome); } catch (_) { /* sem pixel */ } } };
+    var ultima = location.pathname + location.hash, naVenda = true;
+    window.addEventListener('hashchange', function () {
+      var agora = location.pathname + location.hash;
+      if (agora === ultima) return;
+      ultima = agora;
+      var venda = vendas.indexOf(partes()[0] || '') >= 0;
+      /* saiu da pagina de venda para a loja, o pedido, o painel ou a conta: o pixel nao manda mais nada ate voltar */
+      if (venda !== naVenda) { naVenda = venda; window.fbq('consent', venda ? 'grant' : 'revoke'); }
+      if (venda) window.fbq('track', 'PageView');
+    });
+    window.LigeiroMeta = { evento: function (nome) { if (!naVenda) return; try { window.fbq('track', nome); } catch (_) { /* sem pixel */ } } };
   })();
 
   /* Medicao de visitas, so se o Ligeiro colocou o token (config.analytics.cloudflareToken). */
@@ -224,6 +235,9 @@
     if (p[0] === 'balcao' && p[1]) { limparTelaAtual = E.abrirBalcao(raiz, p[1]); return; }
     /* tela de equipe sem a loja: volta pro inicio (nao vira "cidade") */
     if (['painel', 'cozinha', 'entrega', 'balcao'].indexOf(p[0]) >= 0 && p.length === 1) { trocar(''); return; }
+    /* tela de venda com um pedaco a mais no endereco (/termos/x, /entrar/x): volta para o inicio. Antes caia na tela da loja
+       sem o codigo dela e a pagina ficava em branco (pentest de 08/10/2026) */
+    if (['lojas', 'assinar', 'entrar', 'termos', 'privacidade', 'comecar', 'conta'].indexOf(p[0]) >= 0) { trocar(''); return; }
     if (p.length === 1) { raiz.className = 'app larga'; limparTelaAtual = C.cidade(raiz, p[0]); return; }
     if (p.length >= 4 && p[2] === 'pedido') { limparTelaAtual = C.loja(raiz, p[1], { pedidoId: p[3], cidadeSlug: p[0] }); return; }
     limparTelaAtual = C.loja(raiz, p[1], { cidadeSlug: p[0] });
@@ -411,7 +425,17 @@
       if (abrindo || podeRecarregarAgora()) recarregarNaVersao(versaoNova);
     }).catch(function () { /* sem internet: segue com o que tem */ });
   }
-  conferirVersao(true);
+  /* pagina que acabou de chegar pela rede (sem service worker e sem a copia do navegador: a primeira visita, como quem vem do
+     anuncio) ja e a versao do ar. Conferir de novo ao abrir so gastava uma chamada a mais do mensageiro do site (08/10/2026).
+     Na duvida (navegador sem essa informacao), confere como antes */
+  function paginaVeioDaRede() {
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) return false;
+      var nav = window.performance && performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+      return !!nav && nav.transferSize > 0;
+    } catch (_) { return false; }
+  }
+  if (!paginaVeioDaRede()) conferirVersao(true);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) conferirVersao(false); });
   /* o site aberto do lado de outra janela (sempre visivel, a aba nunca "volta"): confere quando a janela ganha o foco de novo, no
      maximo uma vez por minuto (07/10/2026: ficou horas numa versao velha com o navegador do lado do Claude) */

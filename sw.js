@@ -3,7 +3,7 @@
  * Os pedidos em si nunca passam por aqui (vao direto pro banco de dados).
  */
 /* MESMO numero do ?v= do index.html: os dois sobem juntos. */
-var VERSAO = 'ligeiro-20261008k';
+var VERSAO = 'ligeiro-20261008l';
 /* So a casca entra no cache na instalacao; o resto (js/css com ?v=) entra na primeira visita, pela rede.
    O icone de 512 e o mascote em PNG ficam de fora: so servem para instalar na tela de inicio, e o navegador busca
    sozinho quando precisa (antes todo cliente baixava os dois a toa) */
@@ -86,7 +86,9 @@ self.addEventListener('fetch', function (e) {
       }
       if (resposta && resposta.ok) {
         /* a checagem de versao (index.html?agora=...) muda de endereco a cada vez: guardar so encheria o cache */
-        if (url.search.indexOf('agora=') < 0) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request, copia); }); }
+        /* a pagina e sempre o mesmo index: guarda uma copia so (antes cada endereco, inclusive o do pedido com ?fbclid=, ficava
+           guardado no aparelho e o "Apagar meus dados" nao tirava; pentest de 08/10/2026) */
+        if (url.search.indexOf('agora=') < 0) { var copia = resposta.clone(); caches.open(VERSAO).then(function (c) { c.put(e.request.mode === 'navigate' ? './' : e.request, copia); }); }
         return resposta;
       }
       /* servidor respondeu com erro (404, 500) e existe copia boa guardada: usa a copia */

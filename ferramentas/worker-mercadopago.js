@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-07a';
+const VERSAO_MENSAGEIRO = '2026-10-08a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -141,7 +141,7 @@ function horasAtrasDeLondres(uf) {
 const SLUG = /^[a-z0-9-]{1,60}$/;
 /* memoria do worker: dura enquanto o Cloudflare deixa ele ligado (minutos). Nunca e a unica copia de nada. */
 const MEM = {
-  cupons: {}, google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {}, cartao: {}, vezes: {}, publicando: {} };
+  cupons: {}, google: null, mp: {}, lojas: {}, vitrine: null, atualizando: {}, montando: {}, pausa: null, pausaGravadaEm: 0, pausaConferidaEm: 0, vapid: null, jwt: {}, quem: {}, avisados: {}, inscritos: {}, cartao: {}, vezes: {}, publicando: {}, estoque: {}, estoqueLendo: {} };
 /* Conta quantas vezes uma chave (IP, loja) chamou numa janela de tempo. Serve para barrar quem gasta o banco gratis
    de proposito (loja inventada, publicar em sequencia). Vale por copia do worker; o grosso fica pela regra do banco. */
 function demais(chave, maximo, janelaMs) {
@@ -2236,7 +2236,10 @@ export default {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           /* quem inventa endereco de loja para gastar o banco gratis: depois de 30 "nao existe" em 10 min, para de ler */
           const ipL = request.headers.get('CF-Connecting-IP');
-          if (!MEM.lojas[m[1]] && faltasDemais(ipL)) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          /* 08/10/2026: a loja inventada que ja esta na memoria como "nao existe" tambem conta (passava direto, e a cada 15 s
+             a memoria vencia e lia o banco de novo). E quem ja errou muito (varias pessoas no mesmo endereco da operadora) ainda
+             abre a loja que existe: a borda confere a copia dela no KV, sem ler o banco */
+          if (!(MEM.lojas[m[1]] && MEM.lojas[m[1]].existe) && faltasDemais(ipL) && !(await lojaConhecida(env, m[1]))) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
           const item = await lerLoja(env, ctx, m[1], { versao: Number(url.searchParams.get('v')) || 0 });
           if (!item.existe) contarFalta(ipL);
           if (!item.existe) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' });
@@ -2246,19 +2249,19 @@ export default {
         }
         /* fotos de loja inventada: o mesmo limite do /loja (30 "nao existe" por endereco em 10 min, depois nao le o banco) */
         const ipF = request.headers.get('CF-Connecting-IP');
-        const fotosDeMentira = (slug) => !MEM.lojas[slug] && faltasDemais(ipF);
+        const fotosDeMentira = async (slug) => !(MEM.lojas[slug] && MEM.lojas[slug].existe) && faltasDemais(ipF) && !(await lojaConhecida(env, slug));
         const contarSeNaoExiste = (slug) => { if (MEM.lojas[slug] && MEM.lojas[slug].existe === false) contarFalta(ipF); };
         m = /^\/fotos\/([a-z0-9-]{1,60})$/.exec(caminho);
         if (m) {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
-          if (fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          if (await fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
           const resposta = await servirFotos(env, ctx, m[1], url.searchParams.get('v') || '', pronto, json);
           contarSeNaoExiste(m[1]);
           return resposta;
         }
         m = /^\/foto\/([a-z0-9-]{1,60})\/([A-Za-z0-9_-]{1,60})$/.exec(caminho);
         if (m) {
-          if (env.CARDAPIO && fotosDeMentira(m[1])) return new Response('', { status: 404, headers: { 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' } });
+          if (env.CARDAPIO && await fotosDeMentira(m[1])) return new Response('', { status: 404, headers: { 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' } });
           const resposta = await servirFoto(env, ctx, m[1], m[2]);
           contarSeNaoExiste(m[1]);
           return resposta;
@@ -2268,19 +2271,36 @@ export default {
         m = /^\/estoque\/([a-z0-9-]{1,60})$/.exec(caminho);
         if (m) {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
-          if (fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
-          const chaveCache = new Request('https://borda.ligeiropedidos.com.br/estoque/' + m[1]);
+          if (await fotosDeMentira(m[1])) return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=60' });
+          /* 08/10/2026: cada chamada sem copia era uma leitura do banco, e no endereco workers.dev o cache do Cloudflare quase
+             nunca guarda. Agora: memoria desta copia do worker por 15 s, uma leitura so para quem chega junto e, para quem pede
+             sem parar, a ultima copia (ou sem os selos de estoque). Os selos sao so aviso: quem confere de verdade e o /pedido */
+          const slugE = m[1];
+          const naMem = MEM.estoque[slugE];
+          if (naMem && Date.now() - naMem.em < 15 * 1000) return pronto(naMem.corpo, 'public, max-age=20');
+          const chaveCache = new Request('https://borda.ligeiropedidos.com.br/estoque/' + slugE);
           const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
           const guardada = cache ? await cache.match(chaveCache).catch(() => null) : null;
           if (guardada) return pronto(await guardada.text(), 'public, max-age=20');
-          const item = await lerLoja(env, ctx, m[1]);
-          if (!item.existe) { contarFalta(ipF); return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' }); }
-          let lj = null;
-          try { lj = JSON.parse(item.corpo).loja; } catch (_) { lj = null; }
-          const controla = !!lj && Array.isArray(lj.produtos) && lj.produtos.some((x) => x && x.controlaEstoque === true);
-          const fbE = controla ? await firebase(env) : null;
-          const corpo = JSON.stringify({ borda: 1, q: controla ? estoqueLimpo(await fbE.get(caminhoEstoque(m[1]))).q : {} });
-          if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chaveCache, new Response(corpo, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' } })).catch(() => {}));
+          if (!MEM.estoqueLendo[slugE] && demais('estoque-ip:' + ipDaCasa(ipF), 60, 10 * 60 * 1000)) {
+            return naMem ? pronto(naMem.corpo, 'public, max-age=20') : json({ borda: 1, erro: 'devagar' }, 429);
+          }
+          if (!MEM.estoqueLendo[slugE]) {
+            MEM.estoqueLendo[slugE] = (async () => {
+              const item = await lerLoja(env, ctx, slugE);
+              if (!item.existe) return null;
+              let lj = null;
+              try { lj = JSON.parse(item.corpo).loja; } catch (_) { lj = null; }
+              const controla = !!lj && Array.isArray(lj.produtos) && lj.produtos.some((x) => x && x.controlaEstoque === true);
+              const fbE = controla ? await firebase(env) : null;
+              const corpoE = JSON.stringify({ borda: 1, q: controla ? estoqueLimpo(await fbE.get(caminhoEstoque(slugE))).q : {} });
+              MEM.estoque[slugE] = { em: Date.now(), corpo: corpoE };
+              if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chaveCache, new Response(corpoE, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' } })).catch(() => {}));
+              return corpoE;
+            })().finally(() => { delete MEM.estoqueLendo[slugE]; });
+          }
+          const corpo = await MEM.estoqueLendo[slugE];
+          if (corpo === null) { contarFalta(ipF); return json({ borda: 1, erro: 'nao-existe' }, 404, { 'Cache-Control': 'public, max-age=30' }); }
           return pronto(corpo, 'public, max-age=20');
         }
         if (caminho === '/vitrine') {
@@ -2354,8 +2374,13 @@ export default {
         const c = await request.json().catch(() => ({}));
         const loja = String(c.loja || ''), pid = String(c.pedido || '');
         if (!SLUG.test(loja) || !PEDIDO_ID.test(pid)) return json({ ok: false, erro: 'faltou a loja ou o pedido' }, 400);
-        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000) || demais('estoque-volta:' + loja, 300, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
-        return json(await devolverEstoque(await firebase(env), loja, pid));
+        const ipD = request.headers.get('CF-Connecting-IP');
+        if (demais('rota-ip:' + ipDaCasa(ipD), 120, 10 * 60 * 1000) || demais('estoque-volta:' + loja, 300, 10 * 60 * 1000) || faltasDemais(ipD)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
+        /* 08/10/2026: loja que a borda nao conhece nem le o banco; pedido inventado conta para o endereco, como no /criar */
+        if (!(await lojaConhecida(env, loja))) { contarFalta(ipD); return json({ ok: false, erro: 'pedido não encontrado' }); }
+        const volta = await devolverEstoque(await firebase(env), loja, pid);
+        if (volta && volta.erro === 'pedido não encontrado') contarFalta(ipD);
+        return json(volta);
       }
 
       /* ---- avisos no celular ---- */
@@ -3696,7 +3721,7 @@ function baixasRecentes(baixas, agoraMs) {
 }
 /* as chaves que a loja pode ter: produto que controla estoque, e por tamanho quando a categoria dele tem tamanho */
 function chavesDeEstoque(loja) {
-  const validas = {};
+  const validas = Object.create(null);
   (loja.produtos || []).forEach((pr) => {
     if (!pr || pr.controlaEstoque !== true || !pr.id) return;
     /* o tamanho do item (as mesmas regras do site): tamanho que ele nao tem nao ganha quantidade; sem tamanho, uma so */
@@ -3707,6 +3732,7 @@ function chavesDeEstoque(loja) {
   return validas;
 }
 function esquecerEstoque(slug) {
+  delete MEM.estoque[slug];
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
   if (cache) cache.delete(new Request('https://borda.ligeiropedidos.com.br/estoque/' + slug)).catch(() => {});
 }

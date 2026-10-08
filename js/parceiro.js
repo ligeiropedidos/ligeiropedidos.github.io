@@ -989,11 +989,12 @@
     raiz.appendChild(barraTopo());
     var corpo = el('div', { class: 'conteudo texto-legal' });
     raiz.appendChild(corpo);
-    corpo.appendChild(el('h1', { text: titulo }));
-    corpo.appendChild(el('p', { class: 'muted', text: 'Versão de ' + VERSAO_DOS_TERMOS + '. Escrito em português de gente, sem juridiquês. Se algo não estiver claro, chame a gente' + (e.email ? ' em ' + e.email : '') + '.' }));
+    /* as duas ultimas palavras de cada titulo e paragrafo presas (o e-mail ficava sozinho no fim; 08/10/2026) */
+    corpo.appendChild(el('h1', { text: juntarFim(titulo) }));
+    corpo.appendChild(el('p', { class: 'muted', text: juntarFim('Versão de ' + VERSAO_DOS_TERMOS + '. Escrito em português de gente, sem juridiquês. Se algo não estiver claro, chame a gente' + (e.email ? ' em ' + e.email : '') + '.') }));
     blocos.forEach(function (b) {
-      corpo.appendChild(el('h2', { text: b[0] }));
-      b[1].forEach(function (p) { corpo.appendChild(el('p', { text: p })); });
+      corpo.appendChild(el('h2', { text: juntarFim(b[0]) }));
+      b[1].forEach(function (p) { corpo.appendChild(el('p', { text: juntarFim(p) })); });
     });
     raiz.appendChild(rodape());
     botaoFlutuante(raiz);
@@ -1002,7 +1003,7 @@
   }
 
   /* data de verdade da ultima mudanca dos termos e da privacidade (antes aparecia sempre a data de hoje) */
-  var VERSAO_DOS_TERMOS = '24/09/2026';
+  var VERSAO_DOS_TERMOS = '08/10/2026';
 
   function termos(raiz) {
     var pr = precos();
@@ -1036,9 +1037,13 @@
   function privacidade(raiz) {
     var e = cfg().empresa || {};
     var quem = e.nome ? e.nome + (e.cnpj ? ' (CNPJ ' + e.cnpj + ')' : '') : 'o Ligeiro';
-    var falar = 'no WhatsApp do Ligeiro' + (e.email ? ' ou pelo e-mail ' + e.email : '');
+    /* ⁠ (junta sem espaco) depois do hifen: o navegador quebrava em "e-" e o e-mail ia sozinho para a ultima linha (08/10/2026) */
+    var falar = 'no WhatsApp do Ligeiro' + (e.email ? ' ou pelo e-⁠mail ' + e.email : '');
+    /* com o Pixel do Meta ligado, a politica conta o que ele recebe e para que (pentest de 08/10/2026: o texto dizia "nada e
+       usado para anuncio" e deixava o Meta fora da lista) */
+    var pixel = !!((cfg().analytics || {}).metaPixel);
     return paginaLegal(raiz, 'Política de privacidade', [
-      ['Resumo', ['O Ligeiro guarda só o necessário para um pedido chegar na loja e para a loja usar o sistema. Ninguém vende, aluga ou repassa esses dados, e nada é usado para anúncio. Esta política segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018).']],
+      ['Resumo', ['O Ligeiro guarda só o necessário para um pedido chegar na loja e para a loja usar o sistema. Ninguém vende, aluga ou repassa esses dados' + (pixel ? ', e os dados de quem pede numa loja nunca são usados para anúncio.' : ', e nada é usado para anúncio.') + ' Esta política segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018).']],
       ['Quem é o responsável', ['Pelos dados de quem pede numa loja, a responsável (controladora) é a loja: é ela quem decide para que usa. O Ligeiro é o operador, que guarda e processa esses dados em nome dela, só para o pedido funcionar.', 'Pelos dados das lojas e dos donos (cadastro, login e assinatura) e pelos contatos do "Fale com a gente", o responsável é ' + quem + '.']],
       ['Dados de quem pede, e para quê', ['Nome e WhatsApp: para a loja saber de quem é o pedido e falar com você sobre ele. Endereço e referência (só na entrega): para entregar. Itens, observações e forma de pagamento: para preparar e cobrar o pedido.', 'No cartão pelo site, o CPF e o e-mail vão direto para o Mercado Pago, para a cobrança, e não ficam guardados no Ligeiro. Se você ligar os avisos no celular, o endereço técnico do aviso fica no próprio pedido, só para avisar sobre ele.', 'A base legal é a execução do pedido que você fez (art. 7º, V, da LGPD).']],
       ['Dados das lojas e dos donos', ['Nome, tipo, cidade, endereço, WhatsApp, e-mail de login (conta do Google), cardápio ou catálogo, estoque, fotos, pedidos e relatórios de vendas. Servem para a loja funcionar e para a cobrança da assinatura (execução do contrato). A conexão com o Mercado Pago fica numa parte privada, que só a loja e o Ligeiro acessam.']],
@@ -1050,12 +1055,13 @@
         'Mercado Pago: Pix e cartão do pedido, direto na conta da loja. Brasil.',
         'Asaas: cobrança da assinatura das lojas (cartão, boleto e Pix). Brasil.',
         'Serviço de avisos do navegador (Google, Apple ou Mozilla): só se você ligar os avisos no celular. Levam o aviso até o seu aparelho, com a mensagem criptografada.',
-        'WhatsApp (Meta): só quando você toca num botão de WhatsApp. A conversa segue as regras do WhatsApp.',
-        'Mais ninguém recebe dados pessoais pelo Ligeiro.']],
+        'WhatsApp (Meta): só quando você toca num botão de WhatsApp. A conversa segue as regras do WhatsApp.'].concat(pixel ? [
+        'Meta (Pixel do Meta): só nas páginas de venda do Ligeiro, as que o dono de loja vê antes de criar a loja. Recebe o endereço de internet, o navegador, a página visitada e se a pessoa mandou contato ou criou a loja, para medir o anúncio do Ligeiro no Instagram e no Facebook. Estados Unidos.'] : []).concat([
+        'Mais ninguém recebe dados pessoais pelo Ligeiro.'])],
       ['Dados fora do Brasil', ['Alguns desses serviços guardam ou processam dados fora do Brasil, principalmente nos Estados Unidos. Isso acontece porque é necessário para o pedido e para o serviço contratado funcionarem (art. 33, IX, da LGPD), e o Ligeiro usa fornecedores grandes, com regras próprias de proteção de dados.']],
       ['Por quanto tempo', ['Os pedidos ficam guardados enquanto a loja usar o Ligeiro, porque são o histórico de vendas dela. Pelo link do pedido, nome, telefone e endereço só aparecem por 3 dias. Depois do cancelamento da loja, os dados ficam 90 dias (caso ela volte) e então são apagados.', 'A pedido, apagamos antes: o pedido fica só com os valores, sem nome, telefone nem endereço.']],
       ['Seus direitos', ['Você pode pedir a qualquer momento: confirmar se temos dados seus, receber uma cópia, corrigir, apagar ou saber com quem foram compartilhados. Fale ' + falar + ', de preferência do mesmo número que você usou nos pedidos, para a gente confirmar que é você. Respondemos em até 15 dias. Se o pedido for sobre os dados de uma loja, avisamos a loja também.', 'Você também pode reclamar na Autoridade Nacional de Proteção de Dados (ANPD).']],
-      ['Cookies e o que fica no seu celular', ['O site guarda no próprio aparelho o pedido em andamento, a cidade escolhida, os seus pedidos e, para o próximo pedido ser mais rápido, o nome, o telefone e o endereço que você digitou. Nada disso serve para anúncio.' + (((window.LIGEIRO_CONFIG || {}).analytics || {}).metaPixel ? ' Nas páginas de venda do Ligeiro (as que o dono de loja vê antes de criar a loja), o site usa o Pixel do Meta, só para contar quantos donos chegaram pelo anúncio no Instagram e no Facebook. O Pixel não é carregado na página das lojas, nem nos pedidos dos clientes.' : ' O site não usa cookies de anúncio nem rastreadores.'), 'Para apagar tudo isso do seu celular, abra Meus pedidos na loja e toque em "Apagar meus dados deste aparelho".']],
+      ['Cookies e o que fica no seu celular', ['O site guarda no próprio aparelho o pedido em andamento, a cidade escolhida, os seus pedidos e, para o próximo pedido ser mais rápido, o nome, o telefone e o endereço que você digitou. Nada disso serve para anúncio.' + (((window.LIGEIRO_CONFIG || {}).analytics || {}).metaPixel ? ' Nas páginas de venda do Ligeiro (as que o dono de loja vê antes de criar a loja), o site usa o Pixel do Meta para medir o anúncio do Ligeiro no Instagram e no Facebook e mostrar o anúncio para pessoas parecidas com quem criou loja. Ele guarda um cookie do Meta no navegador. O Pixel não é carregado na página das lojas nem nos pedidos dos clientes e, se a pessoa sai da página de venda para uma loja ou para o painel, ele para de enviar qualquer coisa.' : ' O site não usa cookies de anúncio nem rastreadores.'), 'Para apagar tudo isso do seu celular, abra Meus pedidos na loja e toque em "Apagar meus dados deste aparelho".']],
       ['Segurança', ['Os dados trafegam protegidos (https). O banco tem regras de acesso por loja: uma loja não vê os dados de outra, e cada cliente só vê o próprio pedido. As chaves e a conexão com o Mercado Pago ficam em áreas privadas, e o sistema passa por testes de invasão.', 'Se acontecer um incidente de segurança que possa trazer risco a você, avisamos você, a loja e a ANPD, como manda a lei.']],
       ['Contato sobre dados pessoais', ['Para qualquer assunto sobre dados pessoais, fale ' + falar + '.']],
     ]);

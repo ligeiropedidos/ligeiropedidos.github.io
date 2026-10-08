@@ -72,6 +72,12 @@
     if (dados.cidadeSlug && !/^[a-z0-9-]{1,60}$/.test(dados.cidadeSlug)) dados.cidadeSlug = '';
     /* imagem so do proprio site ou em dados (nada de endereco de fora para rastrear quem abre a loja) */
     ['logoUrl', 'capaUrl', 'logoDados'].forEach(function (k) { if (dados[k] && !imagemSegura(dados[k])) dados[k] = ''; });
+    /* listas so com itens de verdade: um item vazio (null) na vitrine de uma loja travava a busca da cidade inteira
+       (pentest de 08/10/2026) */
+    ['produtos', 'categorias'].forEach(function (k) {
+      if (!(k in dados)) return;
+      dados[k] = Array.isArray(dados[k]) ? dados[k].filter(function (x) { return !!x && typeof x === 'object' && !Array.isArray(x); }) : [];
+    });
     if (Array.isArray(dados.produtos)) dados.produtos.forEach(function (p) { if (p && p.fotoUrl && !imagemSegura(p.fotoUrl)) p.fotoUrl = ''; });
     return dados;
   }

@@ -2032,5 +2032,58 @@ console.log('Pentest 06/10: oferta e preco por tamanho pelo lado do cliente');
   r = await pedir4([{ produtoId: 'x', quantidade: -3, tamanho: 'p' }]); j = await r.json();
   ok(r.status === 422 || (r.status === 200 && j.pedido.total > 0), 'pentest: quantidade negativa nao vira desconto');
 }
+console.log('Pentest 08/10: o banco gratis nao se gasta com chamada repetida ou inventada');
+{
+  const DONO = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJkb25vIn0.assinatura';
+  /* 1. estoque: 100 visitas juntas e 50 seguidas fazem uma leitura so (antes, uma por chamada) */
+  let w = await workerNovo();
+  zerar();
+  let rs = await Promise.all(Array.from({ length: 100 }, () => chamar(w, '/estoque/roupas-teste')));
+  const leituras100 = conta.leituras;
+  for (let i = 0; i < 50; i++) rs.push(await chamar(w, '/estoque/roupas-teste'));
+  ok(rs.every((x) => x.status === 200) && leituras100 <= 2 && conta.leituras === leituras100, 'estoque: 100 visitas juntas + 50 seguidas = so a primeira leitura (' + conta.leituras + ')');
+  /* o dono muda a quantidade: a copia guardada sai na hora (o site nao fica com o numero velho) */
+  let r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-teste', q: { meia: 7 } }, headers: { Authorization: DONO } });
+  let j = await (await chamar(w, '/estoque/roupas-teste')).json();
+  ok(r.status === 200 && j.q.meia === 7, 'estoque: depois que o dono salva, o site ja le a quantidade nova');
+  /* nomes que todo objeto tem (constructor, toString) nao viram chave de estoque */
+  r = await chamar(w, '/estoque', { metodo: 'POST', corpo: { loja: 'roupas-teste', q: { constructor: 5, toString: 3, hasOwnProperty: 1 } }, headers: { Authorization: DONO } });
+  j = await (await chamar(w, '/estoque/roupas-teste')).json();
+  ok(r.status === 422 && !Object.prototype.hasOwnProperty.call(j.q, 'constructor') && !Object.prototype.hasOwnProperty.call(j.q, 'toString'), 'estoque: "constructor" e "toString" nao viram quantidade');
+
+  /* 2. devolver estoque de loja inventada: nem le o banco */
+  w = await workerNovo();
+  zerar();
+  r = await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'loja-que-nao-existe', pedido: 'AAAAAAAAAAAAAAAAAAAA' }, headers: { 'CF-Connecting-IP': '198.51.100.7' } });
+  j = await r.json();
+  ok(r.status === 200 && j.ok === false && conta.leituras === 0, 'devolver estoque de loja que a borda nao conhece: 0 leituras');
+  /* pedido inventado de loja de verdade: depois de 30 "nao existe", para de ler */
+  zerar();
+  let barrados = 0;
+  for (let i = 0; i < 40; i++) {
+    const pid = 'Z' + String(i).padStart(19, '0');
+    r = await chamar(w, '/estoque/devolver', { metodo: 'POST', corpo: { loja: 'roupas-teste', pedido: pid }, headers: { 'CF-Connecting-IP': '198.51.100.8' } });
+    if (r.status === 429) barrados++;
+  }
+  ok(barrados >= 9 && conta.leituras <= 32, 'devolver estoque com pedido inventado: depois de 30, 429 sem ler (' + conta.leituras + ' leituras em 40)');
+
+  /* 3. loja inventada que ja esta na memoria tambem passa pelo limite (antes, depois de 15 s, lia o banco de novo) */
+  w = await workerNovo();
+  const ipX = '198.51.100.9';
+  for (let i = 0; i < 30; i++) await chamar(w, '/loja/inventada-' + i, { headers: { 'CF-Connecting-IP': ipX } });
+  const relogio = Date.now;
+  Date.now = () => relogio() + 20 * 1000;
+  try {
+    zerar();
+    for (let volta = 0; volta < 3; volta++) for (let i = 0; i < 30; i++) await chamar(w, '/loja/inventada-' + i, { headers: { 'CF-Connecting-IP': ipX } });
+    ok(conta.leituras === 0, 'loja inventada repetida depois de 15 s: o mesmo endereco nao le mais o banco (' + conta.leituras + ' leituras em 90)');
+    zerar();
+    r = await chamar(w, '/loja/inventada-0', { headers: { 'CF-Connecting-IP': '198.51.100.10' } });
+    ok(r.status === 404 && conta.leituras <= 1, 'outro endereco ainda pode conferir a loja (no maximo 1 leitura)');
+    zerar();
+    r = await chamar(w, '/loja/roupas-teste', { headers: { 'CF-Connecting-IP': ipX } });
+    ok(r.status === 200, 'loja de verdade continua abrindo para quem ja errou muito');
+  } finally { Date.now = relogio; }
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
