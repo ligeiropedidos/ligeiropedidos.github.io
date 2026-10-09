@@ -346,13 +346,13 @@ window.LIGEIRO_CONFIG = {
         'produto:batata': 'img/oficial/mak/batata-trionda.webp', 'produto:batata-cheddar': 'img/oficial/mak/batata-trionda.webp', 'produto:refri-lata': 'img/oficial/mak/refri-lata.webp',
         'produto:x-burguer': 'img/oficial/mak/mak-burguer.webp',
         'produto:x-salada': 'img/oficial/mak/mak-salada.webp',
-        'produto:x-tudo': 'img/oficial/mak/mak-monster.webp',
+        'produto:x-tudo': 'img/oficial/mak/mak-duplo.webp', /* um hamburguer com ovo (o Monster tinha 3) */
         'produto:x-calabresa': 'img/oficial/mak/mak-toscana.webp',
         'produto:x-calabacon': 'img/oficial/mak/mak-chilli.webp',
         'produto:x-costela': 'img/oficial/mak/mak-costela.webp',
         'produto:x-bacon': 'img/oficial/mak/mak-bacon.webp',
         'produto:x-egg': 'img/oficial/mak/mak-egg.webp',
-        'produto:x-bomba': 'img/oficial/mak/mak-duplo.webp',
+        'produto:x-bomba': 'img/oficial/mak/mak-duplo-salada.webp', /* dois hamburgueres, como o dela */
         'produto:batata-frita': 'img/oficial/mak/batata-trionda.webp',
         'produto:batata-cheddar-bacon': 'img/oficial/mak/batata-trionda.webp',
         'produto:suco': 'img/oficial/mak/suco.webp',
