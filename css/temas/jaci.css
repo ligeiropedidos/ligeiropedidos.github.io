@@ -93,22 +93,28 @@ body:has(.tema-jaci #tela-inicio) .torrada { background: #2E1A0F; color: #FFF1D6
 .tema-jaci .abertura { position: relative; --jc-cena: calc(24px + var(--jc-logo-w) + 150px); --jc-centro-y: calc(24px + var(--jc-logo-w) / 2); }
 .tema-jaci .abertura > *:not(.enfeites) { position: relative; z-index: 1; }
 .tema-jaci .capa-loja { display: none; }
-/* o neon rosa atras da logo respirando, e por baixo a brasa da chapa */
+/* atras da logo, a foto de um X-Tudo bem apagada, com zoom lento (de dar fome); por cima, o neon rosa da logo e a luz quente da
+   chapa respirando */
 .tema-jaci .abertura::before, .tema-jaci .abertura::after {
   content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--jc-cena); z-index: 0; pointer-events: none;
 }
 .tema-jaci .abertura::before {
-  background: radial-gradient(circle calc(var(--jc-logo-w) * 0.98) at 50% var(--jc-centro-y), rgba(248, 1, 70, 0.4) 0%, rgba(248, 1, 70, 0.15) 48%, rgba(248, 1, 70, 0) 74%);
-  animation: jc-respirar 5s ease-in-out infinite;
+  background: url('../../img/oficial/mak/mak-monster.webp') 50% 40% / cover no-repeat; opacity: 0.2;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 20%, #000 58%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 20%, #000 58%, transparent 100%);
+  transform-origin: 50% 42%; animation: jc-zoom 24s ease-in-out infinite alternate;
 }
 .tema-jaci .abertura::after {
-  /* o centro fica dentro do palco e a luz some antes da borda de baixo (centrada na borda, ela terminava numa linha reta no PC) */
-  background: radial-gradient(ellipse 62% 24% at 50% 74%, rgba(255, 140, 30, 0.2), rgba(255, 140, 30, 0) 100%);
-  animation: jc-respirar 5s ease-in-out -2.5s infinite;
+  /* o centro da luz de baixo fica dentro do palco e some antes da borda (centrada na borda, terminava numa linha reta no PC) */
+  background:
+    radial-gradient(circle calc(var(--jc-logo-w) * 0.98) at 50% var(--jc-centro-y), rgba(248, 1, 70, 0.36) 0%, rgba(255, 90, 40, 0.16) 48%, rgba(255, 90, 40, 0) 74%),
+    radial-gradient(ellipse 62% 24% at 50% 74%, rgba(255, 140, 30, 0.26), rgba(255, 140, 30, 0) 100%);
+  animation: jc-respirar 5s ease-in-out infinite;
 }
 @keyframes jc-respirar { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
 
-/* os "enfeites" da loja sao vazios: servem de pecas. 1 a 8: gergelim caindo; 9: os raios de placa de lanchonete atras da logo.
+/* os "enfeites" da loja sao vazios: servem de pecas. 1 a 8: gergelim caindo; 9: os raios de placa de lanchonete atras da logo;
+   10: o queijo derretido na borda de cima.
    (As tres ondas da logo correndo e o vapor ficaram de fora do palco: as ondas so apareciam nas pontas, atras do botao, e o
    vapor parado parecia mancha. As ondas ficam na tela de carregamento, no traco da frase e na linha do cabecalho) */
 .tema-jaci .enfeites { position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--jc-cena); z-index: 1; overflow: hidden; pointer-events: none; }
@@ -135,12 +141,18 @@ body:has(.tema-jaci #tela-inicio) .torrada { background: #2E1A0F; color: #FFF1D6
 .tema-jaci .enfeites span:nth-child(9) {
   --jc-raios: min(calc(var(--jc-logo-w) * 2.3), 100vw);
   left: 50%; top: calc(var(--jc-centro-y) - var(--jc-raios) / 2); width: var(--jc-raios); height: var(--jc-raios); margin-left: calc(var(--jc-raios) / -2); border-radius: 50%; opacity: 1;
-  background: repeating-conic-gradient(from 0deg, rgba(255, 187, 5, 0.17) 0deg 6deg, rgba(255, 187, 5, 0) 6deg 15deg);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 187, 5, 0.12) 0deg 6deg, rgba(255, 187, 5, 0) 6deg 15deg);
   -webkit-mask-image: radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 38%, #000 52%, rgba(0, 0, 0, 0.6) 76%, rgba(0, 0, 0, 0) 100%);
   mask-image: radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 38%, #000 52%, rgba(0, 0, 0, 0.6) 76%, rgba(0, 0, 0, 0) 100%);
   animation: jc-girar 60s linear infinite;
 }
-.tema-jaci .enfeites span:nth-child(n+10) { display: none; }
+.tema-jaci .enfeites span:nth-child(n+11) { display: none; }
+/* o queijo derretido escorrendo na borda de cima do palco (enfeite 10): parado, como um lanche recem-saido da chapa */
+.tema-jaci .enfeites span:nth-child(10) {
+  top: 0; left: 0; width: 100%; height: 58px; border-radius: 0; opacity: 1; animation: none;
+  background: url('../../img/oficial/jaci-queijo.svg') 0 0 / 150px 57.5px repeat-x;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
+}
 @keyframes jc-girar { to { transform: rotate(360deg); } }
 
 /* a logo: o circulo da Dona Jaci com o neon rosa em volta (piscando de leve, como letreiro) e um brilho correndo no anel amarelo */
@@ -204,9 +216,10 @@ body:has(.tema-jaci #tela-inicio) .torrada { background: #2E1A0F; color: #FFF1D6
 @media (prefers-reduced-motion: reduce) {
   .tema-jaci:has(#tela-inicio) .tela::before { animation: jc-estampa 48s linear infinite !important; }
   .tema-jaci:has(#tela-inicio) .tela::after { animation: jc-cair 30s linear infinite !important; }
-  .tema-jaci .abertura::before { animation: jc-respirar 5s ease-in-out infinite !important; }
-  .tema-jaci .abertura::after { animation: jc-respirar 5s ease-in-out -2.5s infinite !important; }
+  .tema-jaci .abertura::before { animation: jc-zoom 24s ease-in-out infinite alternate !important; }
+  .tema-jaci .abertura::after { animation: jc-respirar 5s ease-in-out infinite !important; }
   .tema-jaci .enfeites span { animation: jc-gergelim var(--d, 8s) linear var(--l, 0s) infinite !important; }
+  .tema-jaci .enfeites span:nth-child(10) { animation: none !important; }
   .tema-jaci .enfeites span:nth-child(9) { animation: jc-girar 60s linear infinite !important; }
   .tema-jaci .logo-grande { animation: jc-chegar 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both, jc-flutuar 5.5s ease-in-out 0.9s infinite !important; }
   .tema-jaci .logo-grande::before { animation: jc-neon 7s linear infinite !important; }

@@ -1814,6 +1814,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* "Ou abra uma loja de verdade" embaixo do video, no topo da pagina de venda: texto de apoio, sem competir com o botao */
 .link-loja-real { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-weight: 700; font-size: 15px; color: var(--deep2); text-decoration: underline; text-underline-offset: 3px; }
 .link-loja-real .ico-traco svg { width: 18px; height: 18px; }
+/* as logos dos clientes empilhadas no link do topo: bolinhas de 28 com a borda da cor do fundo, uma 8 por cima da outra */
+.clientes-pilha { display: inline-flex; align-items: center; flex: none; }
+.clientes-pilha img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #fff; box-shadow: 0 0 0 2px var(--bg), 0 1px 3px rgba(14, 31, 20, 0.2); }
+.clientes-pilha img + img { margin-left: -8px; }
 .selo-fundador { background: #FFFBEB; color: #3F2A00; box-shadow: inset 0 0 0 1.5px #FCD34D; text-decoration: none; gap: 6px; }
 .selo-fundador .estrela { color: #D97706; }
 /* "Preço de fundador: ..." ou, no celular bem estreito, "Fundador: ..." (numa linha so) */
@@ -2050,7 +2054,23 @@ a.selo-google:hover { background: var(--lime-suave); }
 .loja-real-status .ilha { position: absolute; left: 50%; top: 8px; width: 64px; height: 19px; margin-left: -32px; border-radius: 10px; background: #0B120E; }
 .loja-real-status .icones { display: flex; align-items: center; gap: 5px; }
 .loja-real-status svg { display: block; fill: currentColor; }
-.loja-real-tela img { display: block; width: 100%; height: auto; }
+.loja-real-tela img { display: block; width: 100%; height: auto; transition: opacity 0.18s ease; }
+.loja-real-tela img.trocando { opacity: 0; }
+/* a loja de tela escura (Jaci Lanches): a barra do aparelho escura, com a hora e os icones claros */
+.loja-real-tela.escura { background: #1E100A; }
+.loja-real-tela.escura .loja-real-status { color: #FFF1D6; }
+/* os botoes das lojas modelo (Clientes do Ligeiro): metades iguais, a logo redonda e o nome; a escolhida no verde da marca */
+.clientes-botoes { order: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.clientes-botoes[hidden] { display: none; }
+.cliente-botao { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; min-height: 52px; padding: 6px 14px 6px 8px; border: 1.5px solid var(--line-forte); border-radius: 999px; background: var(--card); color: var(--ink); font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 1.2; cursor: pointer; }
+.cliente-botao img { flex: none; width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #fff; }
+.cliente-nome { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: left; }
+.cliente-nome b, .cliente-nome small { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cliente-nome b { font-size: 15px; line-height: 18px; }
+.cliente-nome small { font-family: var(--corpo, system-ui); font-size: 12px; line-height: 15px; font-weight: 600; color: var(--muted); }
+.cliente-botao[aria-pressed="true"] { border-color: var(--lime-escuro); background: var(--lime-suave); box-shadow: inset 0 0 0 1px var(--lime-escuro); }
+@media (hover: hover) { .cliente-botao:hover { border-color: var(--lime-escuro); } }
+@media (max-width: 389px) { .clientes-botoes { grid-template-columns: minmax(0, 1fr); } } /* abaixo de 390: com a letra do iPhone o nome nao cabia na metade */
 @media (hover: hover) { .loja-real-vitrine:hover .loja-real-cel { transform: translateY(-4px); } }
 @media (min-width: 900px) {
   .loja-real { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 40px; align-items: center; }
@@ -2678,6 +2698,8 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   *, *::before, *::after { animation: none !important; transition: none !important; }
   /* a flutuacao lenta dos mascotes e pequena (8 px) e fica: e a cara da marca, nao um efeito que enjoa */
   .heroi-mascote { animation: flutuar 4s ease-in-out infinite !important; }
+  /* a bolinha do "Atendendo agora" pisca tambem com "Reduzir movimento" (e o sinal de que tem gente atendendo) */
+  .atende-ponto::after { animation: status-ao-vivo 2s cubic-bezier(0, 0, 0.2, 1) infinite !important; }
   /* cardapio e catalogo se revezando no titulo da pagina de vendas: o mesmo deslize do PC (09/10/2026: no iPhone dele, com
      "Reduzir movimento", a palavra trocava seca) */
   .troca-item { transition: opacity 0.2s ease, transform 0.2s ease !important; }
@@ -3658,6 +3680,13 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
    da borda e a maior de dentro). Medido em prints/pente-fino-home/medir_formulario.mjs */
 .montamos-topo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 8px; text-align: center; } /* 16 + 8: do topo aos campos, 24 (a troca de secao) */
 .montamos-topo h2 { margin: 0; font-family: var(--display); font-size: 22px; line-height: 1.2; color: var(--ink); text-wrap: balance; }
+/* "Atendendo agora": a bolinha verde piscando (a mesma onda do "Aberto agora" das lojas) numa pilula clara; fora do horario, cinza */
+.atende-status { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 10px; border-radius: 999px; background: var(--lime-suave); color: #1F6B36; font-size: 13px; line-height: 18px; font-weight: 700; }
+.atende-ponto { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #22A447; }
+.atende-ponto::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #22A447; animation: status-ao-vivo 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.atende-status.fora { background: #F1F3EE; color: var(--muted); }
+.atende-status.fora .atende-ponto { background: #9AA39A; }
+.atende-status.fora .atende-ponto::after { content: none; }
 .montamos-topo h2 span { color: var(--lime-escuro); } /* "pronta" no verde da marca, como as palavras do titulo da pagina */
 /* os rotulos com icone (08/10/2026): o icone no verde da marca, no meio da altura das maiusculas, 6 antes do texto; a ajuda 8
    abaixo do campo, com o cadeado do mesmo jeito */

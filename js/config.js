@@ -147,6 +147,18 @@ window.LIGEIRO_CONFIG = {
     ],
   },
 
+  /* Horario em que a equipe responde no WhatsApp (hora de Brasilia, todos os dias): no cartao "Quer a sua loja pronta?" aparece
+     "Atendendo agora" com a bolinha verde piscando dentro dele e "Respondemos a partir das <inicio>h" fora (09/10/2026) */
+  atendimento: { inicio: 8, fim: 22 },
+
+  /* Clientes do Ligeiro na pagina de vendas (09/10/2026): as lojas modelo, uma de cada vez no celular da secao, com o print do
+     topo da loja (390 x 620, em 2x). soNaVitrine: so entra quando a loja esta na vitrine publica (amostra nao: quem abrisse veria
+     a faixa AMOSTRA). Os termos de uso dizem que a loja pode aparecer como exemplo (e sair quando pedir) */
+  clientesModelo: [
+    { caminho: 'juquia/dom-conizza', nome: 'Dom Conizza', ramo: 'Pizzaria', logo: 'img/oficial/dom-conizza-logo.webp', tela: 'img/loja-ligeiro/exclusivo.webp' },
+    { caminho: 'juquia/jaci-lanches', nome: 'Jaci Lanches', ramo: 'Lanchonete', logo: 'img/oficial/jaci-lanches-logo.webp', tela: 'img/loja-ligeiro/jaci.webp', escura: true, soNaVitrine: true },
+  ],
+
   /* Lojas com tema exclusivo (css/temas/<tema>.css). So o Ligeiro mexe aqui; nenhuma loja ganha isso pelo painel.
      oficial: true = loja do proprio Ligeiro (ganha o selo "Loja oficial"). Cliente que contratou o design exclusivo
      entra aqui com oficial: false: tem o tema, a logo grande e a tela de carregamento, mas nao o selo. */
@@ -327,7 +339,7 @@ window.LIGEIRO_CONFIG = {
     /* cliente com design exclusivo (09/10/2026): a lanchonete da Dona Jaci a noite, com cor de hamburguer (chapa, pao tostado e
        queijo) e o rosa e o roxo da logo de detalhe: neon rosa na logo, raios de placa, estampa de lanches andando e gergelim caindo. Fotos de banco de imagem (Pexels,
        as mesmas da amostra do Mak, img/oficial/mak/CREDITOS.txt) ate chegarem as dela; logo recortada em clientes/jaci-lanches */
-    'jaci-lanches': { oficial: false, tema: 'jaci', logo: 'img/oficial/jaci-lanches-logo.webp', frase: 'Caprichando no lanche', fogo: true, enfeites: ['', '', '', '', '', '', '', '', ''], corFundo: '#1E100A',
+    'jaci-lanches': { oficial: false, tema: 'jaci', logo: 'img/oficial/jaci-lanches-logo.webp', frase: 'Caprichando no lanche', fogo: true, enfeites: ['', '', '', '', '', '', '', '', '', ''], corFundo: '#1E100A',
       fontes: ['800 1em "Baloo 2"', '500 1em Oswald', '600 1em Oswald'],
       desenhos: {
         /* cardapio de exemplo da amostra (antes de colar o dela): fotos tambem, para a loja nunca aparecer com ilustracao */

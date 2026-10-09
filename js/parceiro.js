@@ -252,7 +252,6 @@
     var lojaDemo = cfg().lojaDemo || 'juquia/dom-conizza';
     /* o link da loja de exemplo no formato de cada lugar: sem # no site publicado, com # na copia de teste (la o endereco
        sem # dava "arquivo nao encontrado") */
-    var linkLojaDemo = UI.linkDoSite(lojaDemo);
     var pr = precos();
     document.title = 'Cardápio e catálogo digital com Pix, sem comissão | Ligeiro';
 
@@ -265,8 +264,19 @@
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '20 s' }), /* o video rapido (08/10/2026): 19,7 s */
       ]));
-      /* prova na hora, sem cadastro: uma loja de verdade para abrir e pedir (so no topo) */
-      if (grande) lista.push(el('a', { class: 'link-loja-real', href: linkLojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ou abra uma loja de verdade']));
+      /* prova na hora, sem cadastro: desce ate os clientes do Ligeiro, lojas de verdade para abrir e pedir (so no topo) */
+      if (grande) {
+        /* as logos dos clientes empilhadas (como os sites que estao comecando mostram quem usa; carrossel com 2 logos so as
+           repetiria), crescendo sozinha quando entra cliente; sem logo, o icone da loja */
+        var pilha = el('span', { class: 'clientes-pilha', 'aria-hidden': 'true' });
+        var pintarPilha = function (lojas) {
+          UI.limpar(pilha);
+          lojas.filter(function (c) { return c.logo; }).slice(0, 5).forEach(function (c) { pilha.appendChild(el('img', { src: c.logo, alt: '', width: '28', height: '28', decoding: 'async' })); });
+          if (!pilha.children.length) pilha.appendChild(UI.iconeLinha('loja'));
+        };
+        pintarPilha(clientesDoLigeiro(pintarPilha));
+        lista.push(el('a', { class: 'link-loja-real', href: '#clientes', onclick: function (e) { e.preventDefault(); rolarAte('clientes'); } }, [pilha, el('span', { text: 'Conferir clientes do Ligeiro' })]));
+      }
       return el('div', { class: 'pilha chamada' }, lista);
     }
 
@@ -346,10 +356,7 @@
       /* "Preço de fundador: R$ 69,90 travado" nao cabe numa linha abaixo de 360: ali vira "Fundador: R$ 69,90 travado" (css) */
       var rotulo = restam >= total ? [el('span', { class: 'selo-fundador-longo', text: 'Preço de fundador: ' }), el('span', { class: 'selo-fundador-curto', text: 'Fundador: ' }), reais(pr.mensal) + ' travado']
         : ['Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador'];
-      return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) {
-        var alvo = document.getElementById('planos');
-        if (alvo) { e.preventDefault(); alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')])].concat(rotulo));
+      return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')])].concat(rotulo));
     }
 
     raiz.appendChild(barraTopo());
@@ -431,7 +438,7 @@
       [f.nome, f.whatsapp, f.loja].forEach(function (x) { x.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } }); });
       /* o topo do formulario, limpo como nos sites profissionais (07/10/2026: ele nao gostou da faixa verde com o mascotinho
          dentro do cartao): titulo e frase de apoio no proprio cartao, no meio */
-      cartao.appendChild(el('div', { class: 'montamos-topo' }, [el('h2', { id: 'montamosTitulo' }, ['Quer a sua loja ', el('span', { text: 'pronta' }), '?']), el('p', { text: 'A gente monta tudo e chama você no WhatsApp.' })]));
+      cartao.appendChild(el('div', { class: 'montamos-topo' }, [statusAtendimento(), el('h2', { id: 'montamosTitulo' }, ['Quer a sua loja ', el('span', { text: 'pronta' }), '?']), el('p', { text: 'A gente monta tudo e chama você no WhatsApp.' })]));
       cartao.appendChild(el('div', { class: 'grade-form' }, [f.nome, f.whatsapp, f.loja]));
       cartao.appendChild(botao);
       cartao.appendChild(seguro);
@@ -577,23 +584,10 @@
       ]),
     ]));
 
-    /* ---------- loja de verdade: o que o cliente do dono vai ver ---------- */
-    corpo.appendChild(el('section', { class: 'vender-bloco loja-real', 'data-secao': 'loja' }, [
-      /* no celular o texto vem primeiro, o celular no meio e o botao embaixo; no computador o texto fica ao lado */
-      el('div', { class: 'loja-real-texto' }, [
-        el('div', { class: 'kicker', text: 'Loja de verdade' }),
-        el('h2', { text: 'Veja o que o seu cliente vai ver' }),
-        el('p', { class: 'muted', text: 'É a loja da Dom Conizza montada no Ligeiro, do jeito que o cliente abre no celular.' }),
-        el('a', { class: 'btn btn-fantasma loja-real-botao', href: linkLojaDemo, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']),
-      ]),
-      el('a', { class: 'loja-real-vitrine', href: linkLojaDemo, target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja da Dom Conizza', tabindex: '-1' }, [
-        /* o aparelho: borda, ilha, hora e bateria em CSS (sem imagem a mais); a tela e o print da loja */
-        el('span', { class: 'loja-real-cel' }, el('span', { class: 'loja-real-tela' }, [
-          barraDoCelular(),
-          el('img', { src: 'img/loja-ligeiro/exclusivo.webp', alt: 'A loja da Dom Conizza no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' }),
-        ])),
-      ]),
-    ]));
+    /* ---------- clientes do Ligeiro: lojas de verdade funcionando (09/10/2026). Os concorrentes mostram numero, logos e
+       depoimentos; aqui o visitante abre a loja e ve como o cliente pede. Uma loja de cada vez no celular, com um botao de cada
+       uma (trocam sozinhas ate a pessoa tocar); a que ainda e amostra (soNaVitrine) so entra quando aparece na vitrine publica ---------- */
+    corpo.appendChild(secaoClientes());
 
     /* ---------- o que vem: as funcoes em abas (07/10/2026, como as abas do Anota AI): 3 assuntos com 4 cartoes cada, icone
        em quadrado colorido com o titulo do lado. 4 por aba: 2 x 2 ate 1099 e 4 numa linha dai para cima (com 9 soltos, um sobrava
@@ -1011,7 +1005,7 @@
   }
 
   /* data de verdade da ultima mudanca dos termos e da privacidade (antes aparecia sempre a data de hoje) */
-  var VERSAO_DOS_TERMOS = '08/10/2026';
+  var VERSAO_DOS_TERMOS = '09/10/2026';
 
   function termos(raiz) {
     var pr = precos();
@@ -1031,7 +1025,7 @@
       ['Responsabilidades da loja', ['Cardápio ou catálogo, preços, ofertas, estoque, prazos, entrega, qualidade dos produtos (e segurança dos alimentos), trocas e devoluções, licenças (inclusive da vigilância sanitária), notas fiscais e tributos são da loja. O Ligeiro é a ferramenta de pedido; quem vende é você. Bebida alcoólica e outros produtos com idade mínima só podem ser entregues a maiores de 18 anos, e conferir isso é da loja.', 'A loja também é responsável por usar os dados dos clientes só para atender e avisar sobre pedidos e promoções da própria loja, conforme a Política de privacidade. Pela LGPD, a loja é a controladora dos dados dos clientes dela e o Ligeiro é o operador, que só guarda e leva esses dados para o pedido acontecer.']],
       ['Pagamentos, estornos e contestações', ['O pagamento pelo site é feito entre o cliente e a conta Mercado Pago da loja. Estornos, contestações (chargeback) e devoluções seguem as regras do Mercado Pago e são resolvidos entre a loja, o cliente e o Mercado Pago. O Ligeiro não é parte desse pagamento e não responde por valores retidos, contestados ou devolvidos.', 'Se a loja escolher cobrar a taxa do cartão do cliente, o site mostra o valor antes do pagamento, como a Lei 13.455/2017 pede. A decisão de cobrar e o valor são da loja.']],
       ['Dados pessoais (LGPD)', ['Com os dados de quem pede na loja (nome, WhatsApp, endereço), a loja é a controladora: é ela quem decide para que usa. O Ligeiro é o operador: guarda e processa esses dados em nome da loja, só para o pedido funcionar, seguindo a Lei Geral de Proteção de Dados (Lei 13.709/2018) e a política de privacidade.', 'A loja usa esses dados só para atender o pedido e falar com o cliente sobre ele, e responde aos pedidos dos clientes dela sobre os próprios dados. O Ligeiro ajuda: acha, entrega ou apaga os dados de uma pessoa a pedido, e avisa a loja se acontecer um incidente de segurança que envolva os clientes dela.']],
-      ['Conteúdo da loja', ['Nome, fotos, logo, textos e marcas que a loja envia precisam ser dela ou ter autorização de uso. A loja autoriza o Ligeiro a mostrar esse conteúdo no site dela, nas páginas da cidade e na divulgação do próprio Ligeiro. O Ligeiro pode tirar do ar conteúdo falso, ilegal, ofensivo ou que use marca de outra pessoa.']],
+      ['Conteúdo da loja', ['Nome, fotos, logo, textos e marcas que a loja envia precisam ser dela ou ter autorização de uso. A loja autoriza o Ligeiro a mostrar esse conteúdo no site dela, nas páginas da cidade e na divulgação do próprio Ligeiro, inclusive como exemplo de loja que usa o sistema (na página de vendas, em anúncios e nas redes do Ligeiro), sem pagamento por isso. Se a loja não quiser aparecer como exemplo, é só pedir no WhatsApp do Ligeiro, que tira em até 7 dias. O Ligeiro pode tirar do ar conteúdo falso, ilegal, ofensivo ou que use marca de outra pessoa.']],
       ['Acesso e senhas', ['A loja cuida da conta do Google que abre o painel e da senha da equipe. O que for feito com esses acessos é de responsabilidade da loja. Suspeitou de acesso indevido, troque a senha da equipe e avise o Ligeiro.']],
       ['Disponibilidade', ['O sistema roda em serviços de nuvem de grandes fornecedores (Google, Cloudflare, GitHub, Mercado Pago) e é mantido para ficar no ar o tempo todo, mas pode haver falhas, limites de uso ou manutenções, inclusive desses fornecedores. Nesses casos, a loja segue atendendo pelo WhatsApp e o Ligeiro avisa pelo painel ou pelo WhatsApp da loja.']],
       ['Limite de responsabilidade', ['O Ligeiro não responde por lucro cessante, pedidos perdidos por falta de internet, falhas de fornecedores, erros no cardápio ou catálogo cadastrado pela loja (preços, estoque e ofertas inclusive) ou problemas na entrega. Em qualquer caso, a responsabilidade do Ligeiro fica limitada ao valor que a loja pagou nos últimos 3 meses.']],
@@ -1163,6 +1157,119 @@
   }
   /* A barra do celular desenhado (hora, ilha, sinal e bateria), igual nos celulares da pagina de vendas. Na tela de bloqueio
      (semHora) a hora e a grande, no meio da tela, e a barra fica so com a ilha, o sinal e a bateria, como no iPhone */
+  /* "Atendendo agora" (bolinha verde piscando) no horario de atendimento do config, hora de Brasilia; fora dele, quando volta.
+     Confere de novo a cada minuto (a pagina pode ficar aberta na virada da hora) */
+  function statusAtendimento() {
+    var a = cfg().atendimento || { inicio: 8, fim: 22 };
+    var ponto = el('i', { class: 'atende-ponto', 'aria-hidden': 'true' }), texto = el('span');
+    var caixa = el('span', { class: 'atende-status', role: 'status' }, [ponto, texto]);
+    function conferir() {
+      if (!caixa.isConnected && caixa.dataset.vista) { clearInterval(relogio); return; }
+      caixa.dataset.vista = '1';
+      var agora = new Date(), h = (agora.getUTCHours() + 21) % 24 + agora.getUTCMinutes() / 60; /* Brasilia: UTC-3, sem horario de verao */
+      var aberto = a.inicio < a.fim ? h >= a.inicio && h < a.fim : h >= a.inicio || h < a.fim;
+      caixa.classList.toggle('fora', !aberto);
+      texto.textContent = aberto ? 'Atendendo agora' : 'Respondemos a partir das ' + a.inicio + 'h';
+    }
+    var relogio = setInterval(conferir, 60000);
+    conferir();
+    return caixa;
+  }
+
+  /* desce ate uma secao da pagina de vendas descontando a barra fixa do topo, com 24 de folga (a troca de secao): com o
+     scrollIntoView puro, o titulo ficava escondido atras da barra (09/10/2026) */
+  function rolarAte(id) {
+    var alvo = document.getElementById(id);
+    if (!alvo) return;
+    var barra = document.querySelector('.barra-topo');
+    var cobre = barra && getComputedStyle(barra).position === 'sticky' ? barra.getBoundingClientRect().height : 0;
+    window.scrollTo({ top: Math.max(0, alvo.getBoundingClientRect().top + window.pageYOffset - cobre - 24), behavior: 'smooth' });
+  }
+
+  /* os clientes do Ligeiro que a pagina mostra (config.clientesModelo): os de sempre na hora e, quando a vitrine publica chega,
+     tambem os que estavam esperando sair da amostra (soNaVitrine). aoMudar(lista) so e chamado se a lista mudar. A vitrine e a
+     mesma lista guardada do selo do topo e e pedida uma vez so, para a pilha de logos do topo e para a secao */
+  var vitrinePedida = null;
+  function clientesDoLigeiro(aoMudar) {
+    var todos = (cfg().clientesModelo || []).filter(function (c) { return c && c.caminho && c.tela && c.nome; });
+    if (!todos.length) todos = [{ caminho: cfg().lojaDemo || 'juquia/dom-conizza', nome: 'Dom Conizza', tela: 'img/loja-ligeiro/exclusivo.webp' }];
+    var lista = todos.filter(function (c) { return !c.soNaVitrine; });
+    if (!lista.length) lista = [todos[0]];
+    if (aoMudar && todos.some(function (c) { return c.soNaVitrine; }) && D() && D().store.listarVitrine) {
+      if (!vitrinePedida) vitrinePedida = D().store.listarVitrine().catch(function () { return []; });
+      vitrinePedida.then(function (vit) {
+        var noAr = {};
+        (vit || []).forEach(function (l) { if (l && l.ativa !== false && l.amostra !== true && !R.lojaBloqueada(l)) noAr[(l.cidadeSlug || '') + '/' + l.slug] = true; });
+        var nova = todos.filter(function (c) { return !c.soNaVitrine || noAr[c.caminho]; });
+        if (nova.length !== lista.length) aoMudar(nova);
+      });
+    }
+    return lista;
+  }
+
+  /* a vitrine dos clientes do Ligeiro (ver o comentario onde ela entra na pagina) */
+  function secaoClientes() {
+    var lista = clientesDoLigeiro(function (nova) { lista = nova; montar(); });
+    var atual = 0, mexeu = false, girando = null;
+    var foto = el('img', { src: lista[0].tela, alt: 'A loja ' + lista[0].nome + ' no celular', width: '390', height: '620', loading: 'lazy', decoding: 'async' });
+    var tela = el('span', { class: 'loja-real-tela' + (lista[0].escura ? ' escura' : '') }, [barraDoCelular(), foto]);
+    var vitrine = el('a', { class: 'loja-real-vitrine', href: UI.linkDoSite(lista[0].caminho), target: '_blank', rel: 'noopener', 'aria-label': 'Abrir a loja ' + lista[0].nome, tabindex: '-1' }, [
+      /* o aparelho: borda, ilha, hora e bateria em CSS (sem imagem a mais); a tela e o print do topo da loja */
+      el('span', { class: 'loja-real-cel' }, tela),
+    ]);
+    var abrir = el('a', { class: 'btn btn-fantasma loja-real-botao', href: UI.linkDoSite(lista[0].caminho), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']);
+    var texto = el('p', { class: 'muted' });
+    var botoes = el('div', { class: 'clientes-botoes', role: 'group', 'aria-label': 'Escolha a loja' });
+    function mostrar(i) {
+      var c = lista[i];
+      if (!c) return;
+      atual = i;
+      var link = UI.linkDoSite(c.caminho);
+      vitrine.href = link; abrir.href = link;
+      vitrine.setAttribute('aria-label', 'Abrir a loja ' + c.nome);
+      foto.classList.add('trocando');
+      setTimeout(function () {
+        foto.src = c.tela; foto.alt = 'A loja ' + c.nome + ' no celular';
+        tela.classList.toggle('escura', !!c.escura);
+        foto.classList.remove('trocando');
+      }, 180);
+      [].forEach.call(botoes.children, function (b, k) { b.setAttribute('aria-pressed', String(k === i)); });
+    }
+    function montar() {
+      texto.textContent = lista.length > 1 ? 'Toque numa loja e veja como o cliente pede, do jeito que abre no celular.'
+        : 'É a loja da ' + lista[0].nome + ' montada no Ligeiro, do jeito que o cliente abre no celular.';
+      UI.limpar(botoes);
+      botoes.hidden = lista.length < 2;
+      lista.forEach(function (c, i) {
+        botoes.appendChild(el('button', { class: 'cliente-botao', type: 'button', 'aria-pressed': String(i === atual), onclick: function () { mexeu = true; mostrar(i); } }, [
+          c.logo ? el('img', { src: c.logo, alt: '', width: '32', height: '32', loading: 'lazy', decoding: 'async' }) : null,
+          /* como os concorrentes apresentam os clientes (logo, nome e o ramo); a cidade fica de fora (sem cidade pequena no marketing) */
+          el('span', { class: 'cliente-nome' }, [el('b', { text: c.nome }), c.ramo ? el('small', { text: c.ramo }) : null]),
+        ]));
+      });
+      /* duas ou mais: trocam sozinhas a cada 5 s, ate a pessoa tocar numa (ou a secao sair da tela) */
+      if (lista.length > 1 && !girando) girando = setInterval(function () {
+        if (!botoes.isConnected) { clearInterval(girando); return; }
+        if (mexeu || document.hidden) return;
+        var r = botoes.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) return;
+        mostrar((atual + 1) % lista.length);
+      }, 5000);
+    }
+    montar();
+    /* no celular o texto vem primeiro, os botoes das lojas, o celular no meio e o botao de abrir embaixo; no computador o texto fica ao lado */
+    return el('section', { class: 'vender-bloco loja-real', id: 'clientes', 'data-secao': 'loja' }, [
+      el('div', { class: 'loja-real-texto' }, [
+        el('div', { class: 'kicker', text: 'Clientes do Ligeiro' }),
+        el('h2', { text: 'Lojas que já vendem pelo Ligeiro' }),
+        texto,
+        botoes,
+        abrir,
+      ]),
+      vitrine,
+    ]);
+  }
+
   function barraDoCelular(semHora) {
     return el('span', { class: 'loja-real-status', 'aria-hidden': 'true', html: '<b>' + (semHora ? '' : '19:30') + '</b><i class="ilha"></i><span class="icones">' +
       '<svg viewBox="0 0 18 12" width="16" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
