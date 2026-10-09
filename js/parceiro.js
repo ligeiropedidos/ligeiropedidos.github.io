@@ -1160,7 +1160,7 @@
   /* "Atendendo agora" (bolinha verde piscando) no horario de atendimento do config, hora de Brasilia; fora dele, quando volta.
      Confere de novo a cada minuto (a pagina pode ficar aberta na virada da hora) */
   function statusAtendimento() {
-    var a = cfg().atendimento || { inicio: 8, fim: 22 };
+    var a = cfg().atendimento || { inicio: 7, fim: 19 };
     var ponto = el('i', { class: 'atende-ponto', 'aria-hidden': 'true' }), texto = el('span');
     var caixa = el('span', { class: 'atende-status', role: 'status' }, [ponto, texto]);
     function conferir() {

@@ -247,7 +247,10 @@ body:has(.tema-kazoku #tela-inicio) .torrada { background: #221C22; color: #F4EE
   box-shadow: 0 10px 34px rgba(212, 46, 50, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -3px 0 rgba(60, 0, 8, 0.34);
 }
 .tema-kazoku #tela-inicio .btn-gigante .sub { color: #FFFFFF; opacity: 1; letter-spacing: 0.02em; text-transform: none; font-weight: 600; } /* branco: no topo da laca (o vermelho mais claro) da 4,65:1 */
-.tema-kazoku #tela-inicio .btn-gigante:disabled { background: #2E272D; color: #A59C91; box-shadow: none; }
+/* loja fechada: solido e legivel (o padrao apaga o desativado a 45%: no escuro ficava translucido e sem leitura; 09/10/2026),
+   com o contorno vermelho e sem pulsar */
+.tema-kazoku #tela-inicio .btn-gigante:disabled { opacity: 1; background: #1E1A20; color: #F4EEE4; box-shadow: inset 0 0 0 1.5px rgba(212, 46, 50, 0.45); animation: kz-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards; }
+.tema-kazoku #tela-inicio .btn-gigante:disabled .sub { color: #D8CFC2; }
 .tema-kazoku #tela-inicio .btn:focus-visible { outline-color: var(--kz-salmao-claro); }
 
 .tema-kazoku #tela-inicio .como-passo {

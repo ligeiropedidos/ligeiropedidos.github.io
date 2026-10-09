@@ -149,7 +149,7 @@ window.LIGEIRO_CONFIG = {
 
   /* Horario em que a equipe responde no WhatsApp (hora de Brasilia, todos os dias): no cartao "Quer a sua loja pronta?" aparece
      "Atendendo agora" com a bolinha verde piscando dentro dele e "Respondemos a partir das <inicio>h" fora (09/10/2026) */
-  atendimento: { inicio: 8, fim: 22 },
+  atendimento: { inicio: 7, fim: 19 }, /* das 7h as 19h (09/10/2026, dito por ele) */
 
   /* Clientes do Ligeiro na pagina de vendas (09/10/2026): as lojas modelo, uma de cada vez no celular da secao, com o print do
      topo da loja (390 x 620, em 2x). soNaVitrine: so entra quando a loja esta na vitrine publica (amostra nao: quem abrisse veria

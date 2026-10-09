@@ -263,7 +263,10 @@ body:has(.tema-jaci #tela-inicio) .torrada { background: #2E1A0F; color: #FFF1D6
   box-shadow: 0 10px 34px rgba(255, 187, 5, 0.32), 0 0 0 1px rgba(255, 216, 74, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(120, 60, 0, 0.32);
 }
 .tema-jaci #tela-inicio .btn-gigante .sub { color: var(--jc-letra-botao); opacity: 1; letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
-.tema-jaci #tela-inicio .btn-gigante:disabled { background: #4A3020; color: #C2A58C; box-shadow: none; }
+/* loja fechada: o botao solido e legivel (o padrao apaga o desativado a 45%, que no escuro virava um vidro translucido com a
+   estampa aparecendo por dentro e a letra sumindo; 09/10/2026), com o contorno de queijo e sem pulsar */
+.tema-jaci #tela-inicio .btn-gigante:disabled { opacity: 1; background: #2E1A0F; color: #FFF1D6; box-shadow: inset 0 0 0 1.5px rgba(255, 187, 5, 0.42); animation: jc-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards; }
+.tema-jaci #tela-inicio .btn-gigante:disabled .sub { color: #E9D3BC; }
 .tema-jaci #tela-inicio .btn:focus-visible { outline-color: var(--jc-amarelo-claro); }
 
 .tema-jaci #tela-inicio .como-passo {

@@ -281,7 +281,10 @@ body:has(.tema-makburguer #tela-inicio) .torrada { background: #2A1D14; color: #
 /* o pulso e um batimento leve (escala, feito pela placa de video), e nao a sombra mudando de tamanho a cada quadro */
 @keyframes mk-pulsar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 .tema-makburguer #tela-inicio .btn-gigante .sub { color: #2A1708; opacity: 1; letter-spacing: 0.02em; text-transform: none; font-weight: 600; } /* no laranja do pe do botao: 6:1 (com 0,9 de opacidade dava 4,4) */
-.tema-makburguer #tela-inicio .btn-gigante:disabled { background: #3A2E25; color: #A8957F; box-shadow: none; }
+/* loja fechada: solido e legivel (o padrao apaga o desativado a 45%: no escuro ficava translucido e sem leitura; 09/10/2026),
+   com o contorno de ouro e sem pulsar */
+.tema-makburguer #tela-inicio .btn-gigante:disabled { opacity: 1; background: #221A14; color: #F6EBDD; box-shadow: inset 0 0 0 1.5px rgba(242, 178, 51, 0.45); animation: mk-subir 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards; }
+.tema-makburguer #tela-inicio .btn-gigante:disabled .sub { color: #E2D3BF; }
 .tema-makburguer #tela-inicio .btn:focus-visible { outline-color: var(--mk-ouro-claro); }
 
 .tema-makburguer #tela-inicio .como-passo {
