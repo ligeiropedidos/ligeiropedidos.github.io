@@ -147,10 +147,11 @@ body:has(.tema-jaci #tela-inicio) .torrada { background: #2E1A0F; color: #FFF1D6
   animation: jc-girar 60s linear infinite;
 }
 .tema-jaci .enfeites span:nth-child(n+11) { display: none; }
-/* o queijo derretido escorrendo na borda de cima do palco (enfeite 10): parado, como um lanche recem-saido da chapa */
+/* o cheddar derretido escorrendo na borda de cima do palco (enfeite 10): laranja e opaco (o primeiro, dourado e com brilho,
+   parecia mel), parado, como o queijo que escorre da fatia do lanche */
 .tema-jaci .enfeites span:nth-child(10) {
-  top: 0; left: 0; width: 100%; height: 58px; border-radius: 0; opacity: 1; animation: none;
-  background: url('../../img/oficial/jaci-queijo.svg') 0 0 / 150px 57.5px repeat-x;
+  top: 0; left: 0; width: 100%; height: 60px; border-radius: 0; opacity: 1; animation: none;
+  background: url('../../img/oficial/jaci-queijo.svg') 0 0 / 200px 60px repeat-x;
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
 }
 @keyframes jc-girar { to { transform: rotate(360deg); } }
