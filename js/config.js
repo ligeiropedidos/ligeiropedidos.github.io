@@ -156,7 +156,7 @@ window.LIGEIRO_CONFIG = {
      a faixa AMOSTRA). Os termos de uso dizem que a loja pode aparecer como exemplo (e sair quando pedir) */
   clientesModelo: [
     { caminho: 'juquia/dom-conizza', nome: 'Dom Conizza', ramo: 'Pizzaria', logo: 'img/oficial/dom-conizza-logo.webp', tela: 'img/loja-ligeiro/exclusivo.webp' },
-    { caminho: 'juquia/jaci-lanches', nome: 'Jaci Lanches', ramo: 'Lanchonete', logo: 'img/oficial/jaci-lanches-logo.webp', tela: 'img/loja-ligeiro/jaci-aberta.webp', escura: true, soNaVitrine: true },
+    { caminho: 'juquia/jaci-lanches', nome: 'Jaci Lanches', ramo: 'Lanchonete', logo: 'img/oficial/jaci-lanches-logo.webp', tela: 'img/loja-ligeiro/jaci-aberta.webp', escura: true }, /* cliente desde 09/10/2026 (saiu da amostra) */
   ],
 
   /* Lojas com tema exclusivo (css/temas/<tema>.css). So o Ligeiro mexe aqui; nenhuma loja ganha isso pelo painel.
