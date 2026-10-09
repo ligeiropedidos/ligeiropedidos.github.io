@@ -1816,6 +1816,9 @@ a.selo-google:hover { background: var(--lime-suave); }
 .link-loja-real .ico-traco svg { width: 18px; height: 18px; }
 .selo-fundador { background: #FFFBEB; color: #3F2A00; box-shadow: inset 0 0 0 1.5px #FCD34D; text-decoration: none; gap: 6px; }
 .selo-fundador .estrela { color: #D97706; }
+/* "Preço de fundador: ..." ou, no celular bem estreito, "Fundador: ..." (numa linha so) */
+.selo-fundador-curto { display: none; }
+@media (max-width: 359px) { .selo-fundador-longo { display: none; } .selo-fundador-curto { display: inline; } }
 @media (hover: hover) { .selo-fundador:hover { background: #FEF3C7; } }
 .vender-selos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .vender { gap: 24px; }
@@ -2193,6 +2196,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .plano-preco-caixa { min-width: 0; }
 .plano-preco { font-family: var(--display); font-size: 40px; font-size: clamp(24px, 12cqi, 40px); font-weight: 700; line-height: 1; color: var(--ink); white-space: nowrap; } /* preco e /mes sempre numa linha: a letra acompanha a largura do cartao */
 .plano-preco small { font-size: 16px; font-weight: 400; color: var(--muted); }
+.plano-preco small.plano-centavos { font-size: 0.55em; font-weight: 700; color: var(--ink); } /* os centavos do preco: menores, na cor do preco */
 .plano-sub { color: var(--body); font-weight: 600; }
 .plano-linhas { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--body); }
 .plano-linhas li { display: flex; align-items: flex-start; gap: 6px; } /* linha que quebra continua alinhada com o texto, nao embaixo do check */

@@ -63,6 +63,12 @@
   }
   /* dinheiro redondo sem centavos: "R$ 79" (e nao "R$ 79,00"); com centavos, igual ao dinheiro() */
   function reais(centavos) { return dinheiro(centavos).replace(/,00$/, ''); }
+  /* o preco grande do cartao do plano: com centavos, eles ficam pequenos ao lado ("R$ 69" grande e ",90" pequeno, como nos
+     cardapios), senao "R$ 69,90/mes" passava da caixa no celular (09/10/2026) */
+  function precoGrande(centavos, por) {
+    var t = reais(centavos), v = t.lastIndexOf(',');
+    return v < 0 ? [t, el('small', { text: por })] : [t.slice(0, v), el('small', { class: 'plano-centavos', text: t.slice(v) }), el('small', { text: por })];
+  }
   function dataBR(d) { return new Date(d).toLocaleDateString('pt-BR'); }
 
   /* Barra do topo: marca, Entrar e Assinar. Igual em todas as paginas daqui. */
@@ -337,11 +343,13 @@
       var restam = R.vagasFundador();
       if (!(restam > 0)) return null;
       var total = (cfg().fundador || {}).vagas || 0;
-      var rotulo = restam >= total ? 'Preço de fundador: ' + reais(pr.mensal) + ' travado' : 'Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador';
+      /* "Preço de fundador: R$ 69,90 travado" nao cabe numa linha abaixo de 360: ali vira "Fundador: R$ 69,90 travado" (css) */
+      var rotulo = restam >= total ? [el('span', { class: 'selo-fundador-longo', text: 'Preço de fundador: ' }), el('span', { class: 'selo-fundador-curto', text: 'Fundador: ' }), reais(pr.mensal) + ' travado']
+        : ['Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador'];
       return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) {
         var alvo = document.getElementById('planos');
         if (alvo) { e.preventDefault(); alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), rotulo]);
+      } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')])].concat(rotulo));
     }
 
     raiz.appendChild(barraTopo());
@@ -794,7 +802,7 @@
         el('span', { class: 'plano-visto', 'aria-hidden': 'true' }, escolhido === t ? [UI.iconeLinha('check')] : []),
         el('div', { class: 'plano-titulo', text: p.nome + (t === 'anual' ? ' Anual' : ' Mensal') }),
         antes,
-        el('div', { class: 'plano-preco-caixa' }, el('div', { class: 'plano-preco' }, [reais(preco), el('small', { text: t === 'anual' ? '/ano' : '/mês' })])),
+        el('div', { class: 'plano-preco-caixa' }, el('div', { class: 'plano-preco' }, precoGrande(preco, t === 'anual' ? '/ano' : '/mês'))),
         el('div', { class: 'plano-sub' }, sub),
       ]);
       if (aoEscolher) card.addEventListener('click', function () { aoEscolher(t); });

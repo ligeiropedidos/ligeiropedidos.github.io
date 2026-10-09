@@ -68,7 +68,7 @@ window.LIGEIRO_CONFIG = {
      propria assinatura (decidido em 25/09/2026: trocar entre 1, 2 e 3 lojas era o que mais dava dor de cabeca com dinheiro).
      anual: 0 esconde o anual */
   planos: [
-    { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 7900, anual: 79000 }, frase: 'Tudo incluso para a sua loja' },
+    { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 6990, anual: 69900 }, frase: 'Tudo incluso para a sua loja' }, /* fundador R$ 69,90 desde 09/10/2026 (era R$ 79) */
   ],
 
   /*

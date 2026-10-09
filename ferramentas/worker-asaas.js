@@ -14,7 +14,7 @@
  *        FIREBASE_SA      o JSON inteiro da conta de servico do Firebase
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
  *        PLANOS           JSON com os precos em centavos, igual ao config.js (um plano so, 1 loja por conta):
- *                         {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}
+ *                         {"uma":{"mensal":8900,"anual":89000,"fm":6990,"fa":69900}}
  *        FUNDADOR_VAGAS   (opcional, padrao 10) quantas vagas de fundador existem; FUNDADOR_JA (opcional, padrao 0)
  *                         quantas ja estavam ocupadas fora da contagem publica (igual ao config.js: fundador.vagas e jaOcupadas)
  *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
@@ -115,7 +115,7 @@ async function processarPagamento(env, pag) {
       /* segredo PLANOS torto (JSON quebrado, "Uma", preco em reais): antes, qualquer pagamento valia um ano. Agora nada e
          gravado, o admin recebe e-mail e o Asaas tenta de novo (depois de corrigir, os pagamentos entram) */
       if (!planosCertos(env)) {
-        await avisarAdmin(env, 'Segredo PLANOS errado', 'O segredo PLANOS do ligeiro-asaas está errado, e o pagamento ' + String(pag.id) + ' ficou esperando (o Asaas tenta de novo). Corrija em Settings > Variables and Secrets para exatamente: {"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}');
+        await avisarAdmin(env, 'Segredo PLANOS errado', 'O segredo PLANOS do ligeiro-asaas está errado, e o pagamento ' + String(pag.id) + ' ficou esperando (o Asaas tenta de novo). Corrija em Settings > Variables and Secrets para exatamente: {"uma":{"mensal":8900,"anual":89000,"fm":6990,"fa":69900}}');
         return json({ ok: false, erro: 'configuracao' }, 500);
       }
       /* o aviso diz o que foi pago, mas quem manda e o Asaas: le a cobranca de novo pela chave da API (valor, cliente e
