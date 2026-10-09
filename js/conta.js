@@ -396,22 +396,21 @@
 
     /* O QR do balcao (o mesmo da loja pronta): o cliente aponta a camera e abre a loja; baixa em PNG para imprimir */
     function qrDoBalcao(l, link) {
-      var qr = el('div', { class: 'pronto-qr-caixa' });
+      var qr = el('div', { class: 'pronto-qr-caixa na-altura' });
+      var texto = el('div', { class: 'pronto-qr-texto' }, [
+        el('b', { text: 'QR Code do balcão' }),
+        el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre a loja.' }),
+      ]);
       /* o QR e o texto lado a lado; o botao embaixo, na largura do cartao (do lado, "Baixar QR Code" quebrava no celular) */
       var linha = el('div', { class: 'conta-qr-bloco' }, [
-        el('div', { class: 'conta-qr' }, [
-          qr,
-          el('div', { class: 'pronto-qr-texto' }, [
-            el('b', { text: 'QR Code do balcão' }),
-            el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre a loja.' }),
-          ]),
-        ]),
+        el('div', { class: 'conta-qr' }, [qr, texto]),
         el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
           Pix.baixarQr(qr, { nome: l.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + l.slug + '.png' })
             .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
         } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
       ]);
-      if (Pix && Pix.desenharQr) Pix.desenharQr(qr, link, 140); else linha.hidden = true;
+      /* a caixa do QR com a altura do texto do lado: o topo e o pe na mesma linha (09/10/2026; com 140 fixos sobrava um vao embaixo do texto) */
+      if (Pix && Pix.desenharQrNaAltura) Pix.desenharQrNaAltura(qr, texto, link); else linha.hidden = true;
       return linha;
     }
 

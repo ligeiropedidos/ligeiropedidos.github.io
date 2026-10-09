@@ -218,6 +218,49 @@
       return false;
     }
   }
+  /* O QR do balcao ao lado do texto (Pronto e Minha conta, 09/10/2026): a caixa branca tem a altura EXATA do texto do lado (do
+     topo da letra do titulo ate a linha de base da ultima linha), entao o topo e o pe dos dois ficam na mesma linha, em qualquer
+     largura. O QR de dentro e desenhado com cada quadradinho num numero inteiro de pixels DA TELA (no iPhone, 1 px da pagina sao
+     3 da tela): nitido e reto mesmo menor. Quando o texto muda de altura (outra largura, mais uma linha), desenha de novo.
+     Empilhado (celular bem estreito: QR em cima, texto embaixo), a caixa fica com 'empilhado' px. */
+  function desenharQrNaAltura(caixa, texto, codigo, empilhado) {
+    if (!caixa || !texto || typeof window === 'undefined') return;
+    var ultimo = 0, obs = null;
+    function desenhar(lib) {
+      if (!caixa.isConnected) { if (obs) obs.disconnect(); return; }
+      var deLado = getComputedStyle(caixa.parentElement).flexDirection !== 'column';
+      var h = deLado ? texto.getBoundingClientRect().height : (empilhado || 120);
+      if (!(h > 0) || Math.abs(h - ultimo) < 0.5) return;
+      ultimo = h;
+      var cs = getComputedStyle(caixa);
+      var folga = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+      caixa.style.width = h + 'px';
+      caixa.style.height = h + 'px';
+      try {
+        var qr = lib(0, 'M');
+        qr.addData(codigo);
+        qr.make();
+        var n = qr.getModuleCount(), dpr = window.devicePixelRatio || 1;
+        var celula = Math.max(2, Math.floor((h - folga) * dpr / n)) / dpr;
+        var lado = celula * n;
+        caixa.innerHTML = qr.createSvgTag({ cellSize: 1, margin: 0, scalable: true });
+        var svg = caixa.querySelector('svg');
+        if (svg) {
+          svg.setAttribute('width', String(lado));
+          svg.setAttribute('height', String(lado));
+          svg.setAttribute('shape-rendering', 'crispEdges');
+          svg.style.width = lado + 'px';
+          svg.style.height = lado + 'px';
+        }
+      } catch (_) { caixa.hidden = true; }
+    }
+    carregarQr().then(function (lib) {
+      var agora = function () { desenhar(lib); };
+      if (window.requestAnimationFrame) requestAnimationFrame(agora); else agora();
+      if (window.ResizeObserver) { obs = new ResizeObserver(agora); obs.observe(texto); }
+      else window.addEventListener('resize', agora);
+    }, function () { caixa.hidden = true; });
+  }
   /* Desenha o QR num elemento. Sem a biblioteca ainda: busca e desenha quando chegar (some se nao der). */
   function desenharQr(elemento, codigo, tamanho, justo) {
     if (!elemento) return false;
@@ -280,6 +323,7 @@
     gerar: gerar,
     ler: ler,
     desenharQr: desenharQr,
+    desenharQrNaAltura: desenharQrNaAltura,
     carregarQr: carregarQr,
   };
 });

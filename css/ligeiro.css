@@ -2435,7 +2435,13 @@ a.selo-google:hover { background: var(--lime-suave); }
 .conta-qr-bloco[hidden] { display: none; }
 .conta-qr-bloco > .btn { width: 100%; min-height: 48px; white-space: nowrap; font-size: 16px; }
 .conta-qr { display: flex; align-items: flex-start; gap: 16px; } /* o quadrado do QR no topo da letra do titulo (o texto aparado, abaixo) */
-@media (max-width: 359px) { .conta-qr { flex-direction: column; } .conta-qr .pronto-qr-texto { align-items: center; text-align: center; } }
+/* QR do balcao: do lado do texto so no celular, onde o texto tem 3 linhas e a caixa do QR fica com a altura dele (topo e pe na
+   mesma linha). No celular bem estreito e do tablet para cima (texto de 1 ou 2 linhas: o QR ficaria pequeno), o QR vai para cima,
+   no meio, com o titulo e o texto no meio embaixo */
+@media (max-width: 359px), (min-width: 520px) {
+  .conta-qr { flex-direction: column; align-items: center; }
+  .conta-qr .pronto-qr-texto { align-items: center; text-align: center; text-wrap: balance; }
+}
 .conta-outra { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); text-align: left; }
 .conta-outra-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--lime-suave); color: var(--deep2); display: flex; align-items: center; justify-content: center; }
 .conta-outra-ico .ico-traco svg { width: 20px; height: 20px; }
@@ -3224,9 +3230,10 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .pronto-qr > .btn { width: 100%; }
 .pronto-qr-caixa { flex: none; width: fit-content; padding: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; line-height: 0; } /* abraca o QR do tamanho exato (antes, 112 fixos: o QR de 200 vazava por cima do que vinha embaixo) */
 .pronto-qr-caixa svg { display: block; }
+/* a caixa do QR com a altura do texto do lado (o tamanho vem do Pix.desenharQrNaAltura): o QR no meio dela, com 4 de respiro */
+.pronto-qr-caixa.na-altura { box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 4px; }
 .pronto-qr-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 14px; line-height: 1.4; color: var(--muted); text-align: left; }
 .pronto-qr-texto b { font-family: var(--display); font-size: 16px; color: var(--ink); }
-@media (max-width: 359px) { .pronto-qr .conta-qr { flex-direction: column; align-items: center; } .pronto-qr-texto { align-items: center; text-align: center; } }
 /* 320 (iPhone com "Tela ampliada"): "Mandar no WhatsApp" com o icone nao cabia numa linha em 254 px, e "Ver minha loja" nao
    cabia na metade: o do WhatsApp perde um pouco da folga dos lados e os dois de baixo ficam um embaixo do outro, na largura toda */
 @media (max-width: 359px) {

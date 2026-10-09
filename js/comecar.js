@@ -543,7 +543,11 @@
 
       corpo.appendChild(el('button', { class: 'btn btn-principal btn-gigante btn-largo', text: 'Abrir meu painel', onclick: function () { window.LigeiroApp.ir('painel/' + loja.slug); } }));
 
-      var qr = el('div', { class: 'pronto-qr-caixa' });
+      var qr = el('div', { class: 'pronto-qr-caixa na-altura' });
+      var qrTexto = el('div', { class: 'pronto-qr-texto' }, [
+        el('b', { text: 'QR Code do balcão' }),
+        el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre o ' + cat.nome + '.' }),
+      ]);
       corpo.appendChild(el('div', { class: 'bloco-form pronto-divulgar' }, [
         el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Divulgue seu link']),
         el('p', { class: 'muted pequeno', text: 'Mande para os clientes quando o ' + cat.nome + ' estiver do seu jeito. Ele também fica no painel, na aba Minha loja.' }),
@@ -556,20 +560,15 @@
         /* o QR e o texto lado a lado e o botao embaixo, na largura do cartao: o mesmo desenho do QR da Minha conta (com o botao
            do lado, ele ficava estreito e passava abaixo do QR) */
         el('div', { class: 'pronto-qr' }, [
-          el('div', { class: 'conta-qr' }, [
-            qr,
-            el('div', { class: 'pronto-qr-texto' }, [
-              el('b', { text: 'QR Code do balcão' }),
-              el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre o ' + cat.nome + '.' }),
-            ]),
-          ]),
+          el('div', { class: 'conta-qr' }, [qr, qrTexto]),
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
             Pix.baixarQr(qr, { nome: loja.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + loja.slug + '.png' })
               .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
           } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
         ]),
       ]));
-      Pix.desenharQr(qr, link, 110); /* 93 px + a borda: a caixa fica nos 112 de antes, e o texto do lado cabe */
+      /* a caixa do QR com a altura do texto do lado (o topo e o pe na mesma linha) */
+      Pix.desenharQrNaAltura(qr, qrTexto, link);
       window.scrollTo(0, 0);
       var palco = corpo.querySelector('.pronto-palco');
       setTimeout(function () { if (palco && palco.isConnected) festejar(palco); }, 150);
