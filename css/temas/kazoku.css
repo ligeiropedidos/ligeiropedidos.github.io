@@ -303,6 +303,9 @@ body:has(.tema-kazoku #tela-inicio) .modal.tema-kazoku .modal-caixa { box-shadow
 .tema-kazoku:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #3E1418 0%, #0B0A0C 78%); }
 .tema-kazoku:has(#tela-inicio) .senha-gigante { color: var(--kz-salmao-claro); }
 .tema-kazoku:has(#tela-inicio) .painel-senha .rotulo { color: var(--kz-salmao); }
+/* o selo do recorde dos joguinhos: o vermelho dos botoes com letra branca (no salmao, a letra branca sumia) */
+.tema-kazoku:has(#tela-inicio) .jogo-recorde-selo { background: #C9272D; color: #FFFFFF; }
+.tema-kazoku:has(#tela-inicio) .jogo-recorde-selo .ico-traco { color: #FFFFFF; }
 .tema-kazoku .status-loja.aberta { --ponto: #2E9D4F; }
 
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem): papel de arroz e vermelho ---------- */

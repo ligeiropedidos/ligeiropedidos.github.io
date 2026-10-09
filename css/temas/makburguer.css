@@ -338,6 +338,8 @@ body:has(.tema-makburguer #tela-inicio) .modal.tema-makburguer .modal-caixa { bo
 .tema-makburguer:has(#tela-inicio) .senha-gigante { color: var(--mk-ouro-claro); }
 .tema-makburguer:has(#tela-inicio) .painel-senha .rotulo { color: var(--mk-ouro); }
 .tema-makburguer:has(#tela-inicio) .jogo-convite, .tema-makburguer:has(#tela-inicio) .aviso-cel-pedido.ligado { border-color: var(--line-forte); }
+/* o selo do recorde dos joguinhos: letra escura na mostarda (o padrao, letra branca, sumia) */
+.tema-makburguer:has(#tela-inicio) .jogo-recorde-selo, .tema-makburguer:has(#tela-inicio) .jogo-recorde-selo .ico-traco { color: #1A0E07; }
 .tema-makburguer .status-loja.aberta { --ponto: #2E9D4F; }
 
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem) ---------- */
