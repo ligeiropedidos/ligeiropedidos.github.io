@@ -324,5 +324,27 @@ window.LIGEIRO_CONFIG = {
         'produto:trident': 'img/oficial/kazoku/trident.webp',
         'produto:molho-tare': 'img/oficial/kazoku/molho.svg',
         'produto:geleia-de-pimenta': 'img/oficial/kazoku/molho.svg' } },
+    /* cliente com design exclusivo (09/10/2026): a lanchonete da Dona Jaci a noite, com cor de hamburguer (chapa, pao tostado e
+       queijo) e o rosa e o roxo da logo de detalhe: neon rosa na logo, raios de placa, estampa de lanches andando e gergelim caindo. Fotos de banco de imagem (Pexels,
+       as mesmas da amostra do Mak, img/oficial/mak/CREDITOS.txt) ate chegarem as dela; logo recortada em clientes/jaci-lanches */
+    'jaci-lanches': { oficial: false, tema: 'jaci', logo: 'img/oficial/jaci-lanches-logo.webp', frase: 'Caprichando no lanche', fogo: true, enfeites: ['', '', '', '', '', '', '', '', ''], corFundo: '#1E100A',
+      fontes: ['800 1em "Baloo 2"', '500 1em Oswald', '600 1em Oswald'],
+      desenhos: {
+        /* cardapio de exemplo da amostra (antes de colar o dela): fotos tambem, para a loja nunca aparecer com ilustracao */
+        'produto:batata': 'img/oficial/mak/batata-trionda.webp', 'produto:batata-cheddar': 'img/oficial/mak/batata-trionda.webp', 'produto:refri-lata': 'img/oficial/mak/refri-lata.webp',
+        'produto:x-burguer': 'img/oficial/mak/mak-burguer.webp',
+        'produto:x-salada': 'img/oficial/mak/mak-salada.webp',
+        'produto:x-tudo': 'img/oficial/mak/mak-monster.webp',
+        'produto:x-calabresa': 'img/oficial/mak/mak-toscana.webp',
+        'produto:x-calabacon': 'img/oficial/mak/mak-chilli.webp',
+        'produto:x-costela': 'img/oficial/mak/mak-costela.webp',
+        'produto:x-bacon': 'img/oficial/mak/mak-bacon.webp',
+        'produto:x-egg': 'img/oficial/mak/mak-egg.webp',
+        'produto:x-bomba': 'img/oficial/mak/mak-duplo.webp',
+        'produto:batata-frita': 'img/oficial/mak/batata-trionda.webp',
+        'produto:batata-cheddar-bacon': 'img/oficial/mak/batata-trionda.webp',
+        'produto:suco': 'img/oficial/mak/suco.webp',
+        'produto:suco-de-fruta': 'img/oficial/mak/suco.webp',
+        'produto:refrigerante-2l': 'img/oficial/mak/refri-lata.webp' } },
   },
 };

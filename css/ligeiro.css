@@ -1582,6 +1582,48 @@ a.selo-google:hover { background: var(--lime-suave); }
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%); mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
   animation: splash-kz-ondas 6s linear infinite;
 }
+/* Jaci Lanches: a tela de carregamento ja e a lanchonete da Dona Jaci a noite (a chapa marrom, o neon rosa da logo, os raios de
+   placa girando atras, gergelim caindo, as tres ondas da logo no pe e o fio mostarda que corre). Mora aqui pelo mesmo motivo
+   da do Mak: aparece antes do css do tema chegar. */
+.splash-jaci { overflow: hidden; gap: 18px; background-image: radial-gradient(circle min(300px, 72vw) at 50% 42%, rgba(248, 1, 70, 0.4), rgba(248, 1, 70, 0) 72%), radial-gradient(ellipse 90% 40% at 50% 100%, rgba(255, 122, 26, 0.2), rgba(255, 122, 26, 0) 70%), linear-gradient(180deg, #26140B 0%, #1E100A 60%, #160B06 100%) !important; }
+.splash-jaci > * { position: relative; z-index: 1; }
+.splash-jaci::before {
+  content: ""; position: absolute; left: 50%; top: 42%; width: min(620px, 160vw); height: min(620px, 160vw); margin: max(-310px, -80vw) 0 0 max(-310px, -80vw);
+  z-index: 0; pointer-events: none; border-radius: 50%; will-change: transform;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 187, 5, 0.16) 0deg 6deg, rgba(255, 187, 5, 0) 6deg 15deg);
+  -webkit-mask-image: radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 30%, #000 46%, rgba(0, 0, 0, 0.5) 74%, rgba(0, 0, 0, 0) 100%);
+  mask-image: radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 30%, #000 46%, rgba(0, 0, 0, 0.5) 74%, rgba(0, 0, 0, 0) 100%);
+  animation: splash-jc-girar 40s linear infinite;
+}
+.splash-jaci::after {
+  content: ""; position: absolute; left: 0; right: 0; top: -480px; height: calc(100% + 480px); z-index: 0; pointer-events: none; will-change: transform;
+  background-repeat: repeat; background-size: 270px 480px, 330px 480px, 390px 480px, 450px 480px;
+  background-image:
+    radial-gradient(2.1px 3.6px at 60px 70px, rgba(255, 241, 214, 0.5) 0 55%, rgba(255, 241, 214, 0) 100%),
+    radial-gradient(3.4px 2px at 210px 320px, rgba(255, 241, 214, 0.42) 0 55%, rgba(255, 241, 214, 0) 100%),
+    radial-gradient(2px 3.4px at 300px 170px, rgba(255, 187, 5, 0.5) 0 55%, rgba(255, 187, 5, 0) 100%),
+    radial-gradient(3.2px 2.1px at 110px 420px, rgba(255, 122, 168, 0.45) 0 55%, rgba(255, 122, 168, 0) 100%);
+  animation: splash-jc-cair 11s linear infinite;
+}
+.splash-jaci img {
+  width: min(204px, 52vw); border-radius: 50%; transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 2px rgba(248, 1, 70, 0.9)) drop-shadow(0 0 22px rgba(248, 1, 70, 0.6)) drop-shadow(0 16px 22px rgba(0, 0, 0, 0.6));
+  animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite;
+}
+.splash-jaci .splash-frase { font-family: 'Oswald', 'Ligeiro Display', Bahnschrift, 'Segoe UI', system-ui, sans-serif; font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.34em; text-indent: 0.34em; text-transform: uppercase; color: #FFBB05; animation: splash-mk-frase 1.6s ease-in-out infinite; }
+.splash-jaci .splash-pontos { position: relative; display: block; width: 148px; height: 3px; border-radius: 3px; background: rgba(255, 241, 214, 0.14); overflow: hidden; }
+.splash-jaci .splash-pontos span { display: none; }
+.splash-jaci .splash-pontos::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, rgba(248, 1, 70, 0), #F80146 40%, #FFBB05); box-shadow: 0 0 10px rgba(255, 187, 5, 0.8); animation: splash-mk-fio 1.3s ease-in-out infinite; }
+.splash-jaci .splash-fogo { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; overflow: hidden; pointer-events: none; z-index: 0; }
+.splash-jaci .splash-fogo::before {
+  content: ""; position: absolute; left: 0; bottom: 0; width: calc(100% + 160px); height: 150px; opacity: 0.42;
+  background: url('../img/oficial/jaci-ondas.svg') 0 100% / 160px 54px repeat-x;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%); mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  animation: splash-jc-ondas 5s linear infinite;
+}
+@keyframes splash-jc-girar { to { transform: rotate(360deg); } }
+@keyframes splash-jc-cair { to { transform: translate3d(0, 480px, 0); } }
+@keyframes splash-jc-ondas { from { translate: 0 0; } to { translate: -160px 0; } }
 @keyframes splash-kz-bolhas { to { transform: translate3d(0, -480px, 0); } }
 @keyframes splash-kz-ondas { from { translate: 0 0; } to { translate: -80px 0; } }
 @keyframes splash-mk-correr { from { translate: 0 0; } to { translate: -260px 0; } }
@@ -2644,6 +2686,12 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .splash-kazoku .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
   .splash-kazoku .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
   .splash-kazoku .splash-fogo::before { animation: splash-kz-ondas 6s linear infinite !important; }
+  .splash-jaci::before { animation: splash-jc-girar 40s linear infinite !important; }
+  .splash-jaci::after { animation: splash-jc-cair 11s linear infinite !important; }
+  .splash-jaci img { animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite !important; }
+  .splash-jaci .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
+  .splash-jaci .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
+  .splash-jaci .splash-fogo::before { animation: splash-jc-ondas 5s linear infinite !important; }
   .splash-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .splash-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
   .splash-pontos span:nth-child(3) { animation-delay: 0.3s !important; }
@@ -3572,15 +3620,15 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .contato-ok-marca .ico-traco svg { width: 32px; height: 32px; }
 /* o cartao "a gente monta" do topo da pagina de vendas (07/10/2026): as pecas do "Fale com a gente" num cartao.
    Celular: logo abaixo do texto (16 do vao + 8 = 24). Computador: na coluna da direita, com o mascote por cima */
-.cartao-montamos { width: 100%; max-width: 440px; margin-top: 8px; display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 12px 32px rgba(15, 61, 46, 0.08); text-align: left; }
+.cartao-montamos { width: 100%; max-width: 440px; margin-top: 8px; display: flex; flex-direction: column; gap: 16px; padding: 24px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 12px 32px rgba(15, 61, 46, 0.08); text-align: left; }
 .cartao-montamos .contato-topo-texto h2 { margin: 0; font-family: var(--display); font-size: 18px; line-height: 1.25; color: var(--ink); }
 .cartao-montamos .contato-ok { padding: 8px 0 0; }
 .cartao-montamos .grade-form { grid-template-columns: 1fr; } /* um campo embaixo do outro: lado a lado, o "(13) 99999-9999" encostava na borda (e cortava com a letra do iPhone) */
 /* o topo do formulario (07/10/2026, sem a faixa verde): titulo e apoio no proprio cartao, no meio, como nos formularios
    profissionais. O cartao no ritmo da letra (a caixa de cada texto vai do topo das maiusculas ate a linha de base, entao o vao
    da caixa e o vao que o olho ve): 24 do topo aos campos, 16 entre os outros blocos (campos, botao e nota), 8 do titulo ao apoio e
-   do rotulo ao campo.
-   Medido em prints/pente-fino-home/medir_formulario.mjs */
+   do rotulo ao campo. Da borda do cartao ao titulo e da nota a borda de baixo, 24 (09/10/2026: com 16 ficava apertado; a folga
+   da borda e a maior de dentro). Medido em prints/pente-fino-home/medir_formulario.mjs */
 .montamos-topo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 8px; text-align: center; } /* 16 + 8: do topo aos campos, 24 (a troca de secao) */
 .montamos-topo h2 { margin: 0; font-family: var(--display); font-size: 22px; line-height: 1.2; color: var(--ink); text-wrap: balance; }
 .montamos-topo h2 span { color: var(--lime-escuro); } /* "pronta" no verde da marca, como as palavras do titulo da pagina */
