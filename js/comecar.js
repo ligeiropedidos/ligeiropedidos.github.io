@@ -548,20 +548,25 @@
         el('div', { class: 'bloco-titulo' }, [UI.iconeLinha('link'), 'Divulgue seu link']),
         el('p', { class: 'muted pequeno', text: 'Mande para os clientes quando o ' + cat.nome + ' estiver do seu jeito. Ele também fica no painel, na aba Minha loja.' }),
         el('a', { class: 'btn btn-whats btn-largo', href: 'https://wa.me/?text=' + encodeURIComponent(textoZap), target: '_blank', rel: 'noopener' }, [el('span', { class: 'icone-zap', 'aria-hidden': 'true' }), 'Mandar no WhatsApp']),
+        /* "Ver loja" (o mesmo nome do botao do topo do painel): "Ver minha loja" nao cabia na metade com a letra do iPhone em 375 */
         el('div', { class: 'linha-botoes dupla' }, [
           el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiarLink }, [UI.iconeLinha('copiar'), 'Copiar link']),
-          el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ver minha loja']),
+          el('a', { class: 'btn btn-fantasma btn-pequeno', href: link, target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Ver loja']),
         ]),
+        /* o QR e o texto lado a lado e o botao embaixo, na largura do cartao: o mesmo desenho do QR da Minha conta (com o botao
+           do lado, ele ficava estreito e passava abaixo do QR) */
         el('div', { class: 'pronto-qr' }, [
-          qr,
-          el('div', { class: 'pronto-qr-texto' }, [
-            el('b', { text: 'QR Code do balcão' }),
-            el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre o ' + cat.nome + '.' }),
-            el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
-              Pix.baixarQr(qr, { nome: loja.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + loja.slug + '.png' })
-                .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
-            } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
+          el('div', { class: 'conta-qr' }, [
+            qr,
+            el('div', { class: 'pronto-qr-texto' }, [
+              el('b', { text: 'QR Code do balcão' }),
+              el('span', { text: 'Imprima e cole no balcão ou na sacola: o cliente aponta a câmera e abre o ' + cat.nome + '.' }),
+            ]),
           ]),
+          el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+            Pix.baixarQr(qr, { nome: loja.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + loja.slug + '.png' })
+              .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR Code.'); });
+          } }, [UI.iconeLinha('descer'), 'Baixar QR Code']),
         ]),
       ]));
       Pix.desenharQr(qr, link, 110); /* 93 px + a borda: a caixa fica nos 112 de antes, e o texto do lado cabe */
