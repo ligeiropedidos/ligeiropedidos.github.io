@@ -23,6 +23,8 @@
 
   var CHAVE_ABA = 'ligeiro:admin:aba';
   var DIAS_ALERTA = 7; /* "vencendo" e "acabam em 7 dias" */
+  var DIAS_VOLTAR = 45; /* teste que acabou: fica na lista "Precisa de voce" por 45 dias, com o botao Chamar */
+  function precoDoMes() { var p = (R.planos()[0] || {}).mensal; return R.dinheiro(p > 0 ? p : 3990); }
   /* valor em dinheiro que nunca quebra entre o R$ e o numero */
   function din(v) { return R.dinheiro(v).replace(/ /g, '\u00A0'); }
   /* aba: chave, nome no PC, icone e nome curto do celular (no celular as cinco numa linha, como as abas do painel) */
@@ -777,10 +779,16 @@
           /* teste gratis acabando: 1 ou 2 dias antes e a hora de chamar (depois que acaba, a loja ja parou) */
           var quando = a.dias <= 0 ? 'hoje' : (a.dias === 1 ? 'amanhã' : 'em ' + a.dias + ' dias');
           var nomeLoja = x.loja ? x.loja.nome : x.nome;
-          var zap = x.loja && x.loja.whatsapp ? R.linkWhatsapp(x.loja.whatsapp, 'Oi! Aqui é do Ligeiro. O teste grátis da ' + nomeLoja + ' acaba ' + quando + '. Quer que eu te ajude a continuar? Assim a loja não para de receber pedidos.') : '';
+          var zap = x.loja && x.loja.whatsapp ? R.linkWhatsapp(x.loja.whatsapp, 'Oi! Aqui é do Ligeiro. O teste grátis da ' + nomeLoja + ' acaba ' + quando + '. Para a loja não parar de receber pedidos, é só assinar pelo painel: ' + precoDoMes() + ' por mês, no Pix ou no cartão, em menos de um minuto. Quer que eu te ajude?') : '';
           itens.push({ ordem: 3, peso: a.dias, ico: 'ampulheta', tom: 'laranja', titulo: 'Teste grátis acaba ' + quando, detalhe: nomeLoja + ' · ' + dataBR(a.limite), botao: 'Chamar', link: zap });
-        } else if (a.estado === 'bloqueada' && a.gratis && a.dias >= -DIAS_ALERTA) {
-          itens.push({ ordem: 3, peso: 100 - a.dias, ico: 'ampulheta', tom: 'laranja', titulo: 'Período grátis acabou', detalhe: x.nome + ' · ' + dataBR(a.limite), botao: 'Ver', acao: x.abrir });
+        } else if (a.estado === 'bloqueada' && a.gratis && a.dias >= -DIAS_VOLTAR) {
+          /* o teste acabou e a loja parou: e a hora de chamar de volta (15/11/2026: ate 45 dias depois, com a mensagem pronta
+             e o preco de hoje; antes era so "Ver", por 7 dias). Loja sem WhatsApp continua com o "Ver" */
+          var lojaParada = x.loja ? x.loja.nome : x.nome;
+          var volta = x.loja && x.loja.whatsapp ? R.linkWhatsapp(x.loja.whatsapp, 'Oi! Aqui é do Ligeiro. O teste grátis da ' + lojaParada + ' acabou e a loja parou de receber pedidos, mas está tudo guardado: os itens, as fotos e o link. O plano agora é ' + precoDoMes() + ' por mês, sem comissão e sem fidelidade, e dá para assinar no Pix pelo próprio painel, em menos de um minuto. Quer que eu te ajude a voltar?') : '';
+          var parada = { ordem: 3, peso: 100 - a.dias, ico: 'ampulheta', tom: 'laranja', titulo: 'Período grátis acabou', detalhe: lojaParada + ' · ' + dataBR(a.limite) };
+          if (volta) { parada.botao = 'Chamar'; parada.link = volta; } else { parada.botao = 'Ver'; parada.acao = x.abrir; }
+          itens.push(parada);
         }
       });
       estado.leads.filter(function (c) { return !c.atendidoEm; }).forEach(function (c) {
