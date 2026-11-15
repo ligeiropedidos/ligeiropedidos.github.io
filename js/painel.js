@@ -806,7 +806,7 @@
       if (fatura) tranquila = false;
       if (!sempre && tranquila) return null;
       var textos = {
-        gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + (a.dias > 0 ? ' (' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ')' : ' (acaba hoje)') + '. Depois é ' + dinheiro(valor) + ' por ' + periodo + ': cartão, boleto ou Pix, aqui mesmo.',
+        gratis: 'Seu período grátis vai até ' + dataBR(a.limite) + (a.dias > 0 ? ' (' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ')' : ' (acaba hoje)') + '. Depois é ' + dinheiro(valor) + ' por ' + periodo + ', no Pix ou no cartão, aqui mesmo.',
         ativa: a.cortesia ? 'Assinatura liberada pelo Ligeiro.' : 'Assinatura paga até ' + dataBR(a.limite) + '.',
         vencendo: (a.gratis ? 'Seu período grátis termina' : 'Sua assinatura vence') + ' em ' + a.dias + (a.dias === 1 ? ' dia' : ' dias') + ' (' + dataBR(a.limite) + '). Assine para a loja não parar.',
         vencida: 'Assinatura vencida desde ' + dataBR(a.limite) + '. A loja segue no ar por mais ' + Math.max(0, a.tolerancia + a.dias) + (Math.max(0, a.tolerancia + a.dias) === 1 ? ' dia.' : ' dias.'),
@@ -833,7 +833,7 @@
         ]));
         filhos.push(el('div', { class: 'linha-botoes acoes-assinatura' }, [
           fatura
-            ? el('a', { class: 'btn btn-principal btn-pequeno', href: fatura.url, target: '_blank', rel: 'noopener', text: 'Pagar a fatura · ' + dinheiro(fatura.valor) })
+            ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Pagar a fatura · ' + dinheiro(fatura.valor), onclick: abrirPagamentoAssinatura })
             : (comAssinatura && !alerta) ? null
             : el('button', { class: 'btn ' + (tranquila ? 'btn-fantasma' : 'btn-principal') + ' btn-pequeno', type: 'button', text: (a.gratis ? 'Assinar · ' : 'Pagar ') + dinheiro(valor), onclick: abrirPagamentoAssinatura }),
         ]));
@@ -841,31 +841,20 @@
       return el('div', { class: 'cartao' + (tranquila ? '' : ' destaque'), id: 'cartaoAssinatura' }, filhos);
     }
 
-    /* confere as vagas de fundador de agora antes de montar o valor e o link (a mesma conta do Minha conta) */
+    /* a janela de pagar (js/cobranca.js): o Pix aparece nela mesma. Pagou ou fechou, a conta e lida de novo e o cartao
+       da assinatura some (ou muda) sozinho */
     function abrirPagamentoAssinatura() {
-      var ler = store.obterFundadores && !D.modoDemo ? store.obterFundadores({ semCache: true }).then(function (f) {
-        if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
-      }).catch(function () { /* fica o que o aparelho sabia */ }) : Promise.resolve();
-      ler.then(abrirPagamentoAgora);
-    }
-    function abrirPagamentoAgora() {
       var a = R.assinatura(fonteAssinatura());
-      var valor = precoAssinatura(a.tipo);
-      var periodo = a.tipo === 'anual' ? '12 meses' : '30 dias';
       var plano = (fonteAssinatura().plano || {});
-      function avisar() {
-        var aviso = { avisoPagamentoEm: new Date().toISOString(), avisoValor: valor };
-        var grava = estado.conta
-          ? store.salvarConta(estado.conta.email, { plano: aviso }).then(function (c) { estado.conta = c; UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); })
-          : salvarLoja({ plano: Object.assign({}, estado.loja.plano || {}, aviso) }, 'Avisado! Assim que cair, liberamos mais ' + periodo + '.');
-        /* true se gravou, false se nao (a janela do Pix fica aberta e o botao volta) */
-        return grava.then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes') desenharAjustes(); return true; }).catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); return false; });
-      }
-      window.LigeiroCobranca.abrir({
-        fatura: estado.conta && window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(estado.conta, { todas: true }) : null,
-        assinatura: !D.modoDemo && !!(estado.conta && window.LigeiroCobranca.assinaturaAtiva && window.LigeiroCobranca.assinaturaAtiva(estado.conta)), atrasada: a.estado === 'vencida' || a.estado === 'bloqueada',
-        valor: valor, periodo: periodo, planoId: plano.planoId || 'uma', tipo: a.tipo, fundador: R.ehPrecoFundador(fonteAssinatura()), quem: estado.loja.nome, email: (estado.conta && estado.conta.email) || estado.loja.donoEmail || '',
-        txid: 'LIG' + slug.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro ' + estado.loja.nome, avisar: avisar,
+      var C = window.LigeiroCobranca;
+      var atualizar = function () { carregarConta().then(function () { desenharCabecaPedidos(); if (estado.aba === 'ajustes' && typeof desenharAjustes === 'function') desenharAjustes(); }); };
+      C.abrir({
+        fatura: estado.conta && C.faturaAberta ? C.faturaAberta(estado.conta, { todas: true }) : null,
+        /* so a assinatura que ja pagou conta como "ja assina" (a que so tem fatura ainda escolhe mensal ou anual) */
+        assinatura: !D.modoDemo && !!(estado.conta && estado.conta.assinaturaAsaas && C.assinaturaAtiva && C.assinaturaAtiva(estado.conta)), atrasada: a.estado === 'vencida' || a.estado === 'bloqueada',
+        valor: precoAssinatura(a.tipo), periodo: a.tipo === 'anual' ? '12 meses' : '30 dias', planoId: plano.planoId || 'uma', tipo: a.tipo, quem: estado.loja.nome, email: (estado.conta && estado.conta.email) || estado.loja.donoEmail || '',
+        aoPagar: function (c) { if (c) estado.conta = c; atualizar(); },
+        aoFechar: atualizar,
       });
     }
 

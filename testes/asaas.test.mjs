@@ -15,7 +15,7 @@ const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const SA = { project_id: 'proj', client_email: 'sa@proj.iam', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
 const env = {
   ASAAS_KEY: 'chave', ASAAS_WEBHOOK: 'tokenDoWebhook123', FIREBASE_SA: JSON.stringify(SA),
-  PLANOS: JSON.stringify({ uma: { mensal: 8900, anual: 89000, fm: 7900, fa: 79000 } }),
+  PRECOS: JSON.stringify({ uma: { mensal: 8900, anual: 89000, fm: 7900, fa: 79000 } }),
 };
 
 /* ---- banco e Asaas de mentira ---- */
@@ -654,13 +654,13 @@ console.log('Revisao antes de publicar');
 
 /* PLANOS digitado errado: nada e gravado, 500 (o Asaas tenta de novo) e o admin recebe e-mail */
 for (const [nome, errado] of [['sem a chave do fim', '{"uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}'], ['"Uma" maiusculo', '{"Uma":{"mensal":8900,"anual":89000,"fm":7900,"fa":79000}}'], ['preco em reais', '{"uma":{"mensal":89,"anual":890,"fm":79,"fa":790}}']]) {
-  const envErrado = Object.assign({}, envE, { PLANOS: errado });
+  const envErrado = Object.assign({}, envE, { PRECOS: errado });
   novaConta('planos@x.com', 'cus_pl', { pagoAte: new Date(Date.now() + 2 * DIA).toISOString() });
   const antesPl = contaDe('planos@x.com').plano.pagoAte;
   cobrancas.set('pay_pl', { id: 'pay_pl', customer: 'cus_pl', value: 5, status: 'RECEIVED', subscription: 'sub_pl', billingType: 'PIX' });
   adminAntes = doAdmin().length;
   r = await avisarCom(envErrado, { id: 'pay_pl', customer: 'cus_pl' });
-  ok(r.status === 500 && contaDe('planos@x.com').plano.pagoAte === antesPl && doAdmin().length === adminAntes + 1 && /PLANOS/.test(doAdmin()[doAdmin().length - 1].assunto), 'PLANOS errado (' + nome + '): nenhum dia, 500 para o Asaas tentar de novo e e-mail ao admin');
+  ok(r.status === 500 && contaDe('planos@x.com').plano.pagoAte === antesPl && doAdmin().length === adminAntes + 1 && /PRECOS/.test(doAdmin()[doAdmin().length - 1].assunto), 'PLANOS errado (' + nome + '): nenhum dia, 500 para o Asaas tentar de novo e e-mail ao admin');
 }
 
 /* a folga da multa nao vale para cobranca avulsa */
@@ -850,8 +850,8 @@ ok(emails.filter((m) => m.para === 'recibo@x.com').length === 1, 'aviso repetido
 r = await worker.fetch(new Request('https://w/saude'), envE);
 const txtSaude = await r.text(); j = JSON.parse(txtSaude);
 ok(r.status === 200 && j.planosCertos === true && j.tokenDoAviso === true && j.chaveDoAsaas === true && j.contaDoBanco === true && j.email === true && j.fundadorVagas === 10, '/saude: tudo configurado aparece como sim');
-ok(Object.keys(j).every((k) => typeof j[k] !== 'string') && txtSaude.indexOf(envE.ASAAS_WEBHOOK) < 0 && txtSaude.indexOf(envE.EMAIL_TOKEN) < 0 && txtSaude.indexOf('BEGIN') < 0, '/saude: nenhum segredo sai (so sim, nao e numero)');
-r = await worker.fetch(new Request('https://w/saude'), Object.assign({}, envE, { PLANOS: '{"uma":{"mensal":89}}' })); j = await r.json();
+ok(Object.keys(j).every((k) => k === 'versao' || typeof j[k] !== 'string') && /^\d{4}-\d{2}-\d{2}$/.test(j.versao) && txtSaude.indexOf(envE.ASAAS_WEBHOOK) < 0 && txtSaude.indexOf(envE.EMAIL_TOKEN) < 0 && txtSaude.indexOf('BEGIN') < 0, '/saude: nenhum segredo sai (so sim, nao e numero)');
+r = await worker.fetch(new Request('https://w/saude'), Object.assign({}, envE, { PRECOS: '{"uma":{"mensal":89}}' })); j = await r.json();
 ok(j.planosCertos === false, '/saude: PLANOS errado aparece como nao');
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');

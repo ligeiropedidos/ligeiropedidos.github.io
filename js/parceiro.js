@@ -39,20 +39,27 @@
       el('div', { class: 'fundador-conta' }, [el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Entrar na lista de espera', onclick: function () { abrirContato('lista-espera'); } })]),
     ]);
   }
+  /* As vagas de loja de verdade (15/11/2026, no lugar da faixa do preco de fundador, que saiu): o limite e a contagem sao os
+     que a Central grava (publico/fundadores.capacidade). So aparece com o numero conferido, com vaga e com poucas (ate 15):
+     "restam 38" nao diz nada. Cheio, quem aparece e a faixa da lista de espera */
+  function vagasAbertas() {
+    var pub = (window.LigeiroFundadores && window.LigeiroFundadores.capacidade) || null;
+    var c = R.capacidadeLojas();
+    if (!pub || pub.max == null || c.fechado || !(c.max > 0) || !(c.restam > 0) || c.restam > 15) return null;
+    return c;
+  }
+  function pedidosDoPlano() { return (Number((cfg().limites || {}).pedidosMes) || 3000).toLocaleString('pt-BR'); }
   function faixaFundador() {
-    var restam = R.vagasFundador();
-    var total = (cfg().fundador || {}).vagas || 0;
-    if (!restam || !total) return null;
-    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': 'Restam ' + restam + ' de ' + total + ' vagas' }, el('i', { style: { width: Math.max(4, Math.round(restam / total * 100)) + '%' } }));
-    /* nenhuma vaga usada ainda: sem a contagem ("restam 5 de 5" com a barra cheia parecia que ninguem comprou) */
-    var nenhumaUsada = restam >= total;
-    return el('div', { class: 'fundador' + (nenhumaUsada ? ' sem-contagem' : '') }, [
+    var c = vagasAbertas();
+    if (!c) return null;
+    var barra = el('div', { class: 'fundador-barra', role: 'img', 'aria-label': 'Restam ' + c.restam + ' de ' + c.max + ' vagas' }, el('i', { style: { width: Math.max(4, Math.round(c.restam / c.max * 100)) + '%' } }));
+    return el('div', { class: 'fundador' }, [
       el('div', { class: 'fundador-lado' }, [
-        el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Preço de fundador']),
-        el('p', { class: 'fundador-texto', text: 'Para as ' + total + ' primeiras lojas: ' + reais(R.precoDoPlano('uma', 'mensal')) + ' por mês, travado enquanto você não cancelar.' }),
+        el('span', { class: 'fundador-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Vagas limitadas']),
+        el('p', { class: 'fundador-texto', text: juntarFim('Abrimos poucas lojas por vez, para o suporte continuar rápido. Encheu, a entrada é pela lista de espera.') }),
       ]),
-      nenhumaUsada ? null : el('div', { class: 'fundador-conta' }, [
-        el('span', { class: 'fundador-vagas' }, [el('span', { class: 'fundador-relogio', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Restam ', el('b', { text: String(restam) }), ' de ' + total + ' vagas']),
+      el('div', { class: 'fundador-conta' }, [
+        el('span', { class: 'fundador-vagas' }, [el('span', { class: 'fundador-relogio', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Restam ', el('b', { text: String(c.restam) }), ' de ' + c.max + ' vagas']),
         barra,
       ]),
     ]);
@@ -349,14 +356,11 @@
       if (tocar && tocar.catch) tocar.catch(function () { /* navegador pediu toque: os controles ficam na tela */ });
     }
 
+    /* o selo do topo: as vagas de loja que restam (de verdade; ver vagasAbertas). Leva aos planos */
     function seloFundador() {
-      var restam = R.vagasFundador();
-      if (!(restam > 0)) return null;
-      var total = (cfg().fundador || {}).vagas || 0;
-      /* "Preço de fundador: R$ 69,90 travado" nao cabe numa linha abaixo de 360: ali vira "Fundador: R$ 69,90 travado" (css) */
-      var rotulo = restam >= total ? [el('span', { class: 'selo-fundador-longo', text: 'Preço de fundador: ' }), el('span', { class: 'selo-fundador-curto', text: 'Fundador: ' }), reais(pr.mensal) + ' travado']
-        : ['Restam ' + restam + (restam === 1 ? ' vaga' : ' vagas') + ' de fundador'];
-      return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')])].concat(rotulo));
+      var c = vagasAbertas();
+      if (!c) return null;
+      return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Vagas limitadas: restam ' + c.restam]);
     }
 
     raiz.appendChild(barraTopo());
@@ -458,14 +462,14 @@
         /* dois titulos (app.js decide: LigeiroVariante). Anuncio do Meta: o cardapio que recebe pedido e Pix sozinho, que e a dor de quem
            vende pelo WhatsApp (no Vale o iFood pesa pouco). O resto: a comissao */
         porCardapio
-          ? el('div', { class: 'kicker', text: 'Cardápio e catálogo digital, com pedido e Pix automáticos' })
+          ? el('div', { class: 'kicker', text: 'O link de pedidos da sua loja, com Pix automático' })
           : el('div', { class: 'kicker' }, ['A alternativa ao ', el('span', { class: 'sem-quebra', text: 'iFood' }), ' e ao ', el('span', { class: 'sem-quebra', text: 'Anota AI' }), ' para receber pedidos pelo WhatsApp']),
         /* abre pela dor (a comissao), como o comercial; a oferta vem logo embaixo */
         porCardapio
           ? el('h1', { class: 'vender-titulo' }, ['Chega de mandar '].concat(palavraQueTroca(['cardápio', 'catálogo']), [' no WhatsApp.']))
           : el('h1', { class: 'vender-titulo' }, ['Pare de dar até ', el('span', { class: 'dor-destaque', text: '26,2%' }), ' de cada pedido para o iFood.']),
         el('p', { class: 'vender-oferta' }, [pr.diasGratis + ' dias grátis. Depois, ', el('span', { class: 'preco-destaque', text: reais(pr.mensal) }), ' fixo por mês e ', el('span', { class: 'preco-destaque', text: '0%' }), ' de comissão.']),
-        el('p', { class: 'vender-sub', text: porCardapio ? 'O cliente escolhe no seu cardápio ou catálogo, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
+        el('p', { class: 'vender-sub', text: porCardapio ? 'Para lanchonete, loja de roupa e qualquer comércio: o cliente escolhe, paga no Pix e o pedido apita no seu celular.' : 'Seu cliente pede por um link, o Pix cai confirmado e o pedido apita no seu celular.' }),
         botoesChamada(true, true),
         /* o "a gente monta para voce" virou o cartao ao lado (no celular, logo abaixo): o selo do WhatsApp saiu daqui */
         selosTopo,
@@ -490,11 +494,12 @@
        ultimas palavras de cada texto presas (espaco que nao quebra): onde quebra, nunca sobra uma sozinha ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco', 'data-secao': 'quem' }, [
       el('div', { class: 'kicker', text: 'Para quem é' }),
-      el('h2', { text: 'Serve para comida e para comércio' }),
+      el('h2', { text: 'Serve para qualquer loja' }),
       el('div', { class: 'segmentos' }, [
-        segmento('cardapio', 'Comida', 'Cardápio com adicionais e senha do pedido.', 'Lanchonete, pizzaria, açaí, marmitaria e outros'),
-        segmento('sacola', 'Comércio', 'Catálogo com tamanho, estoque e fotos.', 'Roupas, calçados, presentes, pet shop e outros'),
+        segmento('cardapio', 'Comida', 'Cardápio com adicionais e senha do pedido.', 'Lanchonete, pizzaria, açaí, marmita, doces, bebidas e outros'),
+        segmento('sacola', 'Comércio', 'Catálogo com tamanho, estoque e fotos.', 'Roupas, calçados, presentes, pet shop, papelaria, estamparia e outros'),
       ]),
+      el('p', { class: 'segmentos-nota', text: juntarFim('Vende outra coisa? Também serve: a loja já nasce montada para o que você vende.') }),
     ]));
 
     /* ---------- calculadora ---------- */
@@ -515,7 +520,7 @@
         ['Anota AI', c.anotaAi, c.anotaFaixa],
         /* as barras: o que cada sistema cobra (no iFood o pagamento online ja vem na comissao; nos de mensalidade, a taxa
            do pagamento fica a parte, e a do Ligeiro entra na frase e na nota de baixo) */
-        ['Ligeiro', c.ligeiroMensal, 'fixo, em qualquer volume'],
+        ['Ligeiro', c.ligeiroMensal, 'fixo, até ' + pedidosDoPlano() + ' pedidos'],
       ].forEach(function (linha, i) {
         var maior = Math.max(c.ifoodEntrega, c.ifoodBasico, c.anotaAi, c.ligeiroMensal, 1);
         resultado.appendChild(el('div', { class: 'calc-linha' + (i === 3 ? ' ligeiro' : '') }, [
@@ -664,14 +669,17 @@
         duvida('Eu não entendo de internet. Vou conseguir?', 'Vai. Se preferir, a gente monta a loja e tira as suas dúvidas pelo WhatsApp. Depois, mudar um preço ou pausar um item é um toque no celular.'),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro, sem comissão, para quem já é cliente.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, é só tocar em "Encerrar assinatura", em Minha conta, e a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e os seus dados ficam guardados por 90 dias, caso você volte.'),
+        duvida('Como eu pago a mensalidade?', 'Pelo próprio painel, em menos de um minuto: aparece um Pix para pagar no app do banco, ou você cadastra o cartão e a cobrança cai sozinha todo mês. Não precisa mandar comprovante: pagou, liberou.'),
+        duvida('Tem limite de pedidos?', 'Cabem até ' + pedidosDoPlano() + ' pedidos por mês em cada loja (uns 100 por dia), sem comissão e sem pagar nada a mais por pedido. Se a sua loja passar disso, a gente combina um plano maior com você antes, e ela não sai do ar por isso.'),
+        duvida('O que não está incluso?', 'As taxas do Mercado Pago, que são dele (0,99% no Pix e cerca de 5% no cartão). Fotos profissionais, vídeo e design exclusivo são serviços à parte, que você contrata no painel se quiser. Maquininha, entregador e impressora são da loja. Cada conta tem uma loja, com até ' + ((cfg().limites || {}).itens || 300) + ' itens.'),
         duvida('Como eu recebo o dinheiro do Pix e do cartão?', 'Direto na sua conta do Mercado Pago, que você conecta no painel. O Mercado Pago confirma o pagamento na hora e o pedido já entra pago, sem o dinheiro passar pelo Ligeiro. As taxas são dele: 0,99% no Pix e cerca de 5% no cartão, que você pode repassar ao cliente.'),
         duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, e o Ligeiro recebe só a permissão de criar os pagamentos da sua loja. Dá para desconectar quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('Serve para entrega e para retirada?', 'Serve. Na hora de pedir, o cliente escolhe: entrega no endereço, com a taxa que você definir, ou retirada na loja.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: o cliente toca no item, escolhe e paga. E quem chama no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business.'),
-        duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que vimos em setembro de 2026 costumam limitar os pedidos do mês (de 30 a 65, em vários) e cobrar pelo pedido a mais ou parar de receber. No Ligeiro os pedidos são ilimitados e o Pix chega confirmado. E você testa ' + pr.diasGratis + ' dias antes de pagar.'),
+        duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que vimos em setembro de 2026 costumam limitar os pedidos do mês (de 30 a 65, em vários) e cobrar pelo pedido a mais ou parar de receber. No Ligeiro cabem ' + pedidosDoPlano() + ' pedidos por mês e o Pix chega confirmado. E você testa ' + pr.diasGratis + ' dias antes de pagar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'Não, o Ligeiro não pede. O Mercado Pago, onde o dinheiro cai, tem as próprias regras para abrir conta.'),
         duvida('Preciso instalar alguma coisa?', 'Não. Você usa o painel no celular que já tem, e o cliente só abre o link, em qualquer celular. Tela na cozinha ou na separação e impressora são opcionais.'),
-        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem um robô no WhatsApp e cobra por faixa de pedidos. É do iFood desde 2022. No Ligeiro você paga ' + reais(pr.mensal) + ' fixo por mês, sem limite de pedidos: o cliente pede sozinho pelo link e o Mercado Pago confirma o Pix e o cartão.'),
+        duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem um robô no WhatsApp e cobra por faixa de pedidos. É do iFood desde 2022. No Ligeiro você paga ' + reais(pr.mensal) + ' fixo por mês, com até ' + pedidosDoPlano() + ' pedidos: o cliente pede sozinho pelo link e o Mercado Pago confirma o Pix e o cartão.'),
       ]),
     ]));
 
@@ -805,9 +813,10 @@
       card.style.setProperty('--partes', [].filter.call(card.children, function (f) { return !f.classList.contains('plano-etiqueta') && !f.classList.contains('plano-visto'); }).length);
       return card;
     });
-    var linhas = ['1 loja na sua conta', pr.diasGratis + ' dias grátis, sem cartão', 'Pedidos ilimitados, sem comissão', 'Cartão, boleto ou Pix', 'Suporte pelo WhatsApp'];
-    /* a faixa das vagas: so para quem ainda pode virar fundador (quem ja e, ja tem o preco) */
-    var faixa = fechado ? faixaEspera() : (deFundador && !jaFundador ? faixaFundador() : null);
+    /* o que vem e ate onde vai (15/11/2026: os limites as claras; por R$ 39,90, "ilimitado" soava bom demais para ser verdade) */
+    var linhas = ['Sem comissão por pedido', 'Até ' + pedidosDoPlano() + ' pedidos por mês', 'Até ' + ((cfg().limites || {}).itens || 300) + ' itens, com 3 fotos cada', '1 loja por conta', 'Suporte pelo WhatsApp', pr.diasGratis + ' dias grátis, sem cartão'];
+    /* a faixa das vagas de loja: so para quem ainda nao e cliente */
+    var faixa = fechado ? faixaEspera() : (ehCliente ? null : faixaFundador());
     return el('div', { class: 'pilha planos-caixa' }, [
       faixa,
       el('div', { class: 'planos planos-lado' + (cartoes.length === 1 ? ' planos-um' : ''), role: 'group', 'aria-label': 'Mensal ou anual' }, cartoes),
@@ -1005,7 +1014,7 @@
   }
 
   /* data de verdade da ultima mudanca dos termos e da privacidade (antes aparecia sempre a data de hoje) */
-  var VERSAO_DOS_TERMOS = '09/10/2026';
+  var VERSAO_DOS_TERMOS = '15/11/2026';
 
   function termos(raiz) {
     var pr = precos();
@@ -1018,7 +1027,8 @@
     return paginaLegal(raiz, 'Termos de uso', [
       ['O que é o Ligeiro', ['O Ligeiro é um sistema de pedidos para lojas de comida (lanchonete, pizzaria, marmitaria e parecidos) e de comércio (roupa, calçado, presente, pet shop e outros): cardápio ou catálogo num link, painel de pedidos, telas de cozinha ou separação e de entrega, estoque, ofertas, relatórios e cupons. Quem oferece o serviço é ' + quem + '.']],
       ['Quem pode usar', ['Qualquer estabelecimento que venda comida, bebida ou outros produtos (roupa, calçado, presente e outros) e tenha um responsável maior de 18 anos. Ao criar a loja, você confirma que tem direito de vender o que cadastra e que as informações (nome, endereço, WhatsApp) são suas ou da sua empresa.']],
-      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(normal.mensal) + ' por mês' + (normal.anual > 0 ? ' e o anual ' + dinheiro(normal.anual) + ' por ano' : '') + ', pagos por cartão de crédito, boleto ou Pix em "Minha conta". Cada conta tem uma loja: outra loja ganha a própria conta, com a própria assinatura.' + (vagas > 0 && fund.mensal ? ' Preço de fundador: as ' + ((cfg().fundador || {}).vagas || 5) + ' primeiras lojas que pagarem pagam ' + dinheiro(fund.mensal) + ' por mês' + (fund.anual > 0 ? ' (' + dinheiro(fund.anual) + ' por ano)' : '') + ', travado enquanto não cancelarem. Se as vagas acabarem antes do seu primeiro pagamento, vale o preço normal.' : '') + ' Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago nem para o preço de fundador travado.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
+      ['Preço e pagamento', ['Os primeiros ' + pr.diasGratis + ' dias são grátis, sem cartão. Depois, o plano mensal custa ' + dinheiro(normal.mensal) + ' por mês' + (normal.anual > 0 ? ' e o anual ' + dinheiro(normal.anual) + ' por ano' : '') + ', pagos por Pix ou cartão de crédito em "Minha conta" (o boleto fica na fatura). Cada conta tem uma loja: outra loja ganha a própria conta, com a própria assinatura.' + (vagas > 0 && fund.mensal ? ' Preço de fundador: as ' + ((cfg().fundador || {}).vagas || 5) + ' primeiras lojas que pagarem pagam ' + dinheiro(fund.mensal) + ' por mês' + (fund.anual > 0 ? ' (' + dinheiro(fund.anual) + ' por ano)' : '') + ', travado enquanto não cancelarem. Se as vagas acabarem antes do seu primeiro pagamento, vale o preço normal.' : '') + ' Não há comissão por pedido nem taxa escondida. O preço pode mudar com aviso de 30 dias no painel; a mudança nunca vale para um período já pago nem para o preço de fundador travado.', 'Acabando os dias grátis sem assinar, o site da loja para de aceitar pedidos até o pagamento ser confirmado. Quem já paga tem 10 dias de tolerância após o vencimento, com aviso no painel. Os dados ficam guardados por 90 dias e podem ser apagados a pedido.']],
+      ['Limites do plano', ['O plano vale para 1 loja por conta, com até ' + ((cfg().limites || {}).itens || 300) + ' itens e ' + ((cfg().limites || {}).categorias || 20) + ' categorias no cardápio ou catálogo, e até ' + pedidosDoPlano() + ' pedidos por mês. Não há comissão nem cobrança por pedido. Se a loja passar desse volume com frequência, o Ligeiro combina um plano maior com ela antes de qualquer mudança, e a loja não é desligada por isso. As vagas para lojas novas são limitadas; quando acabam, a entrada é pela lista de espera.']],
       ['Aceite', ['Você aceita estes termos ao marcar "Li e aceito" no cadastro da loja ou no painel. O Ligeiro guarda qual versão foi aceita e quando. Quando o texto muda de um jeito que importa, o painel pede um novo aceite antes de continuar.']],
       ['Cancelamento', ['Não tem fidelidade. Para cancelar, toque em Encerrar assinatura, em Minha conta, ou peça no WhatsApp: a cobrança automática do cartão para na hora. Períodos já pagos não são devolvidos, mas continuam valendo até o fim.']],
       ['O dinheiro do cliente', ['O Pix e o cartão de crédito do cliente vão para a conta Mercado Pago da loja, que confirma o pagamento e libera o pedido. O Ligeiro não recebe, não guarda e não repassa dinheiro de pedido. Valem as regras e taxas do Mercado Pago. Os números do cartão são digitados no formulário do próprio Mercado Pago e não passam pelo Ligeiro nem pela loja.', 'Quando a loja cancela um pedido pago pelo site, o valor volta ao cliente pelo Mercado Pago. Maquininha e dinheiro são cobrados pela própria loja na entrega ou no balcão.']],

@@ -48,15 +48,19 @@ window.LIGEIRO_CONFIG = {
   /* Precos, em centavos. anual: 0 esconde o plano anual. diasGratis: periodo de teste sem cartao (7 dias, e acabou parou).
      So o texto das telas le daqui: quem decide e ASSINATURA.diasGratis em js/regras.js (o mensageiro usa a mesma) e o
      DIAS_GRATIS do worker-asaas. Mudar um, mudar os tres (um teste confere). */
-  precos: { mensal: 8900, anual: 89000, diasGratis: 7 },
-  /* Preco de fundador: as primeiras lojas que PAGAREM travam o preco antigo enquanto nao cancelarem (campo "fundador" de cada plano).
-     A contagem publica fica em publico/fundadores e sobe quando o admin (ou o Asaas) confirma o primeiro pagamento. */
-  fundador: { vagas: 10, jaOcupadas: 0 }, /* 10 vagas so para clientes (era 20, depois 10, depois 5; voltou a 10 em 29/09/2026 para o comercial do Luciano). A Dom Conizza nao conta (jaOcupadas 0) */
+  /* 15/11/2026: um preco so, R$ 39,90 por mes ou R$ 399 por ano (era R$ 89, com R$ 69,90 de fundador). O mensageiro do Asaas
+     cobra este mesmo valor (PRECOS_PADRAO em ferramentas/worker-asaas.js; testes/pagar.test.mjs confere os dois) */
+  precos: { mensal: 3990, anual: 39900, diasGratis: 7 },
+  /* Preco de fundador: saiu em 15/11/2026 (o plano nao tem mais o campo "fundador": todo mundo paga o mesmo). As vagas
+     ficam aqui porque a contagem publica (publico/fundadores) tambem guarda o limite de lojas, que continua valendo */
+  fundador: { vagas: 10, jaOcupadas: 0 },
   /* Limite de lojas no sistema (0 = sem limite). Passou disso, cliente novo cai na lista de espera ate subirmos a estrutura.
      A Central muda o limite e abre/fecha as vagas sem publicar o site (fica em publico/fundadores.capacidade). */
   /* tamanho do cardapio de cada loja: tudo fica num documento so (limite do banco) e baixa inteiro no celular do cliente.
      As regras do banco (ferramentas/firestore.rules, cardapioNoLimite) usam os mesmos numeros */
-  limites: { categorias: 20, itens: 300, grupos: 30, opcoes: 30 },
+  /* pedidosMes (15/11/2026): quantos pedidos por mes cabem no plano de R$ 39,90 (uns 100 por dia). E o que o site promete
+     e os termos dizem; nao ha trava (passou disso, o Ligeiro combina um plano maior com a loja) */
+  limites: { categorias: 20, itens: 300, grupos: 30, opcoes: 30, pedidosMes: 3000 },
   /* Capacidade do banco gratis (Spark: 50 mil leituras por dia), medida no codigo em 07/10/2026 depois da otimizacao: um
      pedido no Pix com painel, cozinha e entregador abertos gasta ~24 leituras (eram ~32; so com o painel, ~14), e cada loja
      ~80 por dia so de telas abertas. A Central mostra quantos pedidos cabem hoje com as lojas que existem (~1.800 com 11).
@@ -68,13 +72,13 @@ window.LIGEIRO_CONFIG = {
      propria assinatura (decidido em 25/09/2026: trocar entre 1, 2 e 3 lojas era o que mais dava dor de cabeca com dinheiro).
      anual: 0 esconde o anual */
   planos: [
-    { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 6990, anual: 69900 }, frase: 'Tudo incluso para a sua loja' }, /* fundador R$ 69,90 desde 09/10/2026 (era R$ 79) */
+    { id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 3990, anual: 39900, frase: 'Tudo incluso para a sua loja' }, /* R$ 39,90 desde 15/11/2026, sem preco de fundador */
   ],
 
   /*
-   * Cobranca automatica (cartao de credito e boleto) por link de assinatura.
-   * Crie no Asaas (Cobrancas > Links de pagamento > tipo Assinatura, mensal ou anual)
-   * um link por plano e cole aqui. Vazio = so Pix manual. O mesmo link aceita cartao e boleto.
+   * A assinatura e paga dentro do painel (15/11/2026): o mensageiro do Asaas cria a cobranca com o e-mail da conta e
+   * devolve o Pix copia e cola (o painel mostra o QR) e a fatura para o cartao. Ninguem digita e-mail nem sai para um
+   * link. Os links de assinatura do Asaas (links e linksFundador) sairam: ficaram vazios e podem ser desativados la.
    * O aviso "pagou" chega pelo webhook do Asaas no ferramentas/worker-asaas.js.
    */
   cobranca: {
@@ -83,13 +87,8 @@ window.LIGEIRO_CONFIG = {
     mensageiro: 'https://ligeiro-asaas.ligeiro-pedidos.workers.dev',
     /* linksFundador: os mesmos links, com o preco de fundador (so quem tem a vaga ve esses). Os de 2 e 3 lojas sairam
        (plano unico); no Asaas eles podem ser desativados */
-    linksFundador: {
-      uma: { mensal: 'https://www.asaas.com/c/0ecl013dsndt48ta', anual: 'https://www.asaas.com/c/ijf1apwcx3f7q5e3' },
-    },
-    /* conferidos na pagina publica de cada link em 25/09/2026: nome, valor e frequencia batem com os planos acima */
-    links: {
-      uma: { mensal: 'https://www.asaas.com/c/7fqf0ii8xsgy70el', anual: 'https://www.asaas.com/c/xlpz69ezcezhvn0q' },
-    },
+    linksFundador: { uma: { mensal: '', anual: '' } },
+    links: { uma: { mensal: '', anual: '' } },
   },
 
   /* Chave Pix do Ligeiro pra receber a mensalidade. Aparece no painel da loja
