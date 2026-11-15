@@ -1764,6 +1764,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 .assinar-pago { padding: 16px 0 8px; }
 .assinar-miolo .pix-gerando { padding: 16px 12px; }
 .assinar-miolo .garantia-botao { margin: 0; }
+/* PC: a janela de pagar e estreita (480) e fica no meio, com os quatro cantos redondos, como a janela do item */
+@media (min-width: 900px) and (min-height: 480px) {
+  .modal-caixa.modal-assinar { --margem: 24px; max-width: 480px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
+}
 /* 320: o icone das formas sai (o nome e a frase curta cabem inteiros) */
 @media (max-width: 359px) { .assinar-forma { gap: 8px; padding: 8px; } .assinar-forma-ico { display: none; } }
 .caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; } /* quebra depois das "/" (UI.pedacosDeLink); no meio so se um pedaco nao couber */

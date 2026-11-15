@@ -226,7 +226,7 @@
     function trocaDeTipo() {
       if (!podeEscolher) return null;
       var outro = e.tipo === 'anual' ? 'mensal' : 'anual';
-      var texto = outro === 'anual' ? 'Pagar o ano: ' + reais(plano.anual) + ' (2 meses grátis)' : 'Voltar para o mensal: ' + reais(R.precoDoPlano('uma', 'mensal'));
+      var texto = outro === 'anual' ? 'Pagar o ano: ' + reais(plano.anual) + ' (2 meses grátis)' : 'Voltar para o mensal: ' + reais(R.precoDoPlano('uma', 'mensal'));
       return el('button', { class: 'assinar-troca', type: 'button', onclick: function () { if (e.pago) return; e.tipo = outro; pedir(); } }, [UI.iconeLinha(outro === 'anual' ? 'presente' : 'desfazer'), el('span', { text: texto })]);
     }
     function seguro() { return el('p', { class: 'garantia-botao' }, [UI.iconeLinha('cadeado'), 'Pagamento seguro pelo ' + provedor + '.']); }
@@ -386,7 +386,7 @@
       });
     });
 
-    UI.abrirModal({ titulo: renovacao ? (e.tipo === 'anual' ? 'Pagar a fatura' : 'Pagar a mensalidade') : 'Assinar o Ligeiro', sub: renovacao ? null : 'Pix ou cartão, sem sair daqui.', corpo: corpo, rodape: rodape, centro: true });
+    UI.abrirModal({ titulo: renovacao ? (e.tipo === 'anual' ? 'Pagar a fatura' : 'Pagar a mensalidade') : 'Assinar o Ligeiro', sub: renovacao ? null : 'Pix ou cartão, sem sair daqui.', corpo: corpo, rodape: rodape, centro: true, classe: 'modal-assinar' });
     pedir();
 
     /* enquanto a janela esta aberta: a cada 5 s le a conta (uma leitura) para ver se o pagamento ja entrou; depois de 3

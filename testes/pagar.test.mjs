@@ -63,7 +63,7 @@ const cobrancas = new Map();     /* id -> cobranca */
 const chamadas = [];             /* tudo o que o worker pediu ao Asaas (menos GET) */
 const perguntas = [];            /* os GET */
 let seq = 0;
-let pixFalha = false, semCobranca = false, chavesPix = 1;
+let pixFalha = false, semCobranca = false, chavesPix = 1, putFalha = false;
 const PIX = '00020126580014br.gov.bcb.pix0136aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee5204000053039865405';
 function novaCobrancaDa(a) {
   const id = 'pay_' + (++seq);
@@ -135,6 +135,7 @@ globalThis.fetch = async (u, o) => {
       if (partes[3] === 'payments') return resposta({ data: [...cobrancas.values()].filter((c) => c.subscription === a.id) });
       if (a.deleted) return resposta({ errors: [] }, 404);
       if (metodo === 'PUT') {
+        if (putFalha) return resposta({ errors: [{ code: 'invalid_action' }] }, 400);
         ['value', 'cycle', 'billingType'].forEach((k) => { if (corpo[k] !== undefined) a[k] = corpo[k]; });
         /* como o Asaas: com updatePendingPayments, as cobrancas pendentes mudam junto */
         if (corpo.updatePendingPayments) [...cobrancas.values()].filter((c) => c.subscription === a.id && (c.status === 'PENDING' || c.status === 'OVERDUE')).forEach((c) => { c.value = a.value; c.billingType = a.billingType; });
@@ -225,6 +226,7 @@ async function pedir(rota, token, corpo, envUsado) {
   return { status: r.status, j: await r.json() };
 }
 const criadas = () => chamadas.filter((c) => c.metodo === 'POST' && c.cam === '/subscriptions');
+const vivasDe = (email) => [...assinaturas.values()].filter((a) => !a.deleted && clientes.get(a.customer) && clientes.get(a.customer).email === email);
 const CPF = '52998224725';
 
 /* ================= os precos moram no arquivo ================= */
@@ -263,44 +265,52 @@ const cobA = p.j.cobranca;
 p = await pedir('pagar', tA, { forma: 'pix' });
 ok(p.j.ok && p.j.cobranca === cobA && criadas().length === 1 && clientes.size === 1, 'abrir a janela de novo: a mesma cobranca, nenhuma assinatura a mais e sem pedir o CPF outra vez');
 
-/* trocou para o anual antes de pagar */
+/* trocou para o anual antes de pagar: a assinatura que nunca pagou sai e nasce a anual (uma viva so, sempre) */
 p = await pedir('pagar', tA, { forma: 'pix', tipo: 'anual' });
-ok(p.j.ok && p.j.valor === 39900 && p.j.tipo === 'anual' && subA.value === 399 && subA.cycle === 'YEARLY' && criadas().length === 1 && contaDe('a@x.com').plano.tipo === 'anual', 'escolheu o anual antes de pagar: a mesma assinatura vira R$ 399 por ano');
+let vivaA = vivasDe('a@x.com');
+ok(p.j.ok && p.j.valor === 39900 && p.j.tipo === 'anual' && subA.deleted === true && vivaA.length === 1 && vivaA[0].value === 399 && vivaA[0].cycle === 'YEARLY' && contaDe('a@x.com').plano.tipo === 'anual' && contaDe('a@x.com').assinaturaPendente === vivaA[0].id, 'escolheu o anual antes de pagar: a mensal sai e fica uma assinatura so, de R$ 399 por ano');
+ok(contaDe('a@x.com').assinaturasAntigas.indexOf(subA.id) >= 0 && vivaA[0].nextDueDate === diaBrasilia(agora + 5 * DIA), 'a que saiu fica anotada como antiga, e a nova vence no mesmo dia (o fim do gratis)');
 p = await pedir('pagar', tA, { forma: 'pix', tipo: 'mensal' });
-ok(p.j.valor === 3990 && subA.cycle === 'MONTHLY' && contaDe('a@x.com').plano.tipo === 'mensal', 'voltou para o mensal: R$ 39,90 de novo');
+vivaA = vivasDe('a@x.com');
+ok(p.j.valor === 3990 && vivaA.length === 1 && vivaA[0].cycle === 'MONTHLY' && contaDe('a@x.com').plano.tipo === 'mensal', 'voltou para o mensal: R$ 39,90 de novo, uma assinatura so');
 
-/* cartao: a assinatura vira de cartao e o dono vai para a fatura */
+/* cartao: nasce a assinatura de cartao e o dono vai para a fatura */
 p = await pedir('pagar', tA, { forma: 'cartao' });
-ok(p.j.ok && p.j.pix === null && /^https:\/\/www\.asaas\.com\/i\//.test(p.j.fatura) && subA.billingType === 'CREDIT_CARD' && contaDe('a@x.com').faturaAsaas.forma === 'CREDIT_CARD', 'cartao: a assinatura passa a ser de cartao (as proximas caem sozinhas) e vem o endereco da fatura');
+vivaA = vivasDe('a@x.com');
+ok(p.j.ok && p.j.pix === null && /^https:\/\/www\.asaas\.com\/i\//.test(p.j.fatura) && vivaA.length === 1 && vivaA[0].billingType === 'CREDIT_CARD' && contaDe('a@x.com').faturaAsaas.forma === 'CREDIT_CARD', 'cartao: a assinatura passa a ser de cartao (as proximas caem sozinhas) e vem o endereco da fatura');
 p = await pedir('pagar', tA, { forma: 'pix' });
-ok(p.j.ok && p.j.pix && subA.billingType === 'UNDEFINED', 'desistiu do cartao e quis o Pix: a assinatura volta a aceitar Pix e o codigo aparece');
+vivaA = vivasDe('a@x.com');
+ok(p.j.ok && p.j.pix && vivaA.length === 1 && vivaA[0].billingType === 'UNDEFINED', 'desistiu do cartao e quis o Pix: a assinatura volta a aceitar Pix e o codigo aparece');
+const subA2 = vivaA[0];
+const cobA2 = p.j.cobranca;
 
 /* "Ja paguei" antes de pagar: nada muda */
-let c = await pedir('conferir', tA, { cobranca: cobA });
+let c = await pedir('conferir', tA, { cobranca: cobA2 });
 ok(c.status === 200 && c.j.pago === false && contaDe('a@x.com').plano.status === 'teste', '"Ja paguei" sem ter pago: continua esperando, nenhum dia entra');
 /* pagou: "Ja paguei" libera na hora, sem esperar o aviso do Asaas */
-cobrancas.get(cobA).status = 'RECEIVED';
-c = await pedir('conferir', tA, { cobranca: cobA });
+cobrancas.get(cobA2).status = 'RECEIVED';
+c = await pedir('conferir', tA, { cobranca: cobA2 });
 cA = contaDe('a@x.com');
 const fimGratisA = agora - 2 * DIA + 7 * DIA;
-ok(c.j.pago === true && cA.plano.status === 'ativo' && cA.assinaturaAsaas === subA.id && !cA.assinaturaPendente && cA.faturaAsaas === null, 'pagou e tocou em "Ja paguei": a conta fica ativa na hora, a assinatura vira a da conta e a fatura some');
+ok(c.j.pago === true && cA.plano.status === 'ativo' && cA.assinaturaAsaas === subA2.id && !cA.assinaturaPendente && cA.faturaAsaas === null, 'pagou e tocou em "Ja paguei": a conta fica ativa na hora, a assinatura vira a da conta e a fatura some');
 ok(Math.abs(Date.parse(cA.plano.pagoAte) - new Date(fimGratisA).setUTCMonth(new Date(fimGratisA).getUTCMonth() + 1)) < 5000, 'os dias gratis que faltavam nao se perdem: o mes pago conta depois deles');
 ok(db.get('lojas/loja-a').plano.status === 'ativo', 'a loja destrava junto (o plano vai para a copia da loja)');
 ok(emails.filter((m) => m.para === 'a@x.com' && /Pagamento confirmado/.test(m.assunto)).length === 1, 'o dono recebe o e-mail de pagamento confirmado');
 /* o aviso do Asaas chega depois: nao soma de novo */
 const pagoAteA = cA.plano.pagoAte;
-r = await worker.fetch(new Request('https://w/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'asaas-access-token': env.ASAAS_WEBHOOK }, body: JSON.stringify({ event: 'PAYMENT_RECEIVED', payment: { id: cobA, customer: cliA.id } }) }), env);
+r = await worker.fetch(new Request('https://w/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'asaas-access-token': env.ASAAS_WEBHOOK }, body: JSON.stringify({ event: 'PAYMENT_RECEIVED', payment: { id: cobA2, customer: cliA.id } }) }), env);
 ok(r.status === 200 && contaDe('a@x.com').plano.pagoAte === pagoAteA && emails.filter((m) => m.para === 'a@x.com').length === 1, 'o aviso do Asaas chega depois: os dias nao somam duas vezes e nao vai outro e-mail');
 const perguntasAntes = perguntas.length;
-c = await pedir('conferir', tA, { cobranca: cobA });
+c = await pedir('conferir', tA, { cobranca: cobA2 });
 ok(c.j.pago === true && perguntas.length === perguntasAntes, '"Ja paguei" de novo: responde que sim sem perguntar nada ao Asaas');
 /* em dia e sem nada em aberto: nao ha o que pagar */
+const criadasAntesEmDia = criadas().length;
 p = await pedir('pagar', tA, { forma: 'pix' });
-ok(p.status === 200 && p.j.ok === true && p.j.emDia === true && criadas().length === 1, 'em dia e sem fatura aberta: "nada a pagar", e nenhuma assinatura nova');
+ok(p.status === 200 && p.j.ok === true && p.j.emDia === true && criadas().length === criadasAntesEmDia && vivasDe('a@x.com').length === 1, 'em dia e sem fatura aberta: "nada a pagar", e nenhuma assinatura nova');
 /* a mensalidade do mes seguinte abriu: o Pix dela sai pelo mesmo botao */
-const mes2 = novaCobrancaDa(subA);
+const mes2 = novaCobrancaDa(subA2);
 p = await pedir('pagar', tA, { forma: 'pix', tipo: 'anual' });
-ok(p.j.ok && p.j.cobranca === mes2.id && p.j.valor === 3990 && p.j.tipo === 'mensal' && subA.cycle === 'MONTHLY' && contaDe('a@x.com').assinaturaAsaas === subA.id, 'mensalidade seguinte: o Pix da fatura aberta, e o ciclo de quem ja paga nao muda por aqui (so pelo Mudar de plano)');
+ok(p.j.ok && p.j.cobranca === mes2.id && p.j.valor === 3990 && p.j.tipo === 'mensal' && subA2.cycle === 'MONTHLY' && contaDe('a@x.com').assinaturaAsaas === subA2.id, 'mensalidade seguinte: o Pix da fatura aberta, e o ciclo de quem ja paga nao muda por aqui (so pelo Mudar de plano)');
 
 /* ================= teste que ja acabou (a loja parada): vence hoje ================= */
 const tB = conta('b@x.com', { desde: new Date(agora - 30 * DIA).toISOString() });
@@ -319,7 +329,7 @@ const cobVelha = novaCobrancaDa(assinaturas.get('sub_velha')); cobVelha.status =
 db.get('contas/c@x.com').assinaturaPendente = 'sub_velha';
 const antesC = criadas().length;
 p = await pedir('pagar', tC, { forma: 'pix' });
-ok(p.j.ok && p.j.cobranca === cobVelha.id && p.j.valor === 3990 && assinaturas.get('sub_velha').value === 39.9 && criadas().length === antesC, 'assinatura do preco antigo (R$ 69,90) que nunca pagou: a mesma, ja no preco novo, sem pedir CPF de novo');
+ok(p.j.ok && p.j.valor === 3990 && assinaturas.get('sub_velha').deleted === true && criadas().length === antesC + 1 && vivasDe('c@x.com').length === 1 && vivasDe('c@x.com')[0].value === 39.9 && contaDe('c@x.com').assinaturasAntigas.indexOf('sub_velha') >= 0, 'assinatura do preco antigo (R$ 69,90) que nunca pagou: sai, e nasce a de R$ 39,90, sem pedir CPF de novo');
 
 /* ================= assinatura solta (o pedido anterior caiu no meio) ================= */
 const tD = conta('d@x.com', { desde: new Date(agora - 40 * DIA).toISOString() });
@@ -338,6 +348,27 @@ p = await pedir('pagar', tE, { forma: 'pix' });
 const cE = contaDe('e@x.com');
 ok(p.j.ok && criadas().length === antesE + 1 && cE.assinaturaAsaas === '' && cE.assinaturasAntigas.indexOf('sub_sumiu') >= 0 && cE.assinaturaPendente && cE.assinaturaPendente !== 'sub_sumiu', 'a assinatura da conta nao existe mais no Asaas: vai para as antigas e nasce uma nova');
 ok(criadas()[criadas().length - 1].corpo.nextDueDate === hojeBrasilia(), 'conta vencida: a cobranca nova vence hoje');
+
+/* ================= quem ja paga no cartao e o cartao nao passou: paga a mesma fatura no Pix ================= */
+const tK = conta('k@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora - 3 * DIA).toISOString(), ultimoPagamentoEm: new Date(agora - 33 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_k', pagamentos: ['pay_k_antiga'] });
+clientes.set('cus_k', { id: 'cus_k', email: 'k@x.com', cpfCnpj: CPF, name: 'K' });
+assinaturas.set('sub_k', { id: 'sub_k', status: 'ACTIVE', deleted: false, customer: 'cus_k', billingType: 'CREDIT_CARD', value: 39.9, cycle: 'MONTHLY', nextDueDate: '2026-12-12' });
+const cobK = novaCobrancaDa(assinaturas.get('sub_k')); cobK.status = 'OVERDUE'; cobK.dueDate = diaBrasilia(agora - 3 * DIA);
+const antesK = criadas().length;
+p = await pedir('pagar', tK, { forma: 'pix', tipo: 'anual' });
+ok(p.j.ok && p.j.cobranca === cobK.id && p.j.pix && p.j.tipo === 'mensal' && assinaturas.get('sub_k').billingType === 'UNDEFINED' && assinaturas.get('sub_k').deleted === false && criadas().length === antesK && contaDe('k@x.com').assinaturaAsaas === 'sub_k', 'o cartao nao passou e a mensalidade venceu: a MESMA assinatura passa a aceitar Pix e o codigo da fatura vencida aparece (nenhuma assinatura nova, o plano nao muda)');
+cobK.status = 'RECEIVED';
+c = await pedir('conferir', tK, { cobranca: cobK.id });
+ok(c.j.pago === true && contaDe('k@x.com').plano.status === 'ativo' && Date.parse(contaDe('k@x.com').plano.pagoAte) > agora + 20 * DIA && contaDe('k@x.com').assinaturaAsaas === 'sub_k', 'pagou a vencida no Pix: o mes conta do vencimento e a assinatura continua a mesma');
+/* o Asaas recusou a mudanca da assinatura paga: o pagamento segue pela fatura (nada trava) */
+const tL = conta('l@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora - 3 * DIA).toISOString(), ultimoPagamentoEm: new Date(agora - 33 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_l' });
+clientes.set('cus_l', { id: 'cus_l', email: 'l@x.com', cpfCnpj: CPF, name: 'L' });
+assinaturas.set('sub_l', { id: 'sub_l', status: 'ACTIVE', deleted: false, customer: 'cus_l', billingType: 'CREDIT_CARD', value: 39.9, cycle: 'MONTHLY' });
+const cobL = novaCobrancaDa(assinaturas.get('sub_l')); cobL.status = 'OVERDUE';
+putFalha = true;
+p = await pedir('pagar', tL, { forma: 'pix' });
+putFalha = false;
+ok(p.status === 200 && p.j.ok && p.j.cobranca === cobL.id && p.j.pix === null && /^https:\/\/www\.asaas\.com\/i\//.test(p.j.fatura) && assinaturas.get('sub_l').deleted === false, 'o Asaas recusou mudar a assinatura paga: a resposta vem com a fatura dela (da para pagar), e a assinatura nao e apagada');
 
 /* ================= o Asaas nao deu o codigo do Pix ================= */
 const tF = conta('f@x.com', { desde: new Date(agora - 30 * DIA).toISOString() });
@@ -359,8 +390,8 @@ p = await pedir('pagar', tG, { forma: 'pix' });
 ok(p.j.ok && p.j.pix && criadas().length === antesG, 'tocou de novo: a mesma assinatura, agora com o Pix (nenhuma criada em dobro)');
 
 /* ================= quem nao pode ================= */
-c = await pedir('conferir', tG, { cobranca: cobA });
-ok(c.status === 403, '"Ja paguei" com a cobranca de outra conta: recusado');
+c = await pedir('conferir', tG, { cobranca: cobA2 });
+ok(c.status === 200 && c.j.pago === false && contaDe('g@x.com').plano.status === 'teste', '"Ja paguei" com a cobranca de outra conta: responde "ainda nao", igual a cobranca que nao existe, e nada muda');
 c = await pedir('conferir', tG, { cobranca: 'pay_nao_existe' });
 ok(c.status === 200 && c.j.pago === false, '"Ja paguei" com cobranca que nao existe: so "ainda nao"');
 const tAdmin = tokenDe('ligeiro.pedidos@gmail.com');

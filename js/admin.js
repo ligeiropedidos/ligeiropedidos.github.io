@@ -723,7 +723,8 @@
 
       var fcfg = (window.LIGEIRO_CONFIG || {}).fundador || {};
       var totalVagas = Number(fcfg.vagas) || 0;
-      if (totalVagas > 0) {
+      /* sem preco de fundador no plano (15/11/2026: um preco so), a linha dos fundadores nao aparece */
+      if (totalVagas > 0 && R.planoPorId('uma').fundador) {
         var usadas = Math.max(0, Math.min(totalVagas, totalVagas - R.vagasFundador()));
         s.appendChild(el('div', { class: 'adm-fundadores' }, [
           el('div', { class: 'adm-fundadores-texto' }, [el('span', { class: 'adm-estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Fundadores: ', el('b', { text: usadas + ' de ' + totalVagas }), ' vagas usadas']),

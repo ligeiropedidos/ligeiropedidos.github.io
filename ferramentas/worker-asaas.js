@@ -845,9 +845,13 @@ async function pagarPlano(env, fb, email, conta, corpo) {
   const estaViva = (a) => !!a && a.deleted !== true && String(a.status || 'ACTIVE') === 'ACTIVE';
   const pagoAteMs = Date.parse(p.pagoAte || '') || 0;
 
-  /* deixa a assinatura no plano, no preco e na forma pedidos e devolve a cobranca aberta dela (ou null). "paga" = a
-     assinatura da conta, que ja pagou alguma vez: o ciclo dela so muda pelo /plano/trocar, e o valor so desce (preco que
-     baixou vale para quem ja assina; preco que subiu, nao) */
+  /* A cobranca aberta da assinatura (ou null), com ela no plano, no preco e na forma pedidos.
+     "paga" = a assinatura da conta, que ja pagou alguma vez: e a mesma para sempre. O ciclo dela so muda pelo
+     /plano/trocar, o valor so desce (preco que baixou vale para quem ja assina; preco que subiu, nao) e a forma muda
+     nela mesma; se o Asaas recusar a mudanca, o pagamento segue pela fatura que ja existe.
+     A que nunca pagou (so tem fatura) nao e mexida: se o plano, o preco ou a forma pedidos sao outros, devolve "trocar" e
+     quem chamou apaga ela e cria uma nova, ja certa (criar e apagar sao os pedidos mais simples do Asaas; mexer numa
+     assinatura com fatura aberta e onde mora a surpresa) */
   let tipo = corpo.tipo === 'anual' || corpo.tipo === 'mensal' ? corpo.tipo : (p.tipo === 'anual' ? 'anual' : 'mensal');
   async function acertar(a, paga) {
     const ciclo = a.cycle === 'YEARLY' ? 'anual' : 'mensal';
@@ -855,15 +859,18 @@ async function pagarPlano(env, fb, email, conta, corpo) {
     const preco = precoDe(planos, tipo, p.fundador === true);
     if (!(preco > 0)) return { erro: erro(400, 'Esse plano não está à venda.') };
     const valorAtual = Math.round(Number(a.value || 0) * 100);
-    const muda = {};
-    if (paga ? valorAtual > preco : valorAtual !== preco) muda.value = preco / 100;
-    if (!paga && ciclo !== tipo) muda.cycle = tipo === 'anual' ? 'YEARLY' : 'MONTHLY';
     /* cartao: a assinatura vira de cartao (a fatura pede o cartao e as proximas caem sozinhas). Pix: a de cartao volta a
        aceitar Pix e boleto; as outras ficam como estao */
     const formaAtual = String(a.billingType || 'UNDEFINED');
     const formaNova = forma === 'cartao' ? 'CREDIT_CARD' : (formaAtual === 'CREDIT_CARD' ? 'UNDEFINED' : formaAtual);
+    if (!paga && (valorAtual !== preco || ciclo !== tipo || formaNova !== formaAtual)) return { trocar: true };
+    const muda = {};
+    if (paga && valorAtual > preco) muda.value = preco / 100;
     if (formaNova !== formaAtual) muda.billingType = formaNova;
-    if (Object.keys(muda).length) await asaas(env, '/subscriptions/' + encodeURIComponent(a.id), 'PUT', Object.assign(muda, { updatePendingPayments: true }));
+    if (Object.keys(muda).length) {
+      await asaas(env, '/subscriptions/' + encodeURIComponent(a.id), 'PUT', Object.assign(muda, { updatePendingPayments: true }))
+        .catch((e) => console.error('acertar a assinatura paga', e && e.message || e));
+    }
     const abertas = await cobrancasAbertas(env, a.id);
     return { cobranca: abertas[0] || null };
   }
@@ -879,9 +886,10 @@ async function pagarPlano(env, fb, email, conta, corpo) {
       if (r.erro) return r.erro;
       if (r.cobranca) { subId = id; cobranca = r.cobranca; paga = ehPaga; break; }
       /* viva, em dia e sem nada em aberto: nao ha o que pagar agora (a proxima fatura aparece perto do vencimento) */
-      if (ehPaga && pagoAteMs > agoraMs) return { status: 200, corpo: { ok: true, emDia: true, pagoAte: p.pagoAte || '' } };
-      /* viva, sem cobranca nenhuma e a conta sem dias: nao serve mais. Sai do Asaas e da conta, e nasce outra */
-      await apagarAssinatura(env, id);
+      if (!r.trocar && ehPaga && pagoAteMs > agoraMs) return { status: 200, corpo: { ok: true, emDia: true, pagoAte: p.pagoAte || '' } };
+      /* a que nunca pagou e esta em outro plano, preco ou forma; ou viva, sem cobranca nenhuma e a conta sem dias: nao
+         serve. Sai do Asaas e da conta, e nasce outra (so segue se o Asaas apagou mesmo: duas vivas cobrariam em dobro) */
+      if (!(await apagarAssinatura(env, id))) return erro(502, 'Não deu para atualizar a cobrança agora. Tente de novo em instantes.');
     }
     antigas = juntar(antigas, id);
     campos.assinaturasAntigas = antigas;
@@ -903,6 +911,9 @@ async function pagarPlano(env, fb, email, conta, corpo) {
       const r = await acertar(a, false);
       if (r.erro) return r.erro;
       if (r.cobranca) { subId = String(a.id); cobranca = r.cobranca; break; }
+      /* solta e fora do pedido (outro plano, preco antigo, outra forma) ou sem cobranca: sai, para nao sobrar assinatura
+         viva mandando fatura todo mes */
+      if (await apagarAssinatura(env, String(a.id))) { antigas = juntar(antigas, String(a.id)); campos.assinaturasAntigas = antigas; }
     }
     /* 4. nenhuma: nasce a assinatura. A primeira cobranca vence quando acabam os dias que a conta ja tem (o gratis ou o
        que ja pagou), ou hoje: quem assina no meio do teste nao recebe "venceu" no dia seguinte, e o vencimento de todo mes
@@ -968,7 +979,8 @@ async function conferirPagamento(env, fb, email, conta, corpo) {
   const real = await asaas(env, '/payments/' + encodeURIComponent(id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
   if (!real || !real.customer) return nao;
   const cliente = await lerCliente(env, real.customer);
-  if (!cliente || String(cliente.email || '').trim().toLowerCase() !== email) return { status: 403, corpo: { ok: false, erro: 'Essa cobrança não é desta conta.' } };
+  /* cobranca de outra conta responde igual a cobranca que nao existe (nao da para descobrir cobranca alheia por aqui) */
+  if (!cliente || String(cliente.email || '').trim().toLowerCase() !== email) return nao;
   if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return nao;
   let res = null;
   for (let vez = 0; ; vez++) {
