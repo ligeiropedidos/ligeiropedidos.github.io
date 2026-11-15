@@ -431,23 +431,23 @@ function mensagemDoLembrete(qual, f, cartao, nome, anual) {
   const m = {
     d3: { assunto: SUA + ' vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
       titulo: 'Fatura em aberto', sub: ['É só um lembrete:', 'está tudo em dia.'],
-      texto: SUA + ' vence em 3 dias. Pague pela fatura e sua loja segue recebendo pedidos sem parar.' },
+      texto: SUA + ' vence em 3 dias. Pague agora, no Pix, em menos de um minuto, e sua loja segue recebendo pedidos sem parar.' },
     d0: { assunto: SUA + ' vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
       titulo: 'Último dia', sub: ['Ainda dá tempo', 'de pagar sem atraso.'],
-      texto: SUA + ' vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
+      texto: SUA + ' vence hoje. É só tocar no botão e pagar no Pix: leva menos de um minuto.' },
     vencida: { assunto: SUA + ' venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
       titulo: 'Fatura vencida', sub: ['Calma, ainda dá', 'tempo de resolver.'],
-      texto: naoPassou + SUA + ' venceu. Sua loja segue no ar por mais alguns dias: pague pela fatura para não parar.' },
+      texto: naoPassou + SUA + ' venceu. Sua loja segue no ar por mais alguns dias: pague agora, no Pix, para ela não parar.' },
     vencida7: { assunto: 'Sua loja pode parar de receber pedidos', quando: 'Venceu em ' + dia, tom: 'parar',
       titulo: 'Fatura atrasada', sub: ['Este é o último', 'lembrete que mandamos.'],
-      texto: naoPassou + SUA + ' venceu há uma semana e ainda não foi paga. Pague pela fatura para sua loja não parar de receber pedidos.' },
+      texto: naoPassou + SUA + ' venceu há uma semana e ainda não foi paga. Pague agora para sua loja não parar de receber pedidos.' },
   }[qual];
   const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
   return emailMarca({
     assunto: m.assunto, tom: m.tom, titulo: m.titulo, sub: m.sub, ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!', texto: m.texto,
     quadro: { rotulo: anual ? 'Fatura anual do Ligeiro' : 'Mensalidade do Ligeiro', valor: valor, quando: m.quando },
-    botao: { texto: 'Pagar a fatura', url: f.url, icone: 'icone-cartao.png' }, abaixo: 'Pix, boleto ou cartão',
-    fecho: 'Pagou? Tudo segue sozinho. Dúvida? É só responder este e-mail.',
+    botao: { texto: 'Pagar agora', url: f.url, icone: 'icone-cartao.png' }, abaixo: 'Pix, boleto ou cartão. Também dá para pagar pelo painel.',
+    fecho: 'Pagou? A loja segue sozinha, sem mandar comprovante. Dúvida? É só responder este e-mail.',
   });
 }
 
@@ -455,7 +455,9 @@ function mensagemDoLembrete(qual, f, cartao, nome, anual) {
    titulo, subtitulo e o ratinho), o texto, o quadro do valor, o botao e o fecho. Tabelas e cores lisas: abre igual no
    Gmail, no Outlook e no celular.
    m = { assunto, tom: 'vence'|'venceu'|'parar'|'pago', titulo, sub: [pedacos que nao se partem], ola, texto,
-         quadro?: {rotulo, valor, quando?}, botao?: {texto, url, icone?}, abaixo?, fecho } */
+         elo?: {texto, url} (um link em destaque logo abaixo do texto), passos?: [[titulo, texto], ...] (lista numerada,
+         15/11/2026), quadro?: {rotulo, valor, quando?},
+         botao?: {texto, url, icone?}, abaixo?, fecho } */
 function emailMarca(m) {
   /* faixa: cor lisa (Outlook) e o degrade por cima; titulo, subtitulo, borda do quadro e a cor do "quando" */
   const tons = {
@@ -466,7 +468,8 @@ function emailMarca(m) {
   };
   const t = tons[m.tom] || tons.vence;
   const ola = m.ola || 'Olá!', fecho = m.fecho, q = m.quadro, b = m.botao;
-  const texto = ola + '\n\n' + m.texto + (q ? '\n\n' + q.rotulo + ': ' + q.valor + (q.quando ? ' (' + q.quando + ')' : '') : '') + (b ? '\n' + b.texto + ': ' + b.url : '') + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
+  const passos = Array.isArray(m.passos) ? m.passos : [];
+  const texto = ola + '\n\n' + m.texto + (m.elo ? '\n' + m.elo.url : '') + (passos.length ? '\n\n' + passos.map((x, i) => (i + 1) + '. ' + x[0] + ': ' + x[1]).join('\n') : '') + (q ? '\n\n' + q.rotulo + ': ' + q.valor + (q.quando ? ' (' + q.quando + ')' : '') : '') + (b ? '\n' + b.texto + ': ' + b.url : '') + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
   const fonte = 'font-family:Arial,Helvetica,sans-serif;';
   const img = SITE + '/img/email/';
   const tabela = '<table role="presentation" cellpadding="0" cellspacing="0" border="0"';
@@ -498,7 +501,16 @@ function emailMarca(m) {
     + '</tr></table></td></tr>'
     + '<tr><td class="pad" style="padding:32px 32px 0;' + fonte + 'font-size:16px;line-height:1.6;color:#1F2937;">'
     + '<p style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#0F3D2E;">' + esc(ola) + '</p>'
-    + '<p style="margin:0 0 24px;">' + esc(m.texto) + '</p></td></tr>'
+    + '<p style="margin:0 0 ' + (m.elo ? 12 : 24) + 'px;">' + esc(m.texto) + '</p></td></tr>'
+    /* o link em destaque: uma linha so quando cabe (link comprido parte em qualquer letra, nunca estoura) */
+    + (m.elo ? '<tr><td class="pad" style="padding:0 32px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F9EC" style="background:#F4F9EC;border-radius:12px;">'
+      + '<tr><td align="center" style="padding:12px 16px;' + fonte + 'font-size:15px;line-height:1.4;font-weight:bold;word-break:break-all;"><a href="' + esc(m.elo.url) + '" style="color:#1B6B4A;text-decoration:none;">' + esc(m.elo.texto) + '</a></td></tr></table></td></tr>' : '')
+    /* os passos: a bolinha com o numero, o titulo e uma linha; 16 entre um e outro e 24 ate o que vem depois */
+    + (passos.length ? '<tr><td class="pad" style="padding:0 32px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+      + passos.map((x, i) => '<tr><td valign="top" width="44" style="width:44px;padding:0 0 16px;">'
+        + tabela + ' width="32"><tr><td align="center" valign="middle" width="32" height="32" bgcolor="#EEF9DC" style="width:32px;height:32px;background:#EEF9DC;border-radius:16px;' + fonte + 'font-size:15px;line-height:32px;font-weight:bold;color:#1B6B4A;">' + (i + 1) + '</td></tr></table></td>'
+        + '<td valign="top" style="padding:0 0 16px;' + fonte + 'font-size:15px;line-height:1.5;color:#4B5563;"><div style="font-size:16px;font-weight:bold;color:#0F3D2E;padding-top:4px;">' + esc(x[0]) + '</div>' + esc(x[1]) + '</td></tr>').join('')
+      + '</table></td></tr>' : '')
     /* quadro do valor */
     + (q ? '<tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7FAF3" style="background:#F7FAF3;border:1px solid ' + t.borda + ';border-radius:12px;">'
       + '<tr><td align="center" style="padding:24px 16px;' + fonte + '">'
@@ -535,7 +547,7 @@ function emailPagamentoConfirmado(o) {
       + (o.pausada ? ' Sua conta está em revisão por um estorno anterior; a gente libera em breve.' : ''),
     quadro: { rotulo: 'Plano Ligeiro ' + (o.tipo === 'anual' ? 'anual' : 'mensal') + (o.fundador ? ' · fundador' : ''), valor: reaisEmail(o.valor), quando: 'Pago até ' + ate },
     botao: { texto: 'Abrir o painel', url: o.slug ? SITE + '/painel/' + o.slug : SITE },
-    fecho: 'A próxima cobrança chega sozinha, com aviso antes. Dúvida? É só responder este e-mail.',
+    fecho: 'A próxima fatura aparece no painel e chega por e-mail uns dias antes de vencer (no cartão, ela cai sozinha). Dúvida? É só responder este e-mail.',
   });
 }
 function reaisEmail(c) { return 'R$ ' + (Math.round(Number(c) || 0) / 100).toFixed(2).replace('.', ','); }
@@ -1007,36 +1019,63 @@ async function lembrarTestes(env, agora) {
     const email = String(c._id || '').toLowerCase();
     const pl = c.plano || {};
     if (!EMAIL_OK.test(email) || email === ADMIN || EMAIL_EQUIPE.test(email)) continue;
-    /* sem loja os dias nem comecaram; quem ja pagou, tem assinatura ou fatura segue pelos outros lembretes */
-    if (!c.lojaCriadaEm || pl.ultimoPagamentoEm || pl.pagoAte || c.assinaturaAsaas || c.assinaturaPendente || (c.faturaAsaas && c.faturaAsaas.id)) continue;
+    /* sem loja os dias nem comecaram; quem ja pagou segue pelos outros lembretes */
+    if (!c.lojaCriadaEm || pl.ultimoPagamentoEm || pl.pagoAte) continue;
     const inicio = Date.parse(pl.desde || '');
     if (!isFinite(inicio)) continue;
     const faltam = (inicio + DIAS_GRATIS * 864e5 - agoraMs) / 864e5;
-    /* faltando de 1 a 2 dias: "acaba em 2 dias"; acabou ha menos de 2 dias: "acabou" (teste antigo nao recebe nada) */
-    const qual = faltam > 1 && faltam <= 2 ? 'd2' : (faltam <= 0 && faltam > -2 ? 'fim' : '');
+    const criada = Date.parse(c.lojaCriadaEm || '');
+    const idade = isFinite(criada) ? (agoraMs - criada) / 36e5 : NaN;
+    const comFatura = !!(c.assinaturaAsaas || c.assinaturaPendente || (c.faturaAsaas && c.faturaAsaas.id));
+    /* faltando de 1 a 2 dias: "acaba em 2 dias"; acabou ha menos de 2 dias: "acabou" (teste antigo nao recebe nada; quem ja
+       tem fatura recebe os lembretes dela). Loja criada ha 12 a 60 horas: "primeiros passos" (uma vez) */
+    const qual = !comFatura && faltam > 1 && faltam <= 2 ? 'd2' : (!comFatura && faltam <= 0 && faltam > -2 ? 'fim' : (idade >= 12 && idade < 60 && faltam > 2 ? 'oi' : ''));
     if (!qual) continue;
     const ja = Array.isArray(c.lembretesTeste) ? c.lembretesTeste : [];
-    if (ja.indexOf(qual) >= 0 || (qual === 'd2' && ja.indexOf('fim') >= 0)) continue;
-    const ok = await mandarEmail(env, email, mensagemDoTeste(qual, c.nome, preco, new Date(inicio + DIAS_GRATIS * 864e5)));
+    if (ja.indexOf(qual) >= 0 || (qual !== 'fim' && ja.indexOf('fim') >= 0)) continue;
+    let mensagem = null;
+    if (qual === 'oi') {
+      const slugs = await fb.query('lojas', 'donoEmail', email).catch(() => []);
+      const slug = typeof slugs[0] === 'string' && /^[a-z0-9-]{2,60}$/.test(decodeURIComponent(slugs[0])) ? decodeURIComponent(slugs[0]) : '';
+      if (!slug) continue;
+      mensagem = mensagemDosPrimeirosPassos(c.nome, slug, preco);
+    } else mensagem = mensagemDoTeste(qual, c.nome, preco, new Date(inicio + DIAS_GRATIS * 864e5));
+    const ok = await mandarEmail(env, email, mensagem);
     if (!ok) { falhas++; continue; }
     await fb.merge('contas/' + encodeURIComponent(email), { lembretesTeste: ja.concat([qual]) });
     enviados++;
   }
   return { ok: true, contas: contas.length, enviados: enviados, falhas: falhas };
 }
+/* no dia seguinte a criacao da loja: o que falta para o primeiro pedido (3 passos, o link dela e o botao do painel) */
+function mensagemDosPrimeirosPassos(nome, slug, preco) {
+  const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
+  return emailMarca({
+    assunto: 'Sua loja está no ar: 3 passos para o primeiro pedido', tom: 'pago', titulo: 'Sua loja no ar', sub: ['Faltam 3 passos', 'para o primeiro pedido.'],
+    ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!',
+    texto: 'A sua loja já pode receber pedidos. O link dela é este:', elo: { texto: SITE.replace('https://', '') + '/' + slug, url: SITE + '/' + slug },
+    passos: [
+      ['Confira os itens', 'Troque os itens de exemplo pelos seus, com preço e foto. Leva poucos minutos.'],
+      ['Espalhe o link', 'Coloque na bio do Instagram, no status e na saudação do WhatsApp.'],
+      ['Ligue os avisos', 'No painel, toque em Ligar avisos: o celular apita a cada pedido, mesmo com a tela apagada.'],
+    ],
+    botao: { texto: 'Abrir o painel', url: SITE + '/painel/' + slug }, abaixo: 'Quer que a gente monte para você? É só responder este e-mail.',
+    fecho: 'Você tem ' + DIAS_GRATIS + ' dias grátis, sem cartão. Depois, ' + reaisEmail(preco) + ' por mês, sem comissão e sem fidelidade.',
+  });
+}
 function mensagemDoTeste(qual, nome, preco, fim) {
   const dia = diaDeBrasilia(fim).split('-').reverse().slice(0, 2).join('/');
   const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
   const m = qual === 'd2'
     ? { assunto: 'Seu teste grátis do Ligeiro acaba em 2 dias', tom: 'vence', titulo: 'Faltam 2 dias', sub: ['Para a sua loja', 'não parar.'], quando: 'Grátis até ' + dia,
-        texto: 'O seu teste grátis vai até ' + dia + '. Para a loja continuar recebendo pedidos, é só assinar: você paga no Pix pelo próprio painel, em menos de um minuto, ou no cartão. Os dias grátis que faltam não se perdem.' }
+        texto: 'O seu teste grátis vai até ' + dia + '. Para a loja continuar recebendo pedidos, é só assinar: você paga no Pix pelo próprio painel, em menos de um minuto, ou no cartão. Os dias grátis que faltam não se perdem.' }
     : { assunto: 'Seu teste grátis do Ligeiro acabou', tom: 'venceu', titulo: 'O teste acabou', sub: ['Sua loja volta', 'na hora em que assinar.'], quando: 'Grátis até ' + dia,
         texto: 'O seu teste grátis acabou em ' + dia + ' e o site da loja parou de aceitar pedidos. Nada foi apagado: o cardápio, as fotos e o link continuam iguais. Assine pelo painel, no Pix ou no cartão, e a loja volta na hora.' };
   return emailMarca({
     assunto: m.assunto, tom: m.tom, titulo: m.titulo, sub: m.sub, ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!', texto: m.texto,
     quadro: { rotulo: 'Assinatura do Ligeiro', valor: reaisEmail(preco), quando: 'por mês · ' + m.quando },
     botao: { texto: 'Assinar agora', url: SITE + '/conta', icone: 'icone-cartao.png' }, abaixo: 'Pix ou cartão, sem fidelidade',
-    fecho: 'Sem comissão por pedido e sem multa para cancelar. Dúvida? É só responder este e-mail.',
+    fecho: 'Sem comissão por pedido e sem multa para cancelar. Dúvida? É só responder este e-mail.',
   });
 }
 
@@ -1977,7 +2016,7 @@ function emailDoServico(assunto, texto, link, tom) {
   /* os e-mails da Loja do Ligeiro no mesmo modelo dos outros */
   return emailMarca({
     assunto: 'Ligeiro: ' + assunto, tom: tom || 'pago', titulo: assunto, sub: ['Loja do Ligeiro'], ola: 'Olá!', texto: texto,
-    botao: link ? { texto: 'Abrir no Ligeiro', url: link } : null, fecho: 'Dúvida? É só responder este e-mail.',
+    botao: link ? { texto: 'Abrir no Ligeiro', url: link } : null, fecho: 'Dúvida? É só responder este e-mail.',
   });
 }
 

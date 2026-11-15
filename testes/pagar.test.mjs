@@ -437,13 +437,23 @@ conta('tnovo@x.com', { desde: new Date(agora - 1 * DIA).toISOString() });       
 conta('tvelho@x.com', { desde: new Date(agora - 30 * DIA).toISOString() });                    /* acabou faz tempo */
 conta('tfatura@x.com', { desde: new Date(agora - 5.5 * DIA).toISOString() }, { faturaAsaas: { id: 'pay_x', status: 'PENDING', url: 'https://www.asaas.com/i/x', vencimento: '2099-01-01' } });
 conta('tsemloja@x.com', { desde: new Date(agora - 5.5 * DIA).toISOString() }, { lojaCriadaEm: '' });
+conta('tontem@x.com', { desde: new Date(agora - 20 * 36e5).toISOString() }, { lojaCriadaEm: new Date(agora - 20 * 36e5).toISOString() }); /* criou a loja ontem */
 await worker.scheduled({}, env, null);
+const passos = emails.filter((m) => /3 passos/.test(m.assunto));
+ok(passos.length === 1 && passos[0].para === 'tontem@x.com' && /\/painel\/loja-tontem/.test(passos[0].html) && /Ligue os avisos/.test(passos[0].html) && /ligeiropedidos\.com\.br\/loja-tontem/.test(passos[0].html) && /R\$ 39,90/.test(passos[0].html), 'no dia seguinte a criacao da loja: o e-mail dos 3 passos, com o link da loja e o botao do painel, so para quem criou ontem');
 const deTeste = () => emails.filter((m) => /teste grátis/.test(m.assunto));
 ok(deTeste().length === 2 && deTeste().some((m) => m.para === 't2@x.com' && /acaba em 2 dias/.test(m.assunto)) && deTeste().some((m) => m.para === 'tfim@x.com' && /acabou/.test(m.assunto)), 'lembrete do teste: "acaba em 2 dias" e "acabou", so para quem esta nessas datas');
 ok(deTeste().every((m) => /R\$ 39,90/.test(m.html) && /\/conta/.test(m.html) && /Olá, Dona!/.test(m.html)), 'o lembrete traz o preco, o botao para Minha conta e o nome');
 ok(!deTeste().some((m) => ['tnovo@x.com', 'tvelho@x.com', 'tfatura@x.com', 'tsemloja@x.com'].indexOf(m.para) >= 0), 'quem acabou de entrar, quem saiu faz tempo, quem ja tem fatura e quem nao tem loja nao recebem');
 await worker.scheduled({}, env, null);
-ok(deTeste().length === 2 && contaDe('t2@x.com').lembretesTeste.join() === 'd2', 'no dia seguinte, o mesmo lembrete nao vai de novo');
+ok(deTeste().length === 2 && contaDe('t2@x.com').lembretesTeste.join() === 'd2' && emails.filter((m) => /3 passos/.test(m.assunto)).length === 1, 'no dia seguinte, o mesmo lembrete nao vai de novo');
+/* SALVAR_EMAILS=pasta: grava a previa de cada e-mail (para olhar o desenho) */
+if (process.env.SALVAR_EMAILS) {
+  fs.mkdirSync(process.env.SALVAR_EMAILS, { recursive: true });
+  const vistos = {};
+  emails.forEach((m) => { const nome = m.assunto.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').slice(0, 40); if (vistos[nome]) return; vistos[nome] = 1; fs.writeFileSync(path.join(process.env.SALVAR_EMAILS, nome + '.html'), m.html); });
+  console.log('previas dos e-mails em ' + process.env.SALVAR_EMAILS + ': ' + Object.keys(vistos).join(', '));
+}
 
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);
