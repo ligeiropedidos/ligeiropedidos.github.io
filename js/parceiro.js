@@ -69,6 +69,9 @@
     return c.whatsappLigeiro ? R.linkWhatsapp(c.whatsappLigeiro, texto || 'Oi! Quero colocar meu estabelecimento no Ligeiro.') : '';
   }
   /* dinheiro redondo sem centavos: "R$ 79" (e nao "R$ 79,00"); com centavos, igual ao dinheiro() */
+  /* o que os sistemas de pedidos conhecidos cobram por mes, em centavos (plano mensal do Goomer, do Basico ao Integrar, lido
+     no site oficial em 15/11/2026; o Anota AI fica na mesma faixa). Conferir de novo antes de mexer na frase do preco */
+  var MERCADO = { de: 9990, ate: 29990, em: '15/11/2026' };
   function reais(centavos) { return dinheiro(centavos).replace(/,00$/, ''); }
   /* o preco grande do cartao do plano: com centavos, eles ficam pequenos ao lado ("R$ 69" grande e ",90" pequeno, como nos
      cardapios), senao "R$ 69,90/mes" passava da caixa no celular (09/10/2026) */
@@ -635,7 +638,10 @@
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos', 'data-secao': 'preco' }, [
       el('div', { class: 'kicker', text: 'Preço' }),
       el('h2', { text: 'Um plano só. Tudo incluso.' }),
-      el('p', { class: 'muted' }, [el('b', { class: 'por-dia', text: 'Menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' })]), /* o que vem esta na lista do lado e nas funcoes (08/10/2026: a lista aqui repetia) */
+      /* 15/11/2026: "um dos menores precos do mercado", com a faixa dos sistemas conhecidos logo abaixo (a prova). Nunca
+         "o menor": ha catalogo pago de R$ 39 e planos gratis com limite de pedidos. O "menos de R$ 1,40 por dia" nao parte */
+      el('p', { class: 'muted' }, [el('b', { class: 'por-dia' }, [juntarFim('Um dos menores preços do mercado:'), ' ', el('span', { class: 'sem-quebra', text: 'menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' })])]),
+      el('p', { class: 'muted pequeno preco-mercado', text: juntarFim('Os sistemas mais conhecidos cobram de ' + reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) + ' por mês.') }),
       (function () {
         var t = 'mensal';
         var caixa = el('div', { class: 'pilha planos-venda' });
@@ -670,6 +676,7 @@
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro, sem comissão, para quem já é cliente.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, é só tocar em "Encerrar assinatura", em Minha conta, e a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e os seus dados ficam guardados por 90 dias, caso você volte.'),
         duvida('Como eu pago a mensalidade?', 'Pelo próprio painel, em menos de um minuto: aparece um Pix para pagar no app do banco, ou você cadastra o cartão e a cobrança cai sozinha todo mês. Não precisa mandar comprovante: pagou, liberou.'),
+        duvida('É o mais barato do mercado?', 'É um dos mais baratos. Os sistemas de pedidos mais conhecidos cobram de ' + reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) + ' por mês. Existem opções grátis, mas com limite de 30 a 50 pedidos por mês. No Ligeiro são ' + reais(pr.mensal) + ' fixos, com até ' + pedidosDoPlano() + ' pedidos, e o Pix e o cartão confirmados sozinhos. Preços dos sites oficiais em ' + MERCADO.em + '.'),
         duvida('Tem limite de pedidos?', 'Cabem até ' + pedidosDoPlano() + ' pedidos por mês em cada loja (uns 100 por dia), sem comissão e sem pagar nada a mais por pedido. Se a sua loja passar disso, a gente combina um plano maior com você antes, e ela não sai do ar por isso.'),
         duvida('O que não está incluso?', 'As taxas do Mercado Pago, que são dele (0,99% no Pix e cerca de 5% no cartão). Fotos profissionais, vídeo e design exclusivo são serviços à parte, que você contrata no painel se quiser. Maquininha, entregador e impressora são da loja. Cada conta tem uma loja, com até ' + ((cfg().limites || {}).itens || 300) + ' itens.'),
         duvida('Como eu recebo o dinheiro do Pix e do cartão?', 'Direto na sua conta do Mercado Pago, que você conecta no painel. O Mercado Pago confirma o pagamento na hora e o pedido já entra pago, sem o dinheiro passar pelo Ligeiro. As taxas são dele: 0,99% no Pix e cerca de 5% no cartão, que você pode repassar ao cliente.'),
