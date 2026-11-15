@@ -413,7 +413,7 @@ const EMAIL_EQUIPE = /^equipe-[a-z0-9-]+@equipe\.(ligeiropedidos\.com\.br|ligeir
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 /* o plano: um so, 1 loja por conta (outra loja = outra conta) */
 const PLANO = 'uma';
-const MEM = { quem: {}, vez: {}, pagar: {}, pix: null };
+const MEM = { quem: {}, vez: {}, pagar: {}, pix: null, aviso: null };
 /* a versao deste arquivo (aparece em GET / e em /saude: e por ela que se confere se o arquivo novo foi colado) */
 const VERSAO = '2026-11-15';
 /* Os precos, em centavos: os mesmos de js/config.js (precos e planos; testes/site.test.mjs confere). Desde 15/11/2026 e um
@@ -743,6 +743,22 @@ async function saude(env) {
       MEM.pix = { em: Date.now(), tem: chavePix };
     }
   }
+  /* o aviso do Asaas (webhook) que libera a loja quando o pagamento entra: esta ligado, sem a fila parada e com os eventos
+     de pagamento? (16/11/2026; o Asaas para a fila sozinho quando o aviso falha varias vezes). Uma pergunta a cada 10 minutos.
+     So a situacao sai daqui; o endereco e o e-mail do aviso nao */
+  let aviso = null;
+  if (env.ASAAS_KEY) {
+    if (MEM.aviso && Date.now() - MEM.aviso.em < 10 * 60 * 1000) aviso = MEM.aviso.como;
+    else {
+      try {
+        const l = await asaas(env, '/webhooks?limit=50');
+        const meus = (l && Array.isArray(l.data) ? l.data : []).filter((w) => /ligeiro-asaas/.test(String(w.url || '')));
+        const bom = meus.find((w) => w.enabled === true && w.interrupted !== true && Array.isArray(w.events) && w.events.indexOf('PAYMENT_RECEIVED') >= 0 && w.events.indexOf('PAYMENT_CONFIRMED') >= 0);
+        aviso = bom ? 'ok' : (!meus.length ? 'nao achei' : (meus.some((w) => w.enabled === true && w.interrupted === true) ? 'parado' : (meus.some((w) => w.enabled === true) ? 'sem eventos' : 'desligado')));
+      } catch (_) { aviso = null; }
+      MEM.aviso = { em: Date.now(), como: aviso };
+    }
+  }
   const pr = lerPlanos(env)[PLANO] || {};
   let fundadorVagas = null;
   try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 10); } catch (_) { fundadorVagas = null; }
@@ -753,6 +769,7 @@ async function saude(env) {
     recursos: ['pagar', 'conferir'],
     precos: { mensal: Number(pr.mensal) || 0, anual: Number(pr.anual) || 0 },
     chavePix: chavePix,
+    avisoDoAsaas: aviso,
     planosCertos: planosCertos(env),
     fundadorVagas: fundadorVagas,
     tokenDoAviso: !!env.ASAAS_WEBHOOK,
