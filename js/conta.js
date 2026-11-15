@@ -201,6 +201,9 @@
         return el('div', { class: 'plano-dado' }, [el('span', { class: 'plano-dado-rotulo', text: rotulo }), el('b', { class: 'plano-dado-valor', text: valorTxt }), sub ? el('span', { class: 'plano-dado-sub', text: sub }) : null]);
       }
       var outroTipo = p.tipo === 'anual' ? 'mensal' : 'anual';
+      /* quem ja pagou alguma vez ve o que pagou: o dia, a forma, o valor e o recibo (a janela e do cobranca.js) */
+      var btnPagamentos = p.ultimoPagamentoEm && !a.cortesia && C && C.verPagamentos
+        ? el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', text: 'Pagamentos', onclick: function () { C.verPagamentos(); } }) : null;
       caixa.appendChild(el('div', { class: 'cartao ' + (alerta ? 'destaque' : '') + ' conta-plano' }, [
         el('div', { class: 'conta-plano-topo' }, [
           el('div', {}, [el('div', { class: 'kicker', text: 'Seu plano' }), el('b', { class: 'conta-plano-nome', text: plano.nome + ' · ' + (p.tipo === 'anual' ? 'anual' : 'mensal') })]),
@@ -229,6 +232,8 @@
           /* pausada (estorno ou revisao): o recado diz "fale com a gente", entao o botao leva ao WhatsApp do Ligeiro */
           a.estado === 'pausada' && (window.LIGEIRO_CONFIG || {}).whatsappLigeiro ? el('a', { class: 'btn btn-principal btn-pequeno plano-pagar', href: R.linkWhatsapp(window.LIGEIRO_CONFIG.whatsappLigeiro, 'Oi! Minha assinatura do Ligeiro está pausada. Pode me ajudar?'), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('telefone'), 'Falar com o Ligeiro']) : null,
           a.estado === 'pausada' || p.status === 'cancelado' ? null : el('a', { class: 'btn btn-fantasma btn-pequeno', href: '#/assinar/uma/' + outroTipo, text: 'Mudar para o ' + outroTipo }),
+          /* encerrada: o Reativar vem antes (e o que a pessoa veio fazer), e os pagamentos depois */
+          p.status === 'cancelado' ? null : btnPagamentos,
           p.status === 'cancelado'
             ? el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Reativar', onclick: function () { var soltar = UI.ocupar(this, 'Reativando…'); if (!soltar) return; store.salvarConta(conta.email, { plano: { status: 'teste', reativadoEm: new Date().toISOString() } }).then(function (c) { var s2 = R.assinatura(c).estado; UI.avisar(s2 === 'vencida' || s2 === 'bloqueada' ? 'Reativada. Pague ' + (p.tipo === 'anual' ? 'a fatura' : 'a mensalidade') + ' para a sua loja voltar ao ar.' : 'Assinatura reativada.'); carregar(); }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); }); } })
             /* no gratis sem assinatura nao ha o que encerrar (nada e cobrado e o teste acaba sozinho): o botao so cortaria os dias gratis */
@@ -254,6 +259,7 @@
                   store.salvarConta(conta.email, { plano: fim }).then(function () { UI.avisar('Assinatura encerrada.'); carregar(); }).catch(function (e) { voltar(); UI.avisar(D.erroAmigavel(e, 'Não deu agora.')); });
                 });
               } }) : null),
+          p.status === 'cancelado' ? btnPagamentos : null,
         ]),
       ]));
     }

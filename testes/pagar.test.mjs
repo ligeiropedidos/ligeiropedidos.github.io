@@ -64,6 +64,18 @@ const chamadas = [];             /* tudo o que o worker pediu ao Asaas (menos GE
 const perguntas = [];            /* os GET */
 let seq = 0;
 let pixFalha = false, semCobranca = false, chavesPix = 1, putFalha = false;
+/* o aviso (webhook) cadastrado no Asaas, a situacao da conta e os links de pagamento ligados */
+const avisos = [{ id: 'wh-1', url: 'https://ligeiro-asaas.exemplo.workers.dev', enabled: true, interrupted: false, events: ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'] }, { id: 'wh-2', url: 'https://outro.sistema.com/aviso', enabled: true, interrupted: true, events: ['PAYMENT_RECEIVED'] }];
+const contaAsaas = { id: 'acc', commercialInfo: 'APPROVED', bankAccountInfo: 'APPROVED', documentation: 'APPROVED', general: 'APPROVED' };
+const linksAsaas = [
+  { id: 'l1', name: 'Mensal antigo', value: 89, active: true, deleted: false, chargeType: 'RECURRENT' },
+  { id: 'l2', name: 'Fundador antigo', value: 69.9, active: true, deleted: false, chargeType: 'RECURRENT' },
+  { id: 'l3', name: 'Mensal de agora', value: 39.9, active: true, deleted: false, chargeType: 'RECURRENT' },
+  { id: 'l4', name: 'Loja personalizada', value: 149, active: true, deleted: false, chargeType: 'DETACHED' },
+  { id: 'l5', name: 'Anual antigo desligado', value: 890, active: false, deleted: false, chargeType: 'RECURRENT' },
+];
+/* o KV de mentira (so para guardar o resultado da conferencia de todo dia) */
+const kv = { m: new Map(), async get(k, tipo) { const v = this.m.get(k); return v === undefined ? null : (tipo === 'json' ? JSON.parse(v) : v); }, async put(k, v) { this.m.set(k, String(v)); }, async delete(k) { this.m.delete(k); } };
 const PIX = '00020126580014br.gov.bcb.pix0136aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee5204000053039865405';
 function novaCobrancaDa(a) {
   const id = 'pay_' + (++seq);
@@ -144,6 +156,20 @@ globalThis.fetch = async (u, o) => {
       if (metodo === 'DELETE') { a.deleted = true; [...cobrancas.values()].filter((c) => c.subscription === a.id && c.status === 'PENDING').forEach((c) => { c.deleted = true; }); return resposta({ deleted: true, id: a.id }); }
       return resposta(a);
     }
+    if (partes[1] === 'webhooks' && partes.length === 2) return resposta({ data: avisos });
+    if (partes[1] === 'webhooks') {
+      const w = avisos.find((x) => x.id === partes[2]);
+      if (!w) return resposta({ errors: [] }, 404);
+      if (metodo === 'PUT') Object.assign(w, corpo);
+      return resposta(w);
+    }
+    if (partes[1] === 'myAccount') return resposta(contaAsaas);
+    if (partes[1] === 'paymentLinks') return resposta({ data: linksAsaas.filter((l) => q.get('active') !== 'true' || l.active) });
+    /* a lista de cobrancas, com os filtros que o mensageiro usa (cliente, assinatura e vencimento a partir de) */
+    if (partes[1] === 'payments' && partes.length === 2 && metodo === 'GET') {
+      const cli = q.get('customer'), sub = q.get('subscription'), de = q.get('dueDate[ge]');
+      return resposta({ data: [...cobrancas.values()].filter((c) => (!cli || c.customer === cli) && (!sub || c.subscription === sub) && (!de || !c.dueDate || c.dueDate >= de)) });
+    }
     if (partes[1] === 'payments') {
       const c = cobrancas.get(partes[2]);
       if (!c) return resposta({ errors: [] }, 404);
@@ -164,6 +190,14 @@ globalThis.fetch = async (u, o) => {
   if (endereco === BASE.replace(/\/$/, '') + ':runQuery') {
     const q = JSON.parse(o.body).structuredQuery;
     if (q.from[0].collectionId === 'contas') {
+      /* faixa (plano.pagoAte entre dois dias): a conferencia de todo dia */
+      if (q.where.compositeFilter) {
+        const fs2 = q.where.compositeFilter.filters.map((x) => x.fieldFilter);
+        const ler = (d) => fs2[0].field.fieldPath.split('.').reduce((x, k) => (x && typeof x === 'object' ? x[k] : undefined), d);
+        const dentro = [...db.entries()].filter(([k, d]) => k.indexOf('contas/') === 0 && typeof ler(d) === 'string' && fs2.every((f) => (f.op === 'GREATER_THAN_OR_EQUAL' ? ler(d) >= f.value.stringValue : ler(d) <= f.value.stringValue)))
+          .map(([k, d]) => ({ document: { name: BASE + 'contas/' + encodeURIComponent(k.slice(7)), fields: paraFs(d).mapValue.fields } }));
+        return resposta(dentro.length ? dentro : [{}]);
+      }
       const f = q.where.fieldFilter;
       const pegar = (d) => f.field.fieldPath.split('.').reduce((x, k) => (x && typeof x === 'object' ? x[k] : undefined), d);
       const valores = f.value.arrayValue.values.map((v) => v.stringValue);
@@ -235,6 +269,8 @@ let j = await r.json();
 ok(j.precos.mensal === 3990 && j.precos.anual === 39900 && j.planosCertos === true, 'precos de dentro do arquivo: R$ 39,90 por mes e R$ 399 por ano, sem segredo nenhum');
 ok(/^\d{4}-\d{2}-\d{2}$/.test(j.versao) && j.recursos.indexOf('pagar') >= 0 && j.chavePix === true, '/saude diz a versao, que sabe gerar o pagamento e que a conta tem chave Pix');
 ok(JSON.stringify(j).indexOf('chave') < 0 || JSON.stringify(j).indexOf(env.ASAAS_KEY + '"') < 0, '/saude nao mostra a chave do Asaas');
+ok(j.avisoDoAsaas === 'ok' && j.contaAprovada === true && j.recursos.indexOf('historico') >= 0, '/saude: o aviso do Asaas esta ligado (o de outro sistema, parado, nao conta), a conta esta aprovada e o mensageiro sabe mostrar os pagamentos');
+ok(j.linksForaDoPreco === 2 && JSON.stringify(j).indexOf('Mensal antigo') < 0 && JSON.stringify(j).indexOf('workers.dev') < 0, '/saude: conta 2 links de assinatura ligados com preco antigo (o de R$ 39,90, o avulso e o desligado nao contam), sem mostrar nome nem endereco');
 /* os precos do site e os do mensageiro sao os mesmos (mudou um, muda o outro) */
 const cfgTxt = fs.readFileSync(path.join(aqui, '..', 'js', 'config.js'), 'utf8');
 const mPrecos = /precos:\s*\{\s*mensal:\s*(\d+),\s*anual:\s*(\d+)/.exec(cfgTxt);
@@ -447,6 +483,114 @@ ok(deTeste().every((m) => /R\$ 39,90/.test(m.html) && /\/conta/.test(m.html) && 
 ok(!deTeste().some((m) => ['tnovo@x.com', 'tvelho@x.com', 'tfatura@x.com', 'tsemloja@x.com'].indexOf(m.para) >= 0), 'quem acabou de entrar, quem saiu faz tempo, quem ja tem fatura e quem nao tem loja nao recebem');
 await worker.scheduled({}, env, null);
 ok(deTeste().length === 2 && contaDe('t2@x.com').lembretesTeste.join() === 'd2' && emails.filter((m) => /3 passos/.test(m.assunto)).length === 1, 'no dia seguinte, o mesmo lembrete nao vai de novo');
+/* ================= os pagamentos da conta (Minha conta) ================= */
+const tHist = conta('h@x.com', { desde: new Date(agora - 200 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora + 20 * DIA).toISOString(), ultimoPagamentoEm: new Date(agora - 10 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_h' });
+clientes.set('cus_h', { id: 'cus_h', email: 'h@x.com', cpfCnpj: CPF, name: 'H' });
+clientes.set('cus_h2', { id: 'cus_h2', email: 'h@x.com', cpfCnpj: CPF, name: 'H de novo' });
+clientes.set('cus_outro', { id: 'cus_outro', email: 'outro@x.com', cpfCnpj: CPF, name: 'Outro' });
+const cob = (id, o) => cobrancas.set(id, Object.assign({ id: id, customer: 'cus_h', subscription: 'sub_h', value: 39.9, billingType: 'PIX', invoiceUrl: 'https://www.asaas.com/i/' + id }, o));
+cob('pay_h1', { status: 'RECEIVED', paymentDate: '2026-09-10', clientPaymentDate: '2026-09-09', transactionReceiptUrl: 'https://www.asaas.com/comprovantes/111' });
+cob('pay_h2', { status: 'CONFIRMED', billingType: 'CREDIT_CARD', dueDate: '2026-10-10' });
+cob('pay_h3', { status: 'REFUNDED', paymentDate: '2026-08-10', transactionReceiptUrl: 'https://golpe.exemplo.com/recibo' });
+cob('pay_h4', { status: 'PENDING', dueDate: '2026-12-10' });
+cob('pay_h5', { status: 'RECEIVED', paymentDate: '2026-11-01', externalReference: 'srv:video1', value: 149 });
+cob('pay_h6', { status: 'RECEIVED', paymentDate: '2026-11-05', deleted: true });
+cob('pay_h7', { status: 'RECEIVED', paymentDate: '2026-11-06', customer: 'cus_outro', value: 399 });
+cob('pay_h8', { status: 'RECEIVED_IN_CASH', paymentDate: '2026-07-10', customer: 'cus_h2', billingType: 'BOLETO', value: 89, invoiceUrl: 'javascript:alert(1)' });
+const antesHist = perguntas.length;
+let h = await pedir('historico', tHist);
+const hp = h.j.pagamentos || [];
+ok(h.status === 200 && h.j.ok === true && hp.map((x) => x.id).join() === 'pay_h2,pay_h1,pay_h3,pay_h8', 'pagamentos: os pagos e o devolvido, do mais novo para o mais velho, dos clientes do Asaas com o e-mail da conta; a fatura em aberto, a compra da Loja do Ligeiro, a apagada e a de outro cliente ficam de fora');
+ok(hp[1].dia === '2026-09-09' && hp[1].valor === 3990 && hp[1].forma === 'pix' && hp[1].situacao === 'pago' && hp[1].recibo === 'https://www.asaas.com/comprovantes/111', 'cada pagamento traz o dia em que o cliente pagou, o valor, a forma e o comprovante do Asaas');
+ok(hp[0].forma === 'cartao' && hp[0].dia === '2026-10-10' && hp[0].recibo === 'https://www.asaas.com/i/pay_h2', 'cartao confirmado, ainda sem comprovante: vale o dia do vencimento e o endereco da fatura');
+ok(hp[2].situacao === 'devolvido' && hp[2].recibo === 'https://www.asaas.com/i/pay_h3' && hp[3].recibo === '' && hp[3].forma === 'boleto' && hp[3].valor === 8900, 'devolvido aparece como devolvido; endereco que nao e do Asaas nunca vai para a tela');
+h = await pedir('historico', tHist);
+ok(h.j.pagamentos.length === 4 && perguntas.length - antesHist === 3, 'abrir a janela de novo dentro de 1 minuto nao pergunta nada ao Asaas (1 lista de clientes e 2 de cobrancas na primeira vez)');
+h = await pedir('historico', tokenDe('novo@x.com'));
+ok(h.status === 200 && h.j.ok === true && h.j.pagamentos.length === 0, 'quem nunca pagou: lista vazia, sem erro');
+h = await pedir('historico', 'tokeninventado');
+ok(h.status === 401 && !h.j.pagamentos, 'sem login: nada');
+h = await pedir('historico', tokenDe('equipe-loja@equipe.ligeiropedidos.com.br'));
+ok(h.status === 403 && !h.j.pagamentos, 'login da equipe (cozinha, entregador) nao ve os pagamentos do dono');
+h = await pedir('historico', tokenDe('ligeiro.pedidos@gmail.com'));
+ok(h.status === 200 && h.j.pagamentos.length === 0, 'a conta do Ligeiro nao assina: lista vazia');
+/* olhar os pagamentos nao segura o Assinar (fica fora da fila do "um por vez") */
+const tHist2 = conta('h2@x.com', { desde: new Date(agora - 2 * DIA).toISOString() });
+const [rHist, rPagar] = await Promise.all([pedir('historico', tHist2), pedir('pagar', tHist2, { forma: 'pix', documento: CPF })]);
+ok(rHist.status === 200 && rPagar.status === 200 && rPagar.j.ok === true && !!rPagar.j.pix, 'abrir os pagamentos e tocar em Assinar ao mesmo tempo: os dois respondem (nenhum "um instante")');
+
+/* ================= a conferencia de todo dia ================= */
+/* as contas dos testes de cima saem: a conferencia olha so as daqui (com mais de 8 na fila, quais entram muda com o dia) */
+for (const k of [...db.keys()]) if (k.indexOf('contas/') === 0) db.delete(k);
+const emailsDeAntes = emails.slice();
+const envKv = Object.assign({}, env, { CARDAPIO: kv });
+const doAdmin = (re) => emails.filter((m) => m.para === 'ligeiro.pedidos@gmail.com' && re.test(m.assunto));
+/* r1: a mensalidade caiu no cartao e o aviso do Asaas nunca chegou (a loja ia aparecer "vencida") */
+conta('r1@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora - 1 * DIA).toISOString(), ultimoPagamentoEm: new Date(agora - 31 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_r1', pagamentos: ['pay_r1_antiga'] });
+clientes.set('cus_r1', { id: 'cus_r1', email: 'r1@x.com', cpfCnpj: CPF, name: 'R1' });
+assinaturas.set('sub_r1', { id: 'sub_r1', status: 'ACTIVE', deleted: false, customer: 'cus_r1', billingType: 'CREDIT_CARD', value: 39.9, cycle: 'MONTHLY' });
+cobrancas.set('pay_r1_antiga', { id: 'pay_r1_antiga', status: 'RECEIVED', value: 39.9, customer: 'cus_r1', subscription: 'sub_r1', billingType: 'CREDIT_CARD', dueDate: diaBrasilia(agora - 31 * DIA) });
+cobrancas.set('pay_r1', { id: 'pay_r1', status: 'CONFIRMED', value: 39.9, customer: 'cus_r1', subscription: 'sub_r1', billingType: 'CREDIT_CARD', dueDate: diaBrasilia(agora - 1 * DIA), invoiceUrl: 'https://www.asaas.com/i/pay_r1' });
+/* r2: a fatura do mes nasceu no Asaas e o aviso dela nao chegou (o painel nao mostrava "vence dia X") */
+conta('r2@x.com', { desde: new Date(agora - 60 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora + 1 * DIA).toISOString(), ultimoPagamentoEm: new Date(agora - 29 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_r2', pagamentos: ['pay_r2_antiga'] });
+clientes.set('cus_r2', { id: 'cus_r2', email: 'r2@x.com', cpfCnpj: CPF, name: 'R2' });
+assinaturas.set('sub_r2', { id: 'sub_r2', status: 'ACTIVE', deleted: false, customer: 'cus_r2', billingType: 'UNDEFINED', value: 39.9, cycle: 'MONTHLY' });
+cobrancas.set('pay_r2', { id: 'pay_r2', status: 'PENDING', value: 39.9, customer: 'cus_r2', subscription: 'sub_r2', billingType: 'UNDEFINED', dueDate: diaBrasilia(agora + 1 * DIA), invoiceUrl: 'https://www.asaas.com/i/pay_r2' });
+/* r3: no teste gratis, gerou a cobranca, pagou no cartao pela fatura e fechou a aba (nunca tocou em "Ja paguei") */
+const tR3 = conta('r3@x.com', { desde: new Date(agora - 3 * DIA).toISOString() });
+p = await pedir('pagar', tR3, { forma: 'cartao', documento: CPF });
+cobrancas.get(p.j.cobranca).status = 'CONFIRMED';
+const cobR3 = p.j.cobranca;
+/* r4: conta encerrada nao entra na conferencia; r5: em dia e longe de vencer, tambem nao */
+conta('r4@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'cancelado', pagoAte: new Date(agora - 1 * DIA).toISOString() }, { assinaturaAsaas: '' });
+conta('r5@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora + 20 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_r5' });
+emails.length = 0;
+const antesConf = perguntas.length;
+await worker.scheduled({}, envKv, null);
+const r1 = contaDe('r1@x.com');
+ok(r1.plano.status === 'ativo' && Date.parse(r1.plano.pagoAte) > agora + 25 * DIA && r1.pagamentos.indexOf('pay_r1') >= 0 && db.get('lojas/loja-r1').plano.pagoAte === r1.plano.pagoAte, 'conferencia: a mensalidade que caiu no cartao sem o aviso do Asaas entra sozinha (mais um mes, e a loja recebe a copia)');
+ok(emails.some((m) => m.para === 'r1@x.com' && /confirmado/i.test(m.assunto)) && doAdmin(/recuperado/).length === 1 && /r1@x\.com/.test(doAdmin(/recuperado/)[0].texto) && /r3@x\.com/.test(doAdmin(/recuperado/)[0].texto), 'o dono recebe o "Pagamento confirmado" de sempre e o admin fica sabendo quais contas a conferencia recuperou');
+const r2 = contaDe('r2@x.com');
+ok(r2.faturaAsaas && r2.faturaAsaas.id === 'pay_r2' && r2.faturaAsaas.valor === 3990 && r2.faturaAsaas.status === 'PENDING' && r2.plano.pagoAte === new Date(agora + 1 * DIA).toISOString(), 'conferencia: a fatura do mes que o aviso nao anotou passa a aparecer no painel (nenhum dia muda)');
+const r3 = contaDe('r3@x.com');
+ok(r3.plano.status === 'ativo' && r3.pagamentos.indexOf(cobR3) >= 0 && r3.assinaturaAsaas && !r3.faturaAsaas, 'conferencia: quem pagou pela fatura e fechou a aba e liberado sem tocar em "Ja paguei"');
+ok(contaDe('r4@x.com').plano.status === 'cancelado' && !perguntas.slice(antesConf).some((x) => /sub_r5/.test(x)), 'conta encerrada e conta em dia longe de vencer nao sao lidas no Asaas');
+const guardada = JSON.parse(kv.m.get('asaas:conferencia'));
+ok(guardada.aviso === 'ok' && guardada.achados === 2 && guardada.faturas === 1 && guardada.falhou === false && /^\d{4}-\d{2}-\d{2}T/.test(guardada.em), 'o resultado da conferencia fica guardado (quando rodou, 2 pagamentos achados, 1 fatura anotada)');
+r = await worker.fetch(new Request('https://w/saude'), envKv);
+j = await r.json();
+ok(j.conferencia && j.conferencia.achados === 2 && j.conferencia.faturas === 1 && j.conferencia.aviso === 'ok' && typeof j.conferencia.olhadas === 'number', '/saude mostra a ultima conferencia');
+/* no dia seguinte: nada entra de novo */
+const pagoAteR1 = r1.plano.pagoAte;
+emails.length = 0;
+await worker.scheduled({}, envKv, null);
+ok(contaDe('r1@x.com').plano.pagoAte === pagoAteR1 && contaDe('r1@x.com').pagamentos.filter((x) => x === 'pay_r1').length === 1 && doAdmin(/recuperado/).length === 0 && JSON.parse(kv.m.get('asaas:conferencia')).achados === 0, 'rodar de novo nao soma os dias outra vez nem manda e-mail repetido');
+
+/* ================= a vigia do aviso do Asaas ================= */
+ok(doAdmin(/Aviso do Asaas/).length === 0 && !chamadas.some((c) => /^\/webhooks\//.test(c.cam)), 'aviso ligado: nenhum e-mail e nada e mexido no Asaas');
+avisos[0].interrupted = true;
+emails.length = 0;
+await worker.scheduled({}, envKv, null);
+const religar = chamadas.filter((c) => c.metodo === 'PUT' && c.cam === '/webhooks/wh-1');
+ok(religar.length === 1 && religar[0].corpo.interrupted === false && Object.keys(religar[0].corpo).length === 1 && avisos[0].interrupted === false && doAdmin(/religado/).length === 1, 'a fila de avisos parou: e religada sozinha (so o campo "interrompida" muda) e o admin recebe o e-mail');
+ok(avisos[1].interrupted === true && !chamadas.some((c) => c.cam === '/webhooks/wh-2') && JSON.parse(kv.m.get('asaas:conferencia')).aviso === 'religado', 'o aviso de outro sistema na mesma conta do Asaas nao e mexido');
+avisos[0].enabled = false;
+emails.length = 0;
+await worker.scheduled({}, envKv, null);
+ok(doAdmin(/com problema/).length === 1 && /desligado/.test(doAdmin(/com problema/)[0].texto) && chamadas.filter((c) => /^\/webhooks\//.test(c.cam)).length === 1 && JSON.parse(kv.m.get('asaas:conferencia')).aviso === 'desligado', 'aviso desligado no Asaas: nao da para ligar daqui, o admin recebe o e-mail com o que fazer');
+avisos[0].enabled = true;
+
+/* ================= a fila da conferencia (no maximo 8 contas por dia) ================= */
+for (let i = 0; i < 11; i++) {
+  conta('fila' + i + '@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora + 1 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_fila' + i, faturaAsaas: { id: 'pay_fila' + i, status: 'PENDING', vencimento: diaBrasilia(agora + 1 * DIA), url: 'https://www.asaas.com/i/f' + i, lembretes: ['d3', 'd0'] } });
+}
+const antesFila = perguntas.length;
+await worker.scheduled({}, envKv, null);
+const fila = JSON.parse(kv.m.get('asaas:conferencia'));
+ok(fila.olhadas === 8 && fila.cortadas >= 3 && fila.falhou === false, 'muitas contas na fila: 8 por dia, e o resto aparece como "cortadas" (' + fila.cortadas + ') para o dia seguinte');
+ok(perguntas.slice(antesFila).filter((x) => /^\/payments/.test(x)).length <= 16, 'cada conta custa no maximo 2 perguntas ao Asaas quando nao ha nada a recuperar');
+emails.unshift(...emailsDeAntes);
+
 /* SALVAR_EMAILS=pasta: grava a previa de cada e-mail (para olhar o desenho) */
 if (process.env.SALVAR_EMAILS) {
   fs.mkdirSync(process.env.SALVAR_EMAILS, { recursive: true });

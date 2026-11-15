@@ -140,6 +140,14 @@ globalThis.fetch = async (u, o) => {
     const q = JSON.parse(o.body).structuredQuery;
     /* contas com o campo (faturaAsaas.status, plano.status) num dos valores (IN) */
     if (q.from[0].collectionId === 'contas') {
+      /* faixa (plano.pagoAte entre dois dias): a conferencia de todo dia */
+      if (q.where.compositeFilter) {
+        const fs2 = q.where.compositeFilter.filters.map((x) => x.fieldFilter);
+        const ler = (d) => fs2[0].field.fieldPath.split('.').reduce((x, k) => (x && typeof x === 'object' ? x[k] : undefined), d);
+        const dentro = [...db.entries()].filter(([k, d]) => k.indexOf('contas/') === 0 && typeof ler(d) === 'string' && fs2.every((f) => (f.op === 'GREATER_THAN_OR_EQUAL' ? ler(d) >= f.value.stringValue : ler(d) <= f.value.stringValue)))
+          .map(([k, d]) => ({ document: { name: BASE + 'contas/' + encodeURIComponent(k.slice(7)), fields: fs(d).mapValue.fields } }));
+        return resposta(dentro.length ? dentro : [{}]);
+      }
       const f = q.where.fieldFilter;
       const campo = f.field.fieldPath;
       const pegar = (d) => campo.split('.').reduce((x, k) => (x && typeof x === 'object' ? x[k] : undefined), d);

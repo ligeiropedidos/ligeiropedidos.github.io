@@ -1768,6 +1768,22 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (min-width: 900px) and (min-height: 480px) {
   .modal-caixa.modal-assinar { --margem: 24px; max-width: 480px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
 }
+/* Minha conta > Pagamentos: uma linha por pagamento (o dia e a forma de um lado, o valor e o recibo do outro), 64 de
+   altura (8 + 24 + 4 + 20 + 8). A linha inteira abre o recibo */
+.pagamentos-lista { list-style: none; margin: 0; padding: 0; }
+.pagamento { border-bottom: 1px solid var(--line); }
+.pagamento:last-child { border-bottom: 0; }
+.pagamento-linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 8px 0; color: inherit; text-decoration: none; }
+.pagamento-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pagamento-lado.direita { flex: none; align-items: flex-end; text-align: right; }
+.pagamento-lado b { font-size: 17px; line-height: 24px; color: var(--ink); white-space: nowrap; }
+.pagamento-lado span { font-size: 15px; line-height: 20px; color: var(--muted); }
+.pagamento-lado .pagamento-recibo { font-weight: 700; color: var(--deep2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.pagamento.devolvido .direita b { color: var(--muted); text-decoration: line-through; }
+a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline-offset: 2px; border-radius: 8px; }
+.pagamentos-aviso { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 0 8px; text-align: center; }
+.pagamentos-aviso p { margin: 0; }
+.pagamentos-aviso .carregando-pontos { justify-content: center; }
 /* 320: o icone das formas sai (o nome e a frase curta cabem inteiros) */
 @media (max-width: 359px) { .assinar-forma { gap: 8px; padding: 8px; } .assinar-forma-ico { display: none; } }
 .caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; } /* quebra depois das "/" (UI.pedacosDeLink); no meio so se um pedaco nao couber */

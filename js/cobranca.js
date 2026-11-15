@@ -132,6 +132,12 @@
     return new Promise(function (ok) {
       setTimeout(function () {
         if (rota === 'conferir') { ok({ status: 200, j: { ok: true, pago: !!demo.pago } }); return; }
+        if (rota === 'historico') {
+          var h = new Date();
+          var diaDe = function (meses) { var d = new Date(h.getFullYear(), h.getMonth() - meses, Math.min(h.getDate(), 28)); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); };
+          ok({ status: 200, j: { ok: true, demo: true, pagamentos: [0, 1, 2].map(function (m) { return { id: 'pay_demo' + m, dia: diaDe(m), valor: plano.mensal, forma: m === 2 ? 'cartao' : 'pix', situacao: 'pago', recibo: m === 2 ? '' : String(location.origin + location.pathname) }; }) } });
+          return;
+        }
         if (!demo.doc && !(corpo && corpo.documento)) { ok({ status: 200, j: { ok: false, precisaDocumento: true, erro: 'Para gerar a cobrança, o banco pede o CPF ou o CNPJ de quem paga. É só na primeira vez.' } }); return; }
         demo.doc = true;
         var tipo = corpo && corpo.tipo === 'anual' ? 'anual' : 'mensal';
@@ -418,5 +424,57 @@
     }, 1000);
   }
 
-  window.LigeiroCobranca = { abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura, assinaturaAtiva: assinaturaAtiva, pedirAoMensageiro: pedirAoMensageiro, trocarPlano: trocarPlano };
+  /* ---------------- os pagamentos que a conta ja fez (15/11/2026) ----------------
+     Minha conta > Pagamentos. A janela pede a lista ao mensageiro (POST /plano/historico, que le no Asaas) e mostra, de
+     cada pagamento, o dia, a forma, o valor e o recibo. A linha inteira abre o recibo (no celular, o toque nao precisa
+     acertar a palavra). Nada fica guardado no aparelho. */
+  var FORMA_PAGA = { pix: 'Pix', cartao: 'Cartão', boleto: 'Boleto' };
+  function diaInteiro(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; }
+  function verPagamentos() {
+    var miolo = el('div', { class: 'pagamentos' });
+    function pintar(no) { UI.limpar(miolo); miolo.appendChild(no); }
+    function linha(x) {
+      var pago = x.situacao === 'pago';
+      var quando = diaInteiro(x.dia) || 'Sem data';
+      var forma = [FORMA_PAGA[x.forma], pago ? '' : (x.situacao === 'contestado' ? 'Contestado' : 'Devolvido')].filter(Boolean).join(' · ') || 'Pago';
+      var lados = [
+        el('span', { class: 'pagamento-lado' }, [el('b', { text: quando }), el('span', { text: forma })]),
+        el('span', { class: 'pagamento-lado direita' }, [el('b', { text: R.dinheiro(x.valor) }), x.recibo ? el('span', { class: 'pagamento-recibo', text: 'Ver recibo' }) : null]),
+      ];
+      return el('li', { class: 'pagamento' + (pago ? '' : ' devolvido') }, [
+        x.recibo
+          ? el('a', { class: 'pagamento-linha', href: x.recibo, target: '_blank', rel: 'noopener', 'aria-label': 'Pagamento de ' + quando + ', ' + R.dinheiro(x.valor) + ': abrir o recibo' }, lados)
+          : el('div', { class: 'pagamento-linha' }, lados),
+      ]);
+    }
+    function carregar() {
+      pintar(el('div', { class: 'pagamentos-aviso', role: 'status' }, [el('div', { class: 'carregando-pontos', 'aria-hidden': 'true' }, [el('span'), el('span'), el('span')]), el('p', { class: 'muted pequeno', text: 'Buscando os pagamentos…' })]));
+      chamarMensageiro('historico', {}).then(function (resp) {
+        if (!miolo.isConnected) return;
+        var l = resp.status === 200 && resp.j.ok && Array.isArray(resp.j.pagamentos) ? resp.j.pagamentos : null;
+        if (!l) {
+          pintar(el('div', { class: 'pagamentos-aviso', role: 'alert' }, [
+            el('p', { text: resp.status === -1 ? 'Sem internet agora. Confira a conexão.' : 'Não deu para buscar os pagamentos agora.' }),
+            el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Tentar de novo', onclick: carregar }),
+          ]));
+          return;
+        }
+        if (!l.length) {
+          pintar(el('div', { class: 'pagamentos-aviso' }, [
+            el('p', { class: 'forte', text: 'Nenhum pagamento por aqui ainda.' }),
+            el('p', { class: 'muted pequeno', text: 'Pagamento combinado direto com o Ligeiro não aparece nesta lista.' }),
+          ]));
+          return;
+        }
+        pintar(el('ul', { class: 'pagamentos-lista' }, l.map(linha)));
+      });
+    }
+    UI.abrirModal({
+      titulo: 'Pagamentos', corpo: miolo, centro: true, classe: 'modal-assinar',
+      rodape: [el('button', { class: 'btn btn-fantasma', style: { flex: '1' }, type: 'button', text: 'Fechar', onclick: function () { UI.fecharModal(); } })],
+    });
+    carregar();
+  }
+
+  window.LigeiroCobranca = { verPagamentos: verPagamentos, abrir: abrir, faturaAberta: faturaAberta, textoFatura: textoFatura, assinaturaAtiva: assinaturaAtiva, pedirAoMensageiro: pedirAoMensageiro, trocarPlano: trocarPlano };
 })();

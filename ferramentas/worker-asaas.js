@@ -41,6 +41,7 @@
  *   POST /plano/pagar    {tipo, forma, documento}  cria (ou acha) a assinatura da conta no Asaas e devolve o Pix copia e
  *                        cola e o endereco da fatura: o dono paga sem sair do painel e sem digitar e-mail (15/11/2026)
  *   POST /plano/conferir {cobranca}  "Ja paguei": le a cobranca no Asaas e libera na hora, sem esperar o aviso
+ *   POST /plano/historico            os pagamentos que a conta ja fez (dia, valor, forma e o comprovante), para Minha conta
  *   POST /plano/simular  {tipo}  diz o que vai acontecer (valor novo e a partir de quando), sem mexer em nada
  *   POST /plano/trocar   {tipo}  mensal <-> anual: a MESMA assinatura do Asaas muda de valor e ciclo, e vale na proxima fatura
  *   POST /plano/encerrar         cancela a assinatura no Asaas (nenhuma cobranca nova) e encerra a conta
@@ -96,13 +97,15 @@ export default {
       return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500);
     }
   },
-  /* todo dia (Cron trigger): os lembretes por e-mail da fatura do mes */
+  /* todo dia (Cron trigger): os lembretes por e-mail e, depois deles, a vigia do aviso do Asaas e a conferencia dos
+     pagamentos (por ultimo de proposito: se o limite de pedidos do plano gratis da Cloudflare acabar no meio, os lembretes
+     ja sairam) */
   async scheduled(evento, env, ctx) {
     const tarefa = Promise.all([
       lembrarFaturas(env).then((r) => console.log('lembretes', JSON.stringify(r))).catch((e) => console.error('lembretes', e && e.message || e)),
       lembrarTestes(env).then((r) => console.log('testes', JSON.stringify(r))).catch((e) => console.error('testes', e && e.message || e)),
       sincronizarEncerradas(env).then((r) => console.log('encerradas', JSON.stringify(r))).catch((e) => console.error('encerradas', e && e.message || e)),
-    ]);
+    ]).then(() => conferenciaDoDia(env)).catch((e) => console.error('conferencia do dia', e && e.message || e));
     if (ctx && ctx.waitUntil) ctx.waitUntil(tarefa); else await tarefa;
   },
 };
@@ -359,6 +362,7 @@ async function processarPagamento(env, pag) {
       /* se esse pagamento tinha ficado em Pagamentos sem conta (o e-mail foi acertado no Asaas depois), sai de la: senao
          o Vincular da Central ainda dava os mesmos dias para uma segunda conta */
       await fb.apagar('pagamentosSemConta/' + encodeURIComponent(pag.id)).catch((e) => console.error('limpar sem conta', e && e.message || e));
+      delete MEM.hist[email];
       return json({ ok: true, email: email, plano: PLANO, tipo: plano.tipo, pagoAte: pagoAte, lojas: lojas.length });
 }
 
@@ -413,7 +417,7 @@ const EMAIL_EQUIPE = /^equipe-[a-z0-9-]+@equipe\.(ligeiropedidos\.com\.br|ligeir
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 /* o plano: um so, 1 loja por conta (outra loja = outra conta) */
 const PLANO = 'uma';
-const MEM = { quem: {}, vez: {}, pagar: {}, pix: null, aviso: null };
+const MEM = { quem: {}, vez: {}, pagar: {}, hist: {}, pix: null, aviso: null, conta: null, conf: null, fb: null };
 /* a versao deste arquivo (aparece em GET / e em /saude: e por ela que se confere se o arquivo novo foi colado) */
 const VERSAO = '2026-11-15';
 /* Os precos, em centavos: os mesmos de js/config.js (precos e planos; testes/site.test.mjs confere). Desde 15/11/2026 e um
@@ -750,26 +754,54 @@ async function saude(env) {
   if (env.ASAAS_KEY) {
     if (MEM.aviso && Date.now() - MEM.aviso.em < 10 * 60 * 1000) aviso = MEM.aviso.como;
     else {
-      try {
-        const l = await asaas(env, '/webhooks?limit=50');
-        const meus = (l && Array.isArray(l.data) ? l.data : []).filter((w) => /ligeiro-asaas/.test(String(w.url || '')));
-        const bom = meus.find((w) => w.enabled === true && w.interrupted !== true && Array.isArray(w.events) && w.events.indexOf('PAYMENT_RECEIVED') >= 0 && w.events.indexOf('PAYMENT_CONFIRMED') >= 0);
-        aviso = bom ? 'ok' : (!meus.length ? 'nao achei' : (meus.some((w) => w.enabled === true && w.interrupted === true) ? 'parado' : (meus.some((w) => w.enabled === true) ? 'sem eventos' : 'desligado')));
-      } catch (_) { aviso = null; }
+      try { aviso = (await lerAviso(env)).como; } catch (_) { aviso = null; }
       MEM.aviso = { em: Date.now(), como: aviso };
     }
   }
   const pr = lerPlanos(env)[PLANO] || {};
+  /* a conta do Asaas esta aprovada (so conta aprovada recebe tudo, cartao inclusive)? E quantos links de assinatura de
+     preco antigo ainda estao ligados la (o painel nao usa mais link; ligado, alguem ainda paga o preco velho por ele)?
+     Uma pergunta de cada a cada 10 minutos */
+  let contaAprovada = null, linksForaDoPreco = null;
+  if (env.ASAAS_KEY) {
+    if (MEM.conta && Date.now() - MEM.conta.em < 10 * 60 * 1000) { contaAprovada = MEM.conta.aprovada; linksForaDoPreco = MEM.conta.links; }
+    else {
+      try { const c = await asaas(env, '/myAccount/status/'); contaAprovada = c && typeof c.general === 'string' ? c.general === 'APPROVED' : null; } catch (_) { contaAprovada = null; }
+      try {
+        const l = await asaas(env, '/paymentLinks?active=true&limit=100');
+        const certos = [Number(pr.mensal) || 0, Number(pr.anual) || 0];
+        linksForaDoPreco = (l && Array.isArray(l.data) ? l.data : [])
+          .filter((x) => x && x.active === true && x.deleted !== true && x.chargeType === 'RECURRENT' && certos.indexOf(Math.round(Number(x.value || 0) * 100)) < 0).length;
+      } catch (_) { linksForaDoPreco = null; }
+      MEM.conta = { em: Date.now(), aprovada: contaAprovada, links: linksForaDoPreco };
+    }
+  }
+  /* a conferencia de todo dia: quando rodou e o que achou (gravado pelo Cron) */
+  let conferencia = null;
+  if (env.CARDAPIO) {
+    if (MEM.conf && Date.now() - MEM.conf.em < 10 * 60 * 1000) conferencia = MEM.conf.r;
+    else {
+      const c = await kvJson(env, 'asaas:conferencia');
+      conferencia = c && typeof c === 'object' ? {
+        em: String(c.em || '').slice(0, 25), aviso: typeof c.aviso === 'string' ? c.aviso.slice(0, 20) : null,
+        olhadas: Number(c.olhadas) || 0, achados: Number(c.achados) || 0, faturas: Number(c.faturas) || 0, cortadas: Number(c.cortadas) || 0, falhou: c.falhou === true,
+      } : null;
+      MEM.conf = { em: Date.now(), r: conferencia };
+    }
+  }
   let fundadorVagas = null;
   try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 10); } catch (_) { fundadorVagas = null; }
   const corpo = {
     ok: true,
     versao: VERSAO,
     /* o que este mensageiro sabe fazer (o site pergunta antes de mostrar o Pix na tela) e os precos que ele cobra */
-    recursos: ['pagar', 'conferir'],
+    recursos: ['pagar', 'conferir', 'historico'],
     precos: { mensal: Number(pr.mensal) || 0, anual: Number(pr.anual) || 0 },
     chavePix: chavePix,
     avisoDoAsaas: aviso,
+    contaAprovada: contaAprovada,
+    linksForaDoPreco: linksForaDoPreco,
+    conferencia: conferencia,
     planosCertos: planosCertos(env),
     fundadorVagas: fundadorVagas,
     tokenDoAviso: !!env.ASAAS_WEBHOOK,
@@ -790,7 +822,7 @@ async function rotaDoDono(request, env, caminho) {
   const resp = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' }, cors) });
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method !== 'POST') return resp({ ok: false, erro: 'Use POST.' }, 405);
-  if (['/plano/simular', '/plano/trocar', '/plano/encerrar', '/plano/pagar', '/plano/conferir'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
+  if (['/plano/simular', '/plano/trocar', '/plano/encerrar', '/plano/pagar', '/plano/conferir', '/plano/historico'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
   let corpo = {};
   try { corpo = await request.json(); } catch (_) { corpo = {}; }
   if (!corpo || typeof corpo !== 'object') corpo = {};
@@ -800,6 +832,8 @@ async function rotaDoDono(request, env, caminho) {
     if (!email) return resp({ ok: false, erro: 'Entre de novo na sua conta e tente outra vez.' }, 401);
     /* login da equipe (cozinha, entregador) nao mexe na assinatura */
     if (EMAIL_EQUIPE.test(email)) return resp({ ok: false, erro: 'Só o dono da conta mexe na assinatura.' }, 403);
+    /* so leitura: fica fora da fila do "um por vez" (olhar os pagamentos nunca atrasa o Assinar) */
+    if (caminho === '/plano/historico') { const r = await historicoDePagamentos(env, email); return resp(r.corpo, r.status); }
     if (!umPorVez(email)) return resp({ ok: false, erro: 'Um instante: o pedido anterior ainda está terminando.' }, 429);
     try {
       const conta = await fb.get('contas/' + encodeURIComponent(email));
@@ -835,7 +869,7 @@ async function rotaDoDono(request, env, caminho) {
 const FATURA_OK = /^https:\/\/(www\.)?asaas\.com\/[A-Za-z0-9/_-]{1,200}$/;
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 async function cobrancasAbertas(env, subId) {
-  const l = await asaas(env, '/subscriptions/' + encodeURIComponent(subId) + '/payments?limit=20');
+  const l = await asaas(env, '/subscriptions/' + encodeURIComponent(subId) + '/payments?limit=100');
   return (l && Array.isArray(l.data) ? l.data : [])
     .filter((c) => c && c.id && c.deleted !== true && (c.status === 'PENDING' || c.status === 'OVERDUE'))
     .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
@@ -1019,6 +1053,168 @@ async function conferirPagamento(env, fb, email, conta, corpo) {
   if (!r || !r.ok || (r.ignorado && !r.repetido)) return { status: 200, corpo: { ok: true, pago: false, esperando: true } };
   const depois = (await fb.get('contas/' + encodeURIComponent(email))) || {};
   return { status: 200, corpo: { ok: true, pago: true, pagoAte: (depois.plano || {}).pagoAte || r.pagoAte || '' } };
+}
+
+/* ---------------- os pagamentos da assinatura, em Minha conta (15/11/2026) ----------------
+   O dono ve o que ja pagou: o dia, o valor, a forma e o comprovante do Asaas. Vem do Asaas na hora (nada novo no banco),
+   e so dos clientes do Asaas que tem o e-mail de quem chamou (o e-mail e o do login conferido pelo Google). A fatura em
+   aberto nao entra (ela aparece em cima, com o botao de pagar), nem a compra da Loja do Ligeiro (tem a lista dela).
+   Fica guardado 1 minuto por conta: abrir e fechar a janela nao vira uma fila de perguntas ao Asaas */
+const SITUACAO_DO_PAGAMENTO = {
+  CONFIRMED: 'pago', RECEIVED: 'pago', RECEIVED_IN_CASH: 'pago',
+  REFUNDED: 'devolvido', REFUND_REQUESTED: 'devolvido', REFUND_IN_PROGRESS: 'devolvido',
+  CHARGEBACK_REQUESTED: 'contestado', CHARGEBACK_DISPUTE: 'contestado', AWAITING_CHARGEBACK_REVERSAL: 'contestado',
+};
+async function historicoDePagamentos(env, email) {
+  if (email === ADMIN) return { status: 200, corpo: { ok: true, pagamentos: [] } };
+  const agora = Date.now();
+  const guardado = MEM.hist[email];
+  if (guardado && agora - guardado.em < 60 * 1000) return { status: 200, corpo: { ok: true, pagamentos: guardado.lista } };
+  const lista = await asaas(env, '/customers?email=' + encodeURIComponent(email) + '&limit=10');
+  const deles = (lista && Array.isArray(lista.data) ? lista.data : [])
+    .filter((c) => c && /^[A-Za-z0-9_-]{1,80}$/.test(String(c.id || '')) && String(c.email || '').trim().toLowerCase() === email).slice(0, 3);
+  const linhas = [];
+  for (const c of deles) {
+    const l = await asaas(env, '/payments?customer=' + encodeURIComponent(c.id) + '&limit=50');
+    (l && Array.isArray(l.data) ? l.data : []).forEach((pg) => {
+      const situacao = pg ? SITUACAO_DO_PAGAMENTO[String(pg.status || '')] : '';
+      if (!situacao || pg.deleted === true || !/^[A-Za-z0-9_-]{1,80}$/.test(String(pg.id || ''))) return;
+      /* so o que e desse cliente (o Asaas ja filtra; a conferencia e a rede) e so a assinatura */
+      if (String(pg.customer || '') !== String(c.id) || /^srv:/.test(String(pg.externalReference || ''))) return;
+      const dia = [pg.clientPaymentDate, pg.paymentDate, pg.confirmedDate, pg.dueDate].map((d) => String(d || '').slice(0, 10)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))[0] || '';
+      const forma = { PIX: 'pix', CREDIT_CARD: 'cartao', DEBIT_CARD: 'cartao', BOLETO: 'boleto' }[String(pg.billingType || '')] || '';
+      /* o comprovante (ou a fatura, que tambem mostra o pagamento): so endereco do Asaas */
+      const recibo = [pg.transactionReceiptUrl, pg.invoiceUrl].map((u) => String(u || '')).filter((u) => FATURA_OK.test(u))[0] || '';
+      linhas.push({ id: String(pg.id), dia: dia, valor: Math.round(Number(pg.value || 0) * 100), forma: forma, situacao: situacao, recibo: recibo });
+    });
+  }
+  linhas.sort((a, b) => b.dia.localeCompare(a.dia) || b.id.localeCompare(a.id));
+  const curta = linhas.slice(0, 24);
+  if (Object.keys(MEM.hist).length > 500) MEM.hist = {};
+  MEM.hist[email] = { em: agora, lista: curta };
+  return { status: 200, corpo: { ok: true, pagamentos: curta } };
+}
+
+/* ---------------- a vigia do aviso e a conferencia de todo dia (15/11/2026) ----------------
+   Tudo o que libera a loja sozinho depende do aviso (webhook) do Asaas. Se ele falha varias vezes, o Asaas para a fila e
+   nao conta para ninguem: a mensalidade cai no cartao e a loja aparece "vencida". Uma vez por dia, depois dos lembretes:
+     1. a fila parada e religada sozinha (os avisos guardados voltam a chegar) e o admin recebe um e-mail; aviso desligado,
+        sem os eventos de pagamento ou apagado nao da para consertar daqui: o admin recebe o e-mail com o que fazer;
+     2. as contas com fatura em aberto, ou com os dias pagos acabando (de 12 dias atras a 2 dias a frente), tem as
+        cobrancas da assinatura lidas no Asaas: a que foi paga e nao entrou passa pelo caminho de sempre (o do aviso, que
+        nao soma duas vezes), e a fatura do mes que nao foi anotada passa a aparecer no painel.
+   No maximo CONFERIR_POR_DIA contas por dia (o plano gratis da Cloudflare limita os pedidos de cada execucao); com mais
+   contas na fila, ela roda: cada dia comeca de onde o outro parou, e o que ficou de fora aparece em "cortadas" */
+const PAGOS = ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'];
+const CONFERIR_POR_DIA = 8;
+const ID_ASAAS = /^[A-Za-z0-9_-]{1,80}$/;
+async function lerAviso(env) {
+  const l = await asaas(env, '/webhooks?limit=50');
+  const meus = (l && Array.isArray(l.data) ? l.data : []).filter((w) => w && /ligeiro-asaas/.test(String(w.url || '')));
+  const bom = meus.find((w) => w.enabled === true && w.interrupted !== true && Array.isArray(w.events) && w.events.indexOf('PAYMENT_RECEIVED') >= 0 && w.events.indexOf('PAYMENT_CONFIRMED') >= 0);
+  const como = bom ? 'ok' : (!meus.length ? 'nao achei' : (meus.some((w) => w.enabled === true && w.interrupted === true) ? 'parado' : (meus.some((w) => w.enabled === true) ? 'sem eventos' : 'desligado')));
+  return { como: como, meus: meus };
+}
+async function vigiarAviso(env) {
+  if (!env.ASAAS_KEY) return { aviso: null };
+  const a = await lerAviso(env);
+  MEM.aviso = { em: Date.now(), como: a.como };
+  if (a.como === 'ok') return { aviso: 'ok' };
+  if (a.como === 'parado') {
+    let religados = 0;
+    for (const w of a.meus) {
+      if (w.enabled !== true || w.interrupted !== true || !ID_ASAAS.test(String(w.id || ''))) continue;
+      const r = await asaas(env, '/webhooks/' + encodeURIComponent(w.id), 'PUT', { interrupted: false }).catch((e) => { console.error('religar o aviso', e && e.message || e); return null; });
+      if (r && r.interrupted !== true) religados++;
+    }
+    MEM.aviso = null;
+    if (religados) await avisarAdmin(env, 'Aviso do Asaas religado', 'A fila de avisos do Asaas tinha parado (o Asaas para sozinho quando o aviso falha várias vezes) e foi religada agora. Os pagamentos que ficaram guardados voltam a chegar. Se parar de novo, veja o motivo no Asaas, em Integrações > Webhooks > Logs.');
+    else await avisarAdmin(env, 'Aviso do Asaas parado', 'A fila de avisos do Asaas está parada e não deu para religar daqui. Sem ela, quem paga não é liberado na hora. Religue no Asaas, em Integrações > Webhooks.');
+    return { aviso: religados ? 'religado' : 'parado' };
+  }
+  const oQue = a.como === 'nao achei' ? 'não existe mais (foi apagado)' : (a.como === 'desligado' ? 'está desligado' : 'está sem os eventos de pagamento');
+  await avisarAdmin(env, 'Aviso do Asaas com problema', 'O aviso (webhook) do Asaas ' + oQue + '. Sem ele, quem paga não é liberado na hora: só a conferência de todo dia acha o pagamento, com atraso. Acerte no Asaas, em Integrações > Webhooks: o endereço do ligeiro-asaas, ligado, com os eventos PAYMENT_CONFIRMED e PAYMENT_RECEIVED.');
+  return { aviso: a.como };
+}
+async function conferirPerdidos(env, agora) {
+  const r = { olhadas: 0, achados: 0, faturas: 0, cortadas: 0 };
+  if (!env.ASAAS_KEY || !env.FIREBASE_SA) return r;
+  const fb = await firebase(env);
+  const agoraMs = (agora || new Date()).getTime();
+  const hoje = diaDeBrasilia(new Date(agoraMs));
+  const porEmail = {};
+  const entra = (c) => {
+    const email = String(c._id || '').toLowerCase();
+    /* conta encerrada tem o caminho dela (sincronizarEncerradas); a do Ligeiro nao assina */
+    if (!EMAIL_OK.test(email) || email === ADMIN || (c.plano || {}).status === 'cancelado') return;
+    porEmail[email] = c;
+  };
+  /* fatura em aberto que vence por agora (de 20 dias atras a 10 a frente): a mais velha que isso ninguem esta pagando */
+  (await fb.consultarEm('contas', 'faturaAsaas.status', ['PENDING', 'OVERDUE'])).forEach((c) => {
+    const v = String((c.faturaAsaas || {}).vencimento || '');
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(v) ? diasAte(hoje, v) : 0;
+    if (d >= -20 && d <= 10) entra(c);
+  });
+  /* dias pagos acabando ou que acabaram ha pouco (a renovacao que o aviso pode ter perdido) */
+  (await fb.consultarEntre('contas', 'plano.pagoAte', new Date(agoraMs - 12 * 864e5).toISOString(), new Date(agoraMs + 2 * 864e5).toISOString())).forEach(entra);
+  const emails = Object.keys(porEmail).sort();
+  const n = emails.length;
+  const inicio = n > CONFERIR_POR_DIA ? (Math.floor(agoraMs / 864e5) * CONFERIR_POR_DIA) % n : 0;
+  const daVez = n > CONFERIR_POR_DIA ? emails.concat(emails).slice(inicio, inicio + CONFERIR_POR_DIA) : emails;
+  r.cortadas = n - daVez.length;
+  const desde = diaDeBrasilia(new Date(agoraMs - 60 * 864e5));
+  const recuperadas = [];
+  for (const email of daVez) {
+    const c = porEmail[email];
+    r.olhadas++;
+    try {
+      const feitos = Array.isArray(c.pagamentos) ? c.pagamentos.map(String) : [];
+      const subs = [String(c.assinaturaAsaas || ''), String(c.assinaturaPendente || '')].filter((x, i, l) => x && ID_ASAAS.test(x) && l.indexOf(x) === i);
+      let lidas = [];
+      for (const sub of subs) {
+        const l = await asaas(env, '/payments?subscription=' + encodeURIComponent(sub) + '&dueDate%5Bge%5D=' + desde + '&limit=20').catch((e) => { if (e && e.status === 404) return null; throw e; });
+        lidas = lidas.concat(l && Array.isArray(l.data) ? l.data : []);
+      }
+      /* a fatura anotada que nao veio nas listas (conta sem assinatura anotada, ou fatura mais velha): le so ela */
+      const fid = String((c.faturaAsaas || {}).id || '');
+      if (ID_ASAAS.test(fid) && !lidas.some((x) => x && String(x.id) === fid)) {
+        const uma = await asaas(env, '/payments/' + encodeURIComponent(fid)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+        if (uma) lidas.push(uma);
+      }
+      const validas = lidas.filter((x) => x && x.deleted !== true && ID_ASAAS.test(String(x.id || '')) && ID_ASAAS.test(String(x.customer || '')));
+      let entrou = false;
+      for (const x of validas) {
+        if (PAGOS.indexOf(String(x.status || '')) < 0 || feitos.indexOf(String(x.id)) >= 0) continue;
+        let res = null;
+        for (let vez = 0; ; vez++) {
+          try { res = await processarPagamento(env, { id: String(x.id), customer: String(x.customer) }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+        }
+        const j = await res.json().catch(() => ({}));
+        if (j && j.ok && !j.ignorado && !j.repetido && !j.devolvido) { r.achados++; entrou = true; }
+      }
+      if (entrou) { recuperadas.push(email); continue; }
+      /* a fatura do mes que o aviso nao anotou: passa a aparecer no painel (e a receber os lembretes) */
+      const aberta = validas.filter((x) => x.status === 'PENDING' || x.status === 'OVERDUE').sort((x, y) => String(x.dueDate || '').localeCompare(String(y.dueDate || '')))[0];
+      if (aberta && !(c.faturaAsaas && c.faturaAsaas.id)) {
+        const res = await anotarFatura(env, { id: String(aberta.id), customer: String(aberta.customer) }, 'PAYMENT_CREATED');
+        const j = await res.json().catch(() => ({}));
+        if (j && j.ok && (j.fatura === 'PENDING' || j.fatura === 'OVERDUE')) r.faturas++;
+      }
+    } catch (e) { r.falhas = (r.falhas || 0) + 1; console.error('conferencia de uma conta', e && e.message || e); }
+  }
+  if (recuperadas.length) {
+    await avisarAdmin(env, 'Pagamento recuperado pela conferência', 'A conferência de todo dia achou ' + r.achados + (r.achados === 1 ? ' pagamento' : ' pagamentos') + ' que o aviso do Asaas não entregou (' + recuperadas.join(', ') + '). Os dias já entraram e a loja foi liberada. Se acontecer de novo, abra o endereço /saude do mensageiro e veja se avisoDoAsaas está "ok".');
+  }
+  return r;
+}
+async function conferenciaDoDia(env, agora) {
+  const r = { em: (agora || new Date()).toISOString(), aviso: null, olhadas: 0, achados: 0, faturas: 0, cortadas: 0, falhou: false };
+  try { r.aviso = (await vigiarAviso(env)).aviso; } catch (e) { console.error('vigia do aviso', e && e.message || e); }
+  try { Object.assign(r, await conferirPerdidos(env, agora)); } catch (e) { r.falhou = true; console.error('conferencia', e && e.message || e); }
+  console.log('conferencia', JSON.stringify(r));
+  if (env.CARDAPIO) await env.CARDAPIO.put('asaas:conferencia', JSON.stringify(r)).catch((e) => console.error('guardar a conferencia', e && e.message || e));
+  MEM.conf = null;
+  return r;
 }
 
 /* ---------------- lembrete do teste gratis (15/11/2026) ----------------
@@ -1416,7 +1612,12 @@ function somarPeriodo(ms, tipo) {
 /* ---------------- Firestore pela REST, autenticado com a conta de servico (JWT RS256) ---------------- */
 async function firebase(env) {
   const sa = JSON.parse(env.FIREBASE_SA);
-  const token = await tokenDaContaDeServico(sa);
+  /* a chave do Google vale 1 hora: fica guardada 45 minutos (antes, cada pedido gastava uma ida ao Google so para isso) */
+  let token = MEM.fb && MEM.fb.sa === env.FIREBASE_SA && Date.now() < MEM.fb.ate ? MEM.fb.token : '';
+  if (!token) {
+    token = await tokenDaContaDeServico(sa);
+    MEM.fb = { sa: env.FIREBASE_SA, token: token, ate: Date.now() + 45 * 60 * 1000 };
+  }
   const base = 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents/';
   const cab = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   return {
@@ -1480,6 +1681,15 @@ async function firebase(env) {
     async consultarEm(colecao, campo, valores) {
       const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { fieldFilter: { field: { fieldPath: campo }, op: 'IN', value: { arrayValue: { values: valores.map((v) => ({ stringValue: v })) } } } }, limit: 500 } };
       const r = await fetch(base.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) }); /* documents:runQuery, sem a barra */
+      if (!r.ok) throw new Error('Firestore query ' + r.status);
+      const linhas = await r.json();
+      return linhas.filter((l) => l.document).map((l) => Object.assign(deFirestore(l.document.fields || {}), { _id: decodeURIComponent(l.document.name.split('/').pop()) }));
+    },
+    /* documentos inteiros (com _id) em que o campo, que e texto, esta entre os dois valores (os dois contam) */
+    async consultarEntre(colecao, campo, de, ate) {
+      const filtro = (op, v) => ({ fieldFilter: { field: { fieldPath: campo }, op: op, value: { stringValue: v } } });
+      const q = { structuredQuery: { from: [{ collectionId: colecao }], where: { compositeFilter: { op: 'AND', filters: [filtro('GREATER_THAN_OR_EQUAL', de), filtro('LESS_THAN_OR_EQUAL', ate)] } }, limit: 200 } };
+      const r = await fetch(base.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: cab, body: JSON.stringify(q) });
       if (!r.ok) throw new Error('Firestore query ' + r.status);
       const linhas = await r.json();
       return linhas.filter((l) => l.document).map((l) => Object.assign(deFirestore(l.document.fields || {}), { _id: decodeURIComponent(l.document.name.split('/').pop()) }));
