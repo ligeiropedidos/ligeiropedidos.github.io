@@ -222,7 +222,7 @@
         el('div', { class: 'plano-acoes' }, [
           /* em dia nao tem o que pagar: o botao volta 7 dias antes de vencer */
           fatura
-            ? el('a', { class: 'btn btn-principal btn-pequeno plano-pagar', href: fatura.url, target: '_blank', rel: 'noopener', text: 'Pagar a fatura · ' + R.dinheiro(fatura.valor) })
+            ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: 'Pagar a fatura · ' + R.dinheiro(fatura.valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } })
             /* assinatura em dia e sem fatura aberta: nada a pagar (o link abriria outra assinatura) */
             : (comAssinatura && !atrasada) ? null
             : ((a.estado !== 'cancelada' && a.estado !== 'pausada' && !a.cortesia && a.estado !== 'ativa') ? el('button', { class: 'btn btn-principal btn-pequeno plano-pagar', type: 'button', text: (a.estado === 'gratis' ? 'Assinar · ' : 'Pagar ') + R.dinheiro(valor), onclick: function () { abrirPagamento(conta, valor, p.tipo === 'anual' ? '12 meses' : '30 dias', function () { carregar(); }, { assinatura: comAssinatura, atrasada: atrasada }); } }) : null),
@@ -263,13 +263,14 @@
     function itemPlano(icone, partes) {
       return el('li', {}, [el('span', { class: 'plano-gratis-ico', 'aria-hidden': 'true' }, [UI.iconeLinha(icone)]), el('span', { class: 'plano-gratis-txt' }, partes)]);
     }
+    function pedidosDoPlano() { return (Number(((window.LIGEIRO_CONFIG || {}).limites || {}).pedidosMes) || 3000).toLocaleString('pt-BR'); }
     function porQueAssinar(anual) {
       var item = itemPlano;
       return el('div', { class: 'plano-gratis' }, [
         el('b', { class: 'plano-gratis-titulo', text: 'Por que assinar agora?' }),
         el('ul', { class: 'plano-gratis-lista' }, [
           item('presente', ['Os dias grátis ', el('b', { text: 'não se perdem' }), ': os pagos só contam depois deles.']),
-          item('cartao', ['No cartão, a ' + (anual ? 'renovação' : 'mensalidade') + ' ', el('b', { text: 'cai sozinha' }), anual ? ' todo ano.' : ' todo mês.']),
+          item('celular', ['Pix ou cartão, ', el('b', { text: 'aqui mesmo' }), ', em menos de um minuto.']),
           item('relogio', ['Sem assinar, ', el('b', { text: 'os pedidos param' }), ' quando o grátis acabar.']),
         ]),
       ]);
@@ -284,7 +285,7 @@
       return el('div', { class: 'plano-gratis' }, [
         el('b', { class: 'plano-gratis-titulo', text: 'Incluso no seu plano' }),
         el('ul', { class: 'plano-gratis-lista' }, [
-          itemPlano('dinheiro', ['Pedidos ilimitados, ', el('b', { text: 'sem comissão' }), '.']),
+          itemPlano('dinheiro', ['Até ' + pedidosDoPlano() + ' pedidos por mês, ', el('b', { text: 'sem comissão' }), '.']),
           itemPlano('escudo', ['Pix e cartão ', el('b', { text: 'confirmados sozinhos' }), ' pelo Mercado Pago.']),
           itemPlano(comercioNaConta ? 'caixa' : 'chef', ['Telas de ', el('b', { text: (comercioNaConta ? 'separação' : 'cozinha') + ' e entregador' }), '.']),
           itemPlano('telefone', ['Suporte ', zap ? el('a', { class: 'plano-suporte', href: zap, target: '_blank', rel: 'noopener' }, [suporte]) : suporte, '.']),
@@ -302,30 +303,17 @@
 
     /* antes de abrir o link, confere as vagas de fundador de agora (a tela pode estar aberta ha muito tempo): o preco da
        janela e o link do Asaas saem da mesma conta, e ninguem paga R$ 79 achando que pegou a vaga depois dela acabar */
+    /* a janela de pagar (js/cobranca.js): o Pix aparece nela mesma. Pagou ou fechou, o cartao do plano e lido de novo
+       (o plano pode ter mudado de mensal para anual la dentro) */
     function abrirPagamento(conta, valor, periodo, aoAvisar, extra) {
-      var ler = store.obterFundadores ? store.obterFundadores({ semCache: true }).then(function (f) {
-        if (f) window.LigeiroFundadores = { usados: f.usados || 0, capacidade: f.capacidade || null };
-      }).catch(function () { /* fica o que o aparelho sabia */ }) : Promise.resolve();
-      ler.then(function () {
-        var tipo = (conta.plano || {}).tipo;
-        var agora = R.precoDoPlano('uma', tipo, conta);
-        if (agora !== valor) UI.avisar(agora > valor ? 'As vagas de fundador acabaram agora. O valor é ' + R.dinheiro(agora) + '.' : 'Abriu uma vaga de fundador: o valor é ' + R.dinheiro(agora) + '.');
-        abrirPagamentoAgora(conta, agora, periodo, aoAvisar, extra);
-      });
-    }
-    function abrirPagamentoAgora(conta, valor, periodo, aoAvisar, extra) {
       var p = conta.plano || {};
-      /* falhou: devolve false e a janela do Pix fica aberta para tocar de novo */
-      function avisar() {
-        return store.salvarConta(conta.email, { plano: { avisoPagamentoEm: new Date().toISOString(), avisoValor: valor } })
-          .then(function (c) { UI.soar('sucesso'); UI.avisar('Avisado! Assim que cair, liberamos mais ' + periodo + '.'); aoAvisar(c); })
-          .catch(function (e) { UI.avisar(D.erroAmigavel(e, 'Não deu para avisar agora.')); return false; });
-      }
       window.LigeiroCobranca.abrir({
         fatura: window.LigeiroCobranca.faturaAberta ? window.LigeiroCobranca.faturaAberta(conta, { todas: true }) : null,
-        valor: valor, periodo: periodo, planoId: 'uma', tipo: p.tipo, fundador: R.ehPrecoFundador(conta), quem: 'conta ' + conta.email, email: conta.email,
-        assinatura: !!(extra && extra.assinatura), atrasada: !!(extra && extra.atrasada),
-        txid: 'LIG' + conta.email.replace(/[^a-z0-9]/gi, '').slice(0, 20), descricao: 'Ligeiro assinatura', avisar: avisar,
+        valor: valor, periodo: periodo, planoId: 'uma', tipo: p.tipo, quem: conta.nome || conta.email, email: conta.email,
+        /* so a assinatura que ja pagou conta como "ja assina" (a que so tem fatura ainda escolhe mensal ou anual) */
+        assinatura: !!(extra && extra.assinatura) && !!conta.assinaturaAsaas, atrasada: !!(extra && extra.atrasada),
+        aoPagar: function (c) { if (aoAvisar) aoAvisar(c); },
+        aoFechar: function () { carregar(); },
       });
     }
 

@@ -1443,7 +1443,7 @@ const REGRAS = (function () {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
     if (Array.isArray(cfg.planos) && cfg.planos.length) return cfg.planos;
     var pr = cfg.precos || {};
-    return [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: pr.mensal || 8900, anual: pr.anual == null ? 89000 : pr.anual }];
+    return [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: pr.mensal || 3990, anual: pr.anual == null ? 39900 : pr.anual }];
   }
   function planoPorId(id) {
     var lista = planos();
@@ -1764,6 +1764,8 @@ const REGRAS = (function () {
   /* ---- preco de fundador ---- */
   function vagasFundador() {
     var cfg = (typeof window !== 'undefined' && window.LIGEIRO_CONFIG) || {};
+    /* plano sem preco de fundador (15/11/2026: um preco so para todo mundo): nao ha vaga de fundador para mostrar */
+    if (!planoPorId('uma').fundador) return 0;
     var total = (cfg.fundador && Number(cfg.fundador.vagas)) || 0;
     /* numero ainda nao conferido: nenhuma vaga (fecha no seguro; o preco de fundador so aparece com vaga confirmada) */
     if (typeof window !== 'undefined' && window.LigeiroFundadores && window.LigeiroFundadores.usados == null) return 0;
@@ -1977,12 +1979,19 @@ const REGRAS = (function () {
 
   /* tipos de loja do cadastro e da Central (nome e emoji): moram aqui para o cadastro nao precisar baixar a Central.
      O emoji vira o da loja: sempre de comida (o "Outro" era uma moto, que nao e comida) */
-  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Sorveteria', '🍨'], ['Açaí', '🍇'], ['Padaria', '🥐'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outra comida', '🍴']];
+  /* 15/11/2026: Hamburgueria, Pastelaria, Doceria e Cafeteria entraram. Tipo de comida novo nao depende de mensageiro: tipo
+     que ninguem conhece ja e tratado como comida em todo lugar */
+  var TIPOS_DE_LOJA = [['Lanchonete', '🍔'], ['Hamburgueria', '🍔'], ['Pizzaria', '🍕'], ['Marmitaria', '🍱'], ['Restaurante', '🍽️'], ['Pastelaria', '🥟'], ['Açaí', '🍇'], ['Sorveteria', '🍨'], ['Doceria', '🍰'], ['Padaria', '🥐'], ['Cafeteria', '☕'], ['Espetinho', '🍢'], ['Sushi', '🍣'], ['Outra comida', '🍴']];
   /* comercio: o emoji e o do produto da loja (como o das comidas acima) */
   var TIPOS_DE_COMERCIO = [['Roupas', '👕'], ['Calçados', '👟'], ['Acessórios', '👜'], ['Cosméticos', '💄'], ['Presentes', '🎁'], ['Eletrônicos', '📱'], ['Pet shop', '🐾'], ['Mercado', '🛒'], ['Outro comércio', '🛍️']];
+  /* Mais comercios no cadastro (15/11/2026): cada um grava o tipo "Outro comércio" com o nome ja escrito (tipoNome), que e
+     o que os mensageiros e a pagina da cidade ja entendem. Assim tipo novo de comercio nao depende de colar mensageiro (o
+     comercio so e comercio para quem conhece o nome do tipo; desconhecido viraria comida) */
+  var TIPOS_DE_COMERCIO_MAIS = [['Papelaria', '✏️'], ['Estamparia', '🎨'], ['Semijoias', '💍'], ['Floricultura', '💐'], ['Adega', '🍷'], ['Casa e decoração', '🛋️']];
 
   return {
     TIPOS_DE_LOJA: TIPOS_DE_LOJA,
+    TIPOS_DE_COMERCIO_MAIS: TIPOS_DE_COMERCIO_MAIS,
     TIPOS_DE_COMERCIO: TIPOS_DE_COMERCIO,
     segmento: segmento,
     pedidoDeComercio: pedidoDeComercio,

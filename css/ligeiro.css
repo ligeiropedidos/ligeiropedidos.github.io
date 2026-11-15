@@ -1733,6 +1733,43 @@ a.selo-google:hover { background: var(--lime-suave); }
 .fatura-cartao.vencida { background: var(--erro-suave); border-color: #F3C2BB; }
 .fatura-cartao.vencida .fatura-quando { color: var(--erro); }
 .fatura-cartao.vencida .fatura-forma { border-color: #F3C2BB; }
+/* ---------- assinar pelo painel (15/11/2026): a janela do Pix e do cartao. Tudo no ritmo 8/12/16: 16 entre os blocos
+   (formas, miolo), 12 entre as pecas do miolo; as duas formas sao metades iguais; o QR, o quadro do valor e os botoes
+   tem a mesma largura (a da janela) e ficam no meio ---------- */
+.assinar { display: flex; flex-direction: column; gap: 16px; padding-top: 8px; }
+.assinar-formas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.assinar-forma { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 56px; padding: 8px 12px; border: 1.5px solid var(--line-forte); border-radius: 14px; background: var(--card); color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.assinar-forma.ativa { border-color: var(--lime-escuro); background: var(--lime-suave); }
+.assinar-forma-ico { flex: none; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--deep2); }
+.assinar-forma.ativa .assinar-forma-ico { background: var(--lime); color: var(--texto-no-destaque, var(--ink)); }
+.assinar-forma-ico .ico-traco svg { display: block; width: 18px; height: 18px; }
+.assinar-forma-texto { display: flex; flex-direction: column; min-width: 0; }
+.assinar-forma-texto b { font-size: 16px; line-height: 20px; }
+.assinar-forma-texto small { font-size: 13px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assinar-miolo { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.assinar-miolo > * { width: 100%; margin: 0; }
+.assinar-miolo > .assinar-qr { width: 168px; padding: 12px; border-radius: 18px; }
+.assinar-miolo > .assinar-troca { width: auto; }
+.assinar-troca { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: none; color: var(--deep2); font: inherit; font-size: 15px; font-weight: 700; line-height: 20px; cursor: pointer; }
+.assinar-troca span { text-decoration: underline; text-underline-offset: 3px; }
+.assinar-troca .ico-traco svg { display: block; width: 18px; height: 18px; }
+.assinar-espera { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14.5px; line-height: 1.35; font-weight: 600; color: var(--body); text-align: left; }
+.assinar-espera .girando { flex: none; }
+.assinar-lista { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.assinar-lista li { display: flex; align-items: center; gap: 12px; font-size: 15.5px; line-height: 1.4; color: var(--body); }
+.assinar-lista-ico { flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--lime-suave); color: var(--deep2); }
+.assinar-lista-ico .ico-traco svg { display: block; width: 18px; height: 18px; }
+.assinar-doc label { margin-bottom: 8px; }
+.assinar-doc input { font-size: 18px; letter-spacing: 0.02em; }
+.assinar-pago { padding: 16px 0 8px; }
+.assinar-miolo .pix-gerando { padding: 16px 12px; }
+.assinar-miolo .garantia-botao { margin: 0; }
+/* PC: a janela de pagar e estreita (480) e fica no meio, com os quatro cantos redondos, como a janela do item */
+@media (min-width: 900px) and (min-height: 480px) {
+  .modal-caixa.modal-assinar { --margem: 24px; max-width: 480px; max-height: calc(100vh - 48px); border-radius: 26px; overflow: hidden; box-shadow: 0 24px 64px rgba(14, 31, 20, 0.35); }
+}
+/* 320: o icone das formas sai (o nome e a frase curta cabem inteiros) */
+@media (max-width: 359px) { .assinar-forma { gap: 8px; padding: 8px; } .assinar-forma-ico { display: none; } }
 .caixa-link { background: var(--card); border: 1px dashed var(--line-forte); border-radius: var(--raio-p); padding: 12px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; } /* quebra depois das "/" (UI.pedacosDeLink); no meio so se um pedaco nao couber */
 .grade-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
@@ -2016,6 +2053,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 /* o que vem e, embaixo, os tipos de loja em texto (08/10/2026: a nuvem de 18 etiquetas cansava so de olhar) */
 .segmento-texto { display: flex; flex-direction: column; gap: 8px; }
 .segmento .segmento-tipos { font-size: 14px; font-weight: 600; color: var(--muted); }
+/* a frase de baixo dos dois cartoes (15/11/2026): "vende outra coisa? tambem serve", no meio, na letra dos textos da pagina */
+.segmentos-nota { font-size: 15px; line-height: 1.45; color: var(--body); text-align: center; text-wrap: pretty; }
 /* pela letra, como os cartoes de "O que o Ligeiro faz": 16 do icone ao texto, 12 entre as duas linhas de texto */
 @supports (text-box: trim-both cap alphabetic) {
   .segmento-cabeca b, .segmento p { text-box: trim-both cap alphabetic; }
@@ -3052,8 +3091,9 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cadastro-rotulo { font-weight: 700; font-size: 15px; color: var(--ink); margin-bottom: -8px; }
 .cadastro-cidade input { min-height: 60px; font-size: 20px; border-radius: 14px; }
 .escolhas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-/* cadastro: o titulo de cada grupo de tipos (Comida, Outros comercios) e a caixa do nome livre ("Outro comercio") */
-.cadastro-secao { margin-top: 8px; }
+/* cadastro: os dois atalhos do tipo de loja (Comida, Outras lojas), metade cada um, e a caixa do nome livre ("Outro comercio") */
+.cadastro-atalhos { display: flex; gap: 10px; } /* o mesmo vao da grade de baixo: os dois atalhos alinham com as duas colunas */
+.cadastro-atalhos .aba { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; cursor: pointer; }
 .cadastro-livre { padding-top: 0; }
 .cadastro-livre[hidden] { display: none; }
 .cadastro-livre .cadastro-livre-ajuda { margin: -4px 0 -8px; } /* como o campo: rotulo, 4, ajuda, 8, entrada */

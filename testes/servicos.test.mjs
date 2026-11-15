@@ -33,7 +33,7 @@ function conv(v, tipo) {
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const SA = { project_id: 'proj', client_email: 'sa@proj.iam', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
-const env = { ASAAS_KEY: 'chave', ASAAS_WEBHOOK: 'tokenDoWebhook123', FIREBASE_SA: JSON.stringify(SA), PLANOS: JSON.stringify({ uma: { mensal: 8900, anual: 89000, fm: 7900, fa: 79000 } }), CARDAPIO, EMAIL_URL: 'https://email.teste/exec', EMAIL_TOKEN: 'x' };
+const env = { ASAAS_KEY: 'chave', ASAAS_WEBHOOK: 'tokenDoWebhook123', FIREBASE_SA: JSON.stringify(SA), PRECOS: JSON.stringify({ uma: { mensal: 8900, anual: 89000, fm: 7900, fa: 79000 } }), CARDAPIO, EMAIL_URL: 'https://email.teste/exec', EMAIL_TOKEN: 'x' };
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 const logins = new Map([
   ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJ6ZSJ9.assinatura', { email: 'ze@x.com', emailVerified: true }], ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura', { email: 'outro@x.com', emailVerified: true }],

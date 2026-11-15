@@ -593,10 +593,10 @@ test('comparador de custos: iFood por porcentagem, Anota AI por faixa, Ligeiro f
   assert.equal(c.ifoodBasico, 76000 + 11000);
   assert.equal(c.ifoodEntrega, 131000 + 15000); // 26,2% (23% + 3,2% do pagamento online)
   assert.equal(c.anotaAi, 19999);
-  assert.equal(c.ligeiroMensal, 8900); // sem config, o preco normal do plano unico (R$ 89)
+  assert.equal(c.ligeiroMensal, 3990); // sem config, o preco do plano unico (R$ 39,90 desde 15/11/2026)
   assert.equal(c.ligeiroPix, 4950); // 0,99% de R$ 5.000 (o Pix do Mercado Pago, pago direto a ele)
-  assert.equal(c.ligeiro, 8900 + 4950);
-  assert.equal(R.compararCustos(0, 0).ligeiro, 8900);
+  assert.equal(c.ligeiro, 3990 + 4950);
+  assert.equal(R.compararCustos(0, 0).ligeiro, 3990);
   const pequena = R.compararCustos(150000, 40);
   assert.equal(pequena.ifoodBasico, 22800);
   assert.equal(pequena.ifoodMensalidade, false);
@@ -666,8 +666,15 @@ test('conta do proprio Ligeiro: cortesia permanente e sem limite de lojas', () =
 test('vagas de fundador: as ja ocupadas (Dom Conizza) saem da conta', () => {
   const antes = global.window;
   try {
-    global.window = { LIGEIRO_CONFIG: { fundador: { vagas: 20, jaOcupadas: 1 } }, LigeiroFundadores: { usados: 2 } };
+    /* so existe vaga de fundador quando o plano tem preco de fundador */
+    global.window = { LIGEIRO_CONFIG: { fundador: { vagas: 20, jaOcupadas: 1 }, planos: [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 8900, anual: 89000, fundador: { mensal: 6990, anual: 69900 } }] }, LigeiroFundadores: { usados: 2 } };
     assert.equal(R.vagasFundador(), 17);
+    /* um preco so para todo mundo (15/11/2026): nenhuma vaga de fundador, e ninguem paga preco de fundador */
+    global.window = { LIGEIRO_CONFIG: { fundador: { vagas: 20, jaOcupadas: 1 }, planos: [{ id: 'uma', nome: 'Ligeiro', lojas: 1, mensal: 3990, anual: 39900 }] }, LigeiroFundadores: { usados: 2 } };
+    assert.equal(R.vagasFundador(), 0);
+    assert.equal(R.ehPrecoFundador({ plano: { status: 'teste' } }), false);
+    assert.equal(R.precoDoPlano('uma', 'mensal', { plano: { status: 'teste' } }), 3990);
+    assert.equal(R.precoDoPlano('uma', 'anual'), 39900);
   } finally { global.window = antes; }
 });
 

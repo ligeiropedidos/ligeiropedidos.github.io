@@ -13,8 +13,9 @@
  *        ASAAS_WEBHOOK    um token inventado por voce (letras e numeros); o mesmo vai no webhook do Asaas
  *        FIREBASE_SA      o JSON inteiro da conta de servico do Firebase
  *                         (Firebase > Configuracoes do projeto > Contas de servico > Gerar nova chave privada)
- *        PLANOS           JSON com os precos em centavos, igual ao config.js (um plano so, 1 loja por conta):
- *                         {"uma":{"mensal":8900,"anual":89000,"fm":6990,"fa":69900}}
+ *      Os precos moram neste arquivo (PRECOS_PADRAO, iguais aos do js/config.js; um teste confere): mudou o preco, e so
+ *      colar o arquivo novo. O segredo PLANOS antigo nao e mais lido (pode apagar). PRECOS (opcional) troca os precos
+ *      sem colar o arquivo, no mesmo formato: {"uma":{"mensal":3990,"anual":39900,"fm":3990,"fa":39900}}
  *        FUNDADOR_VAGAS   (opcional, padrao 10) quantas vagas de fundador existem; FUNDADOR_JA (opcional, padrao 0)
  *                         quantas ja estavam ocupadas fora da contagem publica (igual ao config.js: fundador.vagas e jaOcupadas)
  *   2b. Settings > Bindings > Add binding > KV namespace: Variable name CARDAPIO, namespace ligeiro-cardapio
@@ -37,6 +38,9 @@
  *
  * Um plano so (25/09/2026): 1 loja por conta, mensal ou anual. Outra loja = outra conta (outro e-mail), com a propria
  * assinatura. O dono logado chama, pelo site (nada novo para configurar):
+ *   POST /plano/pagar    {tipo, forma, documento}  cria (ou acha) a assinatura da conta no Asaas e devolve o Pix copia e
+ *                        cola e o endereco da fatura: o dono paga sem sair do painel e sem digitar e-mail (15/11/2026)
+ *   POST /plano/conferir {cobranca}  "Ja paguei": le a cobranca no Asaas e libera na hora, sem esperar o aviso
  *   POST /plano/simular  {tipo}  diz o que vai acontecer (valor novo e a partir de quando), sem mexer em nada
  *   POST /plano/trocar   {tipo}  mensal <-> anual: a MESMA assinatura do Asaas muda de valor e ciclo, e vale na proxima fatura
  *   POST /plano/encerrar         cancela a assinatura no Asaas (nenhuma cobranca nova) e encerra a conta
@@ -56,7 +60,7 @@ export default {
     /* Central: pagamentos que entraram sem conta no Ligeiro (vincular a conta certa) e a conferencia da configuracao */
     if (caminhoPedido.indexOf('/admin/') === 0) return rotaAdmin(request, env, caminhoPedido);
     if (caminhoPedido === '/saude') return saude(env);
-    if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok (versao 2026-10-05)', { status: 200 });
+    if (request.method !== 'POST') return new Response('Ligeiro + Asaas: ok (versao ' + VERSAO + ')', { status: 200 });
     const token = request.headers.get('asaas-access-token') || '';
     if (!env.ASAAS_WEBHOOK || !igual(token, env.ASAAS_WEBHOOK)) return json({ ok: false, erro: 'token' }, 401);
 
@@ -96,6 +100,7 @@ export default {
   async scheduled(evento, env, ctx) {
     const tarefa = Promise.all([
       lembrarFaturas(env).then((r) => console.log('lembretes', JSON.stringify(r))).catch((e) => console.error('lembretes', e && e.message || e)),
+      lembrarTestes(env).then((r) => console.log('testes', JSON.stringify(r))).catch((e) => console.error('testes', e && e.message || e)),
       sincronizarEncerradas(env).then((r) => console.log('encerradas', JSON.stringify(r))).catch((e) => console.error('encerradas', e && e.message || e)),
     ]);
     if (ctx && ctx.waitUntil) ctx.waitUntil(tarefa); else await tarefa;
@@ -112,10 +117,10 @@ const EMAIL_OK = /^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,}$/;
 
 /* Um pagamento confirmado: quantos dias ele vale e a gravacao na conta e nas lojas */
 async function processarPagamento(env, pag) {
-      /* segredo PLANOS torto (JSON quebrado, "Uma", preco em reais): antes, qualquer pagamento valia um ano. Agora nada e
+      /* segredo PRECOS torto (JSON quebrado, "Uma", preco em reais): antes, qualquer pagamento valia um ano. Agora nada e
          gravado, o admin recebe e-mail e o Asaas tenta de novo (depois de corrigir, os pagamentos entram) */
       if (!planosCertos(env)) {
-        await avisarAdmin(env, 'Segredo PLANOS errado', 'O segredo PLANOS do ligeiro-asaas está errado, e o pagamento ' + String(pag.id) + ' ficou esperando (o Asaas tenta de novo). Corrija em Settings > Variables and Secrets para exatamente: {"uma":{"mensal":8900,"anual":89000,"fm":6990,"fa":69900}}');
+        await avisarAdmin(env, 'Segredo PRECOS errado', 'O segredo PRECOS do ligeiro-asaas está errado, e o pagamento ' + String(pag.id) + ' ficou esperando (o Asaas tenta de novo). Apague o segredo (os preços do arquivo passam a valer) ou corrija em Settings > Variables and Secrets para exatamente: ' + JSON.stringify(PRECOS_PADRAO));
         return json({ ok: false, erro: 'configuracao' }, 500);
       }
       /* o aviso diz o que foi pago, mas quem manda e o Asaas: le a cobranca de novo pela chave da API (valor, cliente e
@@ -408,7 +413,13 @@ const EMAIL_EQUIPE = /^equipe-[a-z0-9-]+@equipe\.(ligeiropedidos\.com\.br|ligeir
 const ADMIN = 'ligeiro.pedidos@gmail.com';
 /* o plano: um so, 1 loja por conta (outra loja = outra conta) */
 const PLANO = 'uma';
-const MEM = { quem: {}, vez: {} };
+const MEM = { quem: {}, vez: {}, pagar: {}, pix: null };
+/* a versao deste arquivo (aparece em GET / e em /saude: e por ela que se confere se o arquivo novo foi colado) */
+const VERSAO = '2026-11-15';
+/* Os precos, em centavos: os mesmos de js/config.js (precos e planos; testes/site.test.mjs confere). Desde 15/11/2026 e um
+   preco so, R$ 39,90 por mes ou R$ 399 por ano (fm e fa, os de fundador, ficam iguais: ninguem paga diferente). Antes
+   eles vinham do segredo PLANOS: trocar o preco pedia mexer em dois lugares, e esquecer um deixava pagamento parado */
+const PRECOS_PADRAO = { uma: { mensal: 3990, anual: 39900, fm: 3990, fa: 39900 } };
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function mensagemDoLembrete(qual, f, cartao, nome, anual) {
   /* plano anual: a fatura e do ano (antes o e-mail chamava de mensalidade) */
@@ -420,23 +431,23 @@ function mensagemDoLembrete(qual, f, cartao, nome, anual) {
   const m = {
     d3: { assunto: SUA + ' vence em 3 dias', quando: 'Vence em 3 dias · ' + dia, tom: 'vence',
       titulo: 'Fatura em aberto', sub: ['É só um lembrete:', 'está tudo em dia.'],
-      texto: SUA + ' vence em 3 dias. Pague pela fatura e sua loja segue recebendo pedidos sem parar.' },
+      texto: SUA + ' vence em 3 dias. Pague agora, no Pix, em menos de um minuto, e sua loja segue recebendo pedidos sem parar.' },
     d0: { assunto: SUA + ' vence hoje', quando: 'Vence hoje · ' + dia, tom: 'vence',
       titulo: 'Último dia', sub: ['Ainda dá tempo', 'de pagar sem atraso.'],
-      texto: SUA + ' vence hoje. É só pagar pela fatura: leva menos de um minuto.' },
+      texto: SUA + ' vence hoje. É só tocar no botão e pagar no Pix: leva menos de um minuto.' },
     vencida: { assunto: SUA + ' venceu', quando: 'Venceu em ' + dia, tom: 'venceu',
       titulo: 'Fatura vencida', sub: ['Calma, ainda dá', 'tempo de resolver.'],
-      texto: naoPassou + SUA + ' venceu. Sua loja segue no ar por mais alguns dias: pague pela fatura para não parar.' },
+      texto: naoPassou + SUA + ' venceu. Sua loja segue no ar por mais alguns dias: pague agora, no Pix, para ela não parar.' },
     vencida7: { assunto: 'Sua loja pode parar de receber pedidos', quando: 'Venceu em ' + dia, tom: 'parar',
       titulo: 'Fatura atrasada', sub: ['Este é o último', 'lembrete que mandamos.'],
-      texto: naoPassou + SUA + ' venceu há uma semana e ainda não foi paga. Pague pela fatura para sua loja não parar de receber pedidos.' },
+      texto: naoPassou + SUA + ' venceu há uma semana e ainda não foi paga. Pague agora para sua loja não parar de receber pedidos.' },
   }[qual];
   const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
   return emailMarca({
     assunto: m.assunto, tom: m.tom, titulo: m.titulo, sub: m.sub, ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!', texto: m.texto,
     quadro: { rotulo: anual ? 'Fatura anual do Ligeiro' : 'Mensalidade do Ligeiro', valor: valor, quando: m.quando },
-    botao: { texto: 'Pagar a fatura', url: f.url, icone: 'icone-cartao.png' }, abaixo: 'Pix, boleto ou cartão',
-    fecho: 'Pagou? Tudo segue sozinho. Dúvida? É só responder este e-mail.',
+    botao: { texto: 'Pagar agora', url: f.url, icone: 'icone-cartao.png' }, abaixo: 'Pix, boleto ou cartão. Também dá para pagar pelo painel.',
+    fecho: 'Pagou? A loja segue sozinha, sem mandar comprovante. Dúvida? É só responder este e-mail.',
   });
 }
 
@@ -444,7 +455,9 @@ function mensagemDoLembrete(qual, f, cartao, nome, anual) {
    titulo, subtitulo e o ratinho), o texto, o quadro do valor, o botao e o fecho. Tabelas e cores lisas: abre igual no
    Gmail, no Outlook e no celular.
    m = { assunto, tom: 'vence'|'venceu'|'parar'|'pago', titulo, sub: [pedacos que nao se partem], ola, texto,
-         quadro?: {rotulo, valor, quando?}, botao?: {texto, url, icone?}, abaixo?, fecho } */
+         elo?: {texto, url} (um link em destaque logo abaixo do texto), passos?: [[titulo, texto], ...] (lista numerada,
+         15/11/2026), quadro?: {rotulo, valor, quando?},
+         botao?: {texto, url, icone?}, abaixo?, fecho } */
 function emailMarca(m) {
   /* faixa: cor lisa (Outlook) e o degrade por cima; titulo, subtitulo, borda do quadro e a cor do "quando" */
   const tons = {
@@ -455,7 +468,8 @@ function emailMarca(m) {
   };
   const t = tons[m.tom] || tons.vence;
   const ola = m.ola || 'Olá!', fecho = m.fecho, q = m.quadro, b = m.botao;
-  const texto = ola + '\n\n' + m.texto + (q ? '\n\n' + q.rotulo + ': ' + q.valor + (q.quando ? ' (' + q.quando + ')' : '') : '') + (b ? '\n' + b.texto + ': ' + b.url : '') + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
+  const passos = Array.isArray(m.passos) ? m.passos : [];
+  const texto = ola + '\n\n' + m.texto + (m.elo ? '\n' + m.elo.url : '') + (passos.length ? '\n\n' + passos.map((x, i) => (i + 1) + '. ' + x[0] + ': ' + x[1]).join('\n') : '') + (q ? '\n\n' + q.rotulo + ': ' + q.valor + (q.quando ? ' (' + q.quando + ')' : '') : '') + (b ? '\n' + b.texto + ': ' + b.url : '') + '\n\n' + fecho + '\n\nLigeiro\n' + SITE.replace('https://', '');
   const fonte = 'font-family:Arial,Helvetica,sans-serif;';
   const img = SITE + '/img/email/';
   const tabela = '<table role="presentation" cellpadding="0" cellspacing="0" border="0"';
@@ -487,7 +501,16 @@ function emailMarca(m) {
     + '</tr></table></td></tr>'
     + '<tr><td class="pad" style="padding:32px 32px 0;' + fonte + 'font-size:16px;line-height:1.6;color:#1F2937;">'
     + '<p style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#0F3D2E;">' + esc(ola) + '</p>'
-    + '<p style="margin:0 0 24px;">' + esc(m.texto) + '</p></td></tr>'
+    + '<p style="margin:0 0 ' + (m.elo ? 12 : 24) + 'px;">' + esc(m.texto) + '</p></td></tr>'
+    /* o link em destaque: uma linha so quando cabe (link comprido parte em qualquer letra, nunca estoura) */
+    + (m.elo ? '<tr><td class="pad" style="padding:0 32px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F9EC" style="background:#F4F9EC;border-radius:12px;">'
+      + '<tr><td align="center" style="padding:12px 16px;' + fonte + 'font-size:15px;line-height:1.4;font-weight:bold;word-break:break-all;"><a href="' + esc(m.elo.url) + '" style="color:#1B6B4A;text-decoration:none;">' + esc(m.elo.texto) + '</a></td></tr></table></td></tr>' : '')
+    /* os passos: a bolinha com o numero, o titulo e uma linha; 16 entre um e outro e 24 ate o que vem depois */
+    + (passos.length ? '<tr><td class="pad" style="padding:0 32px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+      + passos.map((x, i) => '<tr><td valign="top" width="44" style="width:44px;padding:0 0 16px;">'
+        + tabela + ' width="32"><tr><td align="center" valign="middle" width="32" height="32" bgcolor="#EEF9DC" style="width:32px;height:32px;background:#EEF9DC;border-radius:16px;' + fonte + 'font-size:15px;line-height:32px;font-weight:bold;color:#1B6B4A;">' + (i + 1) + '</td></tr></table></td>'
+        + '<td valign="top" style="padding:0 0 16px;' + fonte + 'font-size:15px;line-height:1.5;color:#4B5563;"><div style="font-size:16px;font-weight:bold;color:#0F3D2E;padding-top:4px;">' + esc(x[0]) + '</div>' + esc(x[1]) + '</td></tr>').join('')
+      + '</table></td></tr>' : '')
     /* quadro do valor */
     + (q ? '<tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7FAF3" style="background:#F7FAF3;border:1px solid ' + t.borda + ';border-radius:12px;">'
       + '<tr><td align="center" style="padding:24px 16px;' + fonte + '">'
@@ -524,7 +547,7 @@ function emailPagamentoConfirmado(o) {
       + (o.pausada ? ' Sua conta está em revisão por um estorno anterior; a gente libera em breve.' : ''),
     quadro: { rotulo: 'Plano Ligeiro ' + (o.tipo === 'anual' ? 'anual' : 'mensal') + (o.fundador ? ' · fundador' : ''), valor: reaisEmail(o.valor), quando: 'Pago até ' + ate },
     botao: { texto: 'Abrir o painel', url: o.slug ? SITE + '/painel/' + o.slug : SITE },
-    fecho: 'A próxima cobrança chega sozinha, com aviso antes. Dúvida? É só responder este e-mail.',
+    fecho: 'A próxima fatura aparece no painel e chega por e-mail uns dias antes de vencer (no cartão, ela cai sozinha). Dúvida? É só responder este e-mail.',
   });
 }
 function reaisEmail(c) { return 'R$ ' + (Math.round(Number(c) || 0) / 100).toFixed(2).replace('.', ','); }
@@ -710,11 +733,26 @@ async function rotaAdmin(request, env, caminho) {
 }
 
 /* GET /saude: a configuracao do mensageiro, so em sim ou nao (nenhum segredo sai daqui). Para conferir antes de lancar */
-function saude(env) {
+async function saude(env) {
+  /* tem chave Pix ativa no Asaas? (sem ela, o QR do Pix vale so ate o fim do dia). Uma pergunta ao Asaas a cada 10 minutos */
+  let chavePix = null;
+  if (env.ASAAS_KEY) {
+    if (MEM.pix && Date.now() - MEM.pix.em < 10 * 60 * 1000) chavePix = MEM.pix.tem;
+    else {
+      try { const l = await asaas(env, '/pix/addressKeys?status=ACTIVE&limit=1'); chavePix = !!(l && (Number(l.totalCount) > 0 || (Array.isArray(l.data) && l.data.length))); } catch (_) { chavePix = null; }
+      MEM.pix = { em: Date.now(), tem: chavePix };
+    }
+  }
+  const pr = lerPlanos(env)[PLANO] || {};
   let fundadorVagas = null;
   try { fundadorVagas = Number(env.FUNDADOR_VAGAS || 10); } catch (_) { fundadorVagas = null; }
   const corpo = {
     ok: true,
+    versao: VERSAO,
+    /* o que este mensageiro sabe fazer (o site pergunta antes de mostrar o Pix na tela) e os precos que ele cobra */
+    recursos: ['pagar', 'conferir'],
+    precos: { mensal: Number(pr.mensal) || 0, anual: Number(pr.anual) || 0 },
+    chavePix: chavePix,
     planosCertos: planosCertos(env),
     fundadorVagas: fundadorVagas,
     tokenDoAviso: !!env.ASAAS_WEBHOOK,
@@ -735,7 +773,7 @@ async function rotaDoDono(request, env, caminho) {
   const resp = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' }, cors) });
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method !== 'POST') return resp({ ok: false, erro: 'Use POST.' }, 405);
-  if (['/plano/simular', '/plano/trocar', '/plano/encerrar'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
+  if (['/plano/simular', '/plano/trocar', '/plano/encerrar', '/plano/pagar', '/plano/conferir'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
   let corpo = {};
   try { corpo = await request.json(); } catch (_) { corpo = {}; }
   if (!corpo || typeof corpo !== 'object') corpo = {};
@@ -750,6 +788,8 @@ async function rotaDoDono(request, env, caminho) {
       const conta = await fb.get('contas/' + encodeURIComponent(email));
       if (!conta || !conta.plano) return resp({ ok: false, erro: 'Não achamos a sua conta. Entre de novo.' }, 404);
       if (caminho === '/plano/encerrar') { const r = await encerrarAssinatura(env, fb, email, conta); return resp(r.corpo, r.status); }
+      if (caminho === '/plano/pagar') { const r = await pagarPlano(env, fb, email, conta, corpo); return resp(r.corpo, r.status); }
+      if (caminho === '/plano/conferir') { const r = await conferirPagamento(env, fb, email, conta, corpo); return resp(r.corpo, r.status); }
       /* um plano so: quem pede outro (2 ou 3 lojas) ouve o caminho, outra conta */
       if (corpo.planoId && corpo.planoId !== PLANO) return resp({ ok: false, erro: 'Cada conta tem uma loja. Para outra loja, entre com outro e-mail e crie a loja por lá.' }, 400);
       const d = await decidirTroca(env, email, conta, String(corpo.tipo || ''));
@@ -762,6 +802,281 @@ async function rotaDoDono(request, env, caminho) {
     console.error('plano', e && e.message || e);
     return resp({ ok: false, erro: 'Não deu agora. Tente de novo em instantes.' }, 500);
   }
+}
+
+/* ---------------- pagar sem sair do painel (15/11/2026) ----------------
+   Antes o dono caia num link do Asaas e digitava nome, CPF, telefone e o e-mail, que tinha de ser o mesmo do login (com
+   outro, o dinheiro entrava e a loja nao liberava). A unica cliente de verdade nao passou dessa tela. Agora o mensageiro
+   cria o cliente e a assinatura pela API, ja com o e-mail da conta, e devolve:
+     pix     o copia e cola da cobranca (o painel desenha o QR), quando a forma e Pix
+     fatura  o endereco da fatura no Asaas (e nela que o dono digita o cartao; a mensalidade passa a cair sozinha)
+   O resto e o caminho de sempre: o aviso de pagamento acha a conta pelo e-mail do cliente, soma os dias e adota a
+   assinatura. Nada aqui libera dia nenhum.
+   Uma assinatura so por conta: a que a conta ja tem (paga, ou so com fatura) e reaproveitada, e uma solta do mesmo
+   cliente (pedido que caiu no meio) tambem; so nasce outra quando nao ha nenhuma. O Asaas so cobra quem tem CPF ou CNPJ:
+   e a unica coisa que o dono digita, e so na primeira vez. */
+const FATURA_OK = /^https:\/\/(www\.)?asaas\.com\/[A-Za-z0-9/_-]{1,200}$/;
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+async function cobrancasAbertas(env, subId) {
+  const l = await asaas(env, '/subscriptions/' + encodeURIComponent(subId) + '/payments?limit=20');
+  return (l && Array.isArray(l.data) ? l.data : [])
+    .filter((c) => c && c.id && c.deleted !== true && (c.status === 'PENDING' || c.status === 'OVERDUE'))
+    .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+}
+/* no maximo 12 pedidos de cobranca por conta a cada 10 minutos (cada um sao varias perguntas ao Asaas) */
+function folegoDoPagar(email) {
+  const agora = Date.now();
+  const vezes = (MEM.pagar[email] || []).filter((t) => agora - t < 10 * 60 * 1000);
+  if (vezes.length >= 12) { MEM.pagar[email] = vezes; return false; }
+  vezes.push(agora);
+  if (Object.keys(MEM.pagar).length > 500) MEM.pagar = {};
+  MEM.pagar[email] = vezes;
+  return true;
+}
+async function pagarPlano(env, fb, email, conta, corpo) {
+  const erro = (status, texto, extra) => ({ status: status, corpo: Object.assign({ ok: false, erro: texto }, extra || {}) });
+  const p = conta.plano || {};
+  if (email === ADMIN) return erro(400, 'A conta do Ligeiro não tem assinatura para pagar.');
+  if (p.status === 'pausado') return erro(409, 'Sua conta está pausada. Fale com o Ligeiro.');
+  if (p.status === 'cancelado') return erro(409, 'Sua assinatura está encerrada. Toque em Reativar, em Minha conta, e pague por lá.');
+  if (!planosCertos(env)) {
+    await avisarAdmin(env, 'Segredo PRECOS errado', 'O segredo PRECOS do ligeiro-asaas está errado e a conta ' + email + ' não conseguiu gerar a cobrança. Apague o segredo ou corrija para: ' + JSON.stringify(PRECOS_PADRAO));
+    return erro(500, 'Não deu agora. Tente de novo em instantes.');
+  }
+  if (!folegoDoPagar(email)) return erro(429, 'Muitas tentativas seguidas. Espere uns minutos e toque de novo.');
+  const planos = lerPlanos(env);
+  const forma = corpo.forma === 'cartao' ? 'cartao' : 'pix';
+  const caminho = 'contas/' + encodeURIComponent(email);
+  const agoraMs = Date.now();
+  const agora = new Date(agoraMs).toISOString();
+  let antigas = Array.isArray(conta.assinaturasAntigas) ? conta.assinaturasAntigas.map(String) : [];
+  const extras = Array.isArray(conta.assinaturasExtras) ? conta.assinaturasExtras.map(String) : [];
+  const daConta = String(conta.assinaturaAsaas || '');
+  const campos = {};
+  const lerSub = (id) => asaas(env, '/subscriptions/' + encodeURIComponent(id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+  const estaViva = (a) => !!a && a.deleted !== true && String(a.status || 'ACTIVE') === 'ACTIVE';
+  const pagoAteMs = Date.parse(p.pagoAte || '') || 0;
+
+  /* A cobranca aberta da assinatura (ou null), com ela no plano, no preco e na forma pedidos.
+     "paga" = a assinatura da conta, que ja pagou alguma vez: e a mesma para sempre. O ciclo dela so muda pelo
+     /plano/trocar, o valor so desce (preco que baixou vale para quem ja assina; preco que subiu, nao) e a forma muda
+     nela mesma; se o Asaas recusar a mudanca, o pagamento segue pela fatura que ja existe.
+     A que nunca pagou (so tem fatura) nao e mexida: se o plano, o preco ou a forma pedidos sao outros, devolve "trocar" e
+     quem chamou apaga ela e cria uma nova, ja certa (criar e apagar sao os pedidos mais simples do Asaas; mexer numa
+     assinatura com fatura aberta e onde mora a surpresa) */
+  let tipo = corpo.tipo === 'anual' || corpo.tipo === 'mensal' ? corpo.tipo : (p.tipo === 'anual' ? 'anual' : 'mensal');
+  async function acertar(a, paga) {
+    const ciclo = a.cycle === 'YEARLY' ? 'anual' : 'mensal';
+    if (paga) tipo = ciclo;
+    const preco = precoDe(planos, tipo, p.fundador === true);
+    if (!(preco > 0)) return { erro: erro(400, 'Esse plano não está à venda.') };
+    const valorAtual = Math.round(Number(a.value || 0) * 100);
+    /* cartao: a assinatura vira de cartao (a fatura pede o cartao e as proximas caem sozinhas). Pix: a de cartao volta a
+       aceitar Pix e boleto; as outras ficam como estao */
+    const formaAtual = String(a.billingType || 'UNDEFINED');
+    const formaNova = forma === 'cartao' ? 'CREDIT_CARD' : (formaAtual === 'CREDIT_CARD' ? 'UNDEFINED' : formaAtual);
+    if (!paga && (valorAtual !== preco || ciclo !== tipo || formaNova !== formaAtual)) return { trocar: true };
+    const muda = {};
+    if (paga && valorAtual > preco) muda.value = preco / 100;
+    if (formaNova !== formaAtual) muda.billingType = formaNova;
+    if (Object.keys(muda).length) {
+      await asaas(env, '/subscriptions/' + encodeURIComponent(a.id), 'PUT', Object.assign(muda, { updatePendingPayments: true }))
+        .catch((e) => console.error('acertar a assinatura paga', e && e.message || e));
+    }
+    const abertas = await cobrancasAbertas(env, a.id);
+    return { cobranca: abertas[0] || null };
+  }
+
+  let subId = '', cobranca = null, paga = false;
+  /* 1. a assinatura que a conta ja tem (a paga primeiro; depois a que so tem fatura) */
+  for (const id of [daConta, String(conta.assinaturaPendente || '')]) {
+    if (!id || cobranca || !/^[A-Za-z0-9_-]{1,80}$/.test(id)) continue;
+    const a = await lerSub(id);
+    const ehPaga = id === daConta;
+    if (estaViva(a)) {
+      const r = await acertar(a, ehPaga);
+      if (r.erro) return r.erro;
+      if (r.cobranca) { subId = id; cobranca = r.cobranca; paga = ehPaga; break; }
+      /* viva, em dia e sem nada em aberto: nao ha o que pagar agora (a proxima fatura aparece perto do vencimento) */
+      if (!r.trocar && ehPaga && pagoAteMs > agoraMs) return { status: 200, corpo: { ok: true, emDia: true, pagoAte: p.pagoAte || '' } };
+      /* a que nunca pagou e esta em outro plano, preco ou forma; ou viva, sem cobranca nenhuma e a conta sem dias: nao
+         serve. Sai do Asaas e da conta, e nasce outra (so segue se o Asaas apagou mesmo: duas vivas cobrariam em dobro) */
+      if (!(await apagarAssinatura(env, id))) return erro(502, 'Não deu para atualizar a cobrança agora. Tente de novo em instantes.');
+    }
+    antigas = juntar(antigas, id);
+    campos.assinaturasAntigas = antigas;
+    if (ehPaga) campos.assinaturaAsaas = ''; else campos.assinaturaPendente = '';
+  }
+
+  if (!cobranca) {
+    /* 2. o cliente no Asaas, pelo e-mail da conta (o CPF ou CNPJ e pedido uma vez; depois o Asaas lembra) */
+    const cli = await clienteDoServico(env, email, textoLimpo(conta.nome || corpo.nome, 80), '', corpo.documento, true);
+    if (cli.erro) return erro(400, cli.erro);
+    if (cli.precisaDocumento) return { status: 200, corpo: { ok: false, precisaDocumento: true, erro: 'Para gerar a cobrança, o banco pede o CPF ou o CNPJ de quem paga. É só na primeira vez.' } };
+    /* 3. uma assinatura viva desse cliente que a conta nao conhece (o pedido anterior caiu no meio, ou o aviso da fatura
+       nao chegou): usa ela. Senao cada toque criava mais uma, e todas mandariam fatura por e-mail todo mes */
+    const dele = await asaas(env, '/subscriptions?customer=' + encodeURIComponent(cli.id) + '&limit=20').catch(() => null);
+    const soltas = (dele && Array.isArray(dele.data) ? dele.data : [])
+      .filter((a) => estaViva(a) && a.id && /^[A-Za-z0-9_-]{1,80}$/.test(String(a.id)) && String(a.customer || cli.id) === cli.id && antigas.indexOf(String(a.id)) < 0 && extras.indexOf(String(a.id)) < 0)
+      .sort((a, b) => String(b.dateCreated || '').localeCompare(String(a.dateCreated || ''))).slice(0, 3);
+    for (const a of soltas) {
+      const r = await acertar(a, false);
+      if (r.erro) return r.erro;
+      if (r.cobranca) { subId = String(a.id); cobranca = r.cobranca; break; }
+      /* solta e fora do pedido (outro plano, preco antigo, outra forma) ou sem cobranca: sai, para nao sobrar assinatura
+         viva mandando fatura todo mes */
+      if (await apagarAssinatura(env, String(a.id))) { antigas = juntar(antigas, String(a.id)); campos.assinaturasAntigas = antigas; }
+    }
+    /* 4. nenhuma: nasce a assinatura. A primeira cobranca vence quando acabam os dias que a conta ja tem (o gratis ou o
+       que ja pagou), ou hoje: quem assina no meio do teste nao recebe "venceu" no dia seguinte, e o vencimento de todo mes
+       cai junto com o dia em que os dias pagos acabam */
+    if (!cobranca) {
+      const preco = precoDe(planos, tipo, p.fundador === true);
+      if (!(preco > 0)) return erro(400, 'Esse plano não está à venda.');
+      const inicio = p.desde ? Date.parse(p.desde) : NaN;
+      const fimGratis = isFinite(inicio) ? inicio + DIAS_GRATIS * 864e5 : 0;
+      const cobertoAte = Math.max(agoraMs, fimGratis, pagoAteMs);
+      if (cobertoAte - agoraMs > 40 * 864e5) return { status: 200, corpo: { ok: true, emDia: true, pagoAte: p.pagoAte || '' } };
+      const nova = await asaas(env, '/subscriptions', 'POST', {
+        customer: cli.id, billingType: forma === 'cartao' ? 'CREDIT_CARD' : 'UNDEFINED', value: preco / 100,
+        nextDueDate: diaDeBrasilia(new Date(cobertoAte)), cycle: tipo === 'anual' ? 'YEARLY' : 'MONTHLY',
+        description: 'Ligeiro: assinatura ' + (tipo === 'anual' ? 'anual' : 'mensal'), externalReference: 'plano',
+      });
+      if (!nova || !/^[A-Za-z0-9_-]{1,80}$/.test(String(nova.id || ''))) return erro(502, 'Não deu para gerar a cobrança agora. Tente de novo em instantes.');
+      subId = String(nova.id);
+      /* ja fica na conta (o aviso da fatura faz o mesmo, mas pode demorar: um segundo toque criaria outra assinatura) */
+      await fb.mergeCampos(caminho, Object.assign({}, campos, { assinaturaPendente: subId, 'plano.tipo': tipo, atualizadoEm: agora }));
+      /* o Asaas gera a primeira cobranca na hora; se ela ainda nao apareceu, espera um instante */
+      for (let vez = 0; vez < 4 && !cobranca; vez++) {
+        if (vez) await esperar(env.SEM_ESPERA ? 0 : 600);
+        cobranca = (await cobrancasAbertas(env, subId))[0] || null;
+      }
+      if (!cobranca) return erro(503, 'A cobrança está sendo gerada. Toque de novo em alguns segundos.');
+    }
+  }
+
+  /* o Pix copia e cola da cobranca (sem ele, o painel mostra o botao da fatura, que tambem tem o Pix) */
+  let pix = null;
+  if (forma === 'pix') {
+    const q = await asaas(env, '/payments/' + encodeURIComponent(cobranca.id) + '/pixQrCode').catch((e) => { console.error('pix da cobranca', e && e.message || e); return null; });
+    if (q && typeof q.payload === 'string' && /^[\x20-\x7E]{30,1024}$/.test(q.payload)) pix = { codigo: q.payload, vence: String(q.expirationDate || '').slice(0, 25) };
+  }
+  const centavos = Math.round(Number(cobranca.value || 0) * 100);
+  const vencimento = /^\d{4}-\d{2}-\d{2}$/.test(String(cobranca.dueDate || '')) ? String(cobranca.dueDate) : '';
+  const url = FATURA_OK.test(String(cobranca.invoiceUrl || '')) ? String(cobranca.invoiceUrl) : '';
+  /* a fatura fica anotada na conta, no mesmo formato do aviso do Asaas (o painel mostra o valor e quando vence) */
+  const velha = conta.faturaAsaas && conta.faturaAsaas.id === cobranca.id ? conta.faturaAsaas : null;
+  const fatura = {
+    id: String(cobranca.id), valor: centavos, vencimento: vencimento, url: url, status: String(cobranca.status || 'PENDING'),
+    forma: String(forma === 'cartao' ? 'CREDIT_CARD' : (cobranca.billingType === 'CREDIT_CARD' ? 'UNDEFINED' : cobranca.billingType || 'UNDEFINED')).slice(0, 20),
+    assinatura: subId, em: agora,
+  };
+  if (velha && Array.isArray(velha.lembretes)) fatura.lembretes = velha.lembretes;
+  Object.assign(campos, { faturaAsaas: fatura, atualizadoEm: agora });
+  if (!paga) { campos.assinaturaPendente = subId; campos['plano.tipo'] = tipo; }
+  await fb.mergeCampos(caminho, campos);
+  return { status: 200, corpo: { ok: true, cobranca: String(cobranca.id), valor: centavos, vencimento: vencimento, tipo: tipo, forma: forma, pix: pix, fatura: url } };
+}
+
+/* "Ja paguei": o dono nao espera o aviso do Asaas. A cobranca e lida no Asaas e, se entrou, passa pelo mesmo caminho do
+   aviso (que nao soma duas vezes). So a cobranca do proprio dono: o cliente dela tem o e-mail de quem chamou */
+async function conferirPagamento(env, fb, email, conta, corpo) {
+  const id = String(corpo.cobranca || (conta.faturaAsaas && conta.faturaAsaas.id) || '');
+  const p = conta.plano || {};
+  const nao = { status: 200, corpo: { ok: true, pago: false } };
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return nao;
+  /* o aviso ja processou: a conta diz que sim sem perguntar nada ao Asaas */
+  if (Array.isArray(conta.pagamentos) && conta.pagamentos.indexOf(id) >= 0) return { status: 200, corpo: { ok: true, pago: true, pagoAte: p.pagoAte || '' } };
+  if (!folegoDoPagar(email)) return { status: 429, corpo: { ok: false, erro: 'Muitas tentativas seguidas. Espere uns minutos e toque de novo.' } };
+  const real = await asaas(env, '/payments/' + encodeURIComponent(id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
+  if (!real || !real.customer) return nao;
+  const cliente = await lerCliente(env, real.customer);
+  /* cobranca de outra conta responde igual a cobranca que nao existe (nao da para descobrir cobranca alheia por aqui) */
+  if (!cliente || String(cliente.email || '').trim().toLowerCase() !== email) return nao;
+  if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return nao;
+  let res = null;
+  for (let vez = 0; ; vez++) {
+    try { res = await processarPagamento(env, { id: id, customer: String(real.customer) }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+  }
+  const r = await res.json().catch(() => ({}));
+  if (!r || !r.ok || (r.ignorado && !r.repetido)) return { status: 200, corpo: { ok: true, pago: false, esperando: true } };
+  const depois = (await fb.get('contas/' + encodeURIComponent(email))) || {};
+  return { status: 200, corpo: { ok: true, pago: true, pagoAte: (depois.plano || {}).pagoAte || r.pagoAte || '' } };
+}
+
+/* ---------------- lembrete do teste gratis (15/11/2026) ----------------
+   Quem esta no gratis e ainda nao tocou em Assinar nao tinha fatura, entao nao recebia lembrete nenhum: o teste acabava,
+   a loja parava e ninguem avisava. Uma vez por dia: "acaba em 2 dias" e "acabou" (uma vez cada, em lembretesTeste). Quem
+   ja tem fatura recebe os lembretes dela, e nao estes */
+async function lembrarTestes(env, agora) {
+  if (!env.EMAIL_URL || !env.EMAIL_TOKEN || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(String(env.EMAIL_URL).trim())) return { ok: false, motivo: 'sem EMAIL_URL ou EMAIL_TOKEN' };
+  const fb = await firebase(env);
+  const contas = await fb.consultarEm('contas', 'plano.status', ['teste']);
+  const agoraMs = (agora || new Date()).getTime();
+  const preco = precoDe(lerPlanos(env), 'mensal', false);
+  let enviados = 0, falhas = 0;
+  for (const c of contas) {
+    const email = String(c._id || '').toLowerCase();
+    const pl = c.plano || {};
+    if (!EMAIL_OK.test(email) || email === ADMIN || EMAIL_EQUIPE.test(email)) continue;
+    /* sem loja os dias nem comecaram; quem ja pagou segue pelos outros lembretes */
+    if (!c.lojaCriadaEm || pl.ultimoPagamentoEm || pl.pagoAte) continue;
+    const inicio = Date.parse(pl.desde || '');
+    if (!isFinite(inicio)) continue;
+    const faltam = (inicio + DIAS_GRATIS * 864e5 - agoraMs) / 864e5;
+    const criada = Date.parse(c.lojaCriadaEm || '');
+    const idade = isFinite(criada) ? (agoraMs - criada) / 36e5 : NaN;
+    const comFatura = !!(c.assinaturaAsaas || c.assinaturaPendente || (c.faturaAsaas && c.faturaAsaas.id));
+    /* faltando de 1 a 2 dias: "acaba em 2 dias"; acabou ha menos de 2 dias: "acabou" (teste antigo nao recebe nada; quem ja
+       tem fatura recebe os lembretes dela). Loja criada ha 12 a 60 horas: "primeiros passos" (uma vez) */
+    const qual = !comFatura && faltam > 1 && faltam <= 2 ? 'd2' : (!comFatura && faltam <= 0 && faltam > -2 ? 'fim' : (idade >= 12 && idade < 60 && faltam > 2 ? 'oi' : ''));
+    if (!qual) continue;
+    const ja = Array.isArray(c.lembretesTeste) ? c.lembretesTeste : [];
+    if (ja.indexOf(qual) >= 0 || (qual !== 'fim' && ja.indexOf('fim') >= 0)) continue;
+    let mensagem = null;
+    if (qual === 'oi') {
+      const slugs = await fb.query('lojas', 'donoEmail', email).catch(() => []);
+      const slug = typeof slugs[0] === 'string' && /^[a-z0-9-]{2,60}$/.test(decodeURIComponent(slugs[0])) ? decodeURIComponent(slugs[0]) : '';
+      if (!slug) continue;
+      mensagem = mensagemDosPrimeirosPassos(c.nome, slug, preco);
+    } else mensagem = mensagemDoTeste(qual, c.nome, preco, new Date(inicio + DIAS_GRATIS * 864e5));
+    const ok = await mandarEmail(env, email, mensagem);
+    if (!ok) { falhas++; continue; }
+    await fb.merge('contas/' + encodeURIComponent(email), { lembretesTeste: ja.concat([qual]) });
+    enviados++;
+  }
+  return { ok: true, contas: contas.length, enviados: enviados, falhas: falhas };
+}
+/* no dia seguinte a criacao da loja: o que falta para o primeiro pedido (3 passos, o link dela e o botao do painel) */
+function mensagemDosPrimeirosPassos(nome, slug, preco) {
+  const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
+  return emailMarca({
+    assunto: 'Sua loja está no ar: 3 passos para o primeiro pedido', tom: 'pago', titulo: 'Sua loja no ar', sub: ['Faltam 3 passos', 'para o primeiro pedido.'],
+    ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!',
+    texto: 'A sua loja já pode receber pedidos. O link dela é este:', elo: { texto: SITE.replace('https://', '') + '/' + slug, url: SITE + '/' + slug },
+    passos: [
+      ['Confira os itens', 'Troque os itens de exemplo pelos seus, com preço e foto. Leva poucos minutos.'],
+      ['Espalhe o link', 'Coloque na bio do Instagram, no status e na saudação do WhatsApp.'],
+      ['Ligue os avisos', 'No painel, toque em Ligar avisos: o celular apita a cada pedido, mesmo com a tela apagada.'],
+    ],
+    botao: { texto: 'Abrir o painel', url: SITE + '/painel/' + slug }, abaixo: 'Quer que a gente monte para você? É só responder este e-mail.',
+    fecho: 'Você tem ' + DIAS_GRATIS + ' dias grátis, sem cartão. Depois, ' + reaisEmail(preco) + ' por mês, sem comissão e sem fidelidade.',
+  });
+}
+function mensagemDoTeste(qual, nome, preco, fim) {
+  const dia = diaDeBrasilia(fim).split('-').reverse().slice(0, 2).join('/');
+  const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
+  const m = qual === 'd2'
+    ? { assunto: 'Seu teste grátis do Ligeiro acaba em 2 dias', tom: 'vence', titulo: 'Faltam 2 dias', sub: ['Para a sua loja', 'não parar.'], quando: 'Grátis até ' + dia,
+        texto: 'O seu teste grátis vai até ' + dia + '. Para a loja continuar recebendo pedidos, é só assinar: você paga no Pix pelo próprio painel, em menos de um minuto, ou no cartão. Os dias grátis que faltam não se perdem.' }
+    : { assunto: 'Seu teste grátis do Ligeiro acabou', tom: 'venceu', titulo: 'O teste acabou', sub: ['Sua loja volta', 'na hora em que assinar.'], quando: 'Grátis até ' + dia,
+        texto: 'O seu teste grátis acabou em ' + dia + ' e o site da loja parou de aceitar pedidos. Nada foi apagado: o cardápio, as fotos e o link continuam iguais. Assine pelo painel, no Pix ou no cartão, e a loja volta na hora.' };
+  return emailMarca({
+    assunto: m.assunto, tom: m.tom, titulo: m.titulo, sub: m.sub, ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!', texto: m.texto,
+    quadro: { rotulo: 'Assinatura do Ligeiro', valor: reaisEmail(preco), quando: 'por mês · ' + m.quando },
+    botao: { texto: 'Assinar agora', url: SITE + '/conta', icone: 'icone-cartao.png' }, abaixo: 'Pix ou cartão, sem fidelidade',
+    fecho: 'Sem comissão por pedido e sem multa para cancelar. Dúvida? É só responder este e-mail.',
+  });
 }
 
 /* um pedido por conta de cada vez (clique duplo ou duas abas nao criam duas cobrancas) */
@@ -1024,8 +1339,11 @@ function igual(a, b) {
   return dif === 0;
 }
 
-function lerPlanos(env) { try { return JSON.parse(env.PLANOS || '{}') || {}; } catch (_) { return {}; } }
-/* o segredo PLANOS com sentido: os 4 precos em centavos, mensal de R$ 10 para cima, anual maior que o mensal e o de
+function lerPlanos(env) {
+  if (!env || env.PRECOS == null || env.PRECOS === '') return PRECOS_PADRAO;
+  try { return JSON.parse(env.PRECOS) || {}; } catch (_) { return {}; }
+}
+/* os precos com sentido: os 4 precos em centavos, mensal de R$ 10 para cima, anual maior que o mensal e o de
    fundador ate o normal. Digitado errado, qualquer pagamento valia um ano (o valor caia no "acima de 2 meses") */
 function planosCertos(env) {
   const p = lerPlanos(env)[PLANO];
@@ -1403,17 +1721,23 @@ async function srvMeus(env, fb, email, admin, corpo) {
   return certo({ pedidos: l.pedidos, videos: l.videos, noSite: l.noSite, maxVideos: SRV_VIDEOS, termos: TERMOS_SERVICOS });
 }
 
-/* cliente no Asaas pelo e-mail da conta; o Asaas so cobra quem tem CPF ou CNPJ (pede uma vez, depois ele lembra) */
-async function clienteDoServico(env, email, nome, whats, documento) {
+/* cliente no Asaas pelo e-mail da conta; o Asaas so cobra quem tem CPF ou CNPJ (pede uma vez, depois ele lembra).
+   semAvisos (a assinatura): o cliente fica sem as notificacoes do Asaas, que sao cobradas por cobranca. Quem lembra o dono
+   e o proprio Ligeiro (o painel e os e-mails de lembrarFaturas, de graca) */
+async function clienteDoServico(env, email, nome, whats, documento, semAvisos) {
   const doc = String(documento || '').replace(/\D/g, '');
   if (doc && !cpfValido(doc) && !cnpjValido(doc)) return { erro: 'CPF ou CNPJ inválido. Confira os números.' };
   const lista = await asaas(env, '/customers?email=' + encodeURIComponent(email) + '&limit=10');
   const deles = (lista && Array.isArray(lista.data) ? lista.data : []).filter((c) => c && !c.deleted && String(c.email || '').toLowerCase() === email);
   const c = deles.find((x) => x.cpfCnpj) || deles[0];
-  if (c && c.cpfCnpj) return { id: String(c.id) };
+  const calar = semAvisos ? { notificationDisabled: true } : {};
+  if (c && c.cpfCnpj) {
+    if (semAvisos && c.notificationDisabled !== true) await asaas(env, '/customers/' + encodeURIComponent(c.id), 'POST', calar).catch((e) => console.error('avisos do cliente', e && e.message || e));
+    return { id: String(c.id) };
+  }
   if (!doc) return { precisaDocumento: true };
-  if (c) { await asaas(env, '/customers/' + encodeURIComponent(c.id), 'POST', { cpfCnpj: doc }); return { id: String(c.id) }; }
-  const novo = await asaas(env, '/customers', 'POST', { name: nome || email, email: email, cpfCnpj: doc, mobilePhone: whats });
+  if (c) { await asaas(env, '/customers/' + encodeURIComponent(c.id), 'POST', Object.assign({ cpfCnpj: doc }, calar)); return { id: String(c.id) }; }
+  const novo = await asaas(env, '/customers', 'POST', Object.assign({ name: nome || email, email: email, cpfCnpj: doc }, whats ? { mobilePhone: whats } : {}, calar));
   return { id: String(novo.id) };
 }
 
@@ -1692,7 +2016,7 @@ function emailDoServico(assunto, texto, link, tom) {
   /* os e-mails da Loja do Ligeiro no mesmo modelo dos outros */
   return emailMarca({
     assunto: 'Ligeiro: ' + assunto, tom: tom || 'pago', titulo: assunto, sub: ['Loja do Ligeiro'], ola: 'Olá!', texto: texto,
-    botao: link ? { texto: 'Abrir no Ligeiro', url: link } : null, fecho: 'Dúvida? É só responder este e-mail.',
+    botao: link ? { texto: 'Abrir no Ligeiro', url: link } : null, fecho: 'Dúvida? É só responder este e-mail.',
   });
 }
 

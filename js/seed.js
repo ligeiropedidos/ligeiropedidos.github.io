@@ -429,6 +429,70 @@
         grupos: { peso: { titulo: 'Peso', tipo: 'unico', max: 0, opcoes: [opcao('1kg', '1 kg', 0, { padrao: true }), opcao('3kg', '3 kg', 8000), opcao('10kg', '10 kg', 20000)] } },
         gruposPorCategoria: { racao: ['peso'] },
       },
+      /* 15/11/2026: os modelos dos tipos novos do cadastro (precos de exemplo; o dono troca pelos dele) */
+      'modelo-estamparia': {
+        categorias: [{ id: 'camisetas', nome: 'Camisetas', emoji: '👕' }, { id: 'canecas', nome: 'Canecas', emoji: '☕' }, { id: 'outros', nome: 'Outros personalizados', emoji: '🎨' }],
+        produtos: [
+          produto('camiseta-personalizada', 'camisetas', 'Camiseta personalizada', 'Algodão, estampa na frente. Mande a arte pelo WhatsApp', 4990, '👕'),
+          produto('camiseta-frente-costas', 'camisetas', 'Camiseta frente e costas', 'Algodão, estampa nos dois lados', 5990, '👕'),
+          produto('caneca-personalizada', 'canecas', 'Caneca personalizada', 'Com foto, nome ou frase, 325 ml', 3490, '☕'),
+          produto('ecobag', 'outros', 'Ecobag personalizada', 'Algodão cru, estampa de um lado', 2990, '🛍️'),
+        ],
+        grupos: { tamanho: roupa },
+        gruposPorCategoria: { camisetas: ['tamanho'] },
+      },
+      'modelo-papelaria': {
+        categorias: [{ id: 'cadernos', nome: 'Cadernos', emoji: '📓' }, { id: 'escrita', nome: 'Canetas e lápis', emoji: '✏️' }, { id: 'escolar', nome: 'Material escolar', emoji: '🎒' }],
+        produtos: [
+          produto('caderno-10-materias', 'cadernos', 'Caderno 10 matérias', 'Capa dura, 160 folhas', 2490, '📓'),
+          produto('caneta-azul', 'escrita', 'Caneta esferográfica azul', 'Ponta média', 250, '🖊️'),
+          produto('lapis-de-cor', 'escrita', 'Lápis de cor', 'Caixa com 12 cores', 1290, '✏️'),
+          produto('mochila', 'escolar', 'Mochila escolar', 'Com dois bolsos', 8990, '🎒'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-floricultura': {
+        categorias: [{ id: 'buques', nome: 'Buquês', emoji: '💐' }, { id: 'vasos', nome: 'Vasos e plantas', emoji: '🪴' }, { id: 'cestas', nome: 'Cestas', emoji: '🧺' }],
+        produtos: [
+          produto('buque-rosas', 'buques', 'Buquê de rosas', '12 rosas, com laço', 8990, '💐'),
+          produto('buque-do-campo', 'buques', 'Buquê do campo', 'Flores da estação', 5990, '💐'),
+          produto('orquidea', 'vasos', 'Orquídea no vaso', 'Com cachepô', 6990, '🪴'),
+          produto('cesta-cafe', 'cestas', 'Cesta de café da manhã', 'Com flores e cartão', 12990, '🧺'),
+        ],
+        grupos: { cartao: { titulo: 'Para presente', tipo: 'varios', max: 1, opcoes: [opcao('cartao', 'Cartão com recado', 300)] } },
+        gruposPorCategoria: { buques: ['cartao'], vasos: ['cartao'], cestas: ['cartao'] },
+      },
+      'modelo-adega': {
+        categorias: [{ id: 'cervejas', nome: 'Cervejas', emoji: '🍺' }, { id: 'destilados', nome: 'Destilados', emoji: '🥃' }, { id: 'vinhos', nome: 'Vinhos', emoji: '🍷' }, { id: 'gelo', nome: 'Gelo e carvão', emoji: '🧊' }],
+        produtos: [
+          produto('cerveja-lata', 'cervejas', 'Cerveja lata 350 ml', 'Gelada', 450, '🍺'),
+          produto('cerveja-caixa', 'cervejas', 'Caixa com 12 latas', 'Gelada', 4990, '🍺'),
+          produto('whisky', 'destilados', 'Whisky 1 L', 'Garrafa lacrada', 9990, '🥃'),
+          produto('vinho-tinto', 'vinhos', 'Vinho tinto 750 ml', 'Suave', 2990, '🍷'),
+          produto('gelo', 'gelo', 'Saco de gelo', '5 kg', 1200, '🧊'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-doceria': {
+        categorias: [{ id: 'bolos', nome: 'Bolos', emoji: '🎂' }, { id: 'doces', nome: 'Doces', emoji: '🍬' }, { id: 'tortas', nome: 'Tortas e sobremesas', emoji: '🍰' }],
+        produtos: [
+          produto('bolo-de-pote', 'bolos', 'Bolo de pote', 'Ninho com morango', 1200, '🍰'),
+          produto('bolo-inteiro', 'bolos', 'Bolo de aniversário', 'Serve 15 pessoas. Peça com 1 dia de antecedência', 9000, '🎂'),
+          produto('brigadeiro', 'doces', 'Brigadeiro gourmet', 'Caixa com 6', 1800, '🍬'),
+          produto('torta-limao', 'tortas', 'Fatia de torta de limão', 'Com merengue', 1400, '🍰'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
+      'modelo-cafeteria': {
+        categorias: [{ id: 'cafes', nome: 'Cafés', emoji: '☕' }, { id: 'salgados', nome: 'Salgados', emoji: '🥐' }, { id: 'doces', nome: 'Doces', emoji: '🍰' }],
+        produtos: [
+          produto('cafe-expresso', 'cafes', 'Café expresso', '50 ml', 600, '☕'),
+          produto('cappuccino', 'cafes', 'Cappuccino', 'Com canela', 1200, '☕'),
+          produto('pao-de-queijo', 'salgados', 'Pão de queijo', 'Porção com 5', 1000, '🥐'),
+          produto('bolo-fatia', 'doces', 'Fatia de bolo', 'Pergunte o sabor do dia', 900, '🍰'),
+        ],
+        grupos: {}, gruposPorCategoria: {},
+      },
       'modelo-mercado': {
         categorias: [{ id: 'mercearia', nome: 'Mercearia', emoji: '🛒' }, { id: 'bebidas', nome: 'Bebidas', emoji: '🥤' }, { id: 'limpeza', nome: 'Limpeza', emoji: '🧼' }],
         produtos: [
@@ -458,10 +522,17 @@
   /* o catalogo-modelo de cada tipo de comercio (fora do banco da demonstracao: so o cadastro e a Central usam) */
   window.LigeiroSeed.modelos = modelosDeComercio;
   /* que modelo combina com cada tipo de loja: comida usa as lojas de exemplo; comercio, os modelos acima */
-  window.LigeiroSeed.modeloDoTipo = function (tipo) {
+  /* tipoNome: o nome escrito nos tipos "Outro" (os comercios a mais do cadastro gravam "Outro comércio" + o nome) */
+  window.LigeiroSeed.modeloDoTipo = function (tipo, tipoNome) {
     var R = window.LigeiroRegras;
-    var t = (R ? R.semAcento(tipo || '') : String(tipo || '')).toLowerCase();
+    var semAcento = function (x) { return (R ? R.semAcento(x || '') : String(x || '')).toLowerCase(); };
+    var t = semAcento(tipo) + ' ' + semAcento(tipoNome);
     if (R && R.segmento({ tipo: tipo }) === 'comercio') {
+      if (/estamp|personaliz/.test(t)) return 'modelo-estamparia';
+      if (/papel/.test(t)) return 'modelo-papelaria';
+      if (/flor/.test(t)) return 'modelo-floricultura';
+      if (/adega|bebida|distribuidora/.test(t)) return 'modelo-adega';
+      if (/joia|bijut/.test(t)) return 'modelo-acessorios';
       if (/roupa/.test(t)) return 'modelo-roupas';
       if (/calcad/.test(t)) return 'modelo-calcados';
       if (/acessor/.test(t)) return 'modelo-acessorios';
@@ -472,6 +543,8 @@
       if (/mercado/.test(t)) return 'modelo-mercado';
       return 'vazio';
     }
+    if (/doce|bolo|confeit/.test(t)) return 'modelo-doceria';
+    if (/cafe/.test(t)) return 'modelo-cafeteria';
     if (/pizza/.test(t)) return 'dom-conizza';
     if (/marmit|restaur|self/.test(t)) return 'marmitaria-da-cida';
     if (/sorvet|acai|gelad/.test(t)) return 'sorveteria-da-lu';

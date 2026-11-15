@@ -19,7 +19,7 @@
   var vitrineDoCadastro = null;
 
   /* Que cardapio-modelo combina com cada tipo de loja (o mesmo da Central: mora no seed, junto dos modelos). */
-  function modeloDoTipo(tipo) { return window.LigeiroSeed && window.LigeiroSeed.modeloDoTipo ? window.LigeiroSeed.modeloDoTipo(tipo) : 'vazio'; }
+  function modeloDoTipo(tipo, tipoNome) { return window.LigeiroSeed && window.LigeiroSeed.modeloDoTipo ? window.LigeiroSeed.modeloDoTipo(tipo, tipoNome) : 'vazio'; }
 
   /* Loja so nasce dentro de uma conta: sem login, vai pra #/entrar e volta pra ca depois. */
   function abrir(raiz, opcoes) {
@@ -138,7 +138,7 @@
    * O login fica por ultimo (quem ja respondeu tudo nao desiste na porta). A loja nasce igual a antes.
    */
   function montar(raiz, opcoes, usuario) {
-    var precos = Object.assign({ mensal: 8900, anual: 89000, diasGratis: 7 }, (window.LIGEIRO_CONFIG || {}).precos || {});
+    var precos = Object.assign({ mensal: 3990, anual: 39900, diasGratis: 7 }, (window.LIGEIRO_CONFIG || {}).precos || {});
     var o = opcoes || {};
     /* #/comecar/uma/<tipo>; links antigos #/comecar/anual continuam valendo. Um plano so (1 loja por conta) */
     var planoId = 'uma';
@@ -148,6 +148,7 @@
     var planoNome = R.planoPorId(planoId).nome;
     var TIPOS = R.TIPOS_DE_LOJA;
     var TIPOS_COMERCIO = R.TIPOS_DE_COMERCIO;
+    var MAIS = R.TIPOS_DE_COMERCIO_MAIS || [];
     /* "Outra comida" e "Outro comércio": pedem o nome que o cliente le na lista da cidade (opcional) */
     function ehOutro(tipo) { return /^outr[oa] (comida|comércio|comercio)$/i.test(String(tipo || '')); }
     document.title = 'Crie sua loja no Ligeiro';
@@ -248,20 +249,32 @@
 
       if (passo === 'tipo') {
         /* "Outra comida" e "Outro comércio": o nome livre e o Continuar aparecem embaixo (os outros tipos seguem num toque) */
-        var nomeLivre = entrada({ rotulo: 'Qual é o tipo da loja?', placeholder: 'Ex.: Papelaria', valor: st.tipoNome, max: 24 });
-        var caixaLivre = el('div', { class: 'cadastro-caixa cadastro-livre', hidden: !ehOutro(st.tipo) }, [
+        var nomeLivre = entrada({ rotulo: 'Qual é o tipo da loja?', placeholder: 'Ex.: Bazar', valor: (R.TIPOS_DE_COMERCIO_MAIS || []).some(function (m) { return m[0] === st.tipoNome; }) ? '' : st.tipoNome, max: 24 });
+        var caixaLivre = el('div', { class: 'cadastro-caixa cadastro-livre', hidden: !ehOutro(st.tipo) || (R.TIPOS_DE_COMERCIO_MAIS || []).some(function (m) { return m[0] === st.tipoNome; }) }, [
           el('label', { class: 'cadastro-rotulo', text: 'Qual é o tipo? (opcional)' }),
           el('p', { class: 'muted pequeno cadastro-livre-ajuda', text: 'É o que o cliente lê na lista da cidade. Sem nome, aparece "Loja".' }),
           nomeLivre,
           botaoContinuar(function () { st.tipoNome = nomeLivre.value.replace(/\s+/g, ' ').trim().slice(0, 24); return true; }),
         ]);
         var tiles = [];
+        /* t = [nome, emoji] ou, nos comercios a mais, [nome, emoji, 'Outro comércio']: o tipo gravado e o terceiro e o nome
+           vai pronto no tipoNome (um toque e segue, sem digitar nada) */
         var tile = function (t) {
-          var b = el('button', { class: 'escolha-grande escolha-tile' + (st.tipo === t[0] ? ' marcada' : ''), type: 'button', onclick: function (e) {
-            st.tipo = t[0]; st.emoji = t[1];
+          var pronto = !!t[2];
+          var marcada = pronto ? (st.tipo === t[2] && st.tipoNome === t[0]) : (st.tipo === t[0] && !(ehOutro(t[0]) && MAIS.some(function (m) { return m[0] === st.tipoNome; })));
+          var b = el('button', { class: 'escolha-grande escolha-tile' + (marcada ? ' marcada' : ''), type: 'button', onclick: function (e) {
+            st.tipo = pronto ? t[2] : t[0]; st.emoji = t[1];
             tiles.forEach(function (x) { x.classList.toggle('marcada', x === e.currentTarget); });
+            if (pronto) {
+              caixaLivre.hidden = true;
+              st.tipoNome = t[0];
+              var passoPronto = atual;
+              setTimeout(function () { if (atual === passoPronto) avancar(); }, 180);
+              return;
+            }
             if (ehOutro(t[0])) {
-              nomeLivre.placeholder = R.segmento({ tipo: t[0] }) === 'comercio' ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
+              if (MAIS.some(function (m) { return m[0] === st.tipoNome; })) { st.tipoNome = ''; nomeLivre.value = ''; }
+              nomeLivre.placeholder = R.segmento({ tipo: t[0] }) === 'comercio' ? 'Ex.: Bazar' : 'Ex.: Tapiocaria';
               caixaLivre.hidden = false;
               caixaLivre.scrollIntoView({ block: 'center', behavior: 'smooth' });
               focar(nomeLivre);
@@ -277,13 +290,26 @@
           return b;
         };
         var grade = el('div', { class: 'escolhas-grade' }, TIPOS.map(tile));
-        var gradeComercio = el('div', { class: 'escolhas-grade' }, TIPOS_COMERCIO.map(tile));
+        /* os comercios de sempre, os a mais e, por ultimo, o "Outro comércio" (nome livre) */
+        var gradeComercio = el('div', { class: 'escolhas-grade' }, TIPOS_COMERCIO.slice(0, -1).concat(MAIS.map(function (m) { return [m[0], m[1], 'Outro comércio']; }), TIPOS_COMERCIO.slice(-1)).map(tile));
+        /* dois atalhos no topo (15/11/2026): quem vende roupa via 7 fileiras de comida antes de achar a sua. Cada um mostra
+           so o seu grupo; a tela abre no grupo do tipo ja escolhido (ou em Comida) */
+        var presetMais = function () { return MAIS.some(function (m) { return m[0] === st.tipoNome; }); };
+        var mostrarGrupo = function (qual) {
+          atalhos.forEach(function (b, i) { var ativa = (i === 0) === (qual === 'comida'); b.classList.toggle('ativa', ativa); b.setAttribute('aria-selected', ativa ? 'true' : 'false'); });
+          grade.hidden = qual !== 'comida'; gradeComercio.hidden = qual !== 'comercio';
+          /* o nome livre so acompanha o "Outra comida" / "Outro comércio" do grupo que esta na tela */
+          caixaLivre.hidden = !(ehOutro(st.tipo) && !presetMais() && (R.segmento({ tipo: st.tipo }) === 'comercio') === (qual === 'comercio'));
+        };
+        var atalhos = [['comida', 'Comida'], ['comercio', 'Outras lojas']].map(function (g) {
+          return el('button', { class: 'aba', type: 'button', role: 'tab', text: g[1], onclick: function () { mostrarGrupo(g[0]); } });
+        });
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('O que você vende?', 'Sua loja já nasce com um exemplo desse tipo. Depois você só ajusta nomes e preços.').concat([
-          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Comida' }), grade,
-          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Outros comércios' }), gradeComercio,
+          el('div', { class: 'cadastro-atalhos', role: 'tablist', 'aria-label': 'Tipo de loja' }, atalhos), grade, gradeComercio,
           caixaLivre, erro,
         ])));
-        if (!caixaLivre.hidden) nomeLivre.placeholder = R.segmento({ tipo: st.tipo }) === 'comercio' ? 'Ex.: Papelaria' : 'Ex.: Tapiocaria';
+        mostrarGrupo(st.tipo && R.segmento({ tipo: st.tipo }) === 'comercio' ? 'comercio' : 'comida');
+        if (!caixaLivre.hidden) nomeLivre.placeholder = R.segmento({ tipo: st.tipo }) === 'comercio' ? 'Ex.: Bazar' : 'Ex.: Tapiocaria';
       }
 
       if (passo === 'cidade') {
@@ -428,7 +454,7 @@
         termos: { versao: R.TERMOS_VERSAO, aceitoEm: new Date().toISOString() },
       };
       if (D.modoDemo) dados.senhaPainel = st.senhaDemo;
-      var modelo = modeloDoTipo(tipo);
+      var modelo = modeloDoTipo(tipo, st.tipoNome);
       if (modelo !== 'vazio' && window.LigeiroSeed) {
         var base = window.LigeiroSeed.modelo ? window.LigeiroSeed.modelo(modelo) : window.LigeiroSeed().lojas[modelo];
         if (base) {
