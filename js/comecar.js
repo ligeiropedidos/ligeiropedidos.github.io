@@ -292,11 +292,23 @@
         var grade = el('div', { class: 'escolhas-grade' }, TIPOS.map(tile));
         /* os comercios de sempre, os a mais e, por ultimo, o "Outro comércio" (nome livre) */
         var gradeComercio = el('div', { class: 'escolhas-grade' }, TIPOS_COMERCIO.slice(0, -1).concat(MAIS.map(function (m) { return [m[0], m[1], 'Outro comércio']; }), TIPOS_COMERCIO.slice(-1)).map(tile));
+        /* dois atalhos no topo (15/11/2026): quem vende roupa via 7 fileiras de comida antes de achar a sua. Cada um mostra
+           so o seu grupo; a tela abre no grupo do tipo ja escolhido (ou em Comida) */
+        var presetMais = function () { return MAIS.some(function (m) { return m[0] === st.tipoNome; }); };
+        var mostrarGrupo = function (qual) {
+          atalhos.forEach(function (b, i) { var ativa = (i === 0) === (qual === 'comida'); b.classList.toggle('ativa', ativa); b.setAttribute('aria-selected', ativa ? 'true' : 'false'); });
+          grade.hidden = qual !== 'comida'; gradeComercio.hidden = qual !== 'comercio';
+          /* o nome livre so acompanha o "Outra comida" / "Outro comércio" do grupo que esta na tela */
+          caixaLivre.hidden = !(ehOutro(st.tipo) && !presetMais() && (R.segmento({ tipo: st.tipo }) === 'comercio') === (qual === 'comercio'));
+        };
+        var atalhos = [['comida', 'Comida'], ['comercio', 'Outras lojas']].map(function (g) {
+          return el('button', { class: 'aba', type: 'button', role: 'tab', text: g[1], onclick: function () { mostrarGrupo(g[0]); } });
+        });
         corpo.appendChild(el('div', { class: 'cadastro-caixa' }, pergunta('O que você vende?', 'Sua loja já nasce com um exemplo desse tipo. Depois você só ajusta nomes e preços.').concat([
-          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Comida' }), grade,
-          el('div', { class: 'cadastro-rotulo cadastro-secao', text: 'Outros comércios' }), gradeComercio,
+          el('div', { class: 'cadastro-atalhos', role: 'tablist', 'aria-label': 'Tipo de loja' }, atalhos), grade, gradeComercio,
           caixaLivre, erro,
         ])));
+        mostrarGrupo(st.tipo && R.segmento({ tipo: st.tipo }) === 'comercio' ? 'comercio' : 'comida');
         if (!caixaLivre.hidden) nomeLivre.placeholder = R.segmento({ tipo: st.tipo }) === 'comercio' ? 'Ex.: Bazar' : 'Ex.: Tapiocaria';
       }
 

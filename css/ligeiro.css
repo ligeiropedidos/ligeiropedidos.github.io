@@ -3091,8 +3091,9 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .cadastro-rotulo { font-weight: 700; font-size: 15px; color: var(--ink); margin-bottom: -8px; }
 .cadastro-cidade input { min-height: 60px; font-size: 20px; border-radius: 14px; }
 .escolhas-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-/* cadastro: o titulo de cada grupo de tipos (Comida, Outros comercios) e a caixa do nome livre ("Outro comercio") */
-.cadastro-secao { margin-top: 8px; }
+/* cadastro: os dois atalhos do tipo de loja (Comida, Outras lojas), metade cada um, e a caixa do nome livre ("Outro comercio") */
+.cadastro-atalhos { display: flex; gap: 10px; } /* o mesmo vao da grade de baixo: os dois atalhos alinham com as duas colunas */
+.cadastro-atalhos .aba { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; cursor: pointer; }
 .cadastro-livre { padding-top: 0; }
 .cadastro-livre[hidden] { display: none; }
 .cadastro-livre .cadastro-livre-ajuda { margin: -4px 0 -8px; } /* como o campo: rotulo, 4, ajuda, 8, entrada */
