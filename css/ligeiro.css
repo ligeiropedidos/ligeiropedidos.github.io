@@ -2394,6 +2394,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .zap-texto { padding: 0 5px; }
 .zap-url { color: #027EB5; }
 .por-dia { color: var(--deep); }
+.preco-mercado { margin-top: -4px; } /* a prova logo abaixo da frase do preco: 8 entre as duas (o bloco da 12) */
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
 .raio .icone { font-size: 26px; }
