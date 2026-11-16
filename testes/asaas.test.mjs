@@ -854,6 +854,71 @@ ok(r.status === 200 && recibos.length === 1 && recibos[0].assunto.indexOf('Pagam
 await avisarCom(envE, { id: 'pay_rc', customer: 'cusrc' });
 ok(emails.filter((m) => m.para === 'recibo@x.com').length === 1, 'aviso repetido do Asaas: nenhum e-mail a mais');
 
+/* ================= Central: chamar de volta por e-mail (16/11/2026) ================= */
+console.log('Chamar de volta por e-mail');
+const TOKEN_ADMIN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJhZG1pbiJ9.assinatura';
+const TOKEN_OUTRO = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwcm9qIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3Byb2oiLCJzdWIiOiJvdXRybyJ9.assinatura';
+const paraQuem = (e) => emails.filter((m) => m.para === e);
+db.set('contas/volta@x.com', { email: 'volta@x.com', nome: 'Jaciara Souza', plano: { status: 'teste', tipo: 'mensal', planoId: 'uma', desde: '2026-10-09T15:00:00.000Z' } });
+db.set('lojas/lanches-da-volta', { slug: 'lanches-da-volta', nome: 'Lanches da Volta', donoEmail: 'volta@x.com' });
+r = await central('chamar', { email: 'volta@x.com', enviar: true });
+ok(r.status === 403 && paraQuem('volta@x.com').length === 0, 'chamar de volta sem login: 403, nada sai');
+r = await central('chamar', { email: 'volta@x.com', enviar: true }, TOKEN_OUTRO);
+ok(r.status === 403 && paraQuem('volta@x.com').length === 0, 'chamar de volta com outro e-mail logado: 403, nada sai');
+r = await central('chamar', { email: 'nao e email', enviar: true }, TOKEN_ADMIN);
+ok(r.status === 400, 'chamar de volta com e-mail torto: 400');
+r = await central('chamar', { email: 'ligeiro.pedidos@gmail.com', enviar: true }, TOKEN_ADMIN);
+ok(r.status === 400, 'chamar de volta a conta do proprio Ligeiro: 400');
+r = await central('chamar', { email: 'ninguem-aqui@x.com', enviar: true }, TOKEN_ADMIN);
+ok(r.status === 404, 'chamar de volta uma conta que nao existe: 404');
+
+/* a previa: o e-mail montado, sem mandar nem anotar */
+r = await central('chamar', { email: ' Volta@X.com ' }, TOKEN_ADMIN); j = await r.json();
+ok(r.status === 200 && j.ok && j.previa === true && j.para === 'volta@x.com' && paraQuem('volta@x.com').length === 0 && !db.get('contas/volta@x.com').chamadaPorEmailEm, 'previa: devolve o e-mail montado, nada e mandado e nada e anotado');
+ok(/baixou para R\$ \d+,\d\d/.test(j.assunto) && j.texto.indexOf('Olá, Jaciara!') === 0 && j.texto.indexOf('da loja Lanches da Volta acabou em 16/10') > 0 && j.texto.indexOf('A novidade: o Ligeiro baixou para') > 0 && j.texto.indexOf('https://ligeiropedidos.com.br/conta') > 0, 'previa: o nome, a loja, o dia em que o teste acabou (16/10), o preco novo e o botao para Minha conta');
+ok(j.html.indexOf('Lanches da Volta') > 0 && j.html.indexOf('Tudo guardado') > 0 && j.html.indexOf('selo-pago.png') > 0 && !/garantia|devolu|cidade pequena|delivery/i.test(j.texto), 'previa: o e-mail no padrao da marca, sem promessa de garantia');
+
+/* mandar de verdade: um e-mail, o dia anotado, e o segundo toque nao manda outro */
+r = await central('chamar', { email: 'volta@x.com', enviar: true }, TOKEN_ADMIN); j = await r.json();
+let cVolta = db.get('contas/volta@x.com');
+ok(r.status === 200 && j.enviado === true && paraQuem('volta@x.com').length === 1 && /guardada/.test(paraQuem('volta@x.com')[0].assunto) && isFinite(Date.parse(cVolta.chamadaPorEmailEm)) && cVolta.plano.status === 'teste' && cVolta.nome === 'Jaciara Souza', 'enviar: sai um e-mail para o dono, o dia fica anotado e o resto da conta nao muda');
+r = await central('chamar', { email: 'volta@x.com', enviar: true }, TOKEN_ADMIN); j = await r.json();
+ok(r.status === 409 && /já recebeu/.test(j.erro) && paraQuem('volta@x.com').length === 1, 'enviar de novo na mesma semana: 409, nenhum e-mail a mais');
+r = await central('chamar', { email: 'volta@x.com' }, TOKEN_ADMIN);
+ok(r.status === 409, 'a previa na mesma semana tambem avisa que ja foi');
+db.set('contas/volta@x.com', Object.assign({}, cVolta, { chamadaPorEmailEm: new Date(Date.now() - 8 * DIA).toISOString() }));
+r = await central('chamar', { email: 'volta@x.com', enviar: true }, TOKEN_ADMIN);
+ok(r.status === 200 && paraQuem('volta@x.com').length === 2, 'oito dias depois: da para mandar de novo');
+
+/* quem nao recebe: teste ainda valendo, quem ja pagou, encerrada, pausada e conta sem loja */
+const semVolta = async (email, conta, comLoja) => {
+  db.set('contas/' + email, Object.assign({ email: email }, conta));
+  if (comLoja) db.set('lojas/loja-de-' + email.split('@')[0], { slug: 'loja-de-' + email.split('@')[0], nome: 'Loja', donoEmail: email });
+  const x = await central('chamar', { email: email, enviar: true }, TOKEN_ADMIN);
+  return x.status === 409 && paraQuem(email).length === 0 && !db.get('contas/' + email).chamadaPorEmailEm;
+};
+ok(await semVolta('valendo@x.com', { plano: { status: 'teste', tipo: 'mensal', desde: new Date(Date.now() - 2 * DIA).toISOString() } }, true), 'teste gratis ainda valendo: nao recebe');
+ok(await semVolta('pagou@x.com', { plano: { status: 'ativo', tipo: 'mensal', desde: '2026-09-01T12:00:00.000Z', pagoAte: '2026-10-08T12:00:00.000Z', ultimoPagamentoEm: '2026-09-08T12:00:00.000Z' } }, true), 'quem ja pagou alguma vez: nao recebe (tem os lembretes da fatura)');
+ok(await semVolta('encerrou@x.com', { plano: { status: 'cancelado', tipo: 'mensal', desde: '2026-10-01T12:00:00.000Z' } }, true), 'quem encerrou: nao recebe');
+ok(await semVolta('pausada@x.com', { plano: { status: 'pausado', tipo: 'mensal', desde: '2026-10-01T12:00:00.000Z' } }, true), 'conta pausada: nao recebe');
+ok(await semVolta('semloja@x.com', { plano: { status: 'teste', tipo: 'mensal', desde: '2026-10-01T12:00:00.000Z' } }, false), 'conta sem loja: nao recebe');
+ok(await semVolta('semdata@x.com', { plano: { status: 'teste', tipo: 'mensal', desde: '2026-10-01x' } }, true), 'data do teste que nao se le: nao recebe');
+
+/* teste que comecou depois do preco novo: o e-mail nao fala em preco que baixou (so vale quando esse teste ja acabou) */
+const nove = Date.now() - 9 * DIA;
+db.set('contas/depois@x.com', { email: 'depois@x.com', plano: { status: 'teste', tipo: 'mensal', desde: new Date(nove).toISOString() } });
+db.set('lojas/loja-do-depois', { slug: 'loja-do-depois', nome: 'Loja do Depois', donoEmail: 'depois@x.com' });
+r = await central('chamar', { email: 'depois@x.com' }, TOKEN_ADMIN); j = await r.json();
+ok(r.status === 200 && j.texto.indexOf('Olá!') === 0 && (nove >= Date.parse('2026-11-15T03:00:00Z') ? (!/baixou|novidade|preço novo/.test(j.assunto + j.texto) && /está guardada/.test(j.assunto)) : /baixou/.test(j.assunto)), 'conta sem nome: "Olá!"; o preco so e novidade para quem testou antes de 15/11/2026');
+
+/* sem o e-mail configurado: a previa funciona, o envio avisa */
+db.set('contas/semcfg@x.com', { email: 'semcfg@x.com', plano: { status: 'teste', tipo: 'mensal', desde: '2026-10-01T12:00:00.000Z' } });
+db.set('lojas/loja-semcfg', { slug: 'loja-semcfg', nome: 'Loja Sem Cfg', donoEmail: 'semcfg@x.com' });
+r = await worker.fetch(new Request('https://w/admin/chamar', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ligeiropedidos.com.br', Authorization: 'Bearer ' + TOKEN_ADMIN }, body: JSON.stringify({ email: 'semcfg@x.com', enviar: true }) }), Object.assign({}, envE, { EMAIL_URL: '', EMAIL_TOKEN: '' }));
+ok(r.status === 503 && !db.get('contas/semcfg@x.com').chamadaPorEmailEm, 'sem o e-mail configurado: 503 e nada anotado');
+r = await worker.fetch(new Request('https://w/saude'), envE); j = await r.json();
+ok(j.recursos.indexOf('chamar') >= 0, '/saude: o mensageiro diz que sabe chamar de volta');
+
 /* conferencia da configuracao antes de lancar: so sim ou nao, nenhum segredo */
 r = await worker.fetch(new Request('https://w/saude'), envE);
 const txtSaude = await r.text(); j = JSON.parse(txtSaude);

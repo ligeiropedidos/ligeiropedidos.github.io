@@ -691,14 +691,15 @@ async function anotarFatura(env, pag, evento) {
 
 /* ---------------- Central: pagamentos sem conta ----------------
    POST /admin/sem-conta              a lista (quem pagou com outro e-mail, ou sem e-mail)
-   POST /admin/vincular {id, email}   troca o e-mail do cliente no Asaas para o da conta e processa o pagamento de novo */
+   POST /admin/vincular {id, email}   troca o e-mail do cliente no Asaas para o da conta e processa o pagamento de novo
+   POST /admin/chamar {email, enviar} o e-mail de "volte" para a conta com o teste gratis acabado (ver chamarDeVolta) */
 async function rotaAdmin(request, env, caminho) {
   const origem = request.headers.get('Origin') || '';
   const cors = { 'Access-Control-Allow-Origin': ORIGENS.indexOf(origem) >= 0 ? origem : 'null', Vary: 'Origin', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' };
   const resp = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' }, cors) });
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method !== 'POST') return resp({ ok: false, erro: 'Use POST.' }, 405);
-  if (['/admin/sem-conta', '/admin/vincular'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
+  if (['/admin/sem-conta', '/admin/vincular', '/admin/chamar'].indexOf(caminho) < 0) return resp({ ok: false, erro: 'Rota que não existe.' }, 404);
   let corpo = {};
   try { corpo = await request.json(); } catch (_) { corpo = {}; }
   if (!corpo || typeof corpo !== 'object') corpo = {};
@@ -710,6 +711,7 @@ async function rotaAdmin(request, env, caminho) {
       const lista = (await fb.listar('pagamentosSemConta')).sort((a, b) => String(b.em || '').localeCompare(String(a.em || '')));
       return resp({ ok: true, lista: lista });
     }
+    if (caminho === '/admin/chamar') { const r = await chamarDeVolta(env, fb, corpo); return resp(r.corpo, r.status); }
     const id = String(corpo.id || ''), para = String(corpo.email || '').trim().toLowerCase();
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return resp({ ok: false, erro: 'Pagamento inválido.' }, 400);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para) || para.length > 120) return resp({ ok: false, erro: 'Digite o e-mail da conta (o do Google que a pessoa usa para entrar).' }, 400);
@@ -795,7 +797,7 @@ async function saude(env) {
     ok: true,
     versao: VERSAO,
     /* o que este mensageiro sabe fazer (o site pergunta antes de mostrar o Pix na tela) e os precos que ele cobra */
-    recursos: ['pagar', 'conferir', 'historico'],
+    recursos: ['pagar', 'conferir', 'historico', 'chamar'],
     precos: { mensal: Number(pr.mensal) || 0, anual: Number(pr.anual) || 0 },
     chavePix: chavePix,
     avisoDoAsaas: aviso,
@@ -1290,6 +1292,67 @@ function mensagemDoTeste(qual, nome, preco, fim) {
     botao: { texto: 'Assinar agora', url: SITE + '/conta', icone: 'icone-cartao.png' }, abaixo: 'Pix ou cartão, sem fidelidade',
     fecho: 'Sem comissão por pedido e sem multa para cancelar. Dúvida? É só responder este e-mail.',
   });
+}
+
+/* ---------------- Central: chamar de volta por e-mail (16/11/2026) ----------------
+   POST /admin/chamar {email, enviar}. O teste gratis acabou, ninguem pagou e a loja parou: o admin manda um e-mail dizendo
+   que esta tudo guardado e quanto custa hoje. Sem enviar:true a rota so devolve o e-mail montado (para ver antes de
+   mandar); com enviar:true manda e anota o dia na conta. Um por conta a cada 7 dias (dois toques nao mandam dois).
+   Quem ja pagou alguma vez, encerrou ou esta pausada nao recebe este: para esses existem os outros lembretes */
+const CHAMAR_DE_NOVO_EM = 7;
+const PRECO_BAIXOU_EM = Date.parse('2026-11-15T03:00:00Z'); /* quem testou antes disso viu o preco antigo: para esses, o preco e a novidade */
+function mensagemDeVolta(nome, lojaNome, preco, fim, viuPrecoAntigo) {
+  const dia = diaDeBrasilia(fim).split('-').reverse().slice(0, 2).join('/');
+  const primeiro = String(nome || '').trim().split(/\s+/)[0].slice(0, 30);
+  const loja = String(lojaNome || '').trim().slice(0, 60);
+  const valor = reaisEmail(preco);
+  /* no meio do texto, o preco nao parte entre o R$ e o numero, e a ultima linha nunca fica com uma palavra so */
+  const junto = valor.replace(' ', '\u00A0');
+  return emailMarca({
+    assunto: viuPrecoAntigo ? 'O Ligeiro baixou para ' + valor + ' e a sua loja está guardada' : 'A sua loja no Ligeiro está guardada',
+    tom: 'pago', titulo: 'Tudo guardado', sub: ['Sua loja volta', 'na hora em que assinar.'], ola: primeiro ? 'Olá, ' + primeiro + '!' : 'Olá!',
+    texto: 'O teste grátis ' + (loja ? 'da loja ' + loja : 'da sua loja') + ' acabou em ' + dia + ' e o site parou de aceitar pedidos, mas nada foi apagado: os itens e o link continuam iguais. '
+      + (viuPrecoAntigo ? 'A novidade: o Ligeiro baixou para ' + junto + ' por\u00A0mês. ' : '') + 'Assine pelo painel, no Pix ou no cartão, e a loja volta\u00A0na\u00A0hora.',
+    quadro: { rotulo: 'Assinatura do Ligeiro', valor: valor, quando: viuPrecoAntigo ? 'por mês · preço novo' : 'por mês · sem comissão' },
+    botao: { texto: 'Assinar agora', url: SITE + '/conta', icone: 'icone-cartao.png' }, abaixo: 'Pix ou cartão, sem fidelidade',
+    fecho: 'Sem comissão por pedido e sem multa para cancelar. Quer ajuda para voltar? É só responder\u00A0este\u00A0e-mail.',
+  });
+}
+async function chamarDeVolta(env, fb, corpo) {
+  const para = String(corpo.email || '').trim().toLowerCase();
+  if (!EMAIL_OK.test(para) || para.length > 120 || para === ADMIN || EMAIL_EQUIPE.test(para)) return { status: 400, corpo: { ok: false, erro: 'E-mail da conta inválido.' } };
+  const caminho = 'contas/' + encodeURIComponent(para);
+  const conta = await fb.get(caminho);
+  if (!conta) return { status: 404, corpo: { ok: false, erro: 'Não existe conta com esse e-mail no Ligeiro.' } };
+  const pl = conta.plano || {};
+  /* o fim do teste, igual a Central conta (R.assinatura): 7 dias depois do comeco, em dia de Brasilia */
+  const inicio = Date.parse(pl.desde || conta.criadoEm || '');
+  const fim = inicio + DIAS_GRATIS * 864e5;
+  if (pl.status !== 'teste' || pl.ultimoPagamentoEm || pl.pagoAte || !isFinite(inicio) || diaDeBrasilia(new Date(fim)) >= diaDeBrasilia())
+    return { status: 409, corpo: { ok: false, erro: 'Este e-mail é só para conta com o teste grátis acabado e sem pagamento.' } };
+  const ultima = Date.parse(conta.chamadaPorEmailEm || '');
+  if (isFinite(ultima) && Date.now() - ultima < CHAMAR_DE_NOVO_EM * 864e5)
+    return { status: 409, corpo: { ok: false, erro: 'Essa conta já recebeu este e-mail em ' + diaDeBrasilia(new Date(ultima)).split('-').reverse().slice(0, 2).join('/') + '. Dá para mandar de novo ' + CHAMAR_DE_NOVO_EM + ' dias depois.' } };
+  /* a loja da conta (a primeira que existir): sem loja nao ha para onde voltar */
+  const slugs = await fb.query('lojas', 'donoEmail', para).catch(() => []);
+  let loja = null;
+  for (const bruto of slugs.slice(0, 5)) {
+    const slug = typeof bruto === 'string' ? decodeURIComponent(bruto) : '';
+    if (!/^[a-z0-9-]{2,60}$/.test(slug)) continue;
+    loja = await fb.get('lojas/' + encodeURIComponent(slug));
+    if (loja) break;
+  }
+  if (!loja) return { status: 409, corpo: { ok: false, erro: 'Essa conta não tem loja para voltar.' } };
+  const m = mensagemDeVolta(conta.nome, loja.nome, precoDe(lerPlanos(env), 'mensal', false), new Date(fim), inicio < PRECO_BAIXOU_EM);
+  if (corpo.enviar !== true) return { status: 200, corpo: { ok: true, previa: true, para: para, assunto: m.assunto, texto: m.texto, html: m.html } };
+  if (!env.EMAIL_URL || !env.EMAIL_TOKEN) return { status: 503, corpo: { ok: false, erro: 'O e-mail do Ligeiro não está configurado.' } };
+  if (!umPorVez('chamar:' + para)) return { status: 429, corpo: { ok: false, erro: 'Já estou mandando. Espere um instante.' } };
+  try {
+    if (!(await mandarEmail(env, para, m))) return { status: 502, corpo: { ok: false, erro: 'O e-mail não saiu. Tente de novo em instantes.' } };
+    const em = new Date().toISOString();
+    await fb.merge(caminho, { chamadaPorEmailEm: em });
+    return { status: 200, corpo: { ok: true, enviado: true, em: em } };
+  } finally { delete MEM.vez['chamar:' + para]; }
 }
 
 /* um pedido por conta de cada vez (clique duplo ou duas abas nao criam duas cobrancas) */
