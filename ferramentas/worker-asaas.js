@@ -901,8 +901,9 @@ function folegoDoPagar(email) {
    pagamento sumia) e nascia outra com fatura vencendo hoje (ele pagaria duas vezes) */
 async function entrarPagasDaAssinatura(env, conta, subId) {
   const feitos = Array.isArray(conta.pagamentos) ? conta.pagamentos.map(String) : [];
-  const desde = diaDeBrasilia(new Date(Date.now() - 60 * 864e5));
-  const l = await asaas(env, '/payments?subscription=' + encodeURIComponent(subId) + '&dueDate%5Bge%5D=' + desde + '&limit=20').catch((e) => { if (e && e.status === 404) return null; throw e; });
+  /* 400 dias: a cobranca que venceu ha meses e foi paga agora (a loja ficou parada e o dono pagou a fatura velha) tambem entra */
+  const desde = diaDeBrasilia(new Date(Date.now() - 400 * 864e5));
+  const l = await asaas(env, '/payments?subscription=' + encodeURIComponent(subId) + '&dueDate%5Bge%5D=' + desde + '&limit=100').catch((e) => { if (e && e.status === 404) return null; throw e; });
   const pagas = (l && Array.isArray(l.data) ? l.data : []).filter((x) => x && x.deleted !== true && ID_ASAAS.test(String(x.id || ''))
     && ID_ASAAS.test(String(x.customer || '')) && PAGOS.indexOf(String(x.status || '')) >= 0 && feitos.indexOf(String(x.id)) < 0);
   let entrou = false;
@@ -1090,7 +1091,32 @@ async function conferirPagamento(env, fb, email, conta, corpo) {
   const cliente = await lerCliente(env, real.customer);
   /* cobranca de outra conta responde igual a cobranca que nao existe (nao da para descobrir cobranca alheia por aqui) */
   if (!cliente || String(cliente.email || '').trim().toLowerCase() !== email) return nao;
-  if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) return nao;
+  if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].indexOf(String(real.status || '')) < 0) {
+    /* 17/11/2026: a cobranca da tela nao foi paga, mas o dono pode ter pago outra (um Pix velho guardado no app do banco, de
+       antes de trocar a forma ou o plano). Qualquer cobranca de assinatura paga com o e-mail dele e que ainda nao entrou
+       entra agora, pelo caminho do aviso (que nao soma duas vezes) */
+    const cl = await asaas(env, '/customers?email=' + encodeURIComponent(email) + '&limit=10').catch(() => null);
+    const deles = (cl && Array.isArray(cl.data) ? cl.data : []).filter((x) => x && ID_ASAAS.test(String(x.id || '')) && String(x.email || '').trim().toLowerCase() === email).slice(0, 3);
+    const feitos = Array.isArray(conta.pagamentos) ? conta.pagamentos.map(String) : [];
+    const desde = diaDeBrasilia(new Date(Date.now() - 400 * 864e5));
+    let entrou = false;
+    for (const cli of deles) {
+      const l = await asaas(env, '/payments?customer=' + encodeURIComponent(cli.id) + '&dueDate%5Bge%5D=' + desde + '&limit=100').catch(() => null);
+      const pagas = (l && Array.isArray(l.data) ? l.data : []).filter((x) => x && x.subscription && x.deleted !== true && ID_ASAAS.test(String(x.id || ''))
+        && !/^srv:/.test(String(x.externalReference || '')) && PAGOS.indexOf(String(x.status || '')) >= 0 && feitos.indexOf(String(x.id)) < 0);
+      for (const x of pagas) {
+        let res2 = null;
+        for (let vez = 0; ; vez++) {
+          try { res2 = await processarPagamento(env, { id: String(x.id), customer: String(x.customer || cli.id) }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+        }
+        const j2 = await res2.json().catch(() => ({}));
+        if (j2 && j2.ok && (!j2.ignorado || j2.repetido) && !j2.devolvido) entrou = true;
+      }
+    }
+    if (!entrou) return nao;
+    const depois = (await fb.get('contas/' + encodeURIComponent(email))) || {};
+    return { status: 200, corpo: { ok: true, pago: true, pagoAte: (depois.plano || {}).pagoAte || '' } };
+  }
   let res = null;
   for (let vez = 0; ; vez++) {
     try { res = await processarPagamento(env, { id: id, customer: String(real.customer) }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
@@ -1208,18 +1234,26 @@ async function conferirPerdidos(env, agora) {
   const inicio = n > CONFERIR_POR_DIA ? (Math.floor(agoraMs / 864e5) * CONFERIR_POR_DIA) % n : 0;
   const daVez = n > CONFERIR_POR_DIA ? emails.concat(emails).slice(inicio, inicio + CONFERIR_POR_DIA) : emails;
   r.cortadas = n - daVez.length;
-  const desde = diaDeBrasilia(new Date(agoraMs - 60 * 864e5));
+  /* 400 dias (17/11/2026, teste com milhares de sequencias): com 60, a fatura que venceu ha mais de 2 meses e foi paga agora,
+     com o aviso perdido, nunca era achada */
+  const desde = diaDeBrasilia(new Date(agoraMs - 400 * 864e5));
   const recuperadas = [];
   for (const email of daVez) {
     const c = porEmail[email];
     r.olhadas++;
     try {
       const feitos = Array.isArray(c.pagamentos) ? c.pagamentos.map(String) : [];
-      const subs = [String(c.assinaturaAsaas || ''), String(c.assinaturaPendente || '')].filter((x, i, l) => x && ID_ASAAS.test(x) && l.indexOf(x) === i);
+      /* 17/11/2026 (teste com milhares de sequencias): todas as cobrancas de assinatura dos clientes do Asaas com o e-mail
+         da conta, e nao so as das 2 assinaturas anotadas. O Pix de uma assinatura que ja tinha sido trocada (o dono abriu o
+         Pix, trocou para cartao e depois pagou o Pix velho que estava no app do banco) so entrava pelo aviso; se o aviso se
+         perdesse, ninguem achava o pagamento. A cobranca avulsa e a da Loja do Ligeiro ficam com o aviso, como antes */
+      const cl = await asaas(env, '/customers?email=' + encodeURIComponent(email) + '&limit=10');
+      const clientesDaConta = (cl && Array.isArray(cl.data) ? cl.data : [])
+        .filter((x) => x && ID_ASAAS.test(String(x.id || '')) && String(x.email || '').trim().toLowerCase() === email).slice(0, 3);
       let lidas = [];
-      for (const sub of subs) {
-        const l = await asaas(env, '/payments?subscription=' + encodeURIComponent(sub) + '&dueDate%5Bge%5D=' + desde + '&limit=20').catch((e) => { if (e && e.status === 404) return null; throw e; });
-        lidas = lidas.concat(l && Array.isArray(l.data) ? l.data : []);
+      for (const cli of clientesDaConta) {
+        const l = await asaas(env, '/payments?customer=' + encodeURIComponent(cli.id) + '&dueDate%5Bge%5D=' + desde + '&limit=100').catch((e) => { if (e && e.status === 404) return null; throw e; });
+        lidas = lidas.concat((l && Array.isArray(l.data) ? l.data : []).filter((x) => x && x.subscription && !/^srv:/.test(String(x.externalReference || ''))));
       }
       /* a fatura anotada que nao veio nas listas (conta sem assinatura anotada, ou fatura mais velha): le so ela */
       const fid = String((c.faturaAsaas || {}).id || '');
