@@ -2417,7 +2417,10 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 .selo-preco { text-decoration: none; }
 .selo-preco .ico-traco { color: var(--lime-escuro); }
 @media (hover: hover) { .selo-preco:hover { background: #E2F4C5; } }
-@media (max-width: 359px) { .selo-preco { font-size: 13px; padding: 6px 10px; gap: 6px; } } /* 320: o selo numa linha so */
+/* 17/11/2026: selo com icone na frente, como nos sites profissionais (padrao Material: 8 do lado do icone, 16 do lado do texto):
+   com 12 e 12 o texto parecia colado na ponta redonda */
+.vender-selos .selo { padding-left: 10px; padding-right: 16px; }
+@media (max-width: 359px) { .vender-selos .selo-preco { font-size: 13px; padding: 6px 12px 6px 8px; gap: 6px; } } /* 320: o selo numa linha so (mesma largura de antes) */
 /* fechamento: o preco lembrado embaixo do titulo */
 .final-preco { margin: 0; font-size: 17px; line-height: 1.4; color: var(--body); }
 .final-preco b { color: var(--deep); }
