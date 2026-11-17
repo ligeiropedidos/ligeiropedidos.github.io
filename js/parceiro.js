@@ -457,7 +457,10 @@
     var seloLojas = el('span', { class: 'selo', hidden: true });
     /* os selos do topo: o de fundador (so com vaga) e o de lojas (so com 5 ou mais). Sem nenhum, a linha some (senao ficava o vao) */
     var seloFund = seloFundador();
-    var selosTopo = el('div', { class: 'vender-selos', hidden: !seloFund }, [seloFund, seloLojas]);
+    /* 17/11/2026: o preco como argumento logo no topo ("um dos menores", nunca "o menor": ha catalogo de R$ 39 e gratis com
+       limite). Leva para o bloco do preco, onde as barras mostram a prova */
+    var seloPreco = el('a', { class: 'selo selo-preco', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [UI.iconeLinha('cupom'), 'Um dos menores preços do mercado']);
+    var selosTopo = el('div', { class: 'vender-selos' }, [seloPreco, seloFund, seloLojas]);
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
@@ -626,7 +629,8 @@
       el('div', { class: 'teste-texto' }, [
         el('span', { class: 'teste-selo' }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('estrela')]), 'Teste grátis por ' + pr.diasGratis + ' dias']),
         el('h2', {}, ['Sua loja no ar ', el('span', { class: 'destaque', text: 'em 3 minutos' }), ', já montada para o que você vende.']),
-        el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser'].map(function (t) { return el('li', { text: t }); })),
+        /* o preco depois do teste, as claras (17/11/2026): quem testa ja sabe quanto vai pagar */
+        el('ul', { class: 'teste-checks' }, ['Sem cartão de crédito', 'Cancela quando quiser', 'Depois, ' + reais(pr.mensal).replace(' ', '\u00A0') + ' por mês'].map(function (t) { return el('li', { text: t }); })),
       ]),
       el('div', { class: 'teste-botoes' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),
@@ -641,7 +645,24 @@
       /* 15/11/2026: "um dos menores precos do mercado", com a faixa dos sistemas conhecidos logo abaixo (a prova). Nunca
          "o menor": ha catalogo pago de R$ 39 e planos gratis com limite de pedidos. O "menos de R$ 1,40 por dia" nao parte */
       el('p', { class: 'muted' }, [el('b', { class: 'por-dia' }, [juntarFim('Um dos menores preços do mercado:'), ' ', el('span', { class: 'sem-quebra', text: 'menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' })])]),
-      el('p', { class: 'muted pequeno preco-mercado', text: juntarFim('Os sistemas mais conhecidos cobram de ' + reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) + ' por mês.') }),
+      /* 17/11/2026: a prova em barras, no mesmo desenho da calculadora. A barra dos mais conhecidos e uma faixa de precos:
+         cheia ate o menor (todos cobram pelo menos isso) e mais clara ate o maior */
+      (function () {
+        var faixa = el('span', { style: { width: '100%' } });
+        faixa.style.setProperty('--de', Math.round(MERCADO.de / MERCADO.ate * 100) + '%');
+        return el('div', { class: 'calc-linhas preco-ancora' }, [
+          el('div', { class: 'calc-linha' }, [
+            el('div', { class: 'calc-cabeca' }, [el('b', { text: 'Sistemas mais conhecidos' }), el('span', { class: 'calc-valor', text: reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) })]),
+            el('div', { class: 'calc-trilho faixa', 'aria-hidden': 'true' }, faixa),
+            el('small', { text: juntarFim('por mês, nos sites oficiais em ' + MERCADO.em) }),
+          ]),
+          el('div', { class: 'calc-linha ligeiro' }, [
+            el('div', { class: 'calc-cabeca' }, [el('b', { text: 'Ligeiro' }), el('span', { class: 'calc-valor', text: reais(pr.mensal) })]),
+            el('div', { class: 'calc-trilho', 'aria-hidden': 'true' }, el('span', { style: { width: Math.max(2, Math.round(pr.mensal / MERCADO.ate * 100)) + '%' } })),
+            el('small', { text: juntarFim('por mês, fixo e sem taxa por pedido') }),
+          ]),
+        ]);
+      })(),
       (function () {
         var t = 'mensal';
         var caixa = el('div', { class: 'pilha planos-venda' });
@@ -697,6 +718,8 @@
     corpo.appendChild(el('section', { class: 'vender-final', 'data-secao': 'final' }, [
       el('img', { class: 'final-mascote', src: 'img/mascote-192.webp', alt: '' }),
       el('h2', { text: 'Quer ver funcionando na sua loja?' }),
+      /* o preco lembrado na hora de decidir (17/11/2026) */
+      el('p', { class: 'final-preco' }, [pr.diasGratis + ' dias grátis. Depois, ', el('b', { class: 'sem-quebra', text: reais(pr.mensal) + ' por mês' }), ', sem\u00A0comissão.']),
       /* dois caminhos so: comecar sozinho ou pedir para a gente montar */
       el('div', { class: 'pilha chamada' }, [
         el('a', { class: 'btn btn-principal btn-gigante', href: '#/comecar', text: 'Começar grátis' }),

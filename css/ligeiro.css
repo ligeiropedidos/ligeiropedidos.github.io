@@ -2239,7 +2239,7 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 .plano-antes-rotulo { display: inline-flex; align-items: center; gap: 4px; color: #92400E; }
 .plano-antes .ico-traco { color: #D97706; }
 .plano-antes .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }
-.planos-lado .plano-sub { white-space: nowrap; }
+.planos-lado .plano-sub { white-space: nowrap; font-size: 17px; font-size: min(17px, 12.5cqi); } /* 17/11/2026: encolhe com o cartao (letra maior no aparelho, celular estreito): nunca vaza */
 /* cartao estreito (celular de 360 a 390): o titulo e o preco riscado encolhem um pouco; o circulo e o selo vao para 8 dos cantos */
 @container (max-width: 170px) { .planos-lado .plano-titulo { font-size: 16px; } .plano-antes { gap: 6px; font-size: 13px; } .plano-visto { left: 8px; } .plano-etiqueta { right: 8px; padding: 6px 8px; } }
 .planos-caixa { width: 100%; }
@@ -2410,7 +2410,17 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 .zap-texto { padding: 0 5px; }
 .zap-url { color: #027EB5; }
 .por-dia { color: var(--deep); }
-.preco-mercado { margin-top: -4px; } /* a prova logo abaixo da frase do preco: 8 entre as duas (o bloco da 12) */
+/* 17/11/2026: a prova do preco em barras (desenho da calculadora). A barra dos mais conhecidos e uma faixa: cheia ate o
+   menor preco e mais clara ate o maior */
+.calc-trilho.faixa span { background: linear-gradient(90deg, var(--orange) 0 var(--de, 33%), #FFD3B3 var(--de, 33%) 100%); }
+/* selo do preco no topo, no verde da marca, ao lado do de vagas: leva ao bloco do preco */
+.selo-preco { text-decoration: none; }
+.selo-preco .ico-traco { color: var(--lime-escuro); }
+@media (hover: hover) { .selo-preco:hover { background: #E2F4C5; } }
+@media (max-width: 359px) { .selo-preco { font-size: 13px; padding: 6px 10px; gap: 6px; } } /* 320: o selo numa linha so */
+/* fechamento: o preco lembrado embaixo do titulo */
+.final-preco { margin: 0; font-size: 17px; line-height: 1.4; color: var(--body); }
+.final-preco b { color: var(--deep); }
 
 .raio { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
 .raio .icone { font-size: 26px; }
