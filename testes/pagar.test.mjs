@@ -580,6 +580,38 @@ await worker.scheduled({}, envKv, null);
 ok(doAdmin(/com problema/).length === 1 && /desligado/.test(doAdmin(/com problema/)[0].texto) && chamadas.filter((c) => /^\/webhooks\//.test(c.cam)).length === 1 && JSON.parse(kv.m.get('asaas:conferencia')).aviso === 'desligado', 'aviso desligado no Asaas: nao da para ligar daqui, o admin recebe o e-mail com o que fazer');
 avisos[0].enabled = true;
 
+/* ================= pentest 17/11/2026: pagou e tocou Pagar de novo antes do aviso do Asaas ================= */
+{
+  /* 1a mensalidade: a assinatura ainda e "pendente" (so tem a fatura). O dono paga o Pix, o celular recarrega a pagina no
+     app do banco, o aviso atrasa e ele abre o Pagar de novo. Antes: a assinatura paga era apagada e nascia outra com fatura
+     vencendo hoje (pagaria duas vezes, e o Cron nao achava o pagamento) */
+  const tR = conta('reabriu@x.com', { desde: new Date(Date.now() - 8 * DIA).toISOString() });
+  let r1 = await pedir('pagar', tR, { forma: 'pix', documento: CPF });
+  const subR = contaDe('reabriu@x.com').assinaturaPendente, cobR = r1.j.cobranca;
+  cobrancas.get(cobR).status = 'RECEIVED';
+  const criadasAntes = criadas().length;
+  r1 = await pedir('pagar', tR, { forma: 'pix' });
+  const cR = contaDe('reabriu@x.com');
+  ok(r1.status === 200 && r1.j.pago === true && !r1.j.cobranca, 'pagou e abriu o Pagar de novo antes do aviso: responde "pago", sem cobranca nova');
+  ok(assinaturas.get(subR).deleted !== true && criadas().length === criadasAntes, 'a assinatura que acabou de ser paga nao e apagada e nenhuma outra nasce');
+  ok((cR.pagamentos || []).indexOf(cobR) >= 0 && cR.plano.status === 'ativo' && cR.assinaturaAsaas === subR && !(cR.faturaAsaas && cR.faturaAsaas.id), 'o pagamento entra na hora (conta ativa, assinatura adotada, sem fatura aberta no painel)');
+  /* renovacao: os dias acabaram, a cobranca do mes foi paga e o aviso nao chegou. Antes a assinatura da conta (a do cartao
+     inclusive) era apagada porque nao tinha nada em aberto e a conta estava sem dias */
+  const tV = conta('renovou@x.com', { desde: new Date(Date.now() - 90 * DIA).toISOString(), status: 'ativo', planoPago: 'uma', pagoAte: new Date(Date.now() - 2 * DIA).toISOString() });
+  let rv = await pedir('pagar', tV, { forma: 'pix', documento: CPF });
+  const subV = contaDe('renovou@x.com').assinaturaPendente, cobV = rv.j.cobranca;
+  cobrancas.get(cobV).status = 'RECEIVED';
+  await pedir('conferir', tV, { cobranca: cobV });
+  const novaV = novaCobrancaDa(assinaturas.get(subV));
+  novaV.status = 'RECEIVED';
+  const pagoAntes = contaDe('renovou@x.com').plano.pagoAte;
+  db.get('contas/renovou@x.com').plano.pagoAte = new Date(Date.now() - 1 * DIA).toISOString();
+  mudou('contas/renovou@x.com');
+  rv = await pedir('pagar', tV, { forma: 'pix' });
+  const cV = contaDe('renovou@x.com');
+  ok(rv.j.pago === true && assinaturas.get(subV).deleted !== true && (cV.pagamentos || []).indexOf(novaV.id) >= 0 && Date.parse(cV.plano.pagoAte) > Date.now() && !!pagoAntes, 'renovacao paga sem aviso: a assinatura da conta fica e o mes entra');
+}
+
 /* ================= a fila da conferencia (no maximo 8 contas por dia) ================= */
 for (let i = 0; i < 11; i++) {
   conta('fila' + i + '@x.com', { desde: new Date(agora - 90 * DIA).toISOString(), status: 'ativo', pagoAte: new Date(agora + 1 * DIA).toISOString(), planoPago: 'uma' }, { assinaturaAsaas: 'sub_fila' + i, faturaAsaas: { id: 'pay_fila' + i, status: 'PENDING', vencimento: diaBrasilia(agora + 1 * DIA), url: 'https://www.asaas.com/i/f' + i, lembretes: ['d3', 'd0'] } });

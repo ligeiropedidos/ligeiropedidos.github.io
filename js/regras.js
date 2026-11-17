@@ -883,8 +883,10 @@
   function rotuloProximoPasso(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento") */
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
+      /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento").
+         Pentest 17/11/2026: vale tambem para o Pix do site que ainda nao tem o codigo (o campo mp nasce com ele): ninguem
+         pagou esse pedido, e o "Marcar como pago" aparecia nele (um print falso liberava) */
+      case STATUS.AGUARDANDO: return pagaPeloSite(pedido) || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
       case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';

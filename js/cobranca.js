@@ -347,6 +347,9 @@
         var j = resp.j || {};
         if (j.precisaDocumento) { telaDocumento(''); return; }
         if (resp.status === 400 && e.doc && /CPF|CNPJ/.test(String(j.erro || ''))) { telaDocumento(j.erro); return; }
+        /* pentest 17/11/2026: pagou e o aviso do Asaas ainda nao tinha chegado: o mensageiro faz o pagamento entrar e
+           responde "pago" (antes apagava a assinatura paga e gerava outra cobranca) */
+        if (j.ok && j.pago) { telaPago(j.pagoAte); return; }
         if (j.ok && j.emDia) { telaEmDia(); return; }
         if (j.ok && j.cobranca) {
           e.r = j;

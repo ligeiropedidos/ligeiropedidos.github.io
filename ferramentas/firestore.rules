@@ -306,26 +306,19 @@ service cloud.firestore {
           || isDonoDaLoja(loja);
         allow update: if
           /* equipe (cozinha, entregador, painel com a senha da equipe): so anda com o pedido, nunca mexe em valor, itens ou cliente */
-          (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'pagamentoStatus', 'pagoEm', 'canceladoPor', 'atualizadoEm'])
+          (isEquipe(loja) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'canceladoPor', 'atualizadoEm'])
               && request.resource.data.status in ['aguardando_pagamento', 'pago', 'producao', 'pronto', 'finalizado', 'cancelado']
               /* pedido cancelado ou concluido nao volta (nem um cancelado e devolvido vira "pago" de novo) */
               && (!(resource.data.status in ['cancelado', 'finalizado']) || request.resource.data.status == resource.data.status)
-              /* cancelado e devolvido nao volta a "pago" pela mao da equipe (reaparecia em "Falta devolver") */
-              && (resource.data.status != 'cancelado' || request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', ''))
               /* so para a frente: um toque de tela velha ou feito sem internet nao puxa o pedido de volta (pronto -> producao) */
               && (request.resource.data.status == 'cancelado' || ordemDoPedido(request.resource.data.status) >= ordemDoPedido(resource.data.status))
-              /* Pix e cartao pelo Mercado Pago: quem confirma e o mensageiro, com o banco. A equipe nao marca como pago (print
-                 falso nao libera pedido) */
-              && !(resource.data.get('mp', null) != null && resource.data.status == 'aguardando_pagamento'
-                   && (request.resource.data.status == 'pago' || request.resource.data.get('pagamentoStatus', '') == 'pago'))
-              /* pentest 04/10: D-05: pedido com cobranca no Mercado Pago: a equipe nao libera (producao, pronto, finalizado) nem mexe no
-                 pagamentoStatus (devolvido e do dono, pela Devolucao); so pode cancelar */
-              && (resource.data.get('mp', null) == null
-                  || (request.resource.data.get('pagamentoStatus', '') == resource.data.get('pagamentoStatus', '')
-                      && (resource.data.status != 'aguardando_pagamento' || request.resource.data.status in ['aguardando_pagamento', 'cancelado'])))
+              /* pentest 17/11/2026: a equipe nunca tira o pedido do "aguardando pagamento", so cancela. Quem confirma o Pix e o
+                 cartao do site e o mensageiro, com o Mercado Pago; o Pix combinado, so o dono. Antes a trava olhava o campo mp,
+                 que o pedido de Pix so ganha quando o codigo nasce: a equipe (por fora da tela) marcava como pago um Pix que
+                 ninguem pagou. Pela mesma razao a equipe nao grava pagamentoStatus nem pagoEm (nenhuma tela dela grava) */
+              && (resource.data.status != 'aguardando_pagamento' || request.resource.data.status in ['aguardando_pagamento', 'cancelado'])
               /* pentest 04/10: D-05: tipos e tamanhos dos campos que a equipe grava */
-              && txt(request.resource.data.get('pagamentoStatus', ''), 20) && txt(request.resource.data.get('canceladoPor', ''), 30)
-              && txt(request.resource.data.get('pagoEm', ''), 40) && txt(request.resource.data.get('atualizadoEm', ''), 40))
+              && txt(request.resource.data.get('canceladoPor', ''), 30) && txt(request.resource.data.get('atualizadoEm', ''), 40))
           || isAdmin() || isDonoDaLoja(loja)
           /* (o "ja paguei" do cliente saiu: o Pix confirma sozinho e o aviso deixava o pedido laranja, "Diz que pagou", com
              qualquer print) */

@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-10-08a';
+const VERSAO_MENSAGEIRO = '2026-11-17a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -154,7 +154,18 @@ function demais(chave, maximo, janelaMs) {
     /* tira so o que ja venceu e nunca os contadores de contato (lead-*): zerar tudo de uma vez deixaria quem inventa chaves
        novas recomecar do zero. Se continuar cheio de chaves novas, ai sim recomeca (a memoria nao cresce sem fim) */
     Object.keys(MEM.vezes).forEach((k) => { const v = MEM.vezes[k]; if (k.indexOf('lead-') !== 0 && (!v.length || agora - v[v.length - 1] > 10 * 60 * 1000)) delete MEM.vezes[k]; });
-    if (Object.keys(MEM.vezes).length > 5000) MEM.vezes = {};
+    /* pentest 17/11/2026: continuou cheia (alguem inventando chaves): saem as chaves de menos uso, e das mais velhas para as
+       mais novas, ate sobrar 4 mil. Antes a tabela inteira zerava, e com ela o limite de chute de cupom e os outros: bastava
+       mandar 5 mil pedidos de loja inventada para chutar codigos sem limite. As chaves que estao barrando alguem (muitos usos)
+       ficam */
+    const chaves = Object.keys(MEM.vezes);
+    if (chaves.length > 5000) {
+      chaves.filter((k) => k.indexOf('lead-') !== 0)
+        .map((k) => { const v = MEM.vezes[k] || []; return { k: k, n: v.length, ultima: v.length ? v[v.length - 1] : 0 }; })
+        .sort((a, b) => a.n - b.n || a.ultima - b.ultima)
+        .slice(0, chaves.length - 4000)
+        .forEach((x) => { delete MEM.vezes[x.k]; });
+    }
   }
   return false;
 }
@@ -1060,8 +1071,10 @@ const REGRAS = (function () {
   function rotuloProximoPasso(pedido) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento") */
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
+      /* cartao, ou Pix com cobranca no Mercado Pago: so o Mercado Pago confirma (o painel tem o "Conferir pagamento").
+         Pentest 17/11/2026: vale tambem para o Pix do site que ainda nao tem o codigo (o campo mp nasce com ele): ninguem
+         pagou esse pedido, e o "Marcar como pago" aparecia nele (um print falso liberava) */
+      case STATUS.AGUARDANDO: return pagaPeloSite(pedido) || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
       case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
       case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
@@ -2506,7 +2519,10 @@ export default {
 
       /* ---- um cliente bateu no limite do banco: confere (uma gravacao e uma leitura, no maximo 1 vez por minuto) ---- */
       if (caminho === '/pausa' && request.method === 'POST') {
-        if (Date.now() - MEM.pausaConferidaEm < 60 * 1000) return json({ pausa: !!(MEM.pausa && MEM.pausa.valor) });
+        /* pentest 17/11/2026: a conferencia grava no banco. Sem login, qualquer um chamava sem parar: cada copia do worker
+           gravava uma vez por minuto e muitas copias gastavam a cota de gravacoes do dia (o que pausava todas as lojas).
+           Agora no maximo uma conferencia a cada 10 minutos por copia, e 5 chamadas por endereco */
+        if (Date.now() - MEM.pausaConferidaEm < 10 * 60 * 1000 || demais('pausa-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 5, 10 * 60 * 1000)) return json({ pausa: await pausaAtiva(env) });
         MEM.pausaConferidaEm = Date.now();
         const fb = await firebase(env);
         try {
@@ -2798,7 +2814,7 @@ export default {
           if (demais('pedido-balcao:' + loja, 200, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
         /* por endereco e loja (15) e por endereco no total (60): a rede do celular (CGNAT) poe muita gente da cidade no
            mesmo IP, e o limite de 15 para todas as lojas juntas barrava cliente de verdade no dia de movimento */
-        } else if (demais('pedido-ip:' + casa + ':' + loja, 15, 10 * 60 * 1000) || demais('pedido-ip:' + casa, 60, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
+        } else if (demais('pedido-ip:' + casa, 60, 10 * 60 * 1000) || demais('pedido-ip:' + casa + ':' + loja, 15, 10 * 60 * 1000)) return json({ erro: muitos }, 429);
         const fb = await firebase(env);
         const lojaDoc = 'lojas/' + loja;
         /* chave do pedido (o site sorteia uma por compra, 20 letras e numeros, e manda a mesma nas novas tentativas): a
@@ -3149,7 +3165,7 @@ export default {
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         const { loja, pedido } = await request.json().catch(() => ({}));
         if (!idToken || !SLUG.test(loja || '') || !PEDIDO_ID.test(pedido || '')) return json({ ok: false, erro: 'faltou a loja, o pedido ou o login' }, 400);
-        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000) || demais('devolver:' + loja, 60, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
+        if (demais('rota-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 120, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const fb = await firebase(env);
         const quem = (await usuarioDoToken(fb, idToken)).toLowerCase();
         if (!quem) return json({ ok: false, erro: 'entre na sua conta de novo' }, 401);
@@ -3157,6 +3173,9 @@ export default {
         const docLoja = await fb.get('lojas/' + loja);
         const dono = docLoja ? String(docLoja.donoEmail || '').toLowerCase() : '';
         if (!dono || (dono !== quem && quem !== ADMIN)) return json({ ok: false, erro: 'só o dono da loja devolve pagamentos' }, 403);
+        /* pentest 17/11/2026: o limite da loja conta so depois de conferir o dono (antes, 60 chamadas com um login qualquer
+           barravam as devolucoes do dono de verdade por 10 minutos) */
+        if (demais('devolver:' + loja, 60, 10 * 60 * 1000)) return json({ ok: false, erro: 'Muitas tentativas seguidas. Espere alguns minutos.' }, 429);
         const caminhoD = 'lojas/' + loja + '/pedidos/' + pedido;
         const p = await fb.get(caminhoD);
         if (!p) return json({ ok: false, erro: 'pedido não existe' }, 404);
@@ -3215,7 +3234,11 @@ export default {
         const mpId = url.searchParams.get('mp') || '';
         const expira = Date.parse(url.searchParams.get('expira') || '');
         const fb = await firebase(env);
-        if (/^[A-Za-z0-9_-]{1,64}$/.test(mpId) && !isNaN(expira)) {
+        /* pentest 17/11/2026: so o id de order (ORD...), que e o que o Pix e o cartao do site criam. Com um numero (o mesmo
+           pagamento visto pela API antiga, que da para tirar do codigo do Pix), o pedido ficava pago "por ele" e o aviso
+           de verdade do Mercado Pago, chegando depois, era tratado como cobranca a mais e devolvido: o cliente pagava,
+           recebia de volta e o pedido seguia pago. Outro id vai pelo caminho do banco (o id gravado no pedido) */
+        if (/^ORD[A-Za-z0-9_-]{1,61}$/.test(mpId) && !isNaN(expira)) {
           /* caminho leve (site novo): pergunta direto ao Mercado Pago; o banco so e lido se o Pix caiu.
              O prazo vem do proprio pedido (pixExpiraEm) e vale pelo relogio do servidor, nunca o do aparelho.
              Loja inventada gasta uma leitura (o token): o endereco que ja errou demais so passa com loja que a borda
@@ -3934,6 +3957,10 @@ async function conferirPagamento(fb, slug, idPagamento, pedidoId, env, devolverD
       if ((p.pagamentoStatus === 'pago' || devolvido) && pagador && idPg !== pagador) {
         /* pedido pago por uma order (ORD...): um id de pagamento avulso (numero) e o mesmo dinheiro visto pela outra API, nunca uma segunda cobranca */
         if (pagador.indexOf('ORD') === 0 && !pgEhOrder) return 'pago';
+        /* pentest 17/11/2026: e o contrario tambem. Pago antes por um numero (aviso de pagamento, ou aviso sem assinatura) e
+           agora chega a order: e o mesmo dinheiro, nunca uma segunda cobranca. Antes a order era devolvida sozinha e o
+           pedido seguia pago (o cliente recebia o dinheiro de volta) */
+        if (pagador.indexOf('ORD') !== 0 && pgEhOrder) return 'pago';
         /* segunda cobranca aprovada do mesmo pedido (resposta do banco que nao chegou e o cliente tentou de novo, Pix
            gerado duas vezes e pago duas vezes): o pedido ja estava pago por outra, entao esta volta sozinha para o cliente */
         const devolvidas = Array.isArray(p.duplicadasDevolvidas) ? p.duplicadasDevolvidas.map(String) : [];

@@ -97,15 +97,16 @@ export default {
       return json({ ok: false, erro: 'falhou, o Asaas tenta de novo' }, 500);
     }
   },
-  /* todo dia (Cron trigger): os lembretes por e-mail e, depois deles, a vigia do aviso do Asaas e a conferencia dos
-     pagamentos (por ultimo de proposito: se o limite de pedidos do plano gratis da Cloudflare acabar no meio, os lembretes
-     ja sairam) */
+  /* todo dia (Cron trigger): primeiro a vigia do aviso do Asaas e a conferencia dos pagamentos, depois os lembretes por
+     e-mail. Pentest 17/11/2026: a ordem era a contraria, e o plano gratis da Cloudflare corta cada execucao em 50 pedidos:
+     num dia com uns 25 lembretes a fila parada nao era religada e o pagamento perdido nao entrava (loja paga bloqueada).
+     Lembrete que fica de fora sai no dia seguinte; pagamento que nao entra para a loja */
   async scheduled(evento, env, ctx) {
-    const tarefa = Promise.all([
+    const tarefa = conferenciaDoDia(env).catch((e) => console.error('conferencia do dia', e && e.message || e)).then(() => Promise.all([
       lembrarFaturas(env).then((r) => console.log('lembretes', JSON.stringify(r))).catch((e) => console.error('lembretes', e && e.message || e)),
       lembrarTestes(env).then((r) => console.log('testes', JSON.stringify(r))).catch((e) => console.error('testes', e && e.message || e)),
       sincronizarEncerradas(env).then((r) => console.log('encerradas', JSON.stringify(r))).catch((e) => console.error('encerradas', e && e.message || e)),
-    ]).then(() => conferenciaDoDia(env)).catch((e) => console.error('conferencia do dia', e && e.message || e));
+    ]));
     if (ctx && ctx.waitUntil) ctx.waitUntil(tarefa); else await tarefa;
   },
 };
@@ -149,7 +150,9 @@ async function processarPagamento(env, pag) {
         await fb0().then((fb) => fb.merge('pagamentosSemConta/' + encodeURIComponent(pag.id), {
           id: String(pag.id), email: email, nome: String(cliente.name || ''), clienteAsaas: String(pag.customer), valor: Math.round(Number(pag.value || 0) * 100),
           assinatura: String(pag.subscription || ''), forma: String(pag.billingType || ''), motivo: motivo, em: new Date().toISOString(),
-        })).catch((e) => console.error('pagamento sem conta', e && e.message || e));
+        }));
+        /* pentest 17/11/2026: sem o .catch. Se o banco falhar, o aviso responde erro e o Asaas manda de novo (antes o
+           registro se perdia e so sobrava o e-mail ao admin, que tambem pode falhar) */
       };
       let fbCache = null;
       const fb0 = async () => { if (!fbCache) fbCache = await firebase(env); return fbCache; };
@@ -199,6 +202,7 @@ async function processarPagamento(env, pag) {
       /* cobranca avulsa (sem assinatura): so vale se for exatamente o preco do plano. Outra (a loja personalizada, por
          exemplo) nao vira dias de plano: o admin recebe e-mail e, se era mensalidade, confirma na Central */
       if (!sub && !plano.preco) {
+        await semConta('cobranca avulsa');
         await avisarAdmin(env, 'Cobrança avulsa', 'Entrou ' + reais(entrou) + ' da conta ' + email + ' numa cobrança avulsa (' + pag.id + '), fora de uma assinatura. Ela não liberou dias de plano. Se era a mensalidade, confirme na Central.');
         return json({ ok: true, ignorado: 'cobranca avulsa' });
       }
@@ -238,7 +242,11 @@ async function processarPagamento(env, pag) {
       /* pagou dentro da tolerancia (a loja seguiu no ar depois de vencer): os dias contam do vencimento, e nao de hoje.
          Antes, cada atraso de 9 dias virava 9 dias de graca, todo mes. Conta encerrada, ou que ja passou da tolerancia
          (loja parada), conta de hoje */
-      const noPrazo = pagoAteMs > 0 && p.status !== 'cancelado' && p.status !== 'pausado' && agoraMs - pagoAteMs <= DIAS_TOLERANCIA * 864e5;
+      /* pentest 17/11/2026: a tolerancia conta em dias de Brasilia, como o site (R.assinatura), que deixa a loja no ar ate o fim
+         do 10o dia. Em milissegundos ela acabava antes: quem pagava no 10o dia, com a loja ainda no ar, tinha os dias contados
+         de hoje e ganhava uns 10 dias por mes */
+      const noPrazo = pagoAteMs > 0 && p.status !== 'cancelado' && p.status !== 'pausado'
+        && diasAte(diaDeBrasilia(new Date(pagoAteMs)), diaDeBrasilia(new Date(agoraMs))) <= DIAS_TOLERANCIA;
       const base = noPrazo ? Math.max(pagoAteMs, fimGratis) : Math.max(agoraMs, pagoAteMs, fimGratis);
       /* Quantos dias o pagamento vale. Preco cheio: o periodo inteiro. Preco de fundador: so para quem ja e fundador ou
          enquanto houver vaga (conferida aqui, no servidor, na hora do pagamento; o site nao decide). Sem vaga, ou valor
@@ -419,7 +427,7 @@ const ADMIN = 'ligeiro.pedidos@gmail.com';
 const PLANO = 'uma';
 const MEM = { quem: {}, vez: {}, pagar: {}, hist: {}, pix: null, aviso: null, conta: null, conf: null, fb: null };
 /* a versao deste arquivo (aparece em GET / e em /saude: e por ela que se confere se o arquivo novo foi colado) */
-const VERSAO = '2026-11-15';
+const VERSAO = '2026-11-17';
 /* Os precos, em centavos: os mesmos de js/config.js (precos e planos; testes/site.test.mjs confere). Desde 15/11/2026 e um
    preco so, R$ 39,90 por mes ou R$ 399 por ano (fm e fa, os de fundador, ficam iguais: ninguem paga diferente). Antes
    eles vinham do segredo PLANOS: trocar o preco pedia mexer em dois lugares, e esquecer um deixava pagamento parado */
@@ -886,6 +894,28 @@ function folegoDoPagar(email) {
   MEM.pagar[email] = vezes;
   return true;
 }
+/* pentest 17/11/2026: cobranca desta assinatura que ja foi paga e ainda nao entrou na conta (o aviso do Asaas atrasou)
+   entra agora, pelo caminho de sempre (o do aviso, que nao soma duas vezes). Devolve true se algum pagamento entrou.
+   Chamada antes de apagar uma assinatura: o dono pagava o Pix, o celular recarregava a pagina no app do banco, ele tocava
+   Pagar de novo e a assinatura que acabou de ser paga era apagada (o Cron so le as assinaturas anotadas, entao o
+   pagamento sumia) e nascia outra com fatura vencendo hoje (ele pagaria duas vezes) */
+async function entrarPagasDaAssinatura(env, conta, subId) {
+  const feitos = Array.isArray(conta.pagamentos) ? conta.pagamentos.map(String) : [];
+  const desde = diaDeBrasilia(new Date(Date.now() - 60 * 864e5));
+  const l = await asaas(env, '/payments?subscription=' + encodeURIComponent(subId) + '&dueDate%5Bge%5D=' + desde + '&limit=20').catch((e) => { if (e && e.status === 404) return null; throw e; });
+  const pagas = (l && Array.isArray(l.data) ? l.data : []).filter((x) => x && x.deleted !== true && ID_ASAAS.test(String(x.id || ''))
+    && ID_ASAAS.test(String(x.customer || '')) && PAGOS.indexOf(String(x.status || '')) >= 0 && feitos.indexOf(String(x.id)) < 0);
+  let entrou = false;
+  for (const x of pagas) {
+    let res = null;
+    for (let vez = 0; ; vez++) {
+      try { res = await processarPagamento(env, { id: String(x.id), customer: String(x.customer) }); break; } catch (e) { if (e && e.conflito && vez < 3) continue; throw e; }
+    }
+    const j = await res.json().catch(() => ({}));
+    if (j && j.ok && (!j.ignorado || j.repetido) && !j.devolvido) entrou = true;
+  }
+  return entrou;
+}
 async function pagarPlano(env, fb, email, conta, corpo) {
   const erro = (status, texto, extra) => ({ status: status, corpo: Object.assign({ ok: false, erro: texto }, extra || {}) });
   const p = conta.plano || {};
@@ -909,6 +939,15 @@ async function pagarPlano(env, fb, email, conta, corpo) {
   const lerSub = (id) => asaas(env, '/subscriptions/' + encodeURIComponent(id)).catch((e) => { if (e && e.status === 404) return null; throw e; });
   const estaViva = (a) => !!a && a.deleted !== true && String(a.status || 'ACTIVE') === 'ACTIVE';
   const pagoAteMs = Date.parse(p.pagoAte || '') || 0;
+  /* pentest 17/11/2026: pagamento desta assinatura que o aviso ainda nao entregou entra agora e a resposta e "pago" (nada e
+     apagado nem criado). O que ja mudou neste pedido (assinatura apagada mais acima) fica gravado antes: o caminho do aviso
+     le a conta do banco */
+  const entrouAgora = async (sid) => {
+    if (Object.keys(campos).length) await fb.mergeCampos(caminho, Object.assign({}, campos, { atualizadoEm: agora }));
+    if (!(await entrarPagasDaAssinatura(env, conta, sid))) return null;
+    const depois = (await fb.get(caminho)) || {};
+    return { status: 200, corpo: { ok: true, pago: true, emDia: true, pagoAte: (depois.plano || {}).pagoAte || '' } };
+  };
 
   /* A cobranca aberta da assinatura (ou null), com ela no plano, no preco e na forma pedidos.
      "paga" = a assinatura da conta, que ja pagou alguma vez: e a mesma para sempre. O ciclo dela so muda pelo
@@ -950,6 +989,9 @@ async function pagarPlano(env, fb, email, conta, corpo) {
       const r = await acertar(a, ehPaga);
       if (r.erro) return r.erro;
       if (r.cobranca) { subId = id; cobranca = r.cobranca; paga = ehPaga; break; }
+      /* sem nada em aberto: pode ser porque acabou de ser paga (o aviso atrasou). Entra agora, e nada e apagado */
+      const ja = await entrouAgora(id);
+      if (ja) return ja;
       /* viva, em dia e sem nada em aberto: nao ha o que pagar agora (a proxima fatura aparece perto do vencimento) */
       if (!r.trocar && ehPaga && pagoAteMs > agoraMs) return { status: 200, corpo: { ok: true, emDia: true, pagoAte: p.pagoAte || '' } };
       /* a que nunca pagou e esta em outro plano, preco ou forma; ou viva, sem cobranca nenhuma e a conta sem dias: nao
@@ -978,6 +1020,8 @@ async function pagarPlano(env, fb, email, conta, corpo) {
       if (r.cobranca) { subId = String(a.id); cobranca = r.cobranca; break; }
       /* solta e fora do pedido (outro plano, preco antigo, outra forma) ou sem cobranca: sai, para nao sobrar assinatura
          viva mandando fatura todo mes */
+      const jaSolta = await entrouAgora(String(a.id));
+      if (jaSolta) return jaSolta;
       if (await apagarAssinatura(env, String(a.id))) { antigas = juntar(antigas, String(a.id)); campos.assinaturasAntigas = antigas; }
     }
     /* 4. nenhuma: nasce a assinatura. A primeira cobranca vence quando acabam os dias que a conta ja tem (o gratis ou o

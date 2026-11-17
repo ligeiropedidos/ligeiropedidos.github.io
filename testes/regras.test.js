@@ -1267,7 +1267,10 @@ test('Pix com cobranca no Mercado Pago: sem "Marcar como pago" e sem "diz que pa
   const noMp = Object.assign({}, naMao, { mp: { id: 'ORD123' } });
   const loja = { tempoPreparo: 20 };
   /* Pix conferido na mao (sem cobranca no Mercado Pago): como antes */
-  assert.equal(R.rotuloProximoPasso(naMao), 'Pix caiu? Marcar como pago');
+  /* pentest 17/11/2026: o Pix do site (formaPagamento pix) sem o codigo ainda nao foi pago por ninguem: sem o botao.
+     O "Marcar como pago" e so do Pix combinado com a loja */
+  assert.equal(R.rotuloProximoPasso(naMao), '');
+  assert.equal(R.rotuloProximoPasso(Object.assign({}, naMao, { formaPagamento: 'pix_combinado' })), 'Pix caiu? Marcar como pago');
   assert.equal(R.rotuloStatus(naMao), 'Cliente diz que pagou');
   assert.match(R.textoDoEstagio(naMao, loja), /Assim que ela conferir o Pix/);
   /* com mp.id: nada de botao de confirmar na mao, e o "diz que pagou" nao conta */

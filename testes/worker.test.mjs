@@ -2085,5 +2085,45 @@ console.log('Pentest 08/10: o banco gratis nao se gasta com chamada repetida ou 
     ok(r.status === 200, 'loja de verdade continua abrindo para quem ja errou muito');
   } finally { Date.now = relogio; }
 }
+console.log('\n== Pentest 17/11/2026: o mesmo Pix visto pelas duas APIs do Mercado Pago nunca e devolvido ==');
+{
+  /* o pagamento da order tambem aparece em /v1/payments/<numero> (o "mpqrinter<numero>" do copia e cola), com a mesma
+     referencia e o mesmo valor. Antes: o pedido ficava pago "pelo numero" (pelo /status ou por um aviso sem assinatura) e o
+     aviso de verdade da order, chegando depois, era tratado como cobranca a mais e devolvido. O cliente pagava, recebia o
+     dinheiro de volta e o pedido seguia pago na cozinha */
+  const avulsos = new Map();
+  const fetchAntes = globalThis.fetch;
+  globalThis.fetch = async (u, o) => {
+    const m = /^https:\/\/api\.mercadopago\.com\/v1\/payments\/([^/?]+)$/.exec(String(u));
+    if (m && (!o || !o.method || o.method === 'GET')) {
+      const pg = avulsos.get(decodeURIComponent(m[1]));
+      return pg ? new Response(JSON.stringify(pg), { status: 200 }) : new Response('{"message":"not found"}', { status: 404 });
+    }
+    return fetchAntes(u, o);
+  };
+  try {
+    for (const caminhoDoNumero of ['status', 'aviso']) {
+      const w = await workerNovo();
+      const X = caminhoDoNumero === 'status' ? 'aliasPentestStatus01' : 'aliasPentestAviso001';
+      const cam = 'lojas/dom-conizza/pedidos/' + X;
+      db.set(cam, pedidoDe(1, { status: 'aguardando_pagamento', formaPagamento: 'pix', pagamentoStatus: 'pendente', senha: 41, cliente: { nome: 'Cliente' } }));
+      const ORD = (await (await chamar(w, '/criar', { metodo: 'POST', corpo: { loja: 'dom-conizza', pedido: X } })).json()).mp;
+      const N = caminhoDoNumero === 'status' ? '1325000000001' : '1325000000002';
+      ordens.get(ORD).status = 'processed';
+      avulsos.set(N, { id: Number(N), status: 'approved', external_reference: 'dom-conizza__' + X, transaction_amount: precoP1() / 100 });
+      if (caminhoDoNumero === 'status') {
+        const longe = encodeURIComponent(new Date(Date.now() + 3600e3).toISOString());
+        await chamar(w, '/status?loja=dom-conizza&pedido=' + X + '&mp=' + N + '&expira=' + longe, { headers: { 'CF-Connecting-IP': '198.51.100.7' } });
+      } else {
+        await chamar(w, '/webhook?loja=dom-conizza&data.id=' + N + '&type=payment', { metodo: 'POST', corpo: { type: 'payment', data: { id: N } }, headers: { Origin: '' } });
+      }
+      const devAntes = devolucoes.length;
+      await chamar(w, '/webhook?data.id=' + ORD + '&type=order', { metodo: 'POST', corpo: { type: 'order', data: { id: ORD, external_reference: 'dom-conizza__' + X } }, headers: { Origin: '' } });
+      const p = db.get(cam);
+      ok(p.status === 'pago' && !devolucoes.slice(devAntes).some((d) => d.id === ORD) && !(p.duplicadasDevolvidas || []).length,
+        'numero do mesmo Pix pelo ' + (caminhoDoNumero === 'status' ? '/status' : 'aviso sem assinatura') + ' e depois o aviso da order: o pedido segue pago e nada e devolvido');
+    }
+  } finally { globalThis.fetch = fetchAntes; }
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

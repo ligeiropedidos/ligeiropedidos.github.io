@@ -1395,7 +1395,7 @@
       if (!proximo) return;
       if (proximo === R.STATUS.PAGO && p.status === R.STATUS.AGUARDANDO) {
         /* so o Pix pela chave da loja chega aqui, e so o dono: o do Mercado Pago tem o "Conferir pagamento" */
-        if (estado.equipe || (p.mp && p.mp.id)) return;
+        if (estado.equipe || (p.mp && p.mp.id) || R.pagaPeloSite(p)) return;
         UI.perguntar('O Pix de ' + dinheiro(p.total) + ' ' + daSenha(p) + ' caiu mesmo? Confira no extrato da conta da sua chave Pix antes: print ou comprovante mandado pelo cliente não vale. O pedido vai para ' + catLoja().aTela + '.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo, botao); });
         return;
       }
