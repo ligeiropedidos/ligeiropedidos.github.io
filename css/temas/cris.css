@@ -1,0 +1,260 @@
+/* ==========================================================
+   Tema exclusivo "Cris Modas" (Juquia/SP, moda feminina, 18/11/2026): a loja com a cara do cartao dela. Papel rosinha,
+   o pink da logo (#D4215F) nos botoes e precos, os nomes das pecas em letra de revista (Playfair Display) e, na abertura,
+   a logo flutuando num clarao branco com borboletas batendo as asas em volta e coracoes subindo devagar.
+   Logo redesenhada do cartao (clientes/cris-modas/arte), borboleta e coracao em img/oficial/cris-*.svg.
+   Tudo aqui vive dentro de .tema-cris. O painel e a cozinha tambem recebem a classe: as regras so da loja vao presas a
+   #tela-inicio (so existe no site da loja).
+   So cor, letra, fundo e efeito: vaos, alturas e alinhamentos sao os do padrao do Ligeiro.
+   ========================================================== */
+
+.tema-cris {
+  --cm-rosa: #D4215F;
+  --cm-rosa-escuro: #A8164A;
+  --cm-rosa-claro: #F06A9C;
+  --cm-vinho: #8E1240;
+  --cm-blush: #FFF5F8;
+  --cm-blush-2: #FDE7EF;
+  --cm-borda: #F5D3E0;
+  --cm-borda-forte: #EDB3CA;
+  --cm-tinta: #2E0F1E;
+  /* o laco do botao: o pink da logo, um pouco mais vivo em cima (letra branca a 4,6:1 ate no topo) */
+  --cm-laco: linear-gradient(180deg, #D9286A 0%, #D4215F 50%, #B81A52 100%);
+  --cm-logo-w: min(236px, 60vw);
+  --cm-logo-h: calc(var(--cm-logo-w) * 1.1109); /* a logo e 640 x 711 */
+  --cm-serifa: "Playfair Display", Georgia, "Times New Roman", serif;
+}
+
+/* ---------- a loja inteira em rosinha claro (o painel e a cozinha tem o bloco proprio la embaixo) ---------- */
+.tema-cris:has(#tela-inicio), body:has(.tema-cris #tela-inicio) .modal.tema-cris {
+  --bg: #FFF5F8; --card: #FFFFFF; --ink: #2E0F1E; --body: #4F2A3B; --muted: #7A4A60;
+  --line: #F5D3E0; --line-forte: #E9A9C2;
+  --deep: #8E1240; --deep2: #B0174E; --lime: #D4215F; --lime-escuro: #A8164A; --lime-suave: #FDE7EF; --lime2: #F06A9C;
+  --lime-borda: #F3B8CE; --texto-no-destaque: #FFFFFF; --anel: rgba(212, 33, 95, 0.42); --senha: #D4215F;
+  --sombra: 0 8px 24px rgba(142, 18, 64, 0.08);
+  color: var(--ink);
+}
+/* a cor escrita aqui (e nao var): o body fica por fora da loja e nao enxerga as cores dela */
+body:has(.tema-cris #tela-inicio) {
+  background-color: #FFF5F8;
+  background-image:
+    radial-gradient(ellipse 120% 50% at 50% 0%, rgba(240, 106, 156, 0.16), rgba(240, 106, 156, 0) 62%),
+    linear-gradient(180deg, #FFF0F5 0%, #FFF7FA 46%, #FFFBFC 100%);
+}
+body:has(.tema-cris #tela-inicio) .modal.tema-cris { background: rgba(58, 20, 38, 0.5); }
+/* a torrada fica no body, fora do .tema-cris: as variaveis --cm-* nao chegam nela. Cores direto. */
+body:has(.tema-cris #tela-inicio) .torrada { background: #3A1426; color: #FFF5F8; box-shadow: 0 0 0 1px rgba(240, 106, 156, 0.55), 0 12px 30px rgba(58, 20, 38, 0.3); }
+
+/* ---------- primeira tela: a vitrine ---------- */
+.tema-cris .abertura { position: relative; --cm-cena: calc(24px + var(--cm-logo-h) + 150px); --cm-centro-y: calc(24px + var(--cm-logo-h) * 0.46); }
+.tema-cris .abertura > *:not(.enfeites) { position: relative; z-index: 1; }
+.tema-cris .capa-loja { display: none; }
+/* o clarao branco atras da logo, respirando, e um rosa bem leve nas pontas */
+.tema-cris .abertura::before {
+  content: ""; position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--cm-cena); z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(circle calc(var(--cm-logo-w) * 0.86) at 50% var(--cm-centro-y), rgba(255, 255, 255, 0.96) 0%, rgba(255, 240, 246, 0.78) 48%, rgba(253, 224, 236, 0) 76%),
+    radial-gradient(ellipse 60% 40% at 0% 30%, rgba(240, 106, 156, 0.10), rgba(240, 106, 156, 0) 70%),
+    radial-gradient(ellipse 60% 40% at 100% 60%, rgba(240, 106, 156, 0.10), rgba(240, 106, 156, 0) 70%);
+  animation: cm-clarao 6s ease-in-out infinite;
+}
+@keyframes cm-clarao { 0%, 100% { opacity: 0.82; } 50% { opacity: 1; } }
+
+/* os "enfeites" da loja sao vazios: servem de pecas. 1 a 4: borboletas; 5 a 12: coracoes subindo do pe da vitrine */
+.tema-cris .enfeites { position: absolute; left: calc(50% - 50vw); right: calc(50% - 50vw); top: 0; height: var(--cm-cena); z-index: 0; overflow: hidden; pointer-events: none; }
+.tema-cris .enfeites span { position: absolute; display: block; }
+/* a borboleta: bate as asas (escala de lado) e passeia (translate e rotate, propriedades separadas: as duas animacoes rodam juntas) */
+.tema-cris .enfeites span:nth-child(-n+4) {
+  width: 36px; height: 30px; background: url('../../img/oficial/cris-borboleta.svg') center / contain no-repeat;
+  filter: drop-shadow(0 4px 6px rgba(142, 18, 64, 0.18));
+  animation: cm-bater var(--b, 0.38s) ease-in-out infinite alternate, cm-voar var(--d, 11s) ease-in-out var(--l, 0s) infinite;
+}
+.tema-cris .enfeites span:nth-child(1) { left: calc(50% - min(44vw, 250px)); top: 16%; --d: 12s; --l: -2s; --vx: 26px; --vy: -18px; --r: -14deg; }
+.tema-cris .enfeites span:nth-child(2) { left: calc(50% + min(34vw, 196px)); top: 36%; --d: 10s; --l: -5s; --vx: -22px; --vy: -26px; --r: 12deg; --b: 0.32s; width: 30px; height: 25px; }
+.tema-cris .enfeites span:nth-child(3) { left: calc(50% - min(44vw, 238px)); top: 60%; --d: 13s; --l: -8s; --vx: 8px; --vy: -30px; --r: 10deg; --b: 0.44s; width: 26px; height: 22px; opacity: 0.85; }
+.tema-cris .enfeites span:nth-child(4) { left: calc(50% + min(30vw, 160px)); top: 8%; --d: 14s; --l: -1s; --vx: -16px; --vy: 20px; --r: -8deg; --b: 0.36s; width: 22px; height: 18px; opacity: 0.8; }
+@keyframes cm-bater { from { scale: 1 1; } to { scale: 0.34 1; } }
+@keyframes cm-voar {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  25% { translate: var(--vx, 20px) var(--vy, -20px); rotate: var(--r, 10deg); }
+  50% { translate: calc(var(--vx, 20px) * 0.4) calc(var(--vy, -20px) * 1.6); rotate: calc(var(--r, 10deg) * -0.6); }
+  75% { translate: calc(var(--vx, 20px) * -0.6) calc(var(--vy, -20px) * 0.6); rotate: calc(var(--r, 10deg) * 0.5); }
+}
+/* os coracoes: sobem do pe da vitrine e somem, como bolhas, so pelos lados (por tras da logo vazavam entre as letras) */
+.tema-cris .enfeites span:nth-child(n+5) {
+  bottom: 12%; width: 12px; height: 11px; opacity: 0;
+  background: url('../../img/oficial/cris-coracao.svg') center / contain no-repeat;
+  animation: cm-subir-coracao var(--d, 8s) ease-in var(--l, 0s) infinite;
+}
+.tema-cris .enfeites span:nth-child(5)  { left: calc(50% - var(--cm-logo-w) / 2 - 22px); --x:  10px; --d: 8.4s; --l: -0.6s; }
+.tema-cris .enfeites span:nth-child(6)  { left: calc(50% - var(--cm-logo-w) / 2 - 48px); --x: -12px; --d: 9.6s; --l: -3.1s; width: 8px; height: 7px; }
+.tema-cris .enfeites span:nth-child(7)  { left: calc(50% - var(--cm-logo-w) / 2 - 76px); --x:   8px; --d: 7.6s; --l: -4.4s; width: 14px; height: 13px; }
+.tema-cris .enfeites span:nth-child(8)  { left: calc(50% - var(--cm-logo-w) / 2 - 104px); --x: -10px; --d: 9.0s; --l: -6.2s; width: 9px; height: 8px; }
+.tema-cris .enfeites span:nth-child(9)  { left: calc(50% + var(--cm-logo-w) / 2 + 10px); --x:  14px; --d: 8.8s; --l: -2.0s; }
+.tema-cris .enfeites span:nth-child(10) { left: calc(50% + var(--cm-logo-w) / 2 + 38px); --x: -12px; --d: 9.8s; --l: -5.4s; width: 8px; height: 7px; }
+.tema-cris .enfeites span:nth-child(11) { left: calc(50% + var(--cm-logo-w) / 2 + 64px); --x:  10px; --d: 7.8s; --l: -7.0s; width: 13px; height: 12px; }
+.tema-cris .enfeites span:nth-child(12) { left: calc(50% + var(--cm-logo-w) / 2 + 92px); --x:  -8px; --d: 9.2s; --l: -1.2s; width: 9px; height: 8px; }
+/* celular: os coracoes de fora caem para fora da tela (cortados, sem aparecer): nem nascem */
+@media (max-width: 420px) { .tema-cris .enfeites span:nth-child(7), .tema-cris .enfeites span:nth-child(8), .tema-cris .enfeites span:nth-child(11), .tema-cris .enfeites span:nth-child(12) { display: none; } }
+@keyframes cm-subir-coracao {
+  0%   { transform: translate3d(0, 0, 0) scale(0.6) rotate(-8deg); opacity: 0; }
+  14%  { opacity: 0.75; }
+  50%  { transform: translate3d(var(--x, 0px), calc(var(--cm-cena) * -0.36), 0) scale(1) rotate(8deg); }
+  85%  { opacity: 0.5; }
+  100% { transform: translate3d(calc(var(--x, 0px) * -0.5), calc(var(--cm-cena) * -0.76), 0) scale(1.1) rotate(-6deg); opacity: 0; }
+}
+
+/* a logo: no clarao, flutuando, com dois brilhinhos piscando */
+.tema-cris .logo-grande, .tema-cris .abertura.com-capa .logo-grande {
+  width: var(--cm-logo-w); height: var(--cm-logo-h); height: round(var(--cm-logo-h), 1px); margin: 0;
+  background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; position: relative;
+}
+.tema-cris .logo-grande img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; border-radius: 0; filter: drop-shadow(0 10px 16px rgba(212, 33, 95, 0.16)); }
+.tema-cris .logo-grande::before, .tema-cris .logo-grande::after {
+  content: "\2726"; position: absolute; z-index: 2; pointer-events: none; font-family: "Segoe UI Symbol", "Apple Symbols", system-ui, sans-serif;
+  line-height: 1; color: var(--cm-rosa-claro); animation: cm-piscar 2.8s ease-in-out infinite;
+}
+.tema-cris .logo-grande::before { left: 6%; top: 6%; font-size: 18px; }
+.tema-cris .logo-grande::after { right: 2%; top: 40%; font-size: 13px; animation-delay: 1.4s; }
+@keyframes cm-piscar { 0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+
+/* o nome ja esta na logo: fica para o leitor de tela e para o Google, sem repetir na tela */
+.tema-cris #nomeLoja { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tema-cris #descLoja {
+  display: block; position: relative; text-align: center; padding-left: 0.2em; /* a folga do espacamento de letra na ponta: cada linha no meio */
+  color: var(--cm-rosa-escuro); font-weight: 600; font-size: 14px; line-height: 20px;
+  text-transform: uppercase; letter-spacing: 0.2em; max-width: none; text-wrap: balance;
+  margin-top: 0 !important; /* o -8 do padrao e para colar no nome, que aqui fica escondido (esta na logo): 16 como todo bloco */
+}
+/* um coracaozinho no meio, embaixo da frase; fora do fluxo, nao muda o vao */
+.tema-cris #descLoja::after { content: ""; position: absolute; left: 50%; bottom: -10px; width: 10px; height: 9px; margin-left: -5px; background: url('../../img/oficial/cris-coracao.svg') center / contain no-repeat; opacity: 0.85; }
+
+/* movimento sempre ligado, tambem com "Reduzir movimento" no celular (pedido de quem tem design exclusivo) */
+.tema-cris .logo-grande { animation: cm-chegar 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both, cm-flutuar 5.5s ease-in-out 0.9s infinite; }
+/* a abertura entra em sequencia: selos, botao, passos e os mais vendidos sobem um depois do outro */
+.tema-cris #tela-inicio .selos { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s backwards; }
+.tema-cris #tela-inicio .btn-gigante { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards, cm-pulsar 2.6s ease-in-out 1s infinite; }
+.tema-cris #tela-inicio .como-funciona { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.55s backwards; }
+.tema-cris #tela-inicio #destaques { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s backwards; }
+.tema-cris:has(#tela-inicio) .card-produto { animation: cm-entrar 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s backwards; }
+.tema-cris:has(#tela-inicio) .card-produto:nth-child(2) { animation-delay: 0.18s; }
+.tema-cris:has(#tela-inicio) .card-produto:nth-child(3) { animation-delay: 0.26s; }
+.tema-cris:has(#tela-inicio) .card-produto:nth-child(4) { animation-delay: 0.34s; }
+.tema-cris:has(#tela-inicio) .card-produto:nth-child(n+5) { animation-delay: 0.42s; }
+/* a foto da peca na janela respira (zoom lento) e o fio de luz rosa passa no cabecalho */
+.tema-cris .foto-modal-desenho img { animation: cm-zoom 9s ease-in-out infinite alternate; transform-origin: 50% 55%; }
+.tema-cris:has(#tela-inicio) .topo::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(240, 106, 156, 0) 0%, #FFB3CE 50%, rgba(240, 106, 156, 0) 100%) -60% 0 / 40% 100% no-repeat; animation: cm-fio 3.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tema-cris .abertura::before { animation: cm-clarao 6s ease-in-out infinite !important; }
+  .tema-cris .enfeites span:nth-child(-n+4) { animation: cm-bater var(--b, 0.38s) ease-in-out infinite alternate, cm-voar var(--d, 11s) ease-in-out var(--l, 0s) infinite !important; }
+  .tema-cris .enfeites span:nth-child(n+5) { animation: cm-subir-coracao var(--d, 8s) ease-in var(--l, 0s) infinite !important; }
+  .tema-cris .logo-grande { animation: cm-chegar 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both, cm-flutuar 5.5s ease-in-out 0.9s infinite !important; }
+  .tema-cris .logo-grande::before, .tema-cris .logo-grande::after { animation: cm-piscar 2.8s ease-in-out infinite !important; }
+  .tema-cris .logo-grande::after { animation-delay: 1.4s !important; }
+  .tema-cris #tela-inicio .btn-gigante:not(:disabled) { animation: cm-pulsar 2.6s ease-in-out infinite !important; }
+  .tema-cris #tela-inicio .btn-principal::after { animation: brilho 5s ease-in-out infinite !important; }
+  .tema-cris .foto-modal-desenho img { animation: cm-zoom 9s ease-in-out infinite alternate !important; }
+  .tema-cris:has(#tela-inicio) .topo::after { animation: cm-fio 3.6s ease-in-out infinite !important; }
+}
+@keyframes cm-entrar { from { opacity: 0; transform: translateY(18px); } }
+@keyframes cm-fio { 0% { background-position: -60% 0; } 100% { background-position: 160% 0; } }
+@keyframes cm-flutuar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes cm-chegar { 0% { opacity: 0; transform: scale(0.84); } 100% { opacity: 1; transform: none; } }
+@keyframes cm-zoom { from { transform: scale(1); } to { transform: scale(1.08); } }
+/* o pulso e um batimento leve (escala, feito pela placa de video) */
+@keyframes cm-pulsar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+
+/* ---------- selos, botao de pedir e os tres passos ---------- */
+.tema-cris #tela-inicio .selo { background: rgba(255, 255, 255, 0.88); border: 1px solid var(--cm-borda-forte); color: var(--cm-tinta); }
+.tema-cris #tela-inicio .selo .bolinha { background: #2E9D4F; }
+.tema-cris #tela-inicio .selo.fechado { color: #A8164A; border-color: rgba(212, 33, 95, 0.45); }
+.tema-cris #tela-inicio .selo.fechado .bolinha { background: #D4215F; }
+.tema-cris #tela-inicio a.selo-google:hover { background: #FFFFFF; }
+.tema-cris #tela-inicio .selo-google-estrela { color: #E8A317; }
+
+/* o botao da casa: o pink da logo, letra branca, com o brilho que atravessa */
+.tema-cris:has(#tela-inicio) .btn-principal, body:has(.tema-cris #tela-inicio) .modal.tema-cris .btn-principal {
+  background: var(--cm-laco); color: #FFFFFF; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(90, 8, 40, 0.22);
+}
+.tema-cris:has(#tela-inicio) .btn-principal:disabled { box-shadow: none; }
+.tema-cris #tela-inicio .btn-gigante {
+  letter-spacing: 0.12em; text-transform: uppercase;
+  box-shadow: 0 10px 30px rgba(212, 33, 95, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -3px 0 rgba(90, 8, 40, 0.24);
+}
+.tema-cris #tela-inicio .btn-gigante .sub { color: #FFFFFF; opacity: 1; letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
+/* loja fechada: solido e legivel, com o contorno rosa e sem pulsar */
+.tema-cris #tela-inicio .btn-gigante:disabled { opacity: 1; background: #FFFFFF; color: var(--cm-tinta); box-shadow: inset 0 0 0 1.5px var(--cm-borda-forte); animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards; }
+.tema-cris #tela-inicio .btn-gigante:disabled .sub { color: var(--muted); }
+.tema-cris #tela-inicio .btn:focus-visible { outline-color: var(--cm-rosa); }
+
+.tema-cris #tela-inicio .como-passo { background: rgba(255, 255, 255, 0.92); border: 1px solid var(--cm-borda); color: var(--body); font-weight: 600; }
+.tema-cris #tela-inicio .como-passo .n { background: #FFFFFF; border: 1.5px solid var(--cm-rosa-claro); color: var(--cm-rosa); font-family: var(--cm-serifa); font-weight: 700; font-variant-numeric: lining-nums; } /* o 1 da Playfair e baixinho (numero de texto): numero de titulo */
+
+/* ---------- video, mais vendidos e cupom ---------- */
+.tema-cris #destaques b, .tema-cris .video-loja-titulo b { font-family: var(--cm-serifa); font-weight: 700; color: var(--cm-tinta); }
+.tema-cris #tela-inicio .cupom-abrir { color: var(--body); text-decoration: underline; text-decoration-color: var(--cm-rosa-claro); }
+.tema-cris .video-loja-capa { background: linear-gradient(135deg, #FDE7EF 0%, #F9C9DB 100%); box-shadow: 0 0 0 1px var(--cm-borda-forte), 0 10px 24px rgba(142, 18, 64, 0.12); }
+.tema-cris .video-loja-bolinha { background: var(--cm-rosa); color: #FFFFFF; }
+
+/* ---------- a peca: cartao branco de vitrine (cartoes, janela do item, carrinho) ---------- */
+.tema-cris:has(#tela-inicio) .card-produto { background: #FFFFFF; border: 1px solid var(--cm-borda); box-shadow: 0 10px 24px rgba(142, 18, 64, 0.07); }
+.tema-cris .card-produto .nome { font-family: var(--cm-serifa); font-weight: 700; color: var(--cm-tinta); }
+.tema-cris .card-produto .preco { color: #B0174E; }
+.tema-cris:has(#tela-inicio) .card-produto .mais { background: var(--cm-laco); color: #FFFFFF; letter-spacing: 0.06em; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26); }
+.tema-cris .card-produto .foto:has(.foto-desenho) { background: var(--cm-blush-2); }
+.tema-cris .foto-modal-desenho, .tema-cris .item-carrinho .miniatura.com-desenho { background: var(--cm-blush-2); }
+
+/* ---------- rodape ---------- */
+.tema-cris #tela-inicio .rodape .ligeiro { color: var(--muted); }
+
+/* ---------- telas do pedido: claras, com o cabecalho branco e a linha rosa embaixo ---------- */
+.tema-cris:has(#tela-inicio) .topo { background: rgba(255, 255, 255, 0.96); border-bottom: 2px solid var(--cm-rosa); color: var(--cm-tinta); }
+.tema-cris:has(#tela-inicio) .topo-titulo { font-family: var(--cm-serifa); font-weight: 700; color: var(--cm-tinta); }
+.tema-cris:has(#tela-inicio) .topo-passo { color: var(--cm-rosa-escuro); }
+.tema-cris:has(#tela-inicio) .topo .voltar { background: var(--cm-blush-2); border-color: var(--cm-borda-forte); color: var(--cm-vinho); }
+.tema-cris:has(#tela-inicio) .aba { background: #FFFFFF; border-color: var(--cm-borda-forte); color: var(--cm-tinta); }
+.tema-cris:has(#tela-inicio) .aba.ativa { background: var(--cm-laco); border-color: transparent; color: #FFFFFF; }
+.tema-cris:has(#tela-inicio) .escolha-grande { background: #FFFFFF; border-color: var(--cm-borda); }
+.tema-cris:has(#tela-inicio) .escolha-grande.marcada { border-color: var(--cm-rosa); background: var(--cm-blush-2); box-shadow: 0 0 0 3px rgba(212, 33, 95, 0.2); }
+.tema-cris:has(#tela-inicio) .item-carrinho .nome { font-family: var(--cm-serifa); font-weight: 700; }
+.tema-cris:has(#tela-inicio) .item-carrinho .preco { color: #B0174E; }
+.tema-cris:has(#tela-inicio) .aviso, body:has(.tema-cris #tela-inicio) .modal.tema-cris .aviso { border-color: #F3B8CE; }
+.tema-cris:has(#tela-inicio) .opcao.marcada, body:has(.tema-cris #tela-inicio) .modal.tema-cris .opcao.marcada { border-color: var(--cm-rosa); background: var(--cm-blush-2); }
+body:has(.tema-cris #tela-inicio) .modal.tema-cris .modal-topo .titulo, body:has(.tema-cris #tela-inicio) .modal.tema-cris .item-nome { font-family: var(--cm-serifa); font-weight: 700; }
+.tema-cris:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #FFFFFF 0%, #FDE7EF 78%); }
+.tema-cris:has(#tela-inicio) .senha-gigante { color: var(--cm-rosa); }
+.tema-cris:has(#tela-inicio) .painel-senha .rotulo { color: var(--cm-rosa-escuro); }
+.tema-cris:has(#tela-inicio) .jogo-recorde-selo { background: #D4215F; color: #FFFFFF; }
+.tema-cris:has(#tela-inicio) .jogo-recorde-selo .ico-traco { color: #FFFFFF; }
+.tema-cris:has(#tela-inicio) .cartao-recusado.cartao-esperando, .tema-cris:has(#tela-inicio) .taxa-exemplo { border-color: #F3B8CE; }
+.tema-cris .status-loja.aberta { --ponto: #2E9D4F; }
+
+/* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem) ---------- */
+.tema-cris:has(.painel-topo), .tema-cris:has(.login), body:has(.tema-cris .painel-topo) .modal.tema-cris {
+  --bg: #FFF7FA; --card: #FFFFFF; --line: #F3D6E1; --line-forte: #E5B3C7; --muted: #75505F; --body: #45283A; --ink: #2E0F1E;
+  --deep: #8E1240; --deep2: #B0174E; --lime: #D4215F; --lime-escuro: #A8164A; --lime-suave: #FDE7EF; --lime2: #F06A9C;
+  --lime-borda: #F3B8CE; --texto-no-destaque: #FFFFFF; --anel: rgba(212, 33, 95, 0.4);
+}
+body:has(.tema-cris .painel-topo), body:has(.tema-cris .login) { background: #FFF7FA; }
+.tema-cris .painel-topo { background: linear-gradient(180deg, #9C1747 0%, #8E1240 100%); border-bottom: 3px solid var(--cm-rosa-claro); }
+.tema-cris .painel-topo .btn-pequeno.on { background: #FFFFFF; color: var(--cm-vinho); }
+.tema-cris:has(.painel-topo) .aviso, .tema-cris:has(.painel-topo) .design-exclusivo, .tema-cris:has(.painel-topo) .taxa-exemplo, .tema-cris:has(.painel-topo) .contato-topo { border-color: var(--line-forte); }
+.tema-cris:has(.painel-topo) .mp-status { background: #E4F4E8; color: #1F6B36; }
+.tema-cris:has(.painel-topo) .mp-status .bolinha { background: #2E9D4F; }
+.tema-cris:has(.painel-topo) .escolha-grande.marcada { box-shadow: 0 0 0 3px rgba(212, 33, 95, 0.2); }
+
+/* a previa "A cara da sua loja" no ajuste: a abertura do site em miniatura (rosinha, com o clarao e a logo) */
+.tema-cris .previa-site.previa-exclusiva { background: #FFF5F8; }
+.tema-cris .previa-exclusiva .previa-capa { background: radial-gradient(ellipse 70% 90% at 50% 50%, #FFFFFF, rgba(253, 224, 236, 0) 72%), linear-gradient(180deg, #FFF0F5, #FDE7EF); }
+.tema-cris .previa-exclusiva .previa-capa.sem-capa::before { content: none; }
+.tema-cris .previa-exclusiva .previa-logo { width: 106px; height: 118px; margin-top: -40px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.tema-cris .previa-exclusiva .previa-logo img { position: relative; object-fit: contain; border-radius: 0; }
+.tema-cris .previa-exclusiva .previa-nome { display: none; }
+.tema-cris .previa-exclusiva .previa-tipo { color: var(--cm-rosa-escuro); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; }
+.tema-cris .previa-exclusiva .previa-selo { background: #FFFFFF; border: 1px solid var(--cm-borda-forte); color: var(--cm-tinta); }
+.tema-cris .previa-exclusiva .previa-selo .bolinha { background: #2E9D4F; }
+.tema-cris .previa-exclusiva .previa-botao { background: var(--cm-laco); color: #FFFFFF; }
+.tema-cris .previa-exclusiva .previa-home { background: #FFF5F8; }

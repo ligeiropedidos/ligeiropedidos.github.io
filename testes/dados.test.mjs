@@ -396,11 +396,13 @@ console.log('Amostra: fora da lista da cidade e entrega para o dono');
     'amostra-teste': Object.assign({ slug: 'amostra-teste', nome: 'Amostra Teste', amostra: true }, base),
     'amostra-mp': Object.assign({ slug: 'amostra-mp', nome: 'Amostra Com MP', amostra: true, mpAtivo: true }, base),
     'loja-normal': Object.assign({ slug: 'loja-normal', nome: 'Loja Normal' }, base),
+    'feita-pelo-ligeiro': Object.assign({ slug: 'feita-pelo-ligeiro', nome: 'Feita Pelo Ligeiro', donoEmail: 'ligeiro.pedidos@gmail.com' }, base),
+    'de-outro-dono': Object.assign({ slug: 'de-outro-dono', nome: 'De Outro Dono', donoEmail: 'fulano@gmail.com' }, base),
   }, pedidos: {}, contas: {} }));
   const lojas = await store.listarLojas('juquia');
-  ok(lojas.length === 1 && lojas[0].slug === 'loja-normal', 'a lista da cidade nao mostra a amostra');
+  ok(lojas.length === 3 && !lojas.some((x) => x.amostra === true), 'a lista da cidade nao mostra a amostra');
   const cidades = await store.listarCidades();
-  ok(cidades.length === 1 && cidades[0].lojas === 1, 'a cidade conta so a loja de verdade');
+  ok(cidades.length === 1 && cidades[0].lojas === 3, 'a cidade conta so as lojas de verdade');
   const vitrine = await store.listarVitrine();
   ok(vitrine.some((l) => l.slug === 'amostra-teste' && l.amostra === true), 'o resumo da loja leva a marca de amostra (a borda repassa)');
   const erro = async (slug, email) => { try { await store.entregarAmostra(slug, email); return ''; } catch (e) { return e.message; } };
@@ -408,6 +410,12 @@ console.log('Amostra: fora da lista da cidade e entrega para o dono');
   ok(/Mercado Pago/.test(await erro('amostra-mp', 'dono@gmail.com')), 'amostra com o Mercado Pago ligado nao se entrega (o dinheiro cairia na conta errada)');
   ok(/não o do Ligeiro/.test(await erro('amostra-teste', 'ligeiro.pedidos@gmail.com')), 'o e-mail do Ligeiro nao recebe a amostra');
   ok(/e-mail/.test(await erro('amostra-teste', 'sem-arroba')), 'e-mail torto e recusado');
+  /* 18/11/2026: loja montada pelo Ligeiro na propria conta (sem ser amostra) tambem passa para o dono; a de outro dono nao */
+  ok(/não é uma amostra/.test(await erro('de-outro-dono', 'dono2@gmail.com')), 'loja de outro dono nao se entrega');
+  ok(/não o do Ligeiro/.test(await erro('feita-pelo-ligeiro', 'ligeiro.pedidos@gmail.com')), 'a loja feita pelo Ligeiro nao vai para o proprio Ligeiro');
+  await store.entregarAmostra('feita-pelo-ligeiro', 'cliente@gmail.com');
+  const db0 = JSON.parse(n.janela.localStorage.getItem('ligeiro.demo.v3'));
+  ok(db0.lojas['feita-pelo-ligeiro'].amostra === false && db0.contas['cliente@gmail.com'].plano.status === 'teste', 'a loja feita pelo Ligeiro e entregue ao cliente, com a conta dele no teste');
   const antes = Date.now();
   await store.entregarAmostra('amostra-teste', ' Dono@Gmail.com ');
   const db = JSON.parse(n.janela.localStorage.getItem('ligeiro.demo.v3'));

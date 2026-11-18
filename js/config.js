@@ -340,6 +340,10 @@ window.LIGEIRO_CONFIG = {
     /* cliente com design exclusivo (09/10/2026): a lanchonete da Dona Jaci a noite, com cor de hamburguer (chapa, pao tostado e
        queijo) e o rosa e o roxo da logo de detalhe: neon rosa na logo, raios de placa, estampa de lanches andando e gergelim caindo. Fotos de banco de imagem (Pexels,
        as mesmas da amostra do Mak, img/oficial/mak/CREDITOS.txt) ate chegarem as dela; logo recortada em clientes/jaci-lanches */
+    /* cliente com design exclusivo (18/11/2026): moda feminina, a cara do cartao dela. Rosinha, o pink da logo, nomes das pecas em
+       Playfair e borboletas em volta da logo. Logo redesenhada do cartao (clientes/cris-modas/arte) */
+    'cris-modas': { oficial: false, tema: 'cris', logo: 'img/oficial/cris-modas-logo.webp', frase: 'Arrumando a vitrine', enfeites: ['', '', '', '', '', '', '', '', '', '', '', ''], corFundo: '#FFF5F8',
+      fontes: ['700 1em "Playfair Display"'] },
     'jaci-lanches': { oficial: false, tema: 'jaci', logo: 'img/oficial/jaci-lanches-logo.webp', frase: 'Caprichando no lanche', fogo: true, enfeites: ['', '', '', '', '', '', '', '', '', ''], corFundo: '#1E100A',
       fontes: ['800 1em "Baloo 2"', '500 1em Oswald', '600 1em Oswald'],
       desenhos: {

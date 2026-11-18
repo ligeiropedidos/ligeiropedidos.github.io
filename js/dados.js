@@ -495,9 +495,15 @@
      loja (uma por conta) e se a amostra estiver com o Mercado Pago ligado (o dinheiro cairia na conta errada) */
   function conferirEntrega(loja, email, minhas) {
     if (!loja) throw erroPublico('Não achamos essa loja.');
-    if (loja.amostra !== true) throw erroPublico('Esta loja não é uma amostra.');
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw erroPublico('Confira o e-mail do dono.');
+    /* 18/11/2026: tambem a loja que o Ligeiro montou na propria conta para o cliente (a Cris Modas nasceu assim, sem ser
+       amostra). Loja oficial do Ligeiro (a Dom Conizza) nunca sai da conta */
+    var oficiais = ((window.LIGEIRO_CONFIG || {}).lojasOficiais) || {};
+    var oficial = Object.prototype.hasOwnProperty.call(oficiais, String(loja.slug)) && oficiais[loja.slug] && oficiais[loja.slug].oficial !== false;
+    if (oficial) throw erroPublico('Esta é uma loja do próprio Ligeiro: ela não sai da conta.');
     var admin = String(((window.LIGEIRO_CONFIG || {}).adminEmail) || '').toLowerCase();
+    var doLigeiro = (admin && String(loja.donoEmail || '').toLowerCase() === admin) || R.ehDoLigeiro({ donoEmail: loja.donoEmail || '' });
+    if (loja.amostra !== true && !doLigeiro) throw erroPublico('Esta loja não é uma amostra nem está na conta do Ligeiro.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw erroPublico('Confira o e-mail do dono.');
     if ((admin && email === admin) || R.ehDoLigeiro({ email: email })) throw erroPublico('Use o e-mail do Google do dono, não o do Ligeiro.');
     if (loja.mpAtivo) throw erroPublico('Desconecte o Mercado Pago da amostra antes de entregar (em Ajustes, no painel dela): senão o dinheiro dos pedidos cairia na conta errada.');
     var dele = (minhas || []).filter(function (l) { return l.slug !== loja.slug && l.ativa !== false && String(l.donoEmail || '').toLowerCase() === email; });

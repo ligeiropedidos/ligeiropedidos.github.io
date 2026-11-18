@@ -1307,15 +1307,20 @@
      * O site mostra a faixa AMOSTRA e nao deixa o pedido sair. Daqui: colar o cardapio pronto e, quando o dono
      * fechar, entregar a loja para o e-mail do Google dele (a faixa some e os dias gratis comecam no dia).
      * ========================================================== */
+    /* loja que o Ligeiro montou na propria conta para o cliente, sem ser amostra (18/11/2026, a Cris Modas): ja recebe
+       pedidos, e o mesmo botao passa para o e-mail do dono. A loja oficial do Ligeiro (Dom Conizza) fica de fora */
+    function feitaPeloLigeiro(l) { return l.amostra !== true && R.ehDoLigeiro({ donoEmail: l.donoEmail || '' }) && !UI.ehOficial(l.slug); }
     function blocoAmostra(l, marca, trava) {
+      var amostra = l.amostra === true;
       return el('div', { class: 'adm-caixa adm-amostra' }, [
         el('div', { class: 'adm-textos' }, [
-          el('b', { text: 'Esta loja é uma amostra' }),
-          el('span', { class: 'muted', text: 'Mande o link para o dono ver. O site mostra a faixa AMOSTRA e o pedido não sai. Quando ele fechar, entregue a loja para o e-mail do Google dele.' }),
+          el('b', { text: amostra ? 'Esta loja é uma amostra' : 'Esta loja está na conta do Ligeiro' }),
+          el('span', { class: 'muted', text: amostra ? 'Mande o link para o dono ver. O site mostra a faixa AMOSTRA e o pedido não sai. Quando ele fechar, entregue a loja para o e-mail do Google dele.'
+            : 'Ela já recebe pedidos. Quando o dono mandar o e-mail do Google dele, entregue a loja: ela passa para a conta dele, com o mesmo link.' }),
         ]),
         el('div', { class: 'adm-amostra-botoes' }, [
           el('button', { class: 'btn btn-fantasma', type: 'button', onclick: function () { colarCardapio(l, marca, trava); } }, [UI.iconeLinha(R.catalogo(l).iconeCatalogo), 'Colar ' + R.catalogo(l).nome]),
-          el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { entregarAmostra(l, marca, trava); } }, [UI.iconeLinha('presente'), 'Entregar ao cliente']),
+          el('button', { class: 'btn btn-principal', type: 'button', onclick: function () { entregarAmostra(l, marca, trava); } }, [UI.iconeLinha('presente'), amostra ? 'Entregar ao cliente' : 'Entregar ao dono']),
         ]),
       ]);
     }
@@ -1410,7 +1415,7 @@
       var erro = el('div', { class: 'msg-erro', role: 'alert', hidden: true });
       var passos = el('ul', { class: 'termos-resumo' }, [
         'A loja passa para a conta do Google deste e-mail, com ' + R.catalogo(l).nome + ', fotos e link iguais.',
-        'A faixa AMOSTRA some na hora e os pedidos passam a sair.',
+        l.amostra === true ? 'A faixa AMOSTRA some na hora e os pedidos passam a sair.' : 'A loja continua no ar e recebendo pedidos.',
         'Os ' + ((((window.LIGEIRO_CONFIG || {}).precos || {}).diasGratis) || 7) + ' dias grátis começam hoje.',
         'Ele entra no painel com o Google e conecta o Mercado Pago dele.',
       ].map(function (t) { return el('li', { text: t }); }));
@@ -1485,7 +1490,7 @@
       ]));
       if (!l.donoEmail && plano.avisoPagamentoEm) corpo.appendChild(alerta('Avisou pagamento de ' + din(plano.avisoValor || 0) + ' em ' + dataBR(plano.avisoPagamentoEm) + '. Confira no banco e confirme.'));
 
-      if (l.amostra === true) corpo.appendChild(blocoAmostra(l, marca, trava));
+      if (l.amostra === true || feitaPeloLigeiro(l)) corpo.appendChild(blocoAmostra(l, marca, trava));
 
       corpo.appendChild(el('h3', { text: 'Dados' }));
       var cat = R.catalogo(l);

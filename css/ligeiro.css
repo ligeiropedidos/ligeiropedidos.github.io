@@ -1621,6 +1621,26 @@ a.selo-google:hover { background: var(--lime-suave); }
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%); mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
   animation: splash-jc-ondas 5s linear infinite;
 }
+/* Cris Modas (18/11/2026): a tela de carregamento ja e a da loja dela (rosinha com clarao branco, a logo com o formato
+   dela, borboleta passando, a frase em pink espacado e o fio rosa que corre). Mora aqui pelo mesmo motivo da do Mak. */
+.splash-cris { overflow: hidden; gap: 18px; background-image: radial-gradient(circle min(300px, 72vw) at 50% 42%, #FFFFFF, rgba(255, 255, 255, 0) 72%), linear-gradient(180deg, #FFF0F5 0%, #FFF5F8 60%, #FDE7EF 100%) !important; }
+.splash-cris > * { position: relative; z-index: 1; }
+.splash-cris::before {
+  content: ""; position: absolute; left: 50%; top: 22%; width: 34px; height: 29px; z-index: 0; pointer-events: none;
+  background: url('../img/oficial/cris-borboleta.svg') center / contain no-repeat;
+  animation: splash-cm-bater 0.36s ease-in-out infinite alternate, splash-cm-voar 4s ease-in-out infinite;
+}
+.splash-cris img {
+  width: min(204px, 52vw); aspect-ratio: 640 / 711; transform-origin: 50% 50%;
+  filter: drop-shadow(0 10px 16px rgba(212, 33, 95, 0.16));
+  animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite;
+}
+.splash-cris .splash-frase { font-family: "Segoe UI", Roboto, system-ui, -apple-system, Arial, sans-serif; font-weight: 600; font-size: 13.5px; line-height: 20px; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; color: #A8164A; animation: splash-mk-frase 1.6s ease-in-out infinite; }
+.splash-cris .splash-pontos { position: relative; display: block; width: 148px; height: 3px; border-radius: 3px; background: rgba(212, 33, 95, 0.14); overflow: hidden; }
+.splash-cris .splash-pontos span { display: none; }
+.splash-cris .splash-pontos::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, rgba(240, 106, 156, 0), #F06A9C 40%, #D4215F); box-shadow: 0 0 8px rgba(212, 33, 95, 0.5); animation: splash-mk-fio 1.3s ease-in-out infinite; }
+@keyframes splash-cm-bater { from { scale: 1 1; } to { scale: 0.34 1; } }
+@keyframes splash-cm-voar { 0% { translate: calc(-50vw - 40px) 30px; rotate: 18deg; } 50% { translate: -10px -20px; rotate: 6deg; } 100% { translate: calc(50vw + 40px) 10px; rotate: 18deg; } }
 @keyframes splash-jc-girar { to { transform: rotate(360deg); } }
 @keyframes splash-jc-cair { to { transform: translate3d(0, 480px, 0); } }
 @keyframes splash-jc-ondas { from { translate: 0 0; } to { translate: -160px 0; } }
@@ -2812,6 +2832,10 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .splash-jaci img { animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite !important; }
   .splash-jaci .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
   .splash-jaci .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
+  .splash-cris::before { animation: splash-cm-bater 0.36s ease-in-out infinite alternate, splash-cm-voar 4s ease-in-out infinite !important; }
+  .splash-cris img { animation: splash-mk-entrar 0.8s cubic-bezier(0.2, 1.3, 0.4, 1) both, splash-mk-flutuar 3.6s ease-in-out 0.8s infinite !important; }
+  .splash-cris .splash-frase { animation: splash-mk-frase 1.6s ease-in-out infinite !important; }
+  .splash-cris .splash-pontos::after { animation: splash-mk-fio 1.3s ease-in-out infinite !important; }
   .splash-jaci .splash-fogo::before { animation: splash-jc-ondas 5s linear infinite !important; }
   .splash-pontos span { animation: splash-ponto 0.9s ease-in-out infinite !important; }
   .splash-pontos span:nth-child(2) { animation-delay: 0.15s !important; }
