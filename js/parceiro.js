@@ -268,8 +268,9 @@
     function botoesChamada(grande, garantia) {
       /* um caminho so para comecar: o cadastro de 3 minutos ("assinar" soava como pagar agora) */
       var lista = [el('a', { class: 'btn btn-principal' + (grande ? ' btn-gigante' : ''), href: '#/comecar', text: 'Começar grátis' })];
-      /* o que mais tira o medo de comecar fica colado no botao, sem precisar rolar */
-      if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Loja pronta em 3 minutos, sem cartão de crédito e sem fidelidade.']));
+      /* o que mais tira o medo de comecar fica colado no botao, sem precisar rolar. Espacos que nao quebram (18/11/2026):
+         cada pedaco ("sem cartao de credito", "sem fidelidade", "e sem compromisso") fica inteiro na mesma linha */
+      if (garantia) lista.push(el('p', { class: 'garantia-botao' }, [UI.iconeLinha('check'), 'Loja pronta em 3 minutos, sem cartão de crédito, sem fidelidade e sem compromisso.']));
       /* o WhatsApp ja tem o botao flutuante: aqui nao repete. O segundo botao mostra o comercial (as lojas ficam no rodape) */
       lista.push(el('button', { class: 'btn btn-fantasma btn-video' + (grande ? '' : ' btn-pequeno'), type: 'button', onclick: abrirVideo }, [
         el('span', { class: 'video-play', 'aria-hidden': 'true' }), el('span', { text: 'Ver como funciona' }), el('span', { class: 'video-tempo', text: '20 s' }), /* o video rapido (08/10/2026): 19,7 s */
