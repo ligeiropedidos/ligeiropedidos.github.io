@@ -786,6 +786,44 @@ a.selo-google:hover { background: var(--lime-suave); }
 .resumo-onde > .ico-traco svg { width: 20px; height: 20px; }
 .resumo-onde-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; line-height: 1.4; color: var(--body); overflow-wrap: anywhere; }
 .resumo-onde-texto b { color: var(--ink); }
+/* ---------- envio pelos Correios (18/11/2026) ---------- */
+/* o frete do CEP embaixo do campo: caixa leve com o icone da caixa (ou o alerta, quando a loja nao envia para la) */
+.envio-frete { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0 0; padding: 10px 12px; border: 1px solid var(--lime-borda); border-radius: var(--raio-p); background: var(--lime-suave); color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.4; text-wrap: pretty; }
+.envio-frete .ico-traco { flex: none; color: var(--deep2); margin-top: 1px; }
+.envio-frete .ico-traco svg { width: 20px; height: 20px; }
+.envio-frete-erro { border-color: #F3C4BE; background: var(--erro-suave); color: var(--erro); }
+.envio-frete-erro .ico-traco { color: var(--erro); }
+/* a janelinha do CEP */
+.envio-janela input { font-size: 22px; letter-spacing: 0.06em; text-align: center; }
+.envio-recado { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.4; text-wrap: pretty; }
+.envio-recado-erro { color: var(--erro); }
+.envio-nao-sei { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 44px; color: var(--deep2); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.envio-nao-sei .ico-traco svg { width: 18px; height: 18px; }
+/* "ver CEP" no lugar do valor do frete, quando ainda nao fecha */
+.envio-falta { color: var(--erro); font-weight: 700; }
+/* o codigo de rastreio no acompanhamento: grande, para ler e copiar */
+.envio-codigo { font-family: ui-monospace, Consolas, monospace; font-size: 17px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); user-select: all; }
+.endereco-cep { display: block; }
+/* painel: o bloco dos Correios nos Ajustes */
+.correios-detalhes { margin-top: 12px; }
+.correios-como { align-items: flex-start; }
+.correios-como-texto { display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
+.correios-passos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.correios-dica { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.correios-dica .ajuda { margin: 0; }
+.correios-tabela { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.correios-regiao { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); }
+.correios-regiao-nome { display: flex; flex-direction: column; gap: 2px; }
+.correios-regiao-nome small { color: var(--muted); font-size: 14px; line-height: 1.35; }
+.correios-regiao-campos { grid-template-columns: 3fr 2fr; }
+.correios-pagamento { display: flex; align-items: flex-start; gap: 8px; margin: 0; }
+.correios-pagamento .ico-traco { flex: none; margin-top: 2px; }
+/* painel: o codigo de rastreio no cartao do pedido */
+.rastreio-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--raio-p); background: var(--lime-suave); border: 1px solid var(--lime-borda); }
+.rastreio-linha > .ico-traco { flex: none; color: var(--deep2); }
+.rastreio-texto { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.rastreio-texto b { font-family: ui-monospace, Consolas, monospace; letter-spacing: 0.03em; }
+.rastreio-falta { background: var(--orange-suave); border-color: var(--orange-borda); color: var(--orange-texto); }
 .resumo-onde-ref { color: var(--muted); font-size: 14px; }
 .resumo-mapa { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 44px; font-weight: 700; color: var(--deep2); text-decoration: underline; text-underline-offset: 3px; }
 .resumo-mapa .ico-traco svg { width: 16px; height: 16px; }

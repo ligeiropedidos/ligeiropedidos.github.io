@@ -2148,5 +2148,59 @@ console.log('18/11/2026: vale-refeicao e Pix na entrega pelo mensageiro');
   Object.assign(lojaV, { aceitaValeEntrega: false, aceitaPixEntrega: false });
   kv.mapa.delete('loja:dom-conizza');
 }
+console.log('18/11/2026: envio pelos Correios (CEP pela borda, frete pela tabela, sem pagar na porta)');
+{
+  /* o CEP: o mensageiro pergunta ao ViaCEP (o site nunca fala direto com ele) e guarda */
+  const fetchAntesCep = globalThis.fetch;
+  let perguntas = 0;
+  globalThis.fetch = async (u, o) => {
+    const url = String(u);
+    if (url.indexOf('https://viacep.com.br/ws/') === 0) {
+      perguntas++;
+      if (url.indexOf('/99999999/') >= 0) return new Response(JSON.stringify({ erro: 'true' }), { status: 200 });
+      return new Response(JSON.stringify({ cep: '20040-020', logradouro: 'Rua da Assembleia <b>', bairro: 'Centro', localidade: 'Rio de Janeiro', uf: 'RJ' }), { status: 200 });
+    }
+    return fetchAntesCep(u, o);
+  };
+  const wc = await workerNovo();
+  const rc = await chamar(wc, '/cep/20040020', { headers: { 'CF-Connecting-IP': '10.88.0.1' } }); const jc = await rc.json();
+  ok(rc.status === 200 && jc.achou === true && jc.uf === 'RJ' && jc.cidade === 'Rio de Janeiro' && jc.rua === 'Rua da Assembleia' && perguntas === 1,
+    'CEP achado: rua, bairro, cidade e estado (sem o que parece HTML)');
+  const rx = await chamar(wc, '/cep/99999999', { headers: { 'CF-Connecting-IP': '10.88.0.2' } }); const jx = await rx.json();
+  ok(rx.status === 200 && jx.achou === false, 'CEP que nao existe: achou false (o site deixa digitar)');
+  const antesTorto = perguntas;
+  await chamar(wc, '/cep/123', { headers: { 'CF-Connecting-IP': '10.88.0.3' } });
+  await chamar(wc, '/cep/2004002x', { headers: { 'CF-Connecting-IP': '10.88.0.3' } });
+  ok(perguntas === antesTorto, 'CEP torto nem sai do mensageiro (o ViaCEP nao e chamado)');
+  globalThis.fetch = fetchAntesCep;
+  const rRec = await chamar(wc, '/recursos'); const jRec = await rRec.json();
+  ok(Array.isArray(jRec.recursos) && jRec.recursos.indexOf('correios') >= 0, 'o /recursos avisa que este mensageiro conhece os Correios (o painel so mostra com ele)');
+
+  /* o pedido pelos Correios, com a entrega na cidade desligada */
+  const lojaC = db.get('lojas/dom-conizza');
+  Object.assign(lojaC, { aberta: true, uf: 'SP', aceitaEntrega: false, enviaCorreios: true, envio: { tabela: { estado: 1500, sudeste: 2200 }, porPeca: 0, gratisAcima: 0 }, cupons: [] });
+  kv.mapa.delete('loja:dom-conizza');
+  const w = await workerNovo();
+  const pedirC = (wx, extra, tel, ip) => chamar(wx, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: Object.assign({ nome: 'Rita Alves', telefone: tel, tipoEntrega: 'entrega', envio: 'correios',
+    endereco: { cep: '20040-020', rua: 'Rua da Assembleia', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro', uf: 'SP' }, itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: 'pix' }, extra) }, headers: { 'CF-Connecting-IP': ip } });
+  const r1 = await pedirC(w, {}, '13999990081', '10.88.1.1'); const j1 = await r1.json();
+  const g1 = j1 && j1.pedido ? db.get('lojas/dom-conizza/pedidos/' + j1.pedido.id) : null;
+  ok(r1.status === 200 && g1 && g1.envio && g1.envio.tipo === 'correios' && g1.envio.uf === 'RJ' && g1.endereco.uf === 'RJ' && g1.endereco.cep === '20040-020' && g1.taxaEntrega === 2200 && g1.tipoEntrega === 'entrega',
+    'pedido dos Correios: estado pelo CEP (nao o digitado), frete da regiao e a marca do envio');
+  const r2 = await pedirC(w, { formaPagamento: 'cartao_entrega' }, '13999990082', '10.88.1.2'); const j2 = await r2.json().catch(() => ({}));
+  ok(r2.status === 422 && /pelo site/.test(String(j2.erro || '')), 'Correios com maquininha na porta: recusado');
+  const r3 = await pedirC(w, { endereco: { cep: '69005-000', rua: 'Rua X', numero: '1', bairro: 'Centro', cidade: 'Manaus' } }, '13999990083', '10.88.1.3'); const j3 = await r3.json().catch(() => ({}));
+  ok(r3.status === 422 && /não envia para AM/.test(String(j3.erro || '')), 'regiao sem valor na tabela: a loja nao envia, com o motivo');
+  const r4 = await pedirC(w, { envio: '' }, '13999990084', '10.88.1.4'); const j4 = await r4.json().catch(() => ({}));
+  ok(r4.status === 422 && /sem entrega/.test(String(j4.erro || '')), 'entrega na cidade desligada continua recusada (so os Correios abrem)');
+  Object.assign(lojaC, { enviaCorreios: false });
+  kv.mapa.delete('loja:dom-conizza');
+  const w5 = await workerNovo();
+  const r5 = await pedirC(w5, {}, '13999990085', '10.88.1.5'); const j5 = await r5.json().catch(() => ({}));
+  ok(r5.status === 422 && /não está enviando pelos Correios/.test(String(j5.erro || '')), 'loja que desligou os Correios: recusa');
+  Object.assign(lojaC, { aceitaEntrega: true, enviaCorreios: false });
+  delete lojaC.envio;
+  kv.mapa.delete('loja:dom-conizza');
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

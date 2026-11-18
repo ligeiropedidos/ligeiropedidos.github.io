@@ -898,6 +898,8 @@
     e.q = e.q || {}; e.baixas = e.baixas || {};
     return e;
   }
+  /* na demonstracao o CEP nao sai do aparelho: o estado vem das faixas e a pessoa digita o resto */
+  DemoStore.prototype.buscarCep = function () { return Promise.resolve({ borda: 1, achou: false }); };
   DemoStore.prototype.lerEstoque = function (lojaSlug) {
     return Promise.resolve(clonar(estoqueDemo(this._ler(), lojaSlug).q));
   };
@@ -2478,6 +2480,18 @@
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (r.status === 200 && j && j.borda === 1 && j.q && typeof j.q === 'object') return j.q;
         throw new Error('estoque indisponível');
+      });
+    });
+  };
+  /* 18/11/2026: o endereco de um CEP (envio pelos Correios), pelo mensageiro (que pergunta ao ViaCEP e guarda) */
+  FirebaseStore.prototype.buscarCep = function (cep) {
+    var base = enderecoMensageiro();
+    var c = String(cep || '').replace(/\D/g, '');
+    if (!base || typeof fetch !== 'function' || c.length !== 8) return Promise.reject(new Error('sem CEP'));
+    return fetch(base + '/cep/' + c).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 200 && j && j.borda === 1 && typeof j.achou === 'boolean') return j;
+        throw new Error('CEP indisponível');
       });
     });
   };

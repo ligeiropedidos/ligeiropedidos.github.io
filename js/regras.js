@@ -537,12 +537,102 @@
     return { itens: itens, subtotal: subtotal };
   }
 
+  /* ------------------------------------------------------------
+   * Envio pelos Correios (18/11/2026, Cris Modas: vender para todo o Brasil)
+   *
+   * O pedido pelos Correios e uma entrega (tipoEntrega 'entrega', com endereco e frete) com a marca envio.tipo 'correios':
+   * tela que nao conhece os Correios mostra o endereco e o frete como numa entrega, nunca como retirada.
+   * O frete sai da tabela da loja (loja.envio): um valor por regiao do Brasil (o estado da loja tem linha propria), mais
+   * um tanto por peca a mais e o gratis a partir de um valor. O estado vem do CEP, pelas faixas dos Correios: quem pede
+   * nao escolhe a regiao mais barata dizendo outro estado.
+   * ---------------------------------------------------------- */
+  var REGIAO_DA_UF = {
+    AC: 'norte', AP: 'norte', AM: 'norte', PA: 'norte', RO: 'norte', RR: 'norte', TO: 'norte',
+    AL: 'nordeste', BA: 'nordeste', CE: 'nordeste', MA: 'nordeste', PB: 'nordeste', PE: 'nordeste', PI: 'nordeste', RN: 'nordeste', SE: 'nordeste',
+    DF: 'centroOeste', GO: 'centroOeste', MT: 'centroOeste', MS: 'centroOeste',
+    ES: 'sudeste', MG: 'sudeste', RJ: 'sudeste', SP: 'sudeste',
+    PR: 'sul', RS: 'sul', SC: 'sul',
+  };
+  /* as linhas da tabela, na ordem do painel ("estado" e o estado da propria loja) */
+  var REGIOES_ENVIO = [['estado', 'No seu estado'], ['sudeste', 'Sudeste'], ['sul', 'Sul'], ['centroOeste', 'Centro-Oeste'], ['nordeste', 'Nordeste'], ['norte', 'Norte']];
+  /* faixas de CEP de cada estado (os 5 primeiros numeros) */
+  var FAIXAS_CEP = [
+    [1000, 19999, 'SP'], [20000, 28999, 'RJ'], [29000, 29999, 'ES'], [30000, 39999, 'MG'], [40000, 48999, 'BA'], [49000, 49999, 'SE'],
+    [50000, 56999, 'PE'], [57000, 57999, 'AL'], [58000, 58999, 'PB'], [59000, 59999, 'RN'], [60000, 63999, 'CE'], [64000, 64999, 'PI'],
+    [65000, 65999, 'MA'], [66000, 68899, 'PA'], [68900, 68999, 'AP'], [69000, 69299, 'AM'], [69300, 69399, 'RR'], [69400, 69899, 'AM'],
+    [69900, 69999, 'AC'], [70000, 72799, 'DF'], [72800, 72999, 'GO'], [73000, 73699, 'DF'], [73700, 76799, 'GO'], [76800, 76999, 'RO'],
+    [77000, 77999, 'TO'], [78000, 78899, 'MT'], [79000, 79999, 'MS'], [80000, 87999, 'PR'], [88000, 89999, 'SC'], [90000, 99999, 'RS'],
+  ];
+  function soNumerosDoCep(cep) { return String(cep == null ? '' : cep).replace(/\D/g, '').slice(0, 8); }
+  function formatarCep(cep) { var c = soNumerosDoCep(cep); return c.length === 8 ? c.slice(0, 5) + '-' + c.slice(5) : c; }
+  function ufValida(uf) { var u = String(uf || '').toUpperCase(); return Object.prototype.hasOwnProperty.call(REGIAO_DA_UF, u) ? u : ''; }
+  /* o estado de um CEP pelas faixas; fora das faixas conhecidas, '' */
+  function ufDoCep(cep) {
+    var c = soNumerosDoCep(cep);
+    if (c.length !== 8) return '';
+    var n = Number(c.slice(0, 5));
+    for (var i = 0; i < FAIXAS_CEP.length; i++) if (n >= FAIXAS_CEP[i][0] && n <= FAIXAS_CEP[i][1]) return FAIXAS_CEP[i][2];
+    return '';
+  }
+  function enviaCorreios(loja) { return !!(loja && loja.enviaCorreios === true); }
+  function ehCorreios(pedido) { return !!(pedido && pedido.envio && pedido.envio.tipo === 'correios'); }
+  function nomeDaRegiao(chave, loja) {
+    if (chave === 'estado') return (loja && loja.uf) ? 'o estado de ' + String(loja.uf).toUpperCase() : 'o seu estado';
+    for (var i = 0; i < REGIOES_ENVIO.length; i++) if (REGIOES_ENVIO[i][0] === chave) return 'o ' + REGIOES_ENVIO[i][1];
+    return 'essa região';
+  }
+  /* a linha da tabela que vale para o estado: o da loja usa a linha "estado" (vazia, vale a da regiao dela) */
+  function regiaoDoEnvio(loja, uf) {
+    var u = ufValida(uf);
+    if (!u) return '';
+    var tab = ((loja && loja.envio) || {}).tabela || {};
+    if (u === String((loja && loja.uf) || '').toUpperCase() && Math.round(Number(tab.estado) || 0) > 0) return 'estado';
+    return REGIAO_DA_UF[u];
+  }
+  /* o frete pelos Correios: { valor, regiao, uf, prazo, gratis } ou { erro } (texto para o cliente) */
+  function freteCorreios(loja, uf, pecas, subtotal) {
+    var e = (loja && loja.envio) || {};
+    var u = ufValida(uf);
+    if (!u) return { erro: 'Confira o CEP: não achamos o estado dele.' };
+    var regiao = regiaoDoEnvio(loja, u);
+    var base = Math.round(Number((e.tabela || {})[regiao]) || 0);
+    if (!(base > 0) || base > 100000) return { erro: 'A loja ainda não envia para ' + u + '. Fale com ela no WhatsApp.', uf: u, regiao: regiao };
+    var prazo = Math.round(Number((e.prazos || {})[regiao]) || 0);
+    if (!(prazo > 0 && prazo <= 60)) prazo = 0;
+    var gratisAcima = Math.round(Number(e.gratisAcima) || 0);
+    if (gratisAcima > 0 && subtotal >= gratisAcima) return { valor: 0, regiao: regiao, uf: u, prazo: prazo, gratis: true };
+    var porPeca = Math.max(0, Math.min(100000, Math.round(Number(e.porPeca) || 0)));
+    var extra = Math.max(0, Math.min(200, Math.round(Number(pecas) || 1)) - 1) * porPeca;
+    return { valor: base + extra, regiao: regiao, uf: u, prazo: prazo, gratis: false };
+  }
+  /* o que o envio do pedido precisa para o frete: o estado (pelo CEP; o digitado so vale fora das faixas) e as pecas */
+  function envioDoOrcamento(dados, itens) {
+    var e = dados && dados.envio;
+    if (!(e === 'correios' || (e && e.tipo === 'correios'))) return null;
+    var cep = e && e.cep != null ? e.cep : (dados.endereco || {}).cep;
+    var uf = ufDoCep(cep) || ufValida(e && e.uf ? e.uf : (dados.endereco || {}).uf);
+    var pecas = (itens || []).reduce(function (s, it) { return s + (Math.round(Number(it && it.quantidade) || 0) || 0); }, 0);
+    return { tipo: 'correios', cep: soNumerosDoCep(cep), uf: uf, pecas: Math.max(1, pecas) };
+  }
+  /* texto do envio para o site e para o painel */
+  function descreverEnvio(loja) {
+    if (!enviaCorreios(loja)) return '';
+    var g = Math.round(Number(((loja.envio || {}).gratisAcima)) || 0);
+    return 'Enviamos para todo o Brasil' + (g > 0 ? ', frete grátis a partir de ' + dinheiro(g) : '');
+  }
+  /* codigo de rastreio: letras e numeros (o dos Correios e AA123456789BR), sem espaco */
+  function limparRastreio(codigo) { return String(codigo == null ? '' : codigo).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 30); }
+  function linkRastreio(codigo) { var c = limparRastreio(codigo); return c.length >= 8 ? 'https://www.melhorrastreio.com.br/rastreio/' + c : ''; }
+  function prazoDoEnvio(prazo) { return prazo > 0 ? 'chega em até ' + prazo + (prazo === 1 ? ' dia útil' : ' dias úteis') + ' depois de postado' : ''; }
+
   /*
    * Frete: o dono escolhe em Ajustes. freteGratis = true vale acima de tudo
    * (a taxa guardada fica so de lembranca pra quando ele voltar a cobrar).
    */
-  function calcularTaxaEntrega(loja, tipoEntrega, subtotal) {
+  function calcularTaxaEntrega(loja, tipoEntrega, subtotal, envio) {
     if (tipoEntrega !== 'entrega') return 0;
+    /* Correios: a tabela do envio (o "frete gratis" da entrega na cidade nao vale para os Correios) */
+    if (envio && envio.tipo === 'correios') { var f = freteCorreios(loja, envio.uf, envio.pecas, subtotal); return f.erro ? 0 : f.valor; }
     if (loja.freteGratis) return 0;
     var gratisAcima = Number(loja.entregaGratisAcima) || 0;
     if (gratisAcima > 0 && subtotal >= gratisAcima) return 0;
@@ -609,8 +699,11 @@
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
     var cupom = avaliarCupom(loja, dados.cupom, conta.subtotal);
     var cortesia = cupom.percentual === 100 && cupom.desconto > 0;
-    var taxaEntrega = cortesia ? 0 : calcularTaxaEntrega(loja, tipoEntrega, conta.subtotal);
+    var envio = tipoEntrega === 'entrega' ? envioDoOrcamento(dados, dados.itens) : null;
+    var frete = envio ? freteCorreios(loja, envio.uf, envio.pecas, conta.subtotal) : null;
+    var taxaEntrega = cortesia ? 0 : calcularTaxaEntrega(loja, tipoEntrega, conta.subtotal, envio);
     return {
+      envio: envio ? Object.assign({ cep: envio.cep, pecas: envio.pecas }, frete) : null,
       itens: conta.itens,
       subtotal: conta.subtotal,
       tipoEntrega: tipoEntrega,
@@ -645,7 +738,10 @@
     var retiraOnde = catalogo(loja).retirada;
     if (lojaBloqueada(loja, instante || agora)) throw ErroDoCliente('Esta loja está com o cadastro pendente no Ligeiro. Peça direto pelo WhatsApp dela.');
     var tipoEntrega = dados.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
-    if (tipoEntrega === 'entrega' && loja.aceitaEntrega === false) {
+    var correios = !noBalcao && (dados.envio === 'correios' || !!(dados.envio && dados.envio.tipo === 'correios'));
+    if (correios && !enviaCorreios(loja)) throw ErroDoCliente('A loja não está enviando pelos Correios agora. Fale com ela no WhatsApp.');
+    if (correios) tipoEntrega = 'entrega';
+    if (tipoEntrega === 'entrega' && loja.aceitaEntrega === false && !correios) {
       throw ErroDoCliente('Estamos sem entrega agora. Você pode retirar ' + retiraOnde + '.');
     }
     /* No tablet do balcao a pessoa esta na loja: retirada vale mesmo com "so entrega" ligado. */
@@ -662,7 +758,26 @@
     var telefone = (noBalcao && !String(dados.telefone || '').trim()) ? '' : validarTelefone(dados.telefone);
 
     var endereco = {};
-    if (tipoEntrega === 'entrega') {
+    if (correios) {
+      var ec = dados.endereco || {};
+      var cep = soNumerosDoCep(ec.cep != null ? ec.cep : (dados.envio && dados.envio.cep));
+      if (cep.length !== 8) throw ErroDoCliente('Digite o CEP com os 8 números.');
+      var ufc = ufDoCep(cep) || ufValida(ec.uf);
+      if (!ufc) throw ErroDoCliente('Confira o CEP: não achamos o estado dele.');
+      var ruac = limparTexto(ec.rua, 120), bairroc = limparTexto(ec.bairro, 80), cidadec = limparTexto(ec.cidade, 60);
+      if (!ruac || !bairroc) throw ErroDoCliente('Para enviar pelos Correios precisamos da rua e do bairro.');
+      if (!cidadec) throw ErroDoCliente('Digite a cidade.');
+      endereco = {
+        rua: ruac,
+        numero: limparTexto(ec.numero, 12) || 's/n',
+        bairro: bairroc,
+        complemento: limparTexto(ec.complemento, 80),
+        referencia: limparTexto(ec.referencia, 140),
+        cidade: cidadec,
+        uf: ufc,
+        cep: formatarCep(cep),
+      };
+    } else if (tipoEntrega === 'entrega') {
       var e = dados.endereco || {};
       var rua = limparTexto(e.rua, 120);
       var numero = limparTexto(e.numero, 12);
@@ -696,10 +811,13 @@
        (tela antiga) segue como antes: Pix, ou a primeira que a loja aceita */
     if (pediu && !(formas.hasOwnProperty(pediu) && formas[pediu])) throw ErroDoCliente('Essa forma de pagamento não está disponível agora. Escolha outra.');
     var formaPagamento = pediu || primeira;
-    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora });
+    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora, envio: correios ? { tipo: 'correios', cep: endereco.cep, uf: endereco.uf } : null });
     if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
+    if (correios && orcamento.envio && orcamento.envio.erro) throw ErroDoCliente(orcamento.envio.erro);
     /* pagar na porta: maquininha, dinheiro, vale ou Pix na hora. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
     var naPorta = pagaNaPorta(formaPagamento);
+    /* pelos Correios ninguem cobra na porta: so Pix ou cartao pelo site (ou o Pix combinado com a loja) */
+    if (correios && naPorta) throw ErroDoCliente('Pelos Correios o pagamento é pelo site: Pix ou cartão.');
     /* "Quem retira pode pagar no balcao": sem o campo gravado vale ligado, como o painel mostra (so false desliga) */
     if (naPorta && tipoEntrega !== 'entrega' && loja.aceitaPagarNoBalcao === false && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
@@ -757,6 +875,7 @@
     };
     /* so aparece quando existe: o pedido comum continua com os mesmos campos de sempre */
     if (orcamento.acrescimoCartao > 0) pedido.acrescimoCartao = orcamento.acrescimoCartao;
+    if (correios) pedido.envio = { tipo: 'correios', regiao: orcamento.envio.regiao, uf: orcamento.envio.uf, prazo: orcamento.envio.prazo || 0, gratis: !!orcamento.envio.gratis };
     /* loja de comercio: o pedido leva a marca, e os textos que so tem o pedido (WhatsApp, aviso, ficha, equipe) falam de separar, nao de cozinha */
     if (segmento(loja) === 'comercio') pedido.segmento = 'comercio';
     return pedido;
@@ -788,12 +907,13 @@
         return Object.assign({}, p, { oferta: ofertas[String(p.id)] ? { ate: '9999-12-31T00:00:00.000Z', preco: ofertas[String(p.id)], some: false } : null });
       }) });
       /* tolerante: opcao desligada depois do pedido nao derruba a conferencia (conta como antes, pelo padrao) */
-      var o = orcar(comoNoPedido, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true, agora: pedido.criadoEm });
+      var envioGravado = ehCorreios(pedido) ? { tipo: 'correios', cep: (pedido.endereco || {}).cep, uf: pedido.envio.uf } : null;
+      var o = orcar(comoNoPedido, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true, agora: pedido.criadoEm, envio: envioGravado });
       /* Cupom ja usado conta como valido aqui: o limite pode ter sido atingido por este mesmo pedido. */
       var desconto = pedido.desconto || 0;
       /* cortesia (cupom de 100%) zera a entrega tambem, mesmo que o cupom ja tenha esgotado por este pedido */
       var cortesia = Number(pedido.cupomPercentual) === 100 && desconto >= o.subtotal;
-      var taxaSeErro = cortesia ? 0 : calcularTaxaEntrega(loja, pedido.tipoEntrega, o.subtotal);
+      var taxaSeErro = cortesia ? 0 : calcularTaxaEntrega(loja, pedido.tipoEntrega, o.subtotal, o.envio);
       var total = Math.max(0, o.subtotal - desconto + (o.cupomErro ? taxaSeErro : o.taxaEntrega));
       var esperado = o.cupomErro ? total : o.total;
       /* taxa do cartao repassada: conta a que veio no pedido, se couber no teto (a loja pode ter mudado a % depois; quem
@@ -833,7 +953,7 @@
       case STATUS.AGUARDANDO: return dizQuePagou(pedido) ? 'Cliente diz que pagou' : pixCombinado(pedido) ? 'Pix a combinar' : 'Aguardando ' + nomeDoPagamento(pedido);
       case STATUS.PAGO: return com ? 'Novo, separar' : 'Novo, preparar';
       case STATUS.PRODUCAO: return com ? 'Separando' : 'Preparando';
-      case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
+      case STATUS.PRONTO: return ehCorreios(pedido) ? 'Postado nos Correios' : entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
       default: return pedido.status;
@@ -847,7 +967,7 @@
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Esperando o pagamento' : pixCombinado(pedido) ? 'Combinando o Pix' : 'Esperando o Pix';
       case STATUS.PAGO: return 'Na fila da loja';
       case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
-      case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
+      case STATUS.PRONTO: return ehCorreios(pedido) ? 'Postado nos Correios' : entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return entrega ? 'Entregue' : 'Retirado';
       case STATUS.CANCELADO: return 'Cancelado';
       default: return '';
@@ -866,12 +986,14 @@
             : pixCombinado(pedido) ? 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.'
             : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
+        if (ehCorreios(pedido)) return 'Pedido na fila! A loja separa e posta nos Correios' + (pedido.envio.prazo > 0 ? ': ' + prazoDoEnvio(pedido.envio.prazo) + '.' : '.');
         return entrega
           ? 'Pedido na fila! Chega em cerca de ' + tempo + ' minutos.'
           : (com ? 'Mostre o número do pedido na loja. Fica separado em cerca de ' : 'Mostre esta senha no balcão. Fica pronto em cerca de ') + tempo + ' minutos.';
       case STATUS.PRODUCAO:
         return com ? 'A loja está separando o seu pedido agora.' : 'Estão preparando o seu pedido agora.';
       case STATUS.PRONTO:
+        if (ehCorreios(pedido)) return 'Postado nos Correios! ' + (limparRastreio(pedido.rastreio) ? 'Código de rastreio: ' + limparRastreio(pedido.rastreio) + '.' : 'A loja manda o código de rastreio pelo WhatsApp.');
         return entrega ? 'Saiu para entrega! Já está a caminho.' : 'Está pronto! Pode vir buscar.';
       case STATUS.FINALIZADO:
         return com ? (entrega ? 'Entregue. Obrigado pela compra!' : 'Retirado. Obrigado pela compra!') : (entrega ? 'Entregue. Bom apetite!' : 'Retirado. Bom apetite!');
@@ -891,7 +1013,7 @@
          pagou esse pedido, e o "Marcar como pago" aparecia nele (um print falso liberava) */
       case STATUS.AGUARDANDO: return pagaPeloSite(pedido) || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
       case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
-      case STATUS.PRODUCAO: return entrega ? 'Saiu para entrega' : 'Está pronto';
+      case STATUS.PRODUCAO: return ehCorreios(pedido) ? 'Postei nos Correios' : entrega ? 'Saiu para entrega' : 'Está pronto';
       case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
       default: return '';
     }
@@ -938,6 +1060,7 @@
     if (e.complemento) partes.push(umaLinha(e.complemento));
     if (e.bairro) partes.push(umaLinha(e.bairro));
     if (e.referencia) partes.push('ref.: ' + umaLinha(e.referencia));
+    if (e.cep) partes.push(umaLinha(e.cidade) + (e.uf ? '/' + umaLinha(e.uf) : '') + ' · CEP ' + umaLinha(e.cep));
     return partes.join(' · ');
   }
 
@@ -953,11 +1076,16 @@
         if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (' + ref + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
         return oi + 'Recebemos seu pedido (' + ref + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
+        if (ehCorreios(pedido)) return oi + 'Recebemos seu pedido (' + ref + ') e ele já está na fila. Vamos separar e postar nos Correios.';
         return oi + 'Recebemos seu pedido (' + ref + ') e ele já está na fila. ' +
           (entrega ? 'Chega em cerca de ' + tempo + ' minutos.' : (com ? 'Fica separado em cerca de ' : 'Fica pronto em cerca de ') + tempo + ' minutos.');
       case STATUS.PRODUCAO:
-        return oi + 'Seu pedido (' + ref + ') já está sendo ' + (com ? 'separado. ' : 'preparado. ') + (entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
+        return oi + 'Seu pedido (' + ref + ') já está sendo ' + (com ? 'separado. ' : 'preparado. ') + (ehCorreios(pedido) ? 'Logo vai para os Correios.' : entrega ? 'Logo sai para entrega.' : 'Logo fica pronto para retirar.');
       case STATUS.PRONTO:
+        if (ehCorreios(pedido)) {
+          var cod = limparRastreio(pedido.rastreio);
+          return oi + 'Seu pedido (' + ref + ') foi postado nos Correios!' + (cod ? ' Código de rastreio: ' + cod + '. Acompanhe aqui: ' + linkRastreio(cod) : ' Já te mando o código de rastreio.');
+        }
         return oi + 'Seu pedido (' + ref + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
       case STATUS.FINALIZADO:
         /* com o link do Google: o agradecimento ja pede a avaliacao (e o que faz a loja subir no Maps) */
@@ -976,7 +1104,7 @@
       case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) ? 'Combinar o Pix' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
       case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
-      case STATUS.PRONTO: return entrega ? 'Saiu para entrega' : 'Pronto para retirar';
+      case STATUS.PRONTO: return ehCorreios(pedido) ? 'Mandar o rastreio' : entrega ? 'Saiu para entrega' : 'Pronto para retirar';
       case STATUS.FINALIZADO: return 'Agradecer';
       case STATUS.CANCELADO: return 'Pedido cancelado';
       default: return 'Falar com o cliente';
@@ -1009,10 +1137,12 @@
     l.push('');
     if (pedido.tipoEntrega === 'entrega') {
       var e = pedido.endereco || {};
-      l.push('*ENTREGA*');
+      l.push(ehCorreios(pedido) ? '*ENVIAR PELOS CORREIOS*' : '*ENTREGA*');
       l.push(umaLinha(e.rua) + ', ' + umaLinha(e.numero) + (e.complemento ? ' - ' + umaLinha(e.complemento) : ''));
       l.push('Bairro: ' + umaLinha(e.bairro));
+      if (e.cep) l.push(umaLinha(e.cidade) + (e.uf ? '/' + umaLinha(e.uf) : '') + ' · CEP ' + umaLinha(e.cep));
       if (e.referencia) l.push('Referência: ' + umaLinha(e.referencia));
+      if (ehCorreios(pedido) && limparRastreio(pedido.rastreio)) l.push('Rastreio: ' + limparRastreio(pedido.rastreio));
     } else {
       l.push(com ? '*RETIRADA NA LOJA*' : '*RETIRADA NO BALCÃO*');
     }
@@ -1023,7 +1153,7 @@
     l.push('');
     l.push('Subtotal: ' + dinheiro(pedido.subtotal));
     if (pedido.desconto > 0) l.push('Cupom ' + umaLinha(pedido.cupom) + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
-    if (pedido.taxaEntrega > 0) l.push('Entrega: ' + dinheiro(pedido.taxaEntrega));
+    if (pedido.taxaEntrega > 0) l.push((ehCorreios(pedido) ? 'Frete (Correios): ' : 'Entrega: ') + dinheiro(pedido.taxaEntrega));
     if (pedido.acrescimoCartao > 0) l.push('Taxa do cartão: ' + dinheiro(pedido.acrescimoCartao));
     if (pedido.total === 0) {
       l.push('*CORTESIA: NADA A COBRAR*');
@@ -1140,11 +1270,11 @@
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
     (p.itens || []).forEach(function (it) { l.push(descreverItem(it, loja)); });
     l.push('');
-    if (p.taxaEntrega) l.push('Entrega: ' + dinheiro(p.taxaEntrega));
+    if (p.taxaEntrega) l.push((ehCorreios(p) ? 'Frete (Correios): ' : 'Entrega: ') + dinheiro(p.taxaEntrega));
     if (p.desconto) l.push('Desconto: -' + dinheiro(p.desconto));
     if (p.acrescimoCartao) l.push('Taxa do cartão: ' + dinheiro(p.acrescimoCartao));
     l.push('Total: ' + dinheiro(p.total));
-    l.push(p.tipoEntrega === 'entrega' ? 'Entregar em: ' + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
+    l.push(p.tipoEntrega === 'entrega' ? (ehCorreios(p) ? 'Enviar pelos Correios para: ' : 'Entregar em: ') + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
     l.push('Pagamento: ' + (formas[p.formaPagamento] || p.formaPagamento || '') + (p.trocoPara ? ' (troco para ' + dinheiro(p.trocoPara) + ')' : ''));
     if (p.cliente && p.cliente.nome) l.push('Nome: ' + umaLinha(p.cliente.nome));
     if (p.observacao) l.push('Obs: ' + umaLinha(p.observacao));
@@ -1864,6 +1994,22 @@
     pagaPeloSite: pagaPeloSite,
     pagaNaPorta: pagaNaPorta,
     recebeNaPorta: recebeNaPorta,
+    /* 18/11/2026: envio pelos Correios */
+    REGIOES_ENVIO: REGIOES_ENVIO,
+    REGIAO_DA_UF: REGIAO_DA_UF,
+    ufDoCep: ufDoCep,
+    ufValida: ufValida,
+    soNumerosDoCep: soNumerosDoCep,
+    formatarCep: formatarCep,
+    enviaCorreios: enviaCorreios,
+    ehCorreios: ehCorreios,
+    regiaoDoEnvio: regiaoDoEnvio,
+    nomeDaRegiao: nomeDaRegiao,
+    freteCorreios: freteCorreios,
+    descreverEnvio: descreverEnvio,
+    limparRastreio: limparRastreio,
+    linkRastreio: linkRastreio,
+    prazoDoEnvio: prazoDoEnvio,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
     pixCombinado: pixCombinado,

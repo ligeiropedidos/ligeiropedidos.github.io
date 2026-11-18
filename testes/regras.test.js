@@ -1455,3 +1455,84 @@ test('18/11/2026: vale-refeicao e Pix na entrega, cobrados na porta como a maqui
   /* o pedido em texto para o WhatsApp (site em pausa) diz a forma pelo nome */
   assert.match(R.pedidoParaWhatsapp(loja, pixPorta), /Pix na hora/);
 });
+
+test('18/11/2026: envio pelos Correios, frete pela regiao do CEP, sem pagar na porta', () => {
+  const loja = Object.assign(lojaDeTeste(), {
+    uf: 'SP', aceitaEntrega: false, enviaCorreios: true,
+    envio: { tabela: { estado: 1800, sudeste: 2400, sul: 2800, nordeste: 3800 }, porPeca: 300, gratisAcima: 20000, prazos: { sul: 8 } },
+  });
+  /* o estado sai do CEP, pelas faixas dos Correios */
+  assert.equal(R.ufDoCep('01310-100'), 'SP');
+  assert.equal(R.ufDoCep('11800000'), 'SP');
+  assert.equal(R.ufDoCep('20040-020'), 'RJ');
+  assert.equal(R.ufDoCep('80010-000'), 'PR');
+  assert.equal(R.ufDoCep('69900-000'), 'AC');
+  assert.equal(R.ufDoCep('70040-000'), 'DF');
+  assert.equal(R.ufDoCep('1234'), '');
+  assert.equal(R.formatarCep('01310100'), '01310-100');
+  /* frete: o estado da loja na linha propria, os outros pela regiao; peca a mais soma; acima do valor e gratis */
+  assert.equal(R.freteCorreios(loja, 'SP', 1, 5000).valor, 1800);
+  assert.equal(R.freteCorreios(loja, 'RJ', 1, 5000).valor, 2400);
+  assert.equal(R.freteCorreios(loja, 'RJ', 3, 5000).valor, 2400 + 600);
+  assert.equal(R.freteCorreios(loja, 'PR', 1, 5000).prazo, 8);
+  assert.equal(R.freteCorreios(loja, 'PR', 1, 25000).valor, 0);
+  assert.equal(R.freteCorreios(loja, 'PR', 1, 25000).gratis, true);
+  /* regiao sem valor: a loja nao envia para la (nunca frete zero sem querer) */
+  assert.match(R.freteCorreios(loja, 'AM', 1, 5000).erro, /não envia para AM/);
+  /* sem a linha do estado, o estado da loja usa a da regiao dela */
+  const semEstado = Object.assign({}, loja, { envio: { tabela: { sudeste: 2400 } } });
+  assert.equal(R.freteCorreios(semEstado, 'SP', 1, 5000).valor, 2400);
+
+  const base = { nome: 'Ana Souza', telefone: '11999990001', tipoEntrega: 'entrega', envio: 'correios', formaPagamento: 'pix',
+    endereco: { cep: '20040-020', rua: 'Rua da Assembleia', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro', uf: 'SP' },
+    itens: [{ produtoId: 'x', quantidade: 2, tamanho: 'p' }] };
+  const p = R.montarPedido(loja, base);
+  /* e uma entrega (com endereco e frete) com a marca dos Correios, mesmo com a entrega na cidade desligada */
+  assert.equal(p.tipoEntrega, 'entrega');
+  assert.equal(R.ehCorreios(p), true);
+  /* o estado vem do CEP, nao do que a pessoa disse (SP era mais barato) */
+  assert.equal(p.endereco.uf, 'RJ');
+  assert.equal(p.endereco.cep, '20040-020');
+  assert.equal(p.envio.regiao, 'sudeste');
+  assert.equal(p.taxaEntrega, 2400 + 300);
+  assert.equal(p.total, 3600 + 2700);
+  assert.equal(p.status, R.STATUS.AGUARDANDO);
+  /* o painel refaz a conta pelo envio gravado */
+  assert.equal(R.conferirTotal(loja, p).ok, true);
+  /* na porta nao: ninguem cobra a maquininha no Rio */
+  for (const forma of ['cartao_entrega', 'dinheiro_entrega']) {
+    assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { formaPagamento: forma })), /pelo site/);
+  }
+  /* CEP, cidade, rua e bairro sao obrigatorios */
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { endereco: Object.assign({}, base.endereco, { cep: '2004' }) })), /CEP/);
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { endereco: Object.assign({}, base.endereco, { cidade: '' }) })), /cidade/);
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { endereco: Object.assign({}, base.endereco, { bairro: '' }) })), /rua e do bairro/);
+  /* regiao que a loja nao atende e loja que nao envia: recusa com o motivo */
+  assert.throws(() => R.montarPedido(loja, Object.assign({}, base, { endereco: Object.assign({}, base.endereco, { cep: '69005-000' }) })), /não envia para AM/);
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { enviaCorreios: false }), base), /não está enviando pelos Correios/);
+  /* a entrega na cidade continua recusada (ela esta desligada nesta loja) */
+  const naCidade = Object.assign({}, base, { envio: '' });
+  assert.throws(() => R.montarPedido(loja, naCidade), /sem entrega/);
+  /* o que a loja e o cliente leem */
+  p.senha = 21;
+  p.segmento = 'comercio';
+  assert.match(R.fichaDoPedido(loja, p), /ENVIAR PELOS CORREIOS/);
+  assert.match(R.fichaDoPedido(loja, p), /Rio de Janeiro\/RJ · CEP 20040-020/);
+  assert.match(R.fichaDoPedido(loja, p), /Frete \(Correios\): R\$/);
+  assert.equal(R.rotuloProximoPasso(Object.assign({}, p, { status: R.STATUS.PRODUCAO })), 'Postei nos Correios');
+  const postado = Object.assign({}, p, { status: R.STATUS.PRONTO, rastreio: 'aa 123456785 br' });
+  assert.equal(R.rotuloStatus(postado), 'Postado nos Correios');
+  assert.equal(R.rotuloStatusCliente(postado), 'Postado nos Correios');
+  assert.match(R.textoDoEstagio(postado, loja), /Código de rastreio: AA123456785BR/);
+  assert.match(R.mensagemParaCliente(loja, postado), /melhorrastreio\.com\.br\/rastreio\/AA123456785BR/);
+  assert.equal(R.rotuloAvisoWhats(postado), 'Mandar o rastreio');
+  assert.equal(R.linkRastreio('123'), '');
+  assert.match(R.pedidoParaWhatsapp(loja, p), /Enviar pelos Correios para: Rua da Assembleia, 10 · Centro · Rio de Janeiro\/RJ · CEP 20040-020/);
+  /* a entrega comum segue igual (sem envio, sem CEP) */
+  const comum = R.montarPedido(lojaDeTeste(), { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', endereco: { rua: 'Rua A', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }] });
+  assert.equal(R.ehCorreios(comum), false);
+  assert.equal(comum.envio, undefined);
+  assert.equal(comum.taxaEntrega, 500);
+  /* balcao nunca vai pelos Correios */
+  assert.equal(R.ehCorreios(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: true }), Object.assign({}, base, { origem: 'balcao', tipoEntrega: 'retirada' }))), false);
+});

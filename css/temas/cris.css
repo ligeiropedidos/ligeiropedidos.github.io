@@ -217,6 +217,9 @@ body:has(.tema-cris #tela-inicio) .torrada { background: #3A1426; color: #FFF5F8
 .tema-cris .card-produto .foto:has(.foto-desenho) { background: var(--cm-blush-2); }
 .tema-cris .foto-modal-desenho, .tema-cris .item-carrinho .miniatura.com-desenho { background: var(--cm-blush-2); }
 
+/* a chave desligada: rosa apagado (a do padrao e um cinza esverdeado, o verde do Ligeiro) */
+.tema-cris .chave:not(.on) { background: #EAD3DD; }
+
 /* ---------- rodape ---------- */
 .tema-cris #tela-inicio .rodape .ligeiro { color: var(--muted); }
 

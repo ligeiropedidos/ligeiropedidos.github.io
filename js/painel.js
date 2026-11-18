@@ -201,6 +201,7 @@
       estoquePossivel().then(function (sim) { estado.estoqueOk = sim; });
       ofertasPossiveis().then(function (sim) { estado.ofertasOk = sim; });
       precoTamanhoPossivel().then(function (sim) { estado.precoTamanhoOk = sim; });
+      recursoNoAr('correios').then(function (sim) { estado.correiosOk = sim; });
       /* a Loja do Ligeiro (outra tela) le o tipo da loja daqui: comercio fala em catalogo */
       try { sessionStorage.setItem('ligeiro:segmento:' + slug, R.segmento(estado.loja || {})); } catch (_) { /* segue com os textos de comida */ }
       /* voltou do "Conectar com Mercado Pago": o codigo chega aqui e este celular termina (concluir) */
@@ -886,13 +887,15 @@
         [!!l.mpAtivo || R.pixCombinadoNaLoja(l), l.mpAtivo ? 'Recebe pelo site: ' + (l.aceitaPix !== false && R.cartaoPeloSite(l) ? 'Pix e cartão' : R.cartaoPeloSite(l) ? 'cartão' : 'Pix') : R.pixCombinadoNaLoja(l) ? 'Recebe o Pix pelo WhatsApp' : 'Conectar o Mercado Pago', 'Pix e cartão caem pagos ' + cat.naTela, 'dinheiro', 'ajustes', 'aj-pagamento'],
         [comPreco > 0, comPreco > 0 ? comPreco + (comPreco === 1 ? ' item' : ' itens') + ' com preço' : 'Montar o ' + cat.nome, comPreco > 0 ? 'Confira os valores antes de divulgar' : 'Categorias, itens e preços', 'cardapio', 'cardapio', ''],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
+        /* envio pelos Correios ligado: a tabela do frete precisa de valor (sem ela ninguem de fora consegue fechar) */
+        R.enviaCorreios(l) ? [temFreteCorreios(l), temFreteCorreios(l) ? 'Frete dos Correios pronto' : 'Frete dos Correios', 'Quanto cobrar em cada região', 'caixa', 'ajustes', 'aj-correios'] : null,
         [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Horários de funcionamento', 'A loja abre e fecha sozinha', 'relogio', 'ajustes', 'aj-funcionamento'],
         [!!D.logoSrc(l) || !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).logo), 'Logo da loja', 'Aparece no topo do seu site', 'imagem', 'ajustes', 'aj-aparencia'],
         [(l.produtos || []).some(function (p) { return p.foto || p.fotoUrl; }), 'Foto nos itens', 'Item com foto vende mais', 'camera', 'cardapio', ''],
         /* o teste que tira o medo: um pedido de verdade pelo proprio link (de R$ 1 no Pix, se quiser), visto chegando aqui */
         [teveVenda(), 'Pedido de teste pelo seu link', 'Peça e veja o pedido chegar aqui', 'link', 'links', ''],
-      ];
+      ].filter(Boolean);
       var feitos = itens.filter(function (i) { return i[0]; }).length;
       var faltam = itens.length - feitos;
       /* o que falta: um cartao por passo, com icone, titulo, dica e a setinha */
@@ -946,6 +949,8 @@
         { aba: 'cardapio', alvo: '#secaoPainel .linha-produto .editar:not(.apagar)', texto: 'No lápis de cada item: até 3 fotos (foto vende mais!), preço por tamanho, estoque e oferta por tempo limitado, com foguinho no site.' },
         { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago: o pedido já chega pago ' + cat.naTela + ', sem ninguém conferir comprovante.' + (estado.pixCombinadoOk ? ' Não quer o Mercado Pago? Ligue o Pix pelo WhatsApp.' : '') },
         { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
+        /* 18/11/2026: vende para outras cidades (loja de comercio, com o mensageiro que conhece os Correios) */
+        correiosAparece(l) ? { aba: 'ajustes', alvo: '#aj-correios', texto: 'Quer vender para outras cidades? Aqui você liga o envio pelos Correios e diz quanto cobra de frete em cada região do Brasil. A cliente digita o CEP e o frete entra sozinho no pedido. Quando postar, é só tocar em "Postei nos Correios" no pedido.' } : null,
         { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
         { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
         estado.servicosVisivel ? { aba: 'links', alvo: '.srv-banner', texto: 'E aqui fica a Loja do Ligeiro: logo, fotos do ' + cat.nome + ' e vídeo feitos pela nossa equipe, com preço fechado. O vídeo aparece no seu site com botão de play.' } : null,
@@ -1300,7 +1305,16 @@
       card.appendChild(el('div', { class: 'cliente' }, [UI.iconeLinha('pessoa'), el('span', { class: 'cliente-texto' }, [el('span', { class: 'cliente-nome', text: p.cliente.nome }), p.cliente.telefone ? el('span', { class: 'cliente-fone', text: R.formatarTelefone(p.cliente.telefone) }) : null])]) /* o nome e, embaixo, o telefone inteiro (sem "·" pendurado no fim da linha) */);
       if (entrega) {
         var e = p.endereco || {};
-        card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha('mapa'), UI.enderecoEmLinhas(e)]));
+        card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha(R.ehCorreios(p) ? 'caixa' : 'mapa'), UI.enderecoEmLinhas(e)]));
+      }
+      /* Correios postado: o codigo de rastreio (ou o lembrete de colocar), com o botao de mudar */
+      if (R.ehCorreios(p) && (p.status === R.STATUS.PRONTO || p.status === R.STATUS.FINALIZADO)) {
+        var cod = R.limparRastreio(p.rastreio);
+        card.appendChild(el('div', { class: 'rastreio-linha' + (cod ? '' : ' rastreio-falta') }, [
+          UI.iconeLinha('caixa'),
+          el('span', { class: 'rastreio-texto' }, cod ? ['Rastreio: ', el('b', { text: cod })] : ['Falta o código de rastreio']),
+          estado.equipe ? null : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { pedirRastreio(p, false); } }, [UI.iconeLinha(cod ? 'lapis' : 'mais'), cod ? 'Mudar' : 'Colocar']),
+        ]));
       }
       /* os itens: a quantidade numa pilula, o nome em negrito e o resto (tamanho, adicionais) mais leve */
       var itens = el('div', { class: 'itens' });
@@ -1320,8 +1334,8 @@
         el('span', { class: 'total-texto' }, [
           el('span', { class: 'total-valor' }, [el('small', { text: 'Total' }), el('b', { text: dinheiro(p.total) })]),
           el('span', { class: 'forma' }, [
-            el('span', { text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.acrescimoCartao > 0 ? 'taxa do cartão ' + dinheiro(p.acrescimoCartao) + ' · ' : '') + (p.taxaEntrega > 0 ? 'entrega ' + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : (p.origem === 'balcao' ? 'balcão' : 'retirada'))) }),
-            UI.iconeLinha(entrega ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada')),
+            el('span', { text: (p.desconto > 0 ? 'cupom ' + p.cupom + ' · ' : '') + (p.acrescimoCartao > 0 ? 'taxa do cartão ' + dinheiro(p.acrescimoCartao) + ' · ' : '') + (p.taxaEntrega > 0 ? (R.ehCorreios(p) ? 'frete ' : 'entrega ') + dinheiro(p.taxaEntrega) : (p.tipoEntrega === 'entrega' ? 'entrega grátis' : (p.origem === 'balcao' ? 'balcão' : 'retirada'))) }),
+            UI.iconeLinha(R.ehCorreios(p) ? 'caixa' : entrega ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada')),
           ]),
         ]),
       ]));
@@ -1401,7 +1415,37 @@
         UI.perguntar('O Pix de ' + dinheiro(p.total) + ' ' + daSenha(p) + ' caiu mesmo? Confira no extrato da conta da sua chave Pix antes: print ou comprovante mandado pelo cliente não vale. O pedido vai para ' + catLoja().aTela + '.', { sim: 'Caiu, marcar como pago', nao: 'Voltar' }).then(function (sim) { if (sim) avancarAgora(p, proximo, botao); });
         return;
       }
+      /* Correios: "Postei nos Correios" pede o codigo de rastreio (o dono; a equipe so anda com o pedido) */
+      if (R.ehCorreios(p) && proximo === R.STATUS.PRONTO && !estado.equipe) { pedirRastreio(p, true, botao); return; }
       avancarAgora(p, proximo, botao);
+    }
+    /* a janela do codigo de rastreio: explicada, com o codigo opcional (ela pode colocar depois, no proprio pedido) */
+    function pedirRastreio(p, avancando) {
+      var campo = campoTexto('Código de rastreio', R.limparRastreio(p.rastreio), { max: 40, placeholder: 'Ex: AA123456789BR' });
+      campo.input.setAttribute('autocapitalize', 'characters');
+      campo.input.setAttribute('autocomplete', 'off');
+      var texto = avancando
+        ? 'Já postou ' + oPedido(p) + ' nos Correios? Cole aqui o código de rastreio. Ele está no comprovante dos Correios (ou na etiqueta, se você gerou pela internet). Ainda não tem? Pode deixar vazio e colocar depois, no próprio pedido.'
+        : 'Cole aqui o código de rastreio ' + daSenha(p) + '. Ele está no comprovante dos Correios. Pode colar do jeito que veio, com espaço ou traço.';
+      var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: avancando ? 'Pronto, foi postado' : 'Salvar o código' });
+      botao.addEventListener('click', function () {
+        var digitado = campo.input.value.trim();
+        var cod = R.limparRastreio(digitado);
+        if (digitado && cod.length < 8) { campo.input.focus(); UI.avisar('Esse código está curto. O dos Correios tem 13 letras e números, como AA123456789BR. Confira no comprovante.'); return; }
+        if (!avancando && !cod) { UI.avisar('Cole o código de rastreio.'); return; }
+        var soltar = UI.ocupar(botao, 'Salvando…');
+        if (!soltar) return;
+        var mud = avancando ? { status: R.STATUS.PRONTO } : {};
+        if (cod) mud.rastreio = cod;
+        store.atualizarPedido(slug, p.id, mud).then(function () {
+          UI.fecharModal();
+          UI.soar('toque');
+          if (avancando) avisarQueAndou(Object.assign({}, p, { rastreio: cod }), R.STATUS.PRONTO);
+          UI.avisar(cod ? 'Código salvo. Agora toque em "Mandar o rastreio" no pedido: o WhatsApp da cliente abre com o código e o link para ela acompanhar.' : 'Marcado como postado. Quando tiver o código, toque em "Colocar" no pedido.');
+        }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e)); });
+      });
+      UI.abrirModal({ titulo: avancando ? 'Postei nos Correios' : 'Código de rastreio', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [el('p', { class: 'muted', text: texto }), campo]), rodape: [botao] });
+      setTimeout(function () { campo.input.focus(); }, 60);
     }
     /* pedido de dia ja fechado mudou o valor do dia: o resumo guardado sai (o relatorio refaz) */
     function esquecerResumo(p) { if (store.esquecerResumoDoPedido) store.esquecerResumoDoPedido(slug, p); }
@@ -3327,6 +3371,75 @@
       return bloco;
     }
 
+    /* ---------- envio pelos Correios (18/11/2026): a tabela do frete por regiao, tudo explicado ---------- */
+    function temFreteCorreios(l) { var t = ((l && l.envio) || {}).tabela || {}; return Object.keys(t).some(function (k) { return Math.round(Number(t[k]) || 0) > 0; }); }
+    /* o bloco aparece para loja de comercio (comida nao vai pelos Correios) ou para quem ja ligou */
+    function correiosAparece(l) { return !!l && (l.enviaCorreios === true || (R.segmento(l) === 'comercio' && estado.correiosOk === true)); }
+    var ESTADOS_DA_REGIAO = { estado: 'Clientes do mesmo estado da loja', sudeste: 'SP, RJ, MG e ES', sul: 'PR, SC e RS', centroOeste: 'DF, GO, MT e MS', nordeste: 'BA, PE, CE, MA, PB, RN, AL, SE e PI', norte: 'AM, PA, AC, RO, RR, AP e TO' };
+    function blocoCorreios(f, l) {
+      var envio = l.envio || {}, tab = envio.tabela || {}, prazos = envio.prazos || {};
+      var bloco = el('div', { class: 'bloco-form', id: 'aj-correios', hidden: !correiosAparece(l) }, [el('div', { class: 'bloco-titulo', text: 'Envio pelos Correios' })]);
+      var chave = interruptorCampo('Vender para todo o Brasil', 'Aparece o botão "Receber pelos Correios" no seu site. A cliente de qualquer cidade compra e paga pelo site.', l.enviaCorreios === true);
+      bloco.appendChild(chave);
+      var detalhes = el('div', { class: 'pilha correios-detalhes', hidden: l.enviaCorreios !== true });
+      detalhes.appendChild(el('div', { class: 'aviso correios-como' }, [UI.iconeLinha('info'), el('div', { class: 'correios-como-texto' }, [
+        el('b', { text: 'Como funciona' }),
+        el('ol', { class: 'correios-passos' }, [
+          el('li', { text: 'A cliente digita o CEP. O frete que você puser aqui embaixo entra sozinho no pedido.' }),
+          el('li', { text: 'O pedido chega aqui já pago, no Pix ou no cartão. Você separa a peça e leva aos Correios.' }),
+          el('li', { text: 'No pedido, toque em "Postei nos Correios" e cole o código de rastreio. Depois toque em "Mandar o rastreio": a cliente recebe no WhatsApp.' }),
+        ]),
+      ])]));
+      detalhes.appendChild(el('div', { class: 'correios-dica' }, [
+        el('b', { text: 'Quanto cobrar de frete?' }),
+        el('p', { class: 'ajuda', text: 'Simule no site dos Correios um pacote com uma peça, saindo do CEP da sua loja para uma cidade de cada região. Use o valor do PAC e arredonde um pouco para cima, por causa da caixa.' }),
+        el('a', { class: 'btn btn-fantasma btn-pequeno', href: 'https://www2.correios.com.br/sistemas/precosPrazos/', target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Abrir a simulação dos Correios']),
+      ]));
+      var campos = {};
+      var tabela = el('div', { class: 'correios-tabela' });
+      R.REGIOES_ENVIO.forEach(function (r) {
+        var nome = r[0] === 'estado' ? 'No seu estado' + (l.uf ? ' (' + String(l.uf).toUpperCase() + ')' : '') : r[1];
+        var preco = campoDinheiro('Frete', tab[r[0]] || 0);
+        var prazo = campoTexto('Chega em até', prazos[r[0]] || '', { tipo: 'number', placeholder: 'dias' });
+        prazo.input.min = '1'; prazo.input.max = '60';
+        campos[r[0]] = { preco: preco, prazo: prazo };
+        tabela.appendChild(el('div', { class: 'correios-regiao' }, [
+          el('div', { class: 'correios-regiao-nome' }, [el('b', { text: nome }), el('small', { text: ESTADOS_DA_REGIAO[r[0]] })]),
+          el('div', { class: 'linha-campos correios-regiao-campos' }, [preco, prazo]),
+        ]));
+      });
+      detalhes.appendChild(el('div', { class: 'campo' }, [
+        el('label', { text: 'Frete de cada região' }),
+        el('p', { class: 'ajuda', text: 'O prazo é em dias úteis depois de postar (o que os Correios mostram na simulação). Deixe o frete vazio na região para onde você não envia: a cliente de lá vê um aviso para falar com você no WhatsApp.' }),
+        tabela,
+      ]));
+      var porPeca = campoDinheiro('Cada peça a mais', envio.porPeca || 0, 'Somado ao frete a partir da 2ª peça, porque o pacote fica maior. Vazio = o frete é o mesmo para qualquer quantidade.');
+      var gratis = campoDinheiro('Frete grátis a partir de', envio.gratisAcima || 0, 'Vazio = a cliente sempre paga o frete. Com valor, o site mostra "faltam R$ X para o frete sair de graça".');
+      detalhes.appendChild(el('div', { class: 'grade-form' }, [porPeca, gratis]));
+      detalhes.appendChild(el('p', { class: 'ajuda correios-pagamento' }, [UI.iconeLinha('cadeado'), 'Pelos Correios a cliente paga pelo site, antes de você postar. Deixe o Pix ou o cartão ligado no bloco Pagamento.']));
+      bloco.appendChild(detalhes);
+      chave.chave.addEventListener('click', function () { detalhes.hidden = !chave.chave.ligado; });
+      /* mensageiro que ainda nao conhece os Correios: o bloco so aparece quando ele responder que sim */
+      if (bloco.hidden && R.segmento(l) === 'comercio' && estado.correiosOk !== false) {
+        recursoNoAr('correios').then(function (sim) { estado.correiosOk = sim; if (sim && bloco.isConnected) { bloco.hidden = false; f.correios.oferecido = true; } });
+      }
+      f.correios = {
+        chave: chave.chave,
+        oferecido: !bloco.hidden,
+        valor: function () {
+          var t = {}, pz = {};
+          Object.keys(campos).forEach(function (k) {
+            var v = campos[k].preco.centavos();
+            if (v > 0) t[k] = Math.min(v, 100000);
+            var d = Math.round(Number(campos[k].prazo.input.value));
+            if (d >= 1 && d <= 60) pz[k] = d;
+          });
+          return { tabela: t, prazos: pz, porPeca: Math.min(porPeca.centavos(), 100000), gratisAcima: gratis.centavos() };
+        },
+      };
+      return bloco;
+    }
+
     function desenharAjustes() {
       var s = $('secaoPainel');
       UI.limpar(s);
@@ -3457,6 +3570,7 @@
       [f.taxaEntrega, f.entregaGratisAcima, f.pedidoMinimo, f.tempoPreparo, f.tempoEntrega].forEach(function (c) { ge.appendChild(c); });
       entrega.appendChild(ge);
       s.appendChild(entrega);
+      s.appendChild(blocoCorreios(f, l));
 
       var pagamento = el('div', { class: 'bloco-form', id: 'aj-pagamento' }, [el('div', { class: 'bloco-titulo', text: 'Pagamento' })]);
       /* Duas turmas, como o cliente ve no fechamento: "Pelo site" (Pix e cartao, pela conta Mercado Pago da loja) e "Na
@@ -4029,6 +4143,11 @@
         mostrarOutras: f.mostrarOutras.chave.ligado,
         jogoDesligado: !f.jogo.chave.ligado,
       };
+      /* envio pelos Correios: so grava quando o bloco apareceu (mensageiro antigo ou loja de comida: fica como estava) */
+      if (f.correios && f.correios.oferecido) {
+        mudancas.enviaCorreios = f.correios.chave.ligado;
+        mudancas.envio = f.correios.valor();
+      }
       /* desligou a loja aqui: o "Abrir agora" que estivesse valendo sai junto (religar depois nao traz ele de volta) */
       if (!mudancas.aberta && estado.loja.abertaAte) mudancas.abertaAte = '';
       /* so grava o Pix combinado quando o interruptor apareceu (mensageiro antigo: fica como estava) */
@@ -4040,10 +4159,14 @@
       if (mudancas.whatsapp.length < 10) { f.whatsapp.input.focus(); return UI.avisar('Digite o WhatsApp da loja com DDD.'); }
       if (f.cnpj.input.value.trim() && !mudancas.cnpj) { f.cnpj.input.focus(); return UI.avisar('Esse CNPJ não confere. Veja se digitou os 14 números certos, ou deixe o campo vazio.'); }
       if (f.google.input.value.trim() && !mudancas.googleUrl) { f.google.input.focus(); return UI.avisar('Esse link não é do Google. No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.'); }
-      if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
+      if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada && !mudancas.enviaCorreios) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
+      if (mudancas.enviaCorreios && !temFreteCorreios({ envio: mudancas.envio })) { document.getElementById('aj-correios').scrollIntoView({ block: 'center' }); return UI.avisar('Coloque o frete de pelo menos uma região no bloco Envio pelos Correios, ou desligue o envio.'); }
       /* o mesmo que o resumo do bloco Pagamento: sem nenhuma forma ligada, o cliente monta o pedido e nao consegue fechar */
       var pixValendo = aceitaPix && (!!tokenDigitado || f.mpToken.temSalvo || aindaLendo);
       if (!pixValendo && !cartaoLigado && !mudancas.aceitaPixCombinado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega && !mudancas.aceitaValeEntrega && !mudancas.aceitaPixEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
+      /* pelos Correios a cliente paga pelo site: sem Pix, cartao ou Pix pelo WhatsApp, o botao aparece e ninguem fecha */
+      var pixCombValendo = mudancas.aceitaPixCombinado != null ? mudancas.aceitaPixCombinado : R.pixCombinadoNaLoja(estado.loja);
+      if (mudancas.enviaCorreios && !pixValendo && !cartaoLigado && !pixCombValendo) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Pelos Correios a cliente paga pelo site. Ligue o Pix ou o cartão no bloco Pagamento (ou o Pix pelo WhatsApp).'); }
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.taxaEntrega <= 0) return UI.avisar('Taxa de entrega em branco. Coloque o valor ou marque "Entrega grátis".');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.entregaGratisAcima > 0 && mudancas.entregaGratisAcima <= mudancas.taxaEntrega) return UI.avisar('"Grátis a partir de" precisa ser maior que a taxa de entrega.');
       var novaSenha = f.senhaPainel ? f.senhaPainel.input.value.trim() : '';

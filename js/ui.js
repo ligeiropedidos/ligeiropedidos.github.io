@@ -1061,6 +1061,8 @@
       el('span', { class: 'endereco-rua', text: rua }),
       e.bairro ? el('span', { class: 'endereco-bairro', text: e.bairro }) : null,
       e.referencia ? el('span', { class: 'endereco-ref', text: 'Referência: ' + e.referencia }) : null,
+      /* 18/11/2026: o envio pelos Correios leva cidade, estado e CEP */
+      e.cep ? el('span', { class: 'endereco-cep', text: [e.cidade, e.uf].filter(Boolean).join('/') + ' · CEP ' + e.cep }) : null,
     ]);
   }
   /* loja (opcional): para dar nome ao tamanho ("Tamanho: P", "Numeração: 38"), igual ao carrinho do cliente */
@@ -1088,6 +1090,8 @@
   }
 
   function seloTipo(p) {
+    /* 18/11/2026: pedido pelos Correios tem selo proprio (quem leva e o carteiro, nao o entregador) */
+    if (p && p.envio && p.envio.tipo === 'correios') return el('span', { class: 'selo cinza selo-tipo' }, [iconeLinha('caixa'), 'Correios']);
     var tipo = p.tipoEntrega === 'entrega' ? 'entrega' : (p.origem === 'balcao' ? 'balcao' : 'retirada');
     return el('span', { class: 'selo cinza selo-tipo' }, [iconeLinha(tipo), { entrega: 'Entrega', balcao: 'Balcão', retirada: 'Retirada' }[tipo]]);
   }

@@ -216,7 +216,9 @@
     return token().then(function (t) {
       return postar('/avisar', {
         loja: loja, pedido: p.id, status: status, aviso: cliente ? p.aviso : null,
-        resumo: { senha: p.senha, total: p.total, tipoEntrega: p.tipoEntrega, origem: p.origem || '', nome: String((p.cliente && p.cliente.nome) || '').split(' ')[0], bairro: entrega && p.endereco ? p.endereco.bairro : '', segmento: p.segmento || '' },
+        resumo: { senha: p.senha, total: p.total, tipoEntrega: p.tipoEntrega, origem: p.origem || '', nome: String((p.cliente && p.cliente.nome) || '').split(' ')[0], bairro: entrega && p.endereco ? p.endereco.bairro : '', segmento: p.segmento || '',
+          /* 18/11/2026: pelos Correios o aviso diz "postado" e leva o codigo de rastreio */
+          correios: !!(p.envio && p.envio.tipo === 'correios'), rastreio: p.rastreio || '' },
       }, t);
     }).then(function (j) { return !cliente ? '' : (j.cliente >= 200 && j.cliente < 300 ? 'sim' : 'nao'); }).catch(function () { return cliente ? 'nao' : ''; });
   }

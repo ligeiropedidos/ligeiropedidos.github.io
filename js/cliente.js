@@ -14,6 +14,8 @@
 
   /* "entrega gratis em ~40 min" / "entrega em ~40 min" / "retirar no balcao" (comercio: "retirar na loja") */
   function fraseEntrega(l) {
+    /* 18/11/2026: quem envia pelos Correios vende para longe: e isso que o botao diz */
+    if (R.enviaCorreios(l)) return 'enviamos para todo o Brasil';
     if (l.aceitaEntrega === false) return 'retirar ' + R.catalogo(l).retirada;
     var gratis = R.descreverFrete(l) === 'Entrega grátis';
     return (gratis ? 'entrega grátis' : 'entrega') + ' em ~' + (l.tempoEntrega || 40) + '\u00a0min';
@@ -566,6 +568,10 @@
       loja: null,
       carrinho: [],
       tipoEntrega: 'retirada',
+      /* 18/11/2026: envio pelos Correios. O pedido e uma entrega com a marca do envio; o CEP e o que o mensageiro achou dele */
+      envio: '',
+      cep: '',
+      cepInfo: null,
       pularEscolhaTipo: balcao,
       cupom: { codigo: '', percentual: 0, desconto: 0 },
       pedido: null,
@@ -756,7 +762,7 @@
       if (balcao) return;
       try {
         if (estado.carrinho.length === 0 && !estado.cupom.codigo) sessionStorage.removeItem(CHAVE_RASCUNHO);
-        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, cupom: estado.cupom, cuponsExtra: estado.cuponsExtra || [], chave: estado.chavePedido || null }));
+        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, envio: estado.envio, cep: estado.cep, cepInfo: estado.cepInfo, cupom: estado.cupom, cuponsExtra: estado.cuponsExtra || [], chave: estado.chavePedido || null }));
       } catch (_) { /* sem espaco: segue sem rascunho */ }
     }
     function restaurarRascunho() {
@@ -768,6 +774,11 @@
         if (store.aquecer && !balcao) store.aquecer();
         estado.carrinho = r.carrinho;
         estado.tipoEntrega = r.tipoEntrega === 'entrega' ? 'entrega' : 'retirada';
+        /* o envio pelos Correios volta com o CEP (sem CEP de 8 numeros, nao: a pessoa escolhe de novo) */
+        if (r.envio === 'correios' && R.soNumerosDoCep(r.cep).length === 8 && estado.tipoEntrega === 'entrega') {
+          estado.envio = 'correios'; estado.cep = R.soNumerosDoCep(r.cep);
+          estado.cepInfo = r.cepInfo && typeof r.cepInfo === 'object' ? { rua: String(r.cepInfo.rua || ''), bairro: String(r.cepInfo.bairro || ''), cidade: String(r.cepInfo.cidade || ''), uf: R.ufValida(r.cepInfo.uf) || R.ufDoCep(estado.cep) } : { rua: '', bairro: '', cidade: '', uf: R.ufDoCep(estado.cep) };
+        }
         estado.cupom = r.cupom || { codigo: '', percentual: 0, desconto: 0 };
         /* a regra do cupom que o mensageiro confirmou volta junto (a copia publica da loja nao traz a lista de cupons:
            sem ela, o cupom valido virava "Esse codigo nao existe" depois de recarregar). O desconto de verdade quem
@@ -1313,15 +1324,29 @@
       if (l.aceitaRetirada !== false) modos.push('retirada');
       /* so oferece o jeito de receber que tem como pagar (antes a pessoa montava tudo e so no ultimo passo via que nao dava) */
       var temPixLoja = pixDisponivel(l) || (cartaoDisponivel(l) && !balcao) || (!!R.pixCombinadoNaLoja(l) && !balcao), pagaNaPorta = R.recebeNaPorta(l);
+      /* Correios: so com pagamento pelo site (ninguem cobra na porta de quem mora longe) */
+      if (R.enviaCorreios(l) && !balcao) modos.push('correios');
       /* pagar no balcao: sem o campo vale ligado, so o false desliga (a mesma conta das regras) */
-      var pagaveis = modos.filter(function (m) { return temPixLoja || (pagaNaPorta && (m === 'entrega' || l.aceitaPagarNoBalcao !== false)); });
+      var pagaveis = modos.filter(function (m) { return temPixLoja || (m !== 'correios' && pagaNaPorta && (m === 'entrega' || l.aceitaPagarNoBalcao !== false)); });
       if (pagaveis.length) modos = pagaveis; /* sem pagamento nenhum: fica o aviso do ultimo passo (fale com a loja) */
+      else modos = modos.filter(function (m) { return m !== 'correios'; });
       if (balcao) modos = ['retirada'];
-      var tipoAntes = estado.tipoEntrega;
-      estado.pularEscolhaTipo = modos.length === 1;
-      if (estado.pularEscolhaTipo) estado.tipoEntrega = modos[0];
+      var tipoAntes = estado.tipoEntrega, envioAntes = estado.envio;
+      /* a loja parou de enviar pelos Correios com a pessoa no meio: volta para a escolha (o total e o endereco mudam) */
+      if (estado.envio === 'correios' && modos.indexOf('correios') < 0) {
+        estado.envio = '';
+        if (modos.indexOf('entrega') < 0 && modos.length) estado.tipoEntrega = modos[0];
+      }
+      /* so com os Correios, a escolha continua aparecendo: e nela que a pessoa diz o CEP */
+      estado.pularEscolhaTipo = modos.length === 1 && modos[0] !== 'correios';
+      if (estado.pularEscolhaTipo) { estado.tipoEntrega = modos[0]; estado.envio = ''; }
       $('opcaoEntrega').disabled = modos.indexOf('entrega') < 0;
       $('opcaoRetirada').disabled = modos.indexOf('retirada') < 0;
+      $('opcaoCorreios').hidden = modos.indexOf('correios') < 0;
+      /* a entrega na cidade desligada, com os Correios ligados: a opcao some (desligada parecia defeito) */
+      $('opcaoEntrega').hidden = l.aceitaEntrega === false && modos.indexOf('correios') >= 0;
+      var gratisCorreios = Math.round(Number((l.envio || {}).gratisAcima) || 0);
+      $('detalheCorreios').textContent = gratisCorreios > 0 ? 'Para todo o Brasil. Frete grátis a partir de\u00a0' + dinheiro(gratisCorreios) : 'Para todo o Brasil. O frete sai pelo seu\u00a0CEP';
       /* espaco que nao quebra: a linha nunca comeca com o ponto e o "min" nunca fica sozinho embaixo */
       $('detalheRetirada').textContent = R.catalogo(l).prontoEm + ' ~' + (l.tempoPreparo || 20) + '\u00a0min';
       $('detalheEntrega').textContent = R.descreverFrete(l) + ' ·\u00a0~' + (l.tempoEntrega || 40) + '\u00a0min';
@@ -1340,19 +1365,23 @@
       var voltar = raiz.querySelector('#tela-cardapio .voltar');
       if (voltar) voltar.dataset.voltar = estado.pularEscolhaTipo ? 'tela-inicio' : 'tela-tipo';
       $('blocoEndereco').hidden = estado.tipoEntrega !== 'entrega';
+      pintarEnvio();
       atualizarFormasDePagamento();
       /* o jeito de receber que a pessoa tinha mudou sozinho (a loja desligou a entrega ou a retirada): avisa, em vez de
          trocar calado. So para quem esta montando um pedido (carrinho com item, ou numa tela de montar) */
       var telaAgora = raiz.querySelector('.tela.ativa');
       var montando = estado.carrinho.length > 0 || (!!telaAgora && TELAS_DE_MONTAR.indexOf(telaAgora.id) >= 0);
-      if (estado.tipoEntrega !== tipoAntes && montando) tipoSaiu(tipoAntes);
+      if (envioAntes === 'correios' && estado.envio !== 'correios' && montando) tipoSaiu('correios');
+      else if (estado.tipoEntrega !== tipoAntes && montando) tipoSaiu(tipoAntes);
     }
 
     /* Avisa (balao e aviso na tela da escolha) e, se a pessoa estava montando o pedido, volta para a escolha: o total
        muda (a taxa de entrega entra ou sai) e o endereco aparece ou some */
     function tipoSaiu(antes) {
       var onde = R.catalogo(estado.loja).retirada;
-      var texto = antes === 'entrega'
+      var texto = antes === 'correios'
+        ? 'A loja parou de enviar pelos Correios agora. Escolha outro jeito de receber ou fale com ela no WhatsApp.'
+        : antes === 'entrega'
         ? 'A loja parou de fazer entrega agora. Seu pedido fica para buscar ' + onde + '.'
         : 'A loja parou a retirada ' + onde + ' agora. Seu pedido fica para entrega.';
       var aviso = $('avisoTipo');
@@ -1388,13 +1417,134 @@
 
     raiz.querySelectorAll('[data-tipo]').forEach(function (b) {
       b.addEventListener('click', function () {
+        if (b.dataset.tipo === 'correios') {
+          pedirCep(function () {
+            $('avisoTipo').hidden = true;
+            $('blocoEndereco').hidden = false;
+            pintarEnvio();
+            atualizarFormasDePagamento();
+            atualizarBarraCarrinho();
+            irPara('tela-cardapio');
+          });
+          return;
+        }
         estado.tipoEntrega = b.dataset.tipo;
+        estado.envio = '';
         $('avisoTipo').hidden = true;
         $('blocoEndereco').hidden = estado.tipoEntrega !== 'entrega';
+        pintarEnvio();
         atualizarFormasDePagamento();
+        atualizarBarraCarrinho();
         irPara('tela-cardapio');
       });
     });
+
+    /* ---------- envio pelos Correios (18/11/2026) ---------- */
+    function ehEnvio() { return estado.tipoEntrega === 'entrega' && estado.envio === 'correios'; }
+    function envioAtual() { return ehEnvio() ? { tipo: 'correios', cep: estado.cep, uf: (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep) } : null; }
+    /* pergunta o endereco do CEP ao mensageiro; sem internet ou sem resposta, o estado sai das faixas e a pessoa digita */
+    function consultarCep(cep) {
+      var c = R.soNumerosDoCep(cep);
+      var reserva = { achou: false, rua: '', bairro: '', cidade: '', uf: R.ufDoCep(c) };
+      if (!store.buscarCep) return Promise.resolve(reserva);
+      return store.buscarCep(c).then(function (j) {
+        if (j && j.achou) return { achou: true, rua: String(j.rua || ''), bairro: String(j.bairro || ''), cidade: String(j.cidade || ''), uf: R.ufValida(j.uf) || reserva.uf };
+        return reserva;
+      }, function () { return reserva; });
+    }
+    /* a janelinha do CEP: explica para que serve, mostra o frete e so segue quando a loja envia para la */
+    function pedirCep(depois) {
+      var l = estado.loja;
+      var campo = el('input', { type: 'text', id: 'campoCepJanela', inputmode: 'numeric', autocomplete: 'postal-code', placeholder: '00000-000', maxlength: 9, value: R.formatarCep(estado.cep) });
+      var recado = el('p', { class: 'envio-recado', role: 'status', hidden: true });
+      var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Ver o frete e continuar' });
+      function mascarar() { var c = R.soNumerosDoCep(campo.value); campo.value = c.length > 5 ? c.slice(0, 5) + '-' + c.slice(5) : c; }
+      campo.addEventListener('input', function () { mascarar(); recado.hidden = true; campo.classList.remove('erro'); });
+      function falhar(texto) { recado.textContent = texto; recado.className = 'envio-recado envio-recado-erro'; recado.hidden = false; campo.classList.add('erro'); }
+      function seguir() {
+        var c = R.soNumerosDoCep(campo.value);
+        if (c.length !== 8) { falhar('O CEP tem 8 números. Confira e digite de novo.'); return; }
+        var soltar = UI.ocupar(botao, 'Procurando o CEP…');
+        consultarCep(c).then(function (info) {
+          if (soltar) soltar();
+          if (!vivo) return;
+          if (!info.uf) { falhar('Não achamos esse CEP. Confira os números ou toque em "Não sei o meu CEP".'); return; }
+          var q = Math.max(1, quantidadeTotal());
+          var sub = estado.carrinho.length ? orcamento().subtotal : 0;
+          var f = R.freteCorreios(l, info.uf, q, sub);
+          if (f.erro) { falhar(f.erro); return; }
+          estado.tipoEntrega = 'entrega';
+          estado.envio = 'correios';
+          var mudouCep = estado.cep !== c;
+          estado.cep = c;
+          estado.cepInfo = info;
+          if (mudouCep) preencherPeloCep(info, true);
+          UI.fecharModal();
+          depois();
+          UI.avisar('Frete para ' + (info.cidade ? info.cidade + '/' : '') + info.uf + (f.valor > 0 ? ': ' + dinheiro(f.valor) + ' por enquanto' : ': grátis') + '. Ele aparece no total.');
+        });
+      }
+      botao.addEventListener('click', seguir);
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); seguir(); } });
+      UI.abrirModal({ titulo: 'Qual é o seu CEP?', corpo: el('div', { class: 'pilha envio-janela' }, [
+        el('p', { class: 'muted', text: 'O frete dos Correios muda conforme a cidade. Digite o CEP de quem vai receber o pacote e o valor já entra no seu pedido.' }),
+        el('div', { class: 'campo' }, [el('label', { for: 'campoCepJanela', text: 'CEP' }), campo]),
+        recado,
+        el('a', { class: 'envio-nao-sei', href: 'https://buscacepinter.correios.com.br/app/endereco/index.php', target: '_blank', rel: 'noopener' }, [UI.iconeLinha('busca'), 'Não sei o meu CEP']),
+      ]), rodape: [botao] });
+      setTimeout(function () { campo.focus(); }, 60);
+    }
+    /* o endereco que veio do CEP vai para os campos (rua e bairro so quando o CEP tem rua: cidade pequena tem CEP geral) */
+    function preencherPeloCep(info, trocouCep) {
+      $('campoCep').value = R.formatarCep(estado.cep);
+      $('campoCidade').value = info.cidade || (trocouCep ? '' : $('campoCidade').value);
+      $('campoUf').value = info.uf || '';
+      if (info.rua) $('campoRua').value = info.rua; else if (trocouCep) $('campoRua').value = '';
+      if (info.bairro) $('campoBairro').value = info.bairro; else if (trocouCep) $('campoBairro').value = '';
+      if (trocouCep) { $('campoNumero').value = ''; $('campoComplemento').value = ''; }
+    }
+    /* os campos do endereco mudam com o envio: CEP, cidade e estado so nos Correios; o ponto de referencia so na cidade */
+    function pintarEnvio() {
+      var c = ehEnvio();
+      $('blocoCep').hidden = !c;
+      $('blocoCidade').hidden = !c;
+      $('blocoReferencia').hidden = c;
+      $('tituloEndereco').textContent = c ? 'Para onde enviar' : 'Onde entregar';
+      $('textoAvisoCel').textContent = c ? 'Quando o pedido for postado nos Correios, mesmo com a tela apagada.' : 'Quando o pedido sair, mesmo com a tela apagada.';
+      pintarFreteDoCep();
+    }
+    function pintarFreteDoCep() {
+      var caixa = $('envioFrete');
+      if (!ehEnvio() || !estado.loja) { caixa.hidden = true; return; }
+      var uf = (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep);
+      var f = uf ? R.freteCorreios(estado.loja, uf, Math.max(1, quantidadeTotal()), orcamento().subtotal) : { erro: 'Digite o CEP com os 8 números para ver o frete.' };
+      UI.limpar(caixa);
+      caixa.className = 'envio-frete' + (f.erro ? ' envio-frete-erro' : '');
+      caixa.appendChild(UI.iconeLinha(f.erro ? 'alerta' : 'caixa'));
+      caixa.appendChild(el('span', { text: f.erro ? f.erro : 'Frete pelos Correios para ' + uf + ': ' + (f.valor > 0 ? dinheiro(f.valor) : 'grátis') + (f.prazo > 0 ? '. ' + R.prazoDoEnvio(f.prazo).replace(/^./, function (x) { return x.toUpperCase(); }) + '.' : '.') }));
+      caixa.hidden = false;
+    }
+    /* trocar o CEP no fechamento: o frete e o endereco acompanham */
+    (function () {
+      var campo = $('campoCep');
+      var ultimo = '';
+      campo.addEventListener('input', function () {
+        var c = R.soNumerosDoCep(campo.value);
+        campo.value = c.length > 5 ? c.slice(0, 5) + '-' + c.slice(5) : c;
+        campo.classList.remove('erro');
+        if (c.length !== 8 || c === ultimo) return;
+        ultimo = c;
+        consultarCep(c).then(function (info) {
+          if (!vivo || R.soNumerosDoCep(campo.value) !== c) return;
+          estado.cep = c;
+          estado.cepInfo = info;
+          if (info.uf) preencherPeloCep(info, true);
+          pintarFreteDoCep();
+          atualizarBarraCarrinho();
+          atualizarFormasDePagamento();
+        });
+      });
+    })();
 
     /* ---------- cardapio ---------- */
 
@@ -1772,7 +1922,7 @@
       if (estado.carrinho.length === 0) return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '' };
       try {
         /* a forma so pesa no fechamento (taxa do cartao repassada); no carrinho vale a conta sem ela */
-        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: $('tela-dados').classList.contains('ativa') ? formaEscolhida() : '', agora: agoraDaLoja() });
+        return R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: $('tela-dados').classList.contains('ativa') ? formaEscolhida() : '', agora: agoraDaLoja(), envio: envioAtual() });
       } catch (e) {
         /* um item saiu do cardapio no meio do pedido: a tela mostra o motivo em vez de "GRATIS" */
         return { subtotal: 0, taxaEntrega: 0, desconto: 0, total: 0, cupomErro: '', erro: e && e.message ? e.message : 'Algo mudou no ' + R.catalogo(estado.loja).nome + '.' };
@@ -1804,10 +1954,12 @@
       }
       var lojaAtual = estado.loja || {};
       var alvo = (!lojaAtual.freteGratis && Number(lojaAtual.taxaEntrega) > 0) ? (Number(lojaAtual.entregaGratisAcima) || 0) : 0;
+      /* Correios: o gratis a partir de um valor e o da tabela do envio */
+      if (ehEnvio()) alvo = Math.round(Number((lojaAtual.envio || {}).gratisAcima) || 0);
       var prog = $('progressoEntrega');
       if (estado.tipoEntrega === 'entrega' && alvo > 0 && q > 0) {
         var falta = alvo - orc.subtotal;
-        $('progressoTexto').textContent = falta > 0 ? 'Faltam ' + dinheiro(falta) + ' para a entrega sair de graça' : 'Boa! Sua entrega saiu de graça.';
+        $('progressoTexto').textContent = falta > 0 ? 'Faltam ' + dinheiro(falta) + (ehEnvio() ? ' para o frete sair de graça' : ' para a entrega sair de graça') : (ehEnvio() ? 'Boa! Seu frete saiu de graça.' : 'Boa! Sua entrega saiu de graça.');
         $('progressoBarra').style.width = Math.min(100, Math.round((orc.subtotal / alvo) * 100)) + '%';
         prog.hidden = false;
       } else prog.hidden = true;
@@ -1900,7 +2052,11 @@
       var orc = orcamento();
       UI.limpar(totais);
       totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Itens' }), el('span', { text: dinheiro(orc.subtotal) })]));
-      if (estado.tipoEntrega === 'entrega') {
+      if (ehEnvio()) {
+        var ev = orc.envio || {};
+        totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Frete (Correios' + (ev.uf ? ' para ' + ev.uf : '') + ')' }),
+          ev.erro ? el('span', { class: 'envio-falta', text: 'ver CEP' }) : orc.taxaEntrega > 0 ? el('span', { text: dinheiro(orc.taxaEntrega) }) : el('span', { class: 'gratis', text: 'GRÁTIS' })]));
+      } else if (estado.tipoEntrega === 'entrega') {
         totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Entrega' }), orc.taxaEntrega > 0 ? el('span', { text: dinheiro(orc.taxaEntrega) }) : el('span', { class: 'gratis', text: 'GRÁTIS' })]));
       }
       if (orc.desconto > 0) totais.appendChild(el('div', { class: 'linha desconto' }, [el('span', { text: 'Cupom ' + estado.cupom.codigo + ' (' + orc.cupomPercentual + '%)' }), el('span', { text: '− ' + dinheiro(orc.desconto) })]));
@@ -1971,7 +2127,7 @@
     }
     function aplicarCupomConferido(digitado, msg) {
       var orc;
-      try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado, agora: agoraDaLoja() }); }
+      try { orc = R.orcar(estado.loja, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: digitado, agora: agoraDaLoja(), envio: envioAtual() }); }
       catch (e) { msg.hidden = false; msg.textContent = e && e.message ? e.message : 'Algo mudou no ' + R.catalogo(estado.loja).nome + '. Confira o pedido.'; return; }
       if (orc.cupomErro) { UI.soar('erro'); msg.hidden = false; msg.textContent = orc.cupomErro; estado.cupom = { codigo: '', percentual: 0, desconto: 0 }; return; }
       /* cupom com limite: quem conta os usos e o mensageiro, na hora de criar o pedido (o contador e fechado para o
@@ -1990,7 +2146,11 @@
     $('btnAddMais').addEventListener('click', function () { irPara('tela-cardapio'); });
     $('btnIrDados').addEventListener('click', function () {
       if (estado.carrinho.length === 0) return UI.avisar('Escolha pelo menos um item.');
+      /* Correios sem frete (CEP que a loja nao atende): pede o CEP de novo, com o motivo */
+      var orcEnvio = ehEnvio() ? orcamento().envio : null;
+      if (orcEnvio && orcEnvio.erro) { UI.avisar(orcEnvio.erro); pedirCep(function () { pintarEnvio(); atualizarBarraCarrinho(); montarCarrinho(); }); return; }
       preencherDadosSalvos();
+      if (ehEnvio()) preencherDoCepSeFaltar();
       atualizarFormasDePagamento();
       prepararAvisoCel();
       /* o QR do Pix (57 KB) baixa agora, enquanto a pessoa preenche os dados: a tela do Pix abre com ele pronto */
@@ -2064,7 +2224,8 @@
     function atualizarFormasDePagamento() {
       var l = estado.loja;
       if (!l) return;
-      var naPorta = estado.tipoEntrega === 'entrega' || l.aceitaPagarNoBalcao !== false || balcao;
+      /* Correios: so pelo site (Pix, cartao ou o Pix combinado); ninguem cobra na porta de quem mora em outra cidade */
+      var naPorta = !ehEnvio() && (estado.tipoEntrega === 'entrega' || l.aceitaPagarNoBalcao !== false || balcao);
       var temPix = pixDisponivel(l);
       /* cartao pelo site: nunca no tablet do balcao (cartao digitado em aparelho da loja; la tem a maquininha) */
       var temCartaoSite = cartaoDisponivel(l) && !balcao;
@@ -2077,7 +2238,9 @@
       var temPixComb = !!R.pixCombinadoNaLoja(l) && !balcao;
       /* retirada numa loja que so aceita pagar na porta da entrega: diz isso, em vez de "nao configurou pagamento" */
       var soNaEntrega = !naPorta && !temPix && !temCartaoSite && !temPixComb && R.recebeNaPorta(l);
-      $('semFormaPagamento').textContent = soNaEntrega
+      $('semFormaPagamento').textContent = ehEnvio() && !temPix && !temCartaoSite && !temPixComb
+        ? 'Para enviar pelos Correios a loja precisa receber pelo site, e ela ainda não ligou o Pix nem o cartão. Fale com ela pelo WhatsApp.'
+        : soNaEntrega
         ? 'Esta loja só recebe o pagamento na entrega.' + (l.aceitaEntrega !== false ? ' Volte e escolha "Quero entrega" para pagar na porta.' : ' Para retirar, fale com ela pelo WhatsApp.')
         : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
       $('opcaoPix').hidden = !temPix;
@@ -2149,8 +2312,8 @@
       var l = estado.loja;
       if (!l || $('opcaoCartaoOnline').hidden || !estado.carrinho.length) return;
       try {
-        var semCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'pix', agora: agoraDaLoja() });
-        var comCartao = R.orcar(l, { itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'cartao_online', agora: agoraDaLoja() });
+        var semCartao = R.orcar(l, { envio: envioAtual(), itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'pix', agora: agoraDaLoja() });
+        var comCartao = R.orcar(l, { envio: envioAtual(), itens: itensParaRegras(), tipoEntrega: estado.tipoEntrega, cupom: estado.cupom.codigo, formaPagamento: 'cartao_online', agora: agoraDaLoja() });
         var taxa = comCartao.acrescimoCartao || 0;
         $('detalheCartaoOnline').textContent = taxa > 0 ? 'À vista, + ' + dinheiro(taxa) + ' de taxa do cartão' : 'À vista, pago agora aqui no site';
         $('detalhePix').textContent = taxa > 0 && semCartao.total > 0 ? 'Sem taxa, direto para a loja' : 'Paga pelo celular, direto para a loja';
@@ -2203,6 +2366,9 @@
       $('campoBairro').value = e.bairro || '';
       $('campoComplemento').value = e.complemento || '';
       $('campoReferencia').value = e.referencia || '';
+      $('campoCidade').value = e.cidade || '';
+      $('campoUf').value = e.uf || '';
+      $('campoCep').value = e.cep ? R.formatarCep(e.cep) : '';
       if (salvo.nome) { aviso.hidden = false; $('textoVolta').textContent = 'Oi de novo, ' + salvo.nome.split(' ')[0] + '! Já deixamos seus dados preenchidos. Confira se está tudo certo.'; }
       else aviso.hidden = true;
     }
@@ -2214,10 +2380,18 @@
       if (!nome && !telefone) return;
       UI.guardarLocal(CHAVE_CLIENTE, {
         nome: nome, telefone: telefone,
-        endereco: { rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), referencia: $('campoReferencia').value.trim() },
+        endereco: { rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), referencia: $('campoReferencia').value.trim(),
+          cep: R.soNumerosDoCep($('campoCep').value), cidade: $('campoCidade').value.trim(), uf: R.ufValida($('campoUf').value) },
       });
     }
-    ['campoNome', 'campoTelefone', 'campoRua', 'campoNumero', 'campoBairro', 'campoComplemento', 'campoReferencia'].forEach(function (id) { $(id).addEventListener('change', salvarDadosDoCliente); });
+    ['campoNome', 'campoTelefone', 'campoRua', 'campoNumero', 'campoBairro', 'campoComplemento', 'campoReferencia', 'campoCidade', 'campoUf'].forEach(function (id) { $(id).addEventListener('change', salvarDadosDoCliente); });
+    /* Correios: os dados salvos sao de outro CEP (ou de uma entrega na cidade): o endereco do CEP de agora entra no lugar */
+    function preencherDoCepSeFaltar() {
+      var salvoCep = R.soNumerosDoCep($('campoCep').value);
+      if (salvoCep !== estado.cep) preencherPeloCep(estado.cepInfo || { uf: R.ufDoCep(estado.cep) }, true);
+      else if (estado.cepInfo) { if (!$('campoCidade').value.trim()) $('campoCidade').value = estado.cepInfo.cidade || ''; $('campoUf').value = estado.cepInfo.uf || $('campoUf').value; }
+      pintarEnvio();
+    }
 
     function validarFormulario() {
       var erros = [];
@@ -2226,7 +2400,14 @@
       if (nome.length < 2 && !balcao) { erros.push('Digite seu nome.'); $('campoNome').classList.add('erro'); }
       var telefone = $('campoTelefone').value.replace(/\D/g, '');
       if (telefone.length < 10 && !balcao) { erros.push('Digite seu WhatsApp com DDD.'); $('campoTelefone').classList.add('erro'); }
-      if (estado.tipoEntrega === 'entrega') {
+      if (ehEnvio()) {
+        if (R.soNumerosDoCep($('campoCep').value).length !== 8) { erros.push('Digite o CEP com os 8 números.'); $('campoCep').classList.add('erro'); }
+        [['campoRua', 'a rua'], ['campoNumero', 'o número (se não tiver, escreva s/n)'], ['campoBairro', 'o bairro'], ['campoCidade', 'a cidade']].forEach(function (par) {
+          if (!$(par[0]).value.trim()) { erros.push('Preencha ' + par[1] + '.'); $(par[0]).classList.add('erro'); }
+        });
+        var orcE = orcamento().envio;
+        if (orcE && orcE.erro) { erros.push(orcE.erro); $('campoCep').classList.add('erro'); }
+      } else if (estado.tipoEntrega === 'entrega') {
         [['campoRua', 'a rua'], ['campoBairro', 'o bairro']].forEach(function (par) {
           if (!$(par[0]).value.trim()) { erros.push('Preencha ' + par[1] + ' da entrega.'); $(par[0]).classList.add('erro'); }
         });
@@ -2252,9 +2433,11 @@
         nome: nome, telefone: telefone,
         observacao: $('campoObs').value.trim(),
         tipoEntrega: estado.tipoEntrega,
+        envio: ehEnvio() ? 'correios' : '',
         formaPagamento: formaEscolhida(),
         trocoPara: formaEscolhida() === 'dinheiro_entrega' && $('trocoSim').checked ? UI.centavosDoCampo($('campoTroco').value) : 0,
-        endereco: estado.tipoEntrega === 'entrega' ? { rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), referencia: $('campoReferencia').value.trim() } : {},
+        endereco: ehEnvio() ? { cep: R.soNumerosDoCep($('campoCep').value), rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), cidade: $('campoCidade').value.trim(), uf: R.ufValida($('campoUf').value) }
+          : estado.tipoEntrega === 'entrega' ? { rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), referencia: $('campoReferencia').value.trim() } : {},
         itens: itensParaRegras(),
         cupom: estado.cupom.codigo,
         origem: balcao ? 'balcao' : 'link',
@@ -3498,7 +3681,7 @@
         return;
       }
       /* entrega: quando sair; retirada: quando ficar pronto (antes dizia "sair" ate para quem ia buscar) */
-      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer um aviso?' }), el('span', { text: (pedido.tipoEntrega === 'entrega' ? 'Quando sair' : 'Quando ficar pronto') + ', mesmo com a tela apagada.' })]));
+      caixa.appendChild(el('span', { class: 'aviso-cel-pedido-texto' }, [el('b', { text: 'Quer um aviso?' }), el('span', { text: (R.ehCorreios(pedido) ? 'Quando for postado' : pedido.tipoEntrega === 'entrega' ? 'Quando sair' : 'Quando ficar pronto') + ', mesmo com a tela apagada.' })]));
       var btn = el('button', { class: 'btn btn-principal btn-pequeno', type: 'button', text: 'Avisar', onclick: function () {
         if (demo) {
           pedido.aviso = { demo: true };
@@ -3549,7 +3732,7 @@
       var contas = el('div', { class: 'totais totais-embutido' });
       var conta = function (rotulo, valor, classe, classeValor) { contas.appendChild(el('div', { class: 'linha' + (classe ? ' ' + classe : '') }, [el('span', { text: rotulo }), el('span', { class: classeValor || null, text: valor })])); };
       conta('Itens', dinheiro(pedido.subtotal || 0));
-      if (pedido.tipoEntrega === 'entrega') conta('Entrega', pedido.taxaEntrega > 0 ? dinheiro(pedido.taxaEntrega) : 'Grátis', '', pedido.taxaEntrega > 0 ? '' : 'gratis');
+      if (pedido.tipoEntrega === 'entrega') conta(R.ehCorreios(pedido) ? 'Frete (Correios)' : 'Entrega', pedido.taxaEntrega > 0 ? dinheiro(pedido.taxaEntrega) : 'Grátis', '', pedido.taxaEntrega > 0 ? '' : 'gratis');
       if (pedido.desconto > 0) conta('Cupom ' + (pedido.cupom || '') + (pedido.cupomPercentual ? ' (' + pedido.cupomPercentual + '%)' : ''), '- ' + dinheiro(pedido.desconto), 'desconto');
       if (pedido.acrescimoCartao > 0) conta('Taxa do cartão', dinheiro(pedido.acrescimoCartao));
       conta('Total', pedido.total === 0 ? 'GRÁTIS' : dinheiro(pedido.total), 'total');
@@ -3561,10 +3744,22 @@
       /* onde: buscar na loja ou receber em casa */
       var l = estado.loja || {};
       if (pedido.tipoEntrega === 'entrega') {
+        /* Correios postado: o codigo de rastreio e o botao para acompanhar o pacote (vale tambem no link de outro aparelho) */
+        var codigo = R.ehCorreios(pedido) ? R.limparRastreio(pedido.rastreio) : '';
+        if (codigo && pedido.status !== R.STATUS.CANCELADO) {
+          caixa.appendChild(el('div', { class: 'resumo-onde envio-rastreio' }, [
+            UI.iconeLinha('caixa'),
+            el('div', { class: 'resumo-onde-texto' }, [
+              el('b', { text: 'Código de rastreio' }),
+              el('span', { class: 'envio-codigo', text: codigo }),
+              el('a', { class: 'resumo-mapa', href: R.linkRastreio(codigo), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Ver onde está o pacote']),
+            ]),
+          ]));
+        }
         if (!deFora && pedido.endereco && pedido.endereco.rua) {
           caixa.appendChild(el('div', { class: 'resumo-onde' }, [
-            UI.iconeLinha('mapa'),
-            el('div', { class: 'resumo-onde-texto' }, [el('b', { text: 'Entregar em' }), UI.enderecoEmLinhas(pedido.endereco)]),
+            UI.iconeLinha(R.ehCorreios(pedido) ? 'caixa' : 'mapa'),
+            el('div', { class: 'resumo-onde-texto' }, [el('b', { text: R.ehCorreios(pedido) ? 'Enviar pelos Correios para' : 'Entregar em' }), UI.enderecoEmLinhas(pedido.endereco)]),
           ]));
         }
       } else if (pedido.status !== R.STATUS.CANCELADO) {
@@ -3586,7 +3781,7 @@
       var etapas = [
         { chave: R.STATUS.PAGO, icone: 'recibo', texto: rotuloDoPagamento(pedido) },
         { chave: R.STATUS.PRODUCAO, icone: R.catalogo(estado.loja).iconePreparo, texto: R.catalogo(estado.loja).preparando },
-        { chave: R.STATUS.PRONTO, icone: entrega ? 'entrega' : 'retirada', texto: entrega ? 'Saiu para entrega' : 'Pronto para retirar' },
+        { chave: R.STATUS.PRONTO, icone: R.ehCorreios(pedido) ? 'caixa' : entrega ? 'entrega' : 'retirada', texto: R.ehCorreios(pedido) ? 'Postado nos Correios' : entrega ? 'Saiu para entrega' : 'Pronto para retirar' },
         { chave: R.STATUS.FINALIZADO, icone: 'sorriso', texto: entrega ? 'Entregue' : 'Retirado' },
       ];
       var posicao = etapas.map(function (e) { return e.chave; }).indexOf(pedido.status);
@@ -3881,6 +4076,7 @@
         '<div class="aviso aviso-falta" id="avisoTipo" hidden></div>' +
         '<button class="escolha-grande" id="opcaoEntrega" data-tipo="entrega"><span class="icone">' + UI.iconeHtml('entrega') + '</span><span><span class="rotulo">Quero entrega</span><span class="detalhe" id="detalheEntrega"></span></span><span class="seta">→</span></button>' +
         '<button class="escolha-grande" id="opcaoRetirada" data-tipo="retirada"><span class="icone">' + UI.iconeHtml('retirada') + '</span><span><span class="rotulo">Vou buscar</span><span class="detalhe" id="detalheRetirada"></span></span><span class="seta">→</span></button>' +
+        '<button class="escolha-grande" id="opcaoCorreios" data-tipo="correios" hidden><span class="icone">' + UI.iconeHtml('caixa') + '</span><span><span class="rotulo">Receber pelos Correios</span><span class="detalhe" id="detalheCorreios"></span></span><span class="seta">→</span></button>' +
       '</div>' +
     '</section>' +
 
@@ -3917,11 +4113,13 @@
             '<div class="campo"' + (balcao ? ' hidden' : '') + '><label for="campoTelefone">Seu WhatsApp</label><p class="ajuda">É por aqui que a loja te avisa se precisar.</p><input type="tel" id="campoTelefone" name="telefone" placeholder="(13) 99999-9999" autocomplete="tel" inputmode="numeric" maxlength="16"></div>' +
           '</div>' +
           '<div class="bloco-form" id="blocoEndereco" hidden>' +
-            '<div class="bloco-titulo"><span class="bloco-numero">2</span> Onde entregar</div>' +
+            '<div class="bloco-titulo"><span class="bloco-numero">2</span> <span id="tituloEndereco">Onde entregar</span></div>' +
+            '<div class="campo" id="blocoCep" hidden><label for="campoCep">CEP</label><p class="ajuda">Mudou o CEP? O endereço e o frete mudam sozinhos.</p><input type="text" id="campoCep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" maxlength="9"><p class="envio-frete" id="envioFrete" hidden></p></div>' +
             '<div class="campo"><label for="campoRua">Rua</label><input type="text" id="campoRua" placeholder="Nome da rua" autocomplete="address-line1" maxlength="120"></div>' +
             '<div class="linha-campos"><div class="campo"><label for="campoBairro">Bairro</label><input type="text" id="campoBairro" placeholder="Centro" maxlength="80"></div><div class="campo"><label for="campoNumero">Número</label><input type="text" id="campoNumero" placeholder="123" inputmode="numeric" maxlength="12"></div></div>' +
-            '<div class="campo"><label for="campoReferencia">Ponto de referência</label><p class="ajuda">Vale mais que CEP. Ex: perto do mercado, portão azul.</p><input type="text" id="campoReferencia" placeholder="Em frente à praça, portão azul" maxlength="140"></div>' +
+            '<div class="campo" id="blocoReferencia"><label for="campoReferencia">Ponto de referência</label><p class="ajuda">Vale mais que CEP. Ex: perto do mercado, portão azul.</p><input type="text" id="campoReferencia" placeholder="Em frente à praça, portão azul" maxlength="140"></div>' +
             '<div class="campo"><label for="campoComplemento">Complemento <span class="opcional">opcional</span></label><input type="text" id="campoComplemento" placeholder="Casa, apto, fundos…" maxlength="80"></div>' +
+            '<div class="linha-campos" id="blocoCidade" hidden><div class="campo"><label for="campoCidade">Cidade</label><input type="text" id="campoCidade" maxlength="60" autocomplete="address-level2"></div><div class="campo"><label for="campoUf">Estado</label><input type="text" id="campoUf" placeholder="SP" maxlength="2" autocapitalize="characters" autocomplete="address-level1"></div></div>' +
           '</div>' +
           '<div class="bloco-form" id="blocoPagamento">' +
             '<div class="bloco-titulo"><span class="bloco-numero">3</span> Como você quer pagar?</div>' +
@@ -3946,7 +4144,7 @@
           '<div class="bloco-form" id="blocoRecado"><div class="bloco-titulo"><span class="bloco-numero">4</span> Algum recado? <span class="bloco-opcional">opcional</span></div>' +
             '<div class="campo"><textarea id="campoObs" aria-label="Recado para a loja" placeholder="Ex: sem cebola em tudo, tocar a campainha…" maxlength="300"></textarea></div>' +
           '</div>' +
-          '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small>Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
+          '<div class="interruptor aviso-cel" id="blocoAvisoCel" hidden><span class="aviso-cel-ico" aria-hidden="true" id="icoAvisoCel"></span><div class="texto">Me avise no celular<small id="textoAvisoCel">Quando o pedido sair, mesmo com a tela apagada.</small></div><button type="button" class="chave" id="chaveAvisoCel" aria-label="Me avise no celular" aria-pressed="false"></button></div>' +
           (balcao ? '' : '<p class="nota">' + UI.iconeHtml('cadeado') + 'Seus dados ficam guardados só neste aparelho.</p>') +
           /* quem pede sabe com quem esta comprando e onde estao as regras (sem caixinha: pedir comida nao pode ter atrito) */
           '<p class="nota nota-termos">Ao pedir, você compra da loja e concorda com os <a href="#/termos" target="_blank" rel="noopener">termos</a> e a <a href="#/privacidade" target="_blank" rel="noopener">privacidade</a>.</p>' +

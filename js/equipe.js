@@ -422,7 +422,7 @@
         var avisoValor = avisoConferido(p);
         if (avisoValor) f.appendChild(avisoValor);
         var proximo = R.proximoStatus(p);
-        var rotulo = p.status === R.STATUS.PAGO ? (cat().comida ? 'Começar a fazer' : 'Começar a separar') : (p.tipoEntrega === 'entrega' ? 'Pronto, pode sair' : 'Pronto para retirar');
+        var rotulo = p.status === R.STATUS.PAGO ? (cat().comida ? 'Começar a fazer' : 'Começar a separar') : (R.ehCorreios(p) ? 'Pronto, vai para os Correios' : p.tipoEntrega === 'entrega' ? 'Pronto, pode sair' : 'Pronto para retirar');
         if (proximo) {
           var btnAndar = el('button', { class: 'btn ' + (p.status === R.STATUS.PAGO ? 'btn-escuro' : 'btn-principal') + ' btn-largo', onclick: function () {
             /* a tela redesenha na hora e a proxima ficha sobe para baixo do dedo: o toque duplo nao anda outro pedido */
@@ -551,7 +551,8 @@
           return;
         }
         UI.limpar(lista);
-        var entregas =estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega'; });
+        /* os dos Correios nao: quem leva e o carteiro */
+        var entregas = estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega' && !R.ehCorreios(p); });
         var naRua = entregas.filter(function (p) { return p.status === R.STATUS.PRONTO; });
         var vindo = entregas.filter(function (p) { return p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO; });
         naRua.sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; });
@@ -607,7 +608,7 @@
           estado.pedidos = desdeOntem(lista);
           /* entrega nova em "Para entregar agora" apita e vibra, como pedido novo na cozinha. A primeira lista so conta (e
              a do cache tambem: a primeira do servidor ainda e o ponto de partida, sem apito de coisa que ja estava la) */
-          var prontas = estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega' && p.status === R.STATUS.PRONTO; });
+          var prontas = estado.pedidos.filter(function (p) { return p.tipoEntrega === 'entrega' && !R.ehCorreios(p) && p.status === R.STATUS.PRONTO; });
           var partida = !estado.naRua || estado.naRuaDoCache;
           var novas = partida ? 0 : prontas.filter(function (p) { return !estado.naRua[p.id]; }).length;
           estado.naRuaDoCache = partida && !!doCache;
