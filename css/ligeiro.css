@@ -824,7 +824,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .topo-app .topo-ico { display: inline-flex; line-height: 1; }
 .topo-app .topo-ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 1199px) {
-  .topo-app .btn-pequeno { flex-direction: column; gap: 6px; min-height: 60px; padding: 9.65px 4px 6.35px; border-radius: 14px; font-size: 13px; line-height: 1.1; } /* 2px a mais em cima: centro pela linha do texto, nao pela perna do p */
+  .topo-app .btn-pequeno { flex-direction: column; gap: 6px; min-height: 60px; padding: 9.65px 4px 6.35px; border-radius: 14px; font-size: 14px; line-height: 1.1; } /* 2px a mais em cima: centro pela linha do texto, nao pela perna do p */
   .topo-app .topo-ico svg { width: 24px; height: 24px; }
 }
 @media (max-width: 360px) { .topo-app .btn-pequeno { font-size: 12.5px; } }
@@ -1145,12 +1145,12 @@ a.selo-google:hover { background: var(--lime-suave); }
 .btn-mini { min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 10px; align-self: flex-start; }
 .interruptor .texto { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; } /* palavra comprida quebra com hifen: a chave nunca sai do cartao (no iPhone de 320 passava 13 px) */
 .interruptor .texto small { display: block; font-weight: 400; font-size: 13.5px; color: var(--muted); text-wrap: pretty; } /* sem palavra sozinha embaixo ("caiu.", "site.") */
-.chave { position: relative; width: 58px; height: 34px; border-radius: 17px; background: #D3DCCB; border: 0; flex: none; transition: background 0.15s; }
+.chave { position: relative; width: 64px; height: 38px; border-radius: 19px; background: #D3DCCB; border: 0; flex: none; transition: background 0.15s; }
 .chave { cursor: pointer; transition: background 0.2s; }
-.chave::after { content: ""; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; transition: left 0.22s cubic-bezier(0.3, 1.4, 0.5, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.chave:active::after { width: 32px; }
+.chave::after { content: ""; position: absolute; top: 3px; left: 3px; width: 32px; height: 32px; border-radius: 50%; background: #fff; transition: left 0.22s cubic-bezier(0.3, 1.4, 0.5, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.chave:active::after { width: 36px; }
 .chave.on { background: var(--lime); }
-.chave.on::after { left: 27px; }
+.chave.on::after { left: 29px; }
 
 /* ---------- Situacao da loja no painel: aberta (verde, ao vivo), fechada na chave (cinza), fechada pelo horario (ambar) ----------
    Bolinha na linha do titulo, frase embaixo alinhada com o titulo, chave no meio da altura. Um pulso so, lento;
@@ -1158,7 +1158,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .status-loja { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; align-items: center; padding: 14px 16px; transition: background-color 0.25s, border-color 0.25s; }
 .status-loja .status-ponto { grid-row: 1; grid-column: 1; position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--ponto); }
 .status-loja .status-titulo { grid-row: 1; grid-column: 2; font-size: 16px; line-height: 1.3; }
-.status-loja .status-sub { grid-row: 2; grid-column: 2; font-size: 13.5px; line-height: 1.35; color: var(--muted); }
+.status-loja .status-sub { grid-row: 2; grid-column: 2; font-size: 14.5px; line-height: 1.35; color: var(--muted); }
 .status-loja .chave { grid-row: 1 / 3; grid-column: 3; }
 .status-loja.aberta { --ponto: var(--lime-escuro); background: var(--lime-suave); border-color: var(--lime); }
 .status-loja.aberta .status-titulo { color: var(--deep); }
@@ -1172,7 +1172,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .linha-produto { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 10px 12px; }
 .linha-produto .emoji { font-size: 26px; width: 36px; text-align: center; flex: none; }
 .linha-produto .nome { flex: 1; min-width: 0; font-weight: 600; }
-.linha-produto .nome small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linha-produto .nome small { display: block; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .linha-produto input.preco { width: 120px; min-height: 48px; padding: 8px 10px; border: 1.5px solid var(--line-forte); border-radius: 10px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; } /* valor no meio da caixa em toda largura (encostado na direita sobrava um vao do lado); numeros da mesma largura */
 .linha-produto .editar { border: 1.5px solid var(--line-forte); background: var(--card); border-radius: 10px; min-height: 44px; padding: 0 12px; font-weight: 700; }
 .linha-produto .nome > :first-child { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1209,7 +1209,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .estoque-item-situacao.pouco { color: #9A5A06; }
 .estoque-item-situacao.zerado { color: var(--erro); }
 .contador-estoque { flex: none; }
-.contador-estoque button { width: 40px; height: 40px; font-size: 22px; }
+.contador-estoque button { width: 48px; height: 48px; font-size: 22px; }
 .contador-estoque button .ico-traco svg { width: 20px; height: 20px; }
 .campo .contador-estoque input { width: 56px; min-height: 0; height: 40px; padding: 0; border: 0; border-radius: 8px; background: transparent; text-align: center; font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .campo .contador-estoque input:focus { outline: none; background: var(--lime-suave); }
@@ -1307,7 +1307,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .metrica { background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 12px; }
 .metrica .v { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--deep); }
-.metrica .l { font-size: 13px; color: var(--muted); }
+.metrica .l { font-size: 15px; color: var(--muted); }
 .seletor-periodo { display: flex; flex-wrap: wrap; gap: 8px; }
 .seletor-periodo .aba-painel { min-height: 44px; min-width: 88px; justify-content: center; }
 .barras { display: flex; align-items: stretch; gap: 4px; height: 190px; background: var(--card); border: 1px solid var(--line); border-radius: var(--raio-p); padding: 16px 12px 10px; }
@@ -2098,7 +2098,7 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 /* loja de verdade: texto, o celular com a loja da Dom Conizza saindo de baixo do quadro e o botao */
 .loja-real-texto { display: contents; }
 .loja-real-botao { order: 2; align-self: stretch; }
-.loja-real-vitrine { order: 1; position: relative; display: flex; text-decoration: none; justify-content: center; height: 330px; padding-top: 24px; overflow: hidden; border-radius: var(--raio); background: radial-gradient(circle at 50% 100%, rgba(132, 204, 22, 0.28), transparent 62%), var(--lime-suave); border: 1px solid #CFE3B4; }
+.loja-real-vitrine { order: 1; position: relative; display: flex; text-decoration: none; justify-content: center; height: 289px; padding-top: 24px; overflow: hidden; border-radius: var(--raio); background: radial-gradient(circle at 50% 100%, rgba(132, 204, 22, 0.28), transparent 62%), var(--lime-suave); border: 1px solid #CFE3B4; }
 .loja-real-cel { position: relative; display: block; width: 232px; flex: none; align-self: flex-start; padding: 7px 7px 0; border-radius: 38px 38px 0 0; background: #0E1F14; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 0 3px #0E1F14, inset 0 0 0 4px rgba(255, 255, 255, 0.05), 0 18px 40px rgba(14, 31, 20, 0.24); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
 /* botoes do aparelho: volume na esquerda, liga/desliga na direita */
 .loja-real-cel::before, .loja-real-cel::after { content: ""; position: absolute; width: 3px; background: #0E1F14; }
@@ -2111,6 +2111,11 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 .loja-real-status svg { display: block; fill: currentColor; }
 .loja-real-tela img { display: block; width: 100%; height: auto; transition: opacity 0.18s ease; }
 .loja-real-tela img.trocando { opacity: 0; }
+/* "Abrir a loja" e "Falar comigo no WhatsApp": no celular embaixo do aparelho (order 2, como o botao fazia sozinho), um
+   embaixo do outro e com a largura toda; no computador lado a lado */
+.loja-real-acoes { order: 2; align-self: stretch; display: flex; flex-direction: column; gap: 12px; }
+.loja-real-acoes .loja-real-botao { margin: 0; align-self: stretch; }
+@media (min-width: 900px) { .loja-real-acoes { flex-direction: row; flex-wrap: wrap; align-self: flex-start; } .loja-real-acoes .loja-real-botao { align-self: auto; } }
 /* a loja de tela escura (Jaci Lanches): a barra do aparelho escura, com a hora e os icones claros */
 .loja-real-tela.escura { background: #1E100A; }
 .loja-real-tela.escura .loja-real-status { color: #FFF1D6; }
@@ -2132,7 +2137,7 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
   .loja-real-texto { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
   .loja-real-texto > * { margin: 0; }
   .loja-real-botao { align-self: flex-start; }
-  .loja-real-vitrine { height: 372px; padding-top: 32px; }
+  .loja-real-vitrine { height: 322px; padding-top: 32px; } /* 18/11/2026: corta entre o "Aberto agora" e o "PEDIR AGORA" (era 372; no celular 289, era 330) */
   .loja-real-cel { width: 256px; padding: 8px 8px 0; border-radius: 40px 40px 0 0; }
   .loja-real-tela { border-radius: 32px 32px 0 0; }
 }
@@ -2420,7 +2425,9 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 /* 17/11/2026: selo com icone na frente, como nos sites profissionais (padrao Material: 8 do lado do icone, 16 do lado do texto):
    com 12 e 12 o texto parecia colado na ponta redonda */
 .vender-selos .selo { padding-left: 10px; padding-right: 16px; }
-@media (max-width: 359px) { .vender-selos .selo-preco { font-size: 13px; padding: 6px 12px 6px 8px; gap: 6px; } } /* 320: o selo numa linha so (mesma largura de antes) */
+/* 18/11/2026: o selo de onde cai o dinheiro, no mesmo desenho do selo do preco (o cadeado no verde da marca) */
+.selo-dinheiro .ico-traco { color: var(--lime-escuro); }
+@media (max-width: 359px) { .vender-selos .selo-preco, .vender-selos .selo-dinheiro { font-size: 13px; padding: 6px 12px 6px 8px; gap: 6px; } } /* 320: o selo numa linha so (mesma largura de antes) */
 /* fechamento: o preco lembrado embaixo do titulo */
 .final-preco { margin: 0; font-size: 17px; line-height: 1.4; color: var(--body); }
 .final-preco b { color: var(--deep); }
@@ -2442,6 +2449,14 @@ a.pagamento-linha:focus-visible { outline: 3px solid var(--lime-escuro); outline
 /* janela da troca de plano: hoje e depois, na caixa verde da fatura */
 .resumo-troca { padding: 4px 16px; border: 1.5px solid #D5ECB0; border-radius: 14px; background: var(--lime-suave); }
 .rodape-vendas .contatos a { color: var(--body); font-weight: 600; text-decoration: none; padding: 6px 4px; }
+/* 18/11/2026: no celular os 4 links ficam 2 e 2 (antes "Lojas da cidade" descia sozinho para a segunda linha) */
+@media (max-width: 479px) { .rodape-vendas .contatos { display: grid; grid-template-columns: repeat(2, auto); justify-content: center; column-gap: 20px; row-gap: 0; } }
+/* WhatsApp e Instagram do Ligeiro escritos por extenso, cada um inteiro na linha */
+.rodape-contato { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; }
+.rodape-contato a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 4px; color: var(--body); font-weight: 600; text-decoration: none; }
+.rodape-contato .ico-traco { display: inline-flex; color: var(--lime-escuro); }
+.rodape-contato .ico-traco svg { width: 17px; height: 17px; }
+@media (hover: hover) { .rodape-contato a:hover { color: var(--deep); text-decoration: underline; } }
 /* celular: a barra fixa "Comecar gratis" (65px) cobria a ultima linha do rodape; ela termina 16px acima da barra */
 @media (max-width: 759px) { .rodape-vendas:has(~ .cta-fixa) { padding-bottom: calc(81px + env(safe-area-inset-bottom)); } }
 .texto-legal { max-width: 720px; margin: 0 auto; width: 100%; gap: 8px; }
@@ -3201,6 +3216,8 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
   .adm-abas .adm-aba-extra .chip-qtd { display: none; }
   .adm-abas .adm-aba-extra .badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; }
 }
+/* 18/11/2026: abas com letra de 14 no celular comum (eram 12,5); a 360 e abaixo seguem as regras de baixo */
+@media (min-width: 361px) and (max-width: 640px) { .abas-principais .aba-painel { font-size: 14px; } }
 /* iPhone com "Tela ampliada" (320 px): margem e vao um pouco menores e letra 11,5 para "Cardapio" caber inteiro */
 @media (max-width: 360px) {
   .abas-principais { gap: 4px; padding-left: 12px; padding-right: 12px; }
@@ -3360,7 +3377,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .avisos-botoes .btn { min-height: 48px; flex: 1 1 auto; white-space: nowrap; }
 @media (max-width: 640px) { .avisos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .avisos-botoes .btn { min-width: 0; padding: 0 12px; } } /* celular: os dois lado a lado, do mesmo tamanho, ate no 320 */
 @media (min-width: 641px) { .avisos-botoes .btn { flex: 0 0 auto; min-width: 168px; } }
-@media (max-width: 360px) { .avisos-botoes { grid-template-columns: minmax(0, 1fr); gap: 8px; } } /* 320: um embaixo do outro, com folga dentro do botao */
+@media (max-width: 380px) { .avisos-botoes { grid-template-columns: minmax(0, 1fr); gap: 8px; } } /* 18/11/2026: ate 380 (com a letra do iPhone, "Ver como chega" cortava 4 px a 375) */ /* 320: um embaixo do outro, com folga dentro do botao */
 /* Minha loja: ligar, testar e desligar (mesmo desenho da senha da equipe) */
 .bloco-avisos-botoes { display: flex; gap: 12px; flex: none; }
 .bloco-avisos-botoes .btn { min-height: 48px; padding: 0 20px; white-space: nowrap; }
@@ -3466,7 +3483,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .fundador-selo .estrela { display: inline-flex; }
 .adm-selo .ico-traco svg { width: 14px; height: 14px; stroke-width: 2.4; }
 /* painel: o que era cor fixa no codigo (o tema da loja oficial nao pegava) */
-.fila-mostrar { cursor: pointer; color: var(--muted); font-weight: 600; padding: 6px 0; }
+.fila-mostrar { cursor: pointer; color: var(--muted); font-weight: 600; padding: 12px 0; min-height: 48px; }
 .fila-nenhum { margin: 0; padding: 6px 0; color: var(--muted); font-size: 15px; } /* no lugar do Mostrar, na mesma altura */
 .editar-grupo { border: 1.5px solid var(--line-forte); background: var(--card); border-radius: 10px; min-height: 40px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; }
 .editar-grupo .ico-traco svg { width: 18px; height: 18px; }
@@ -3647,6 +3664,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 @media (max-width: 360px) { .tour-mascote { width: 68px; height: 68px; } .tour-texto { font-size: 15px; } }
 .passos-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 0; } /* 12 do card + 4 = 16 da lista */
 .passos-botoes .btn { min-width: 0; white-space: nowrap; }
+@media (max-width: 340px) { .passos-botoes .btn { padding-left: 8px; padding-right: 8px; gap: 6px; } } /* 18/11/2026: 320 com a letra do iPhone, "Meu link" e "Tutorial" cortavam 6 e 2 px */
 .passos-botoes .btn-principal { grid-column: 1 / -1; }
 .passo-ir { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .passo-ir .ico-traco svg { width: 16px; height: 16px; }

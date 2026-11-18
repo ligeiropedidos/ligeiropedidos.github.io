@@ -1123,7 +1123,7 @@
       /* as tres etapas com duas linhas cada (antes "Pix, maquininha ou dinheiro" virava quatro linhas no meio):
          maquininha ou dinheiro a pessoa escolhe no fechamento, onde as duas aparecem */
       /* Pix combinado com a loja tambem e "Pix" para quem esta so olhando */
-      var temPix = pixDisponivel(l) || !!R.pixCombinadoNaLoja(l), temCartao = cartaoDisponivel(l), aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+      var temPix = pixDisponivel(l) || !!R.pixCombinadoNaLoja(l), temCartao = cartaoDisponivel(l), aoReceber = R.recebeNaPorta(l);
       var linhas;
       if (temPix && temCartao) linhas = aoReceber ? ['Pix, cartão', 'ou ao receber'] : ['Pix ou cartão', 'pelo site'];
       else if (temPix || temCartao) linhas = aoReceber ? [temPix ? 'Pague no Pix' : 'Pague no cartão', 'ou ao receber'] : ['Pague', temPix ? 'no Pix' : 'no cartão'];
@@ -1312,7 +1312,7 @@
       if (l.aceitaEntrega !== false) modos.push('entrega');
       if (l.aceitaRetirada !== false) modos.push('retirada');
       /* so oferece o jeito de receber que tem como pagar (antes a pessoa montava tudo e so no ultimo passo via que nao dava) */
-      var temPixLoja = pixDisponivel(l) || (cartaoDisponivel(l) && !balcao) || (!!R.pixCombinadoNaLoja(l) && !balcao), pagaNaPorta = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+      var temPixLoja = pixDisponivel(l) || (cartaoDisponivel(l) && !balcao) || (!!R.pixCombinadoNaLoja(l) && !balcao), pagaNaPorta = R.recebeNaPorta(l);
       /* pagar no balcao: sem o campo vale ligado, so o false desliga (a mesma conta das regras) */
       var pagaveis = modos.filter(function (m) { return temPixLoja || (pagaNaPorta && (m === 'entrega' || l.aceitaPagarNoBalcao !== false)); });
       if (pagaveis.length) modos = pagaveis; /* sem pagamento nenhum: fica o aviso do ultimo passo (fale com a loja) */
@@ -2070,10 +2070,13 @@
       var temCartaoSite = cartaoDisponivel(l) && !balcao;
       var temCartao = naPorta && !!l.aceitaCartaoEntrega;
       var temDinheiro = naPorta && !!l.aceitaDinheiroEntrega;
+      /* 18/11/2026: vale-refeicao na maquininha e Pix na hora de receber, cobrados na porta como a maquininha */
+      var temVale = naPorta && !!l.aceitaValeEntrega;
+      var temPixEntrega = naPorta && !!l.aceitaPixEntrega;
       /* Pix combinado com a loja no WhatsApp (loja sem Mercado Pago): paga antes, entrega ou retirada; nunca no tablet */
       var temPixComb = !!R.pixCombinadoNaLoja(l) && !balcao;
       /* retirada numa loja que so aceita pagar na porta da entrega: diz isso, em vez de "nao configurou pagamento" */
-      var soNaEntrega = !naPorta && !temPix && !temCartaoSite && !temPixComb && !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+      var soNaEntrega = !naPorta && !temPix && !temCartaoSite && !temPixComb && R.recebeNaPorta(l);
       $('semFormaPagamento').textContent = soNaEntrega
         ? 'Esta loja só recebe o pagamento na entrega.' + (l.aceitaEntrega !== false ? ' Volte e escolha "Quero entrega" para pagar na porta.' : ' Para retirar, fale com ela pelo WhatsApp.')
         : 'A loja ainda não configurou uma forma de pagamento. Fale com ela pelo WhatsApp.';
@@ -2082,6 +2085,8 @@
       $('opcaoPixCombinado').hidden = !temPixComb;
       $('opcaoCartao').hidden = !temCartao;
       $('opcaoDinheiro').hidden = !temDinheiro;
+      $('opcaoVale').hidden = !temVale;
+      $('opcaoPixEntrega').hidden = !temPixEntrega;
       var noBalcao = estado.tipoEntrega !== 'entrega';
       /* o titulo do grupo diz QUANDO paga (agora pelo site, na entrega, no balcao); a opcao diz O QUE e. A maquininha
          aceita debito tambem: e o que separa ela do "Cartao de credito" pago agora no site */
@@ -2089,18 +2094,22 @@
       $('detalheCartao').textContent = 'Crédito ou débito, ' + (balcao ? 'aqui no caixa' : noBalcao ? 'na hora de pegar' : 'o entregador leva até você');
       $('nomeDinheiro').textContent = 'Dinheiro';
       $('detalheDinheiro').textContent = balcao ? 'Você paga aqui no caixa' : noBalcao ? 'Você paga na hora de pegar' : 'Você paga quando o pedido chegar';
+      $('detalheVale').textContent = 'Na maquininha, ' + (balcao ? 'aqui no caixa' : noBalcao ? 'na hora de pegar' : 'o entregador leva até você');
+      /* o nome diz onde paga: "Pix na entrega" embaixo de "Pague no balcao" nao fazia sentido */
+      $('nomePixEntrega').textContent = balcao ? 'Pix aqui no caixa' : noBalcao ? 'Pix ' + R.catalogo(estado.loja).retirada : 'Pix na entrega';
+      $('detalhePixEntrega').textContent = balcao ? 'Você paga aqui no caixa' : noBalcao ? 'Você paga na hora de pegar' : 'Você paga quando o pedido chegar';
       /* com as duas turmas (pelo site e na porta), um titulo curto separa uma da outra */
-      var agora = temPix || temCartaoSite || temPixComb, depois = temCartao || temDinheiro;
+      var agora = temPix || temCartaoSite || temPixComb, depois = temCartao || temDinheiro || temVale || temPixEntrega;
       $('grupoAgora').hidden = !(agora && depois);
       $('grupoNaPorta').hidden = !(agora && depois);
       $('grupoNaPorta').textContent = balcao ? 'Pague no caixa' : noBalcao ? 'Pague ' + R.catalogo(estado.loja).retirada : 'Pague na entrega';
       /* so o Pix combinado paga antes: nao e "pelo site" (o Pix vai direto para a loja, combinado no WhatsApp) */
       $('grupoAgora').textContent = !temPixComb ? 'Pague agora pelo site' : (temPix || temCartaoSite) ? 'Pague agora' : 'Pague no Pix';
       $('nomePix').textContent = agora && depois ? 'Pix' : 'Pix agora';
-      var disponiveis = { pix: temPix, cartao_online: temCartaoSite, pix_combinado: temPixComb, cartao_entrega: temCartao, dinheiro_entrega: temDinheiro };
+      var disponiveis = { pix: temPix, cartao_online: temCartaoSite, pix_combinado: temPixComb, cartao_entrega: temCartao, vale_entrega: temVale, pix_entrega: temPixEntrega, dinheiro_entrega: temDinheiro };
       var formaAntes = formaEscolhida();
       if (!disponiveis[formaAntes]) {
-        var campos = { pix: 'pgtoPix', cartao_online: 'pgtoCartaoOnline', pix_combinado: 'pgtoPixCombinado', cartao_entrega: 'pgtoCartao', dinheiro_entrega: 'pgtoDinheiro' };
+        var campos = { pix: 'pgtoPix', cartao_online: 'pgtoCartaoOnline', pix_combinado: 'pgtoPixCombinado', cartao_entrega: 'pgtoCartao', vale_entrega: 'pgtoVale', pix_entrega: 'pgtoPixEntrega', dinheiro_entrega: 'pgtoDinheiro' };
         var primeira = Object.keys(disponiveis).filter(function (f) { return disponiveis[f]; })[0];
         if (primeira) {
           $(campos[primeira]).checked = true;
@@ -2114,7 +2123,7 @@
       $('blocoTroco').hidden = orc.total === 0 || formaEscolhida() !== 'dinheiro_entrega';
       /* mesmo com uma forma so o bloco fica: e nele que mora o "precisa de troco?" */
       pintarTaxaDoCartao();
-      var algumaForma = temPix || temCartaoSite || temPixComb || temCartao || temDinheiro;
+      var algumaForma = temPix || temCartaoSite || temPixComb || temCartao || temDinheiro || temVale || temPixEntrega;
       $('blocoPagamento').hidden = orc.total === 0 || !algumaForma;
       $('semFormaPagamento').hidden = algumaForma;
       atualizarBotaoPagar();
@@ -2123,7 +2132,7 @@
       renumerarPassos();
     }
 
-    var NOME_DA_FORMA = { pix: 'O Pix', cartao_online: 'O cartão pelo site', pix_combinado: 'O Pix pelo WhatsApp', cartao_entrega: 'O cartão na maquininha', dinheiro_entrega: 'O dinheiro' };
+    var NOME_DA_FORMA = { pix: 'O Pix', cartao_online: 'O cartão pelo site', pix_combinado: 'O Pix pelo WhatsApp', cartao_entrega: 'O cartão na maquininha', dinheiro_entrega: 'O dinheiro', vale_entrega: 'O vale-refeição', pix_entrega: 'O Pix na entrega' };
     function formaSaiu(forma) {
       var texto = (NOME_DA_FORMA[forma] || 'Essa forma de pagamento') + ' não está mais disponível agora. Confira como você quer pagar.';
       var aviso = $('avisoForma');
@@ -3063,7 +3072,7 @@
           /* trocar: volta direto para o fechamento, ja sem o cartao marcado */
           if (!trocar || !estado.carrinho.length || !$('tela-carrinho').classList.contains('ativa')) return;
           $('btnIrDados').click();
-          var outra = ['pgtoPix', 'pgtoCartao', 'pgtoDinheiro'].filter(function (id) { return !$(id).parentNode.hidden; })[0];
+          var outra = ['pgtoPix', 'pgtoCartao', 'pgtoVale', 'pgtoPixEntrega', 'pgtoDinheiro'].filter(function (id) { return !$(id).parentNode.hidden; })[0];
           if (outra) { $(outra).checked = true; marcarFormaEscolhida(); atualizarBotaoPagar(); $('blocoTroco').hidden = formaEscolhida() !== 'dinheiro_entrega'; if (!$('blocoTroco').hidden) atualizarTroco(); }
         }).catch(function () { voltarAoCartao(); UI.avisar('Não deu para cancelar agora. Tente de novo.'); });
       });
@@ -3232,6 +3241,12 @@
           texto = pedido.trocoPara > 0
             ? 'Separe ' + dinheiro(pedido.trocoPara) + '. ' + (noBalcao ? 'O caixa' : 'O entregador') + ' devolve ' + dinheiro(pedido.trocoPara - pedido.total) + ' de troco.'
             : 'Separe ' + dinheiro(pedido.total) + ' em dinheiro' + (noBalcao ? ' para pagar ' + R.catalogo(estado.loja).retirada + '.' : ' para pagar na entrega.');
+        } else if (pedido.formaPagamento === 'vale_entrega') {
+          ico = 'carteira';
+          texto = dinheiro(pedido.total) + ' no vale-refeição, na maquininha' + (noBalcao ? ', ' + R.catalogo(estado.loja).retirada + '.' : ', quando o entregador chegar.');
+        } else if (pedido.formaPagamento === 'pix_entrega') {
+          ico = 'celular';
+          texto = dinheiro(pedido.total) + ' no Pix' + (noBalcao ? ', ' + R.catalogo(estado.loja).retirada + '.' : ', quando o entregador chegar.');
         } else {
           ico = 'cartao';
           texto = dinheiro(pedido.total) + ' na maquininha' + (noBalcao ? ', ' + R.catalogo(estado.loja).retirada + '.' : ', quando o entregador chegar.');
@@ -3517,6 +3532,8 @@
       if (pedido.total === 0) return ['cupom', 'Cortesia da loja'];
       if (pedido.formaPagamento === 'dinheiro_entrega') return ['dinheiro', 'Dinheiro, ' + (retira ? 'na retirada' : 'na entrega')];
       if (pedido.formaPagamento === 'cartao_entrega') return ['maquininha', 'Cartão na maquininha, ' + (retira ? 'na retirada' : 'na entrega')];
+      if (pedido.formaPagamento === 'vale_entrega') return ['carteira', 'Vale-refeição, ' + (retira ? 'na retirada' : 'na entrega')];
+      if (pedido.formaPagamento === 'pix_entrega') return ['celular', 'Pix, ' + (retira ? 'na retirada' : 'na entrega')];
       if (R.pixCombinado(pedido)) return ['celular', pedido.status === R.STATUS.AGUARDANDO ? 'Pix a combinar com a loja' : 'Pix combinado com a loja'];
       if (pedido.status === R.STATUS.AGUARDANDO) return ['ampulheta', pedido.formaPagamento === 'cartao_online' ? 'Cartão, esperando o pagamento' : 'Pix, esperando o pagamento'];
       if (pedido.status === R.STATUS.CANCELADO) return null;
@@ -3915,6 +3932,8 @@
             '<label class="forma-pgto" for="pgtoPixCombinado" id="opcaoPixCombinado" hidden><input type="radio" name="formaPagamento" id="pgtoPixCombinado" value="pix_combinado"><span class="forma-icone">' + UI.iconeHtml('telefone') + '</span><span class="forma-texto"><span class="forma-nome">Pix pelo WhatsApp</span><span class="forma-detalhe">Você manda o pedido e combina o Pix com a loja</span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div class="forma-grupo" id="grupoNaPorta" hidden>Pague na entrega</div>' +
             '<label class="forma-pgto" for="pgtoCartao" id="opcaoCartao" hidden><input type="radio" name="formaPagamento" id="pgtoCartao" value="cartao_entrega"><span class="forma-icone">' + UI.iconeHtml('maquininha') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeCartao">Cartão na maquininha</span><span class="forma-detalhe" id="detalheCartao"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoVale" id="opcaoVale" hidden><input type="radio" name="formaPagamento" id="pgtoVale" value="vale_entrega"><span class="forma-icone">' + UI.iconeHtml('carteira') + '</span><span class="forma-texto"><span class="forma-nome">Vale-refeição</span><span class="forma-detalhe" id="detalheVale"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
+            '<label class="forma-pgto" for="pgtoPixEntrega" id="opcaoPixEntrega" hidden><input type="radio" name="formaPagamento" id="pgtoPixEntrega" value="pix_entrega"><span class="forma-icone">' + UI.iconeHtml('celular') + '</span><span class="forma-texto"><span class="forma-nome" id="nomePixEntrega">Pix na entrega</span><span class="forma-detalhe" id="detalhePixEntrega"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<label class="forma-pgto" for="pgtoDinheiro" id="opcaoDinheiro" hidden><input type="radio" name="formaPagamento" id="pgtoDinheiro" value="dinheiro_entrega"><span class="forma-icone">' + UI.iconeHtml('dinheiro') + '</span><span class="forma-texto"><span class="forma-nome" id="nomeDinheiro">Dinheiro</span><span class="forma-detalhe" id="detalheDinheiro"></span></span><span class="forma-marca">' + UI.iconeHtml('check') + '</span></label>' +
             '<div id="blocoTroco" hidden>' +
               '<div class="forte" style="margin:6px 0 8px">Precisa de troco?</div>' +

@@ -242,6 +242,15 @@
       : el('button', { class: 'zap-flutuante', type: 'button', 'aria-label': 'Chamar no WhatsApp', onclick: function () { abrirContato('botao-flutuante'); } }, filhos));
   }
 
+  /* WhatsApp (13) 99644-7414 e Instagram @ligeiropedidos, cada um inteiro na linha */
+  function contatoDoRodape() {
+    var c = cfg();
+    var zap = String(c.whatsappLigeiro || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    var itens = [];
+    if (zap.length >= 10) itens.push(el('a', { class: 'sem-quebra', href: linkWhats(), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('conversa'), 'WhatsApp (' + zap.slice(0, 2) + ') ' + zap.slice(2, -4) + '-' + zap.slice(-4)]));
+    if (/^[a-z0-9._]{2,30}$/i.test(String(c.instagramLigeiro || ''))) itens.push(el('a', { class: 'sem-quebra', href: 'https://www.instagram.com/' + c.instagramLigeiro + '/', target: '_blank', rel: 'noopener' }, [UI.iconeLinha('camera'), 'Instagram @' + c.instagramLigeiro]));
+    return itens.length ? el('div', { class: 'rodape-contato' }, itens) : null;
+  }
   function rodape() {
     var e = cfg().empresa || {};
     var linhas = [
@@ -251,6 +260,8 @@
         el('a', { href: '#/entrar', text: 'Minha conta' }),
         el('a', { href: '#/cidades', text: 'Lojas da cidade' }),
       ]),
+      /* 18/11/2026: como falar com quem faz o Ligeiro, escrito por extenso (quem chega pelo anuncio procura antes de confiar) */
+      contatoDoRodape(),
       /* a cidade ("Juquiá, SP") e o CNPJ nunca se partem no meio da linha */
       el('div', { class: 'ligeiro' }, ['Ligeiro: pedido ligeiro, sem comissão · ', el('span', { class: 'sem-quebra', text: e.cidade || 'Juquiá, SP' }), e.nome ? ' · ' + e.nome : '', e.cnpj ? el('span', { class: 'sem-quebra', text: ' · CNPJ ' + e.cnpj }) : '']),
     ];
@@ -286,7 +297,7 @@
           if (!pilha.children.length) pilha.appendChild(UI.iconeLinha('loja'));
         };
         pintarPilha(clientesDoLigeiro(pintarPilha));
-        lista.push(el('a', { class: 'link-loja-real', href: '#clientes', onclick: function (e) { e.preventDefault(); rolarAte('clientes'); } }, [pilha, el('span', { text: 'Conferir clientes do Ligeiro' })]));
+        lista.push(el('a', { class: 'link-loja-real', href: '#clientes', onclick: function (e) { e.preventDefault(); rolarAte('clientes'); } }, [pilha, el('span', { text: 'Ver uma loja funcionando' })]));
       }
       return el('div', { class: 'pilha chamada' }, lista);
     }
@@ -362,6 +373,8 @@
 
     /* o selo do topo: as vagas de loja que restam (de verdade; ver vagasAbertas). Leva aos planos */
     function seloFundador() {
+      /* 18/11/2026: o selo de vagas saiu ("restam 11" de 12 lia como truque e entregava que havia 1 loja) */
+      return null;
       var c = vagasAbertas();
       if (!c) return null;
       return el('a', { class: 'selo selo-fundador', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [el('span', { class: 'estrela', 'aria-hidden': 'true' }, [UI.iconeLinha('ampulheta')]), 'Vagas limitadas: restam ' + c.restam]);
@@ -461,7 +474,9 @@
     /* 17/11/2026: o preco como argumento logo no topo ("um dos menores", nunca "o menor": ha catalogo de R$ 39 e gratis com
        limite). Leva para o bloco do preco, onde as barras mostram a prova */
     var seloPreco = el('a', { class: 'selo selo-preco', href: '#planos', onclick: function (e) { if (document.getElementById('planos')) { e.preventDefault(); rolarAte('planos'); } } }, [UI.iconeLinha('cupom'), 'Um dos menores preços do mercado']);
-    var selosTopo = el('div', { class: 'vender-selos' }, [seloPreco, seloFund, seloLojas]);
+    /* 18/11/2026: "quem fica com o meu dinheiro?" respondido logo no topo (antes so nas duvidas, la embaixo) */
+    var seloDinheiro = el('span', { class: 'selo selo-dinheiro' }, [UI.iconeLinha('cadeado'), 'Seu dinheiro não passa pelo Ligeiro']);
+    var selosTopo = el('div', { class: 'vender-selos' }, [seloDinheiro, seloPreco, seloFund, seloLojas]);
     var capa = el('div', { class: 'vender-capa' }, [
       el('div', { class: 'heroi-mascote-caixa' }, el('img', { class: 'heroi-mascote', src: 'img/mascote.webp', alt: 'Mascote do Ligeiro: um rato chef com um pedido na bandeja e o celular na mão' })),
       el('div', { class: 'heroi-texto' }, [
@@ -522,15 +537,14 @@
       var c = R.compararCustos(v, n);
       UI.limpar(resultado);
       [
-        ['iFood, plano Entrega', c.ifoodEntrega, 'comissão de 26,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['iFood, plano Básico', c.ifoodBasico, 'comissão de 15,2%' + (c.ifoodMensalidade ? ' + mensalidade' : '')],
         ['Anota AI', c.anotaAi, c.anotaFaixa],
         /* as barras: o que cada sistema cobra (no iFood o pagamento online ja vem na comissao; nos de mensalidade, a taxa
            do pagamento fica a parte, e a do Ligeiro entra na frase e na nota de baixo) */
         ['Ligeiro', c.ligeiroMensal, 'fixo, até ' + pedidosDoPlano() + ' pedidos'],
       ].forEach(function (linha, i) {
-        var maior = Math.max(c.ifoodEntrega, c.ifoodBasico, c.anotaAi, c.ligeiroMensal, 1);
-        resultado.appendChild(el('div', { class: 'calc-linha' + (i === 3 ? ' ligeiro' : '') }, [
+        var maior = Math.max(c.ifoodBasico, c.anotaAi, c.ligeiroMensal, 1);
+        resultado.appendChild(el('div', { class: 'calc-linha' + (i === 2 ? ' ligeiro' : '') }, [
           el('div', { class: 'calc-cabeca' }, [el('b', { text: linha[0] }), el('span', { class: 'calc-valor', text: dinheiro(linha[1]) + '/mês' })]),
           el('div', { class: 'calc-trilho' }, el('span', { style: { width: Math.max(2, Math.round(linha[1] / maior * 100)) + '%' } })),
           el('small', { text: linha[2] }),
@@ -540,14 +554,16 @@
       var economia = c.ifoodBasico - c.ligeiro;
       UI.limpar(frase);
       if (economia > 0) {
-        frase.appendChild(document.createTextNode('Pelo iFood, no plano Básico, iriam ' + dinheiro(c.ifoodBasico) + ' por mês. No Ligeiro, ' + dinheiro(c.ligeiroMensal) + ' de mensalidade e ' + dinheiro(c.ligeiroPix) + ' de taxa do Pix no Mercado Pago. '));
-        frase.appendChild(el('b', { text: 'Ficam ' + dinheiro(economia) + ' por mês com você, ' + dinheiro(economia * 12) + ' em um ano.' }));
+        /* 18/11/2026: a condicao da conta dita com todas as letras (esses pedidos pelo link e pagos no Pix) e a taxa do cartao;
+           sem o "em um ano", que soava como conta de vendedor */
+        frase.appendChild(document.createTextNode('Se esses pedidos viessem pelo link, pagos no Pix: no iFood (plano Básico) iriam ' + dinheiro(c.ifoodBasico) + ' por mês. No Ligeiro, ' + dinheiro(c.ligeiroMensal) + ' de mensalidade e ' + dinheiro(c.ligeiroPix) + ' de taxa do Pix no Mercado Pago. '));
+        frase.appendChild(el('b', { text: juntarFim('Ficam ' + dinheiro(economia) + ' por mês com você.') }));
+        frase.appendChild(document.createTextNode(' No cartão, a taxa do Mercado Pago é de cerca de 5%.'));
       } else if (economia === 0) frase.textContent = 'Com esse volume o Ligeiro custa o mesmo que o iFood. A diferença é que a mensalidade continua ' + dinheiro(pr.mensal) + ' quando a loja crescer.';
       else frase.textContent = 'Com esse volume, a comissão do iFood ainda sai mais barata que o Ligeiro. A conta vira a seu favor a partir de uns ' + dinheiro(Math.ceil(pr.mensal / (0.152 - c.taxaPix) / 10000) * 10000) + ' por mês de vendas.';
       /* o botao leva o numero da conta (o que a pessoa acabou de ver que fica com ela) */
       UI.limpar(ctaCalc);
       ctaCalc.appendChild(el('span', { text: 'Começar grátis' }));
-      if (economia > 0) ctaCalc.appendChild(el('span', { class: 'sub', text: 'e ficar com ' + reais(Math.round(economia / 100) * 100) + ' por mês' }));
     }
     var ctaCalc = el('a', { class: 'btn btn-principal btn-calc', href: '#/comecar' });
     vendas.addEventListener('input', calcular);
@@ -642,7 +658,7 @@
     /* ---------- planos ---------- */
     corpo.appendChild(el('section', { class: 'vender-bloco', id: 'planos', 'data-secao': 'preco' }, [
       el('div', { class: 'kicker', text: 'Preço' }),
-      el('h2', { text: 'Um plano só. Tudo incluso.' }),
+      el('h2', { text: 'Preço fixo. Tudo incluso.' }),
       /* 15/11/2026: "um dos menores precos do mercado", com a faixa dos sistemas conhecidos logo abaixo (a prova). Nunca
          "o menor": ha catalogo pago de R$ 39 e planos gratis com limite de pedidos. O "menos de R$ 1,40 por dia" nao parte */
       el('p', { class: 'muted' }, [el('b', { class: 'por-dia' }, [juntarFim('Um dos menores preços do mercado:'), ' ', el('span', { class: 'sem-quebra', text: 'menos de ' + reais(Math.floor(pr.mensal / 30 / 10) * 10 + 10) + ' por dia.' })])]),
@@ -695,17 +711,17 @@
       el('div', { class: 'faq' }, [
         duvida('Preciso cadastrar cartão para testar?', 'Não. Você usa ' + pr.diasGratis + ' dias com tudo liberado e só paga se decidir continuar.'),
         duvida('Eu não entendo de internet. Vou conseguir?', 'Vai. Se preferir, a gente monta a loja e tira as suas dúvidas pelo WhatsApp. Depois, mudar um preço ou pausar um item é um toque no celular.'),
+        duvida('Como eu recebo o dinheiro do Pix e do cartão?', 'Direto na sua conta do Mercado Pago, que você conecta no painel. O Mercado Pago confirma o pagamento na hora e o pedido já entra pago, sem o dinheiro passar pelo Ligeiro. As taxas são dele: 0,99% no Pix e cerca de 5% no cartão, que você pode repassar ao cliente.'),
+        duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, e o Ligeiro recebe só a permissão de criar os pagamentos da sua loja. Dá para desconectar quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('Já uso iFood. Preciso sair de lá?', 'Não. Muita loja usa os dois: o iFood para quem vem de fora e o Ligeiro, sem comissão, para quem já é cliente.'),
         duvida('Tem fidelidade? E se eu não gostar?', 'Não tem. Para cancelar, é só tocar em "Encerrar assinatura", em Minha conta, e a cobrança do cartão para na hora. Parou de pagar, a loja sai do ar depois de 10 dias de aviso e os seus dados ficam guardados por 90 dias, caso você volte.'),
         duvida('Como eu pago a mensalidade?', 'Pelo próprio painel, em menos de um minuto: aparece um Pix para pagar no app do banco, ou você cadastra o cartão e a cobrança cai sozinha todo mês. Não precisa mandar comprovante: pagou, liberou.'),
         duvida('É o mais barato do mercado?', 'É um dos mais baratos. Os sistemas de pedidos mais conhecidos cobram de ' + reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) + ' por mês. Existem opções grátis, mas com limite de 30 a 50 pedidos por mês. No Ligeiro são ' + reais(pr.mensal) + ' fixos, com até ' + pedidosDoPlano() + ' pedidos, e o Pix e o cartão confirmados sozinhos. Preços dos sites oficiais em ' + MERCADO.em + '.'),
         duvida('Tem limite de pedidos?', 'Cabem até ' + pedidosDoPlano() + ' pedidos por mês em cada loja (uns 100 por dia), sem comissão e sem pagar nada a mais por pedido. Se a sua loja passar disso, a gente combina um plano maior com você antes, e ela não sai do ar por isso.'),
         duvida('O que não está incluso?', 'As taxas do Mercado Pago, que são dele (0,99% no Pix e cerca de 5% no cartão). Fotos profissionais, vídeo e design exclusivo são serviços à parte, que você contrata no painel se quiser. Maquininha, entregador e impressora são da loja. Cada conta tem uma loja, com até ' + ((cfg().limites || {}).itens || 300) + ' itens.'),
-        duvida('Como eu recebo o dinheiro do Pix e do cartão?', 'Direto na sua conta do Mercado Pago, que você conecta no painel. O Mercado Pago confirma o pagamento na hora e o pedido já entra pago, sem o dinheiro passar pelo Ligeiro. As taxas são dele: 0,99% no Pix e cerca de 5% no cartão, que você pode repassar ao cliente.'),
-        duvida('O Ligeiro vê a minha senha do Mercado Pago?', 'Não. Você autoriza dentro do próprio Mercado Pago, e o Ligeiro recebe só a permissão de criar os pagamentos da sua loja. Dá para desconectar quando quiser, no painel.', { texto: 'Ver a explicação do Mercado Pago', href: 'https://www.mercadopago.com.br/developers/pt/docs/security/oauth/introduction' }),
         duvida('Serve para entrega e para retirada?', 'Serve. Na hora de pedir, o cliente escolhe: entrega no endereço, com a taxa que você definir, ou retirada na loja.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: o cliente toca no item, escolhe e paga. E quem chama no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business.'),
-        duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis que vimos em setembro de 2026 costumam limitar os pedidos do mês (de 30 a 65, em vários) e cobrar pelo pedido a mais ou parar de receber. No Ligeiro cabem ' + pedidosDoPlano() + ' pedidos por mês e o Pix chega confirmado. E você testa ' + pr.diasGratis + ' dias antes de pagar.'),
+        duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis costumam limitar os pedidos do mês (de 30 a 50) e cobrar pelo pedido a mais ou parar de receber. No Ligeiro cabem ' + pedidosDoPlano() + ' pedidos por mês e o Pix chega confirmado. E você testa ' + pr.diasGratis + ' dias antes de pagar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'Não, o Ligeiro não pede. O Mercado Pago, onde o dinheiro cai, tem as próprias regras para abrir conta.'),
         duvida('Preciso instalar alguma coisa?', 'Não. Você usa o painel no celular que já tem, e o cliente só abre o link, em qualquer celular. Tela na cozinha ou na separação e impressora são opcionais.'),
         duvida('E o Anota AI? Qual a diferença?', 'O Anota AI tem um robô no WhatsApp e cobra por faixa de pedidos. É do iFood desde 2022. No Ligeiro você paga ' + reais(pr.mensal) + ' fixo por mês, com até ' + pedidosDoPlano() + ' pedidos: o cliente pede sozinho pelo link e o Mercado Pago confirma o Pix e o cartão.'),
@@ -847,7 +863,8 @@
     /* o que vem e ate onde vai (15/11/2026: os limites as claras; por R$ 39,90, "ilimitado" soava bom demais para ser verdade) */
     var linhas = ['Sem comissão por pedido', 'Até ' + pedidosDoPlano() + ' pedidos por mês', 'Até ' + ((cfg().limites || {}).itens || 300) + ' itens, com 3 fotos cada', '1 loja por conta', 'Suporte pelo WhatsApp', pr.diasGratis + ' dias grátis, sem cartão'];
     /* a faixa das vagas de loja: so para quem ainda nao e cliente */
-    var faixa = fechado ? faixaEspera() : (ehCliente ? null : faixaFundador());
+    /* 18/11/2026: a faixa "Vagas limitadas" saiu; cheio, a lista de espera continua aparecendo */
+    var faixa = fechado ? faixaEspera() : null;
     return el('div', { class: 'pilha planos-caixa' }, [
       faixa,
       el('div', { class: 'planos planos-lado' + (cartoes.length === 1 ? ' planos-um' : ''), role: 'group', 'aria-label': 'Mensal ou anual' }, cartoes),
@@ -1260,6 +1277,10 @@
     ]);
     var abrir = el('a', { class: 'btn btn-fantasma loja-real-botao', href: UI.linkDoSite(lista[0].caminho), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('loja'), 'Abrir a loja']);
     var texto = el('p', { class: 'muted' });
+    /* 18/11/2026: o texto diz "o atendimento no WhatsApp e comigo": o botao fica ali mesmo (so na versao "Quem faz o Ligeiro") */
+    var falarComigo = cfg().whatsappLigeiro ? el('a', { class: 'btn btn-fantasma loja-real-botao', href: linkWhats(), target: '_blank', rel: 'noopener', hidden: true }, [UI.iconeLinha('conversa'), 'Falar comigo no WhatsApp']) : null;
+    var kickerClientes = el('div', { class: 'kicker' });
+    var tituloClientes = el('h2');
     var botoes = el('div', { class: 'clientes-botoes', role: 'group', 'aria-label': 'Escolha a loja' });
     function mostrar(i) {
       var c = lista[i];
@@ -1277,8 +1298,18 @@
       [].forEach.call(botoes.children, function (b, k) { b.setAttribute('aria-pressed', String(k === i)); });
     }
     function montar() {
-      texto.textContent = lista.length > 1 ? 'Toque numa loja e veja como o cliente pede, do jeito que abre no celular.'
+      /* 18/11/2026: com a loja de quem faz o Ligeiro sozinha na lista, "Lojas que ja vendem" no plural nao era verdade.
+         A secao conta quem esta por tras (pedido do Mateus: com o nome, sem foto) e mostra a loja dele funcionando */
+      var soNossa = lista.length < 2 && /dom-conizza$/.test(String(lista[0].caminho || ''));
+      kickerClientes.textContent = soNossa ? 'Quem faz o Ligeiro' : 'Clientes do Ligeiro';
+      tituloClientes.textContent = soNossa ? 'Nasceu dentro de uma pizzaria' : 'Lojas que já vendem pelo Ligeiro';
+      texto.textContent = soNossa ? juntarFim('Sou o Mateus, um dos sócios da Dom Conizza. Criamos o Ligeiro para a nossa pizzaria vender pelo link, sem pagar comissão por pedido. Agora ele está aberto para outras lojas, e o atendimento no WhatsApp é comigo.')
+        : lista.length > 1 ? 'Toque numa loja e veja como o cliente pede, do jeito que abre no celular.'
         : 'É a loja da ' + lista[0].nome + ' montada no Ligeiro, do jeito que o cliente abre no celular.';
+      UI.limpar(abrir);
+      abrir.appendChild(UI.iconeLinha('loja'));
+      abrir.appendChild(document.createTextNode(soNossa ? 'Abrir a loja da ' + lista[0].nome : 'Abrir a loja'));
+      if (falarComigo) falarComigo.hidden = !soNossa;
       UI.limpar(botoes);
       botoes.hidden = lista.length < 2;
       lista.forEach(function (c, i) {
@@ -1301,11 +1332,11 @@
     /* no celular o texto vem primeiro, os botoes das lojas, o celular no meio e o botao de abrir embaixo; no computador o texto fica ao lado */
     return el('section', { class: 'vender-bloco loja-real', id: 'clientes', 'data-secao': 'loja' }, [
       el('div', { class: 'loja-real-texto' }, [
-        el('div', { class: 'kicker', text: 'Clientes do Ligeiro' }),
-        el('h2', { text: 'Lojas que já vendem pelo Ligeiro' }),
+        kickerClientes,
+        tituloClientes,
         texto,
         botoes,
-        abrir,
+        el('div', { class: 'loja-real-acoes' }, [abrir, falarComigo]),
       ]),
       vitrine,
     ]);
@@ -1450,7 +1481,7 @@
     });
     return el('section', { class: 'vender-bloco funcoes' }, [
       el('div', { class: 'kicker', text: 'O que o Ligeiro faz por você' }),
-      el('h2', { text: 'Do pedido ao Pix, sem você digitar nada' }),
+      el('h2', { text: 'Do pedido ao Pix, sem você anotar nada' }),
       el('div', { class: 'funcoes-abas', role: 'tablist', 'aria-label': 'Funções do Ligeiro' }, abas),
       /* os tres paineis no mesmo lugar: a area tem sempre a altura do maior (trocar de aba nao empurra mais a pagina) */
       el('div', { class: 'funcoes-paineis' }, paineis),

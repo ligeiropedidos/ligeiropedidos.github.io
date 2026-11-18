@@ -2125,5 +2125,28 @@ console.log('\n== Pentest 17/11/2026: o mesmo Pix visto pelas duas APIs do Merca
     }
   } finally { globalThis.fetch = fetchAntes; }
 }
+console.log('18/11/2026: vale-refeicao e Pix na entrega pelo mensageiro');
+{
+  const lojaV = db.get('lojas/dom-conizza');
+  Object.assign(lojaV, { aberta: true, aceitaEntrega: true, aceitaValeEntrega: true, aceitaPixEntrega: false, cupons: [] });
+  kv.mapa.delete('loja:dom-conizza');
+  const w = await workerNovo();
+  const pedirV = (wx, forma, tel, ip) => chamar(wx, '/pedido', { metodo: 'POST', corpo: { loja: 'dom-conizza', dados: { nome: 'Vera Lucia', telefone: tel, tipoEntrega: 'entrega', endereco: { rua: 'Rua B', numero: '2', bairro: 'Centro' }, itens: [{ produtoId: 'p1', quantidade: 1 }], formaPagamento: forma } }, headers: { 'CF-Connecting-IP': ip } });
+  const rv = await pedirV(w, 'vale_entrega', '13999990077', '10.77.0.1'); const jv = await rv.json();
+  const gravado = jv && jv.pedido ? db.get('lojas/dom-conizza/pedidos/' + jv.pedido.id) : null;
+  ok(rv.status === 200 && gravado && gravado.formaPagamento === 'vale_entrega' && gravado.status === 'pago' && gravado.pagamentoStatus === 'na_entrega' && !gravado.mp,
+    'vale-refeicao ligado: o pedido nasce na cozinha, a cobrar na porta, sem Mercado Pago');
+  const rp = await pedirV(w, 'pix_entrega', '13999990078', '10.77.0.2'); const jp = await rp.json().catch(() => ({}));
+  ok(rp.status === 422 && /não está disponível/.test(String(jp.erro || '')), 'Pix na entrega desligado na loja: recusado com o aviso de sempre');
+  Object.assign(lojaV, { aceitaPixEntrega: true });
+  kv.mapa.delete('loja:dom-conizza');
+  const w2 = await workerNovo();
+  const rp2 = await pedirV(w2, 'pix_entrega', '13999990079', '10.77.0.3'); const jp2 = await rp2.json();
+  const g2 = jp2 && jp2.pedido ? db.get('lojas/dom-conizza/pedidos/' + jp2.pedido.id) : null;
+  ok(rp2.status === 200 && g2 && g2.formaPagamento === 'pix_entrega' && g2.status === 'pago' && g2.pagamentoStatus === 'na_entrega' && !g2.mp,
+    'Pix na entrega ligado: o pedido nasce na cozinha, a cobrar na porta (o Mercado Pago nao entra)');
+  Object.assign(lojaV, { aceitaValeEntrega: false, aceitaPixEntrega: false });
+  kv.mapa.delete('loja:dom-conizza');
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

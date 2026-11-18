@@ -255,8 +255,8 @@
     } });
     function pintarSom() {
       var travado = UI.somTravado();
-      var longo = travado ? 'Toque para ligar o apito' : estado.somLigado ? 'Apito ligado' : 'Apito desligado';
-      rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar' : 'Apito');
+      var longo = travado ? 'Toque para ligar o som' : estado.somLigado ? 'Som ligado' : 'Som desligado';
+      rotuloTopo(btnSom, estado.somLigado ? 'sino' : 'semsino', longo, travado ? 'Ligar som' : estado.somLigado ? 'Som ligado' : 'Sem som');
       btnSom.setAttribute('aria-label', longo);
       btnSom.classList.toggle('on', estado.somLigado);
       btnSom.classList.toggle('pedindo', travado);
@@ -513,6 +513,9 @@
     if (p.formaPagamento === 'pix' || R.pixCombinado(p)) return [selo('check', 'Já pago no Pix, não cobrar')];
     if (p.formaPagamento === 'cartao_online') return [selo('check', 'Já pago no cartão, não cobrar')];
     if (p.formaPagamento === 'cartao_entrega') return [selo('maquininha', 'Cobrar ' + dinheiro(p.total) + ' na maquininha', 'laranja')];
+    if (p.formaPagamento === 'vale_entrega') return [selo('carteira', 'Cobrar ' + dinheiro(p.total) + ' no vale-refeição', 'laranja')];
+    /* Pix na hora: o aviso de conferir vem num selo proprio, como o troco do dinheiro (print falso na porta) */
+    if (p.formaPagamento === 'pix_entrega') return [selo('celular', 'Cobrar ' + dinheiro(p.total) + ' no Pix', 'laranja'), selo('alerta', 'Entregue depois de ver o Pix cair', 'laranja')];
     if (p.formaPagamento === 'dinheiro_entrega') return [selo('dinheiro', 'Cobrar ' + dinheiro(p.total) + ' em dinheiro', 'laranja')].concat(p.trocoPara > 0
       ? [selo('dinheiro', 'Paga com ' + dinheiro(p.trocoPara), 'laranja'), selo('desfazer', 'Levar troco de ' + dinheiro(p.trocoPara - p.total), 'laranja')]
       : [selo('check', 'Sem troco', 'laranja')]);

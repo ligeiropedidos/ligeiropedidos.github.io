@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-11-17a';
+const VERSAO_MENSAGEIRO = '2026-11-18a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -872,6 +872,9 @@ const REGRAS = (function () {
       cartao_entrega: !!loja.aceitaCartaoEntrega,
       dinheiro_entrega: !!loja.aceitaDinheiroEntrega,
       pix_combinado: pixCombinadoNaLoja(loja),
+      /* 18/11/2026: vale-refeicao (na maquininha da loja) e Pix na hora de receber, os dois cobrados na porta */
+      vale_entrega: !!loja.aceitaValeEntrega,
+      pix_entrega: !!loja.aceitaPixEntrega,
     };
     var primeira = Object.keys(formas).filter(function (f) { return formas[f]; })[0];
     if (!primeira) throw ErroDoCliente('A loja está sem forma de pagamento configurada.');
@@ -883,8 +886,8 @@ const REGRAS = (function () {
     var formaPagamento = pediu || primeira;
     var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora });
     if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
-    /* pagar na porta: maquininha ou dinheiro. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
-    var naPorta = formaPagamento === 'cartao_entrega' || formaPagamento === 'dinheiro_entrega';
+    /* pagar na porta: maquininha, dinheiro, vale ou Pix na hora. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
+    var naPorta = pagaNaPorta(formaPagamento);
     /* "Quem retira pode pagar no balcao": sem o campo gravado vale ligado, como o painel mostra (so false desliga) */
     if (naPorta && tipoEntrega !== 'entrega' && loja.aceitaPagarNoBalcao === false && !noBalcao) {
       /* Retirada com maquininha/dinheiro so se a loja permitir cobrar no balcao. */
@@ -1174,7 +1177,7 @@ const REGRAS = (function () {
     var pagamento = dinheiroDevolvido(pedido)
       ? 'O dinheiro ' + (cartao ? 'do cartão' : 'do Pix') + ' foi devolvido.'
       : pedido.pagamentoStatus === 'na_entrega'
-        ? (pedido.formaPagamento === 'dinheiro_entrega' ? 'Vou pagar em dinheiro na entrega.' : 'Vou pagar na maquininha na entrega.')
+        ? ({ dinheiro_entrega: 'Vou pagar em dinheiro na entrega.', vale_entrega: 'Vou pagar no vale-refeição na entrega.', pix_entrega: 'Vou pagar no Pix na entrega.' }[pedido.formaPagamento] || 'Vou pagar na maquininha na entrega.')
         : pixCombinado(pedido)
           ? (pedido.status === STATUS.AGUARDANDO ? 'Quero pagar no Pix: pode me mandar a chave?' : 'Já paguei no Pix.')
           : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
@@ -1220,6 +1223,10 @@ const REGRAS = (function () {
         l.push(pedido.trocoPara > 0
           ? 'EM DINHEIRO. Cliente paga com ' + dinheiro(pedido.trocoPara) + '. *LEVAR ' + dinheiro(pedido.trocoPara - pedido.total) + ' DE TROCO*'
           : 'EM DINHEIRO, valor certo.');
+      } else if (pedido.formaPagamento === 'vale_entrega') {
+        l.push('COBRAR NO VALE-REFEIÇÃO, na maquininha. Leve a maquininha.');
+      } else if (pedido.formaPagamento === 'pix_entrega') {
+        l.push('COBRAR NO PIX NA HORA. Só entregue depois de ver o Pix cair na conta.');
       } else {
         l.push('COBRAR NA MAQUININHA. Leve a maquininha.');
       }
@@ -1317,7 +1324,7 @@ const REGRAS = (function () {
   function textoSimples(t) { return String(t || '').replace(/\u00A0/g, ' '); }
   /* Pedido inteiro em texto para o WhatsApp da loja (site em pausa: o pedido nao se perde, vai pronto para a loja) */
   function pedidoParaWhatsapp(loja, p) {
-    var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro', pix_combinado: 'Pix (combinar com a loja)' };
+    var formas = { pix: 'Pix', cartao_online: 'Cartão (pelo site)', cartao_entrega: 'Maquininha (cartão)', dinheiro_entrega: 'Dinheiro', pix_combinado: 'Pix (combinar com a loja)', vale_entrega: 'Vale-refeição (na maquininha)', pix_entrega: 'Pix na hora' };
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
     (p.itens || []).forEach(function (it) { l.push(descreverItem(it, loja)); });
     l.push('');
@@ -1972,6 +1979,11 @@ const REGRAS = (function () {
   }
   /* pedido que espera pagamento pelo site: Pix ou cartao */
   function pagaPeloSite(pedido) { return !!pedido && (pedido.formaPagamento === 'pix' || pedido.formaPagamento === 'cartao_online'); }
+  /* formas cobradas na porta (entrega ou balcao): o pedido vai direto para a cozinha e o dinheiro e cobrado ao receber */
+  var FORMAS_NA_PORTA = ['cartao_entrega', 'dinheiro_entrega', 'vale_entrega', 'pix_entrega'];
+  function pagaNaPorta(forma) { return FORMAS_NA_PORTA.indexOf(String(forma || '')) >= 0; }
+  /* a loja aceita alguma forma cobrada na porta (o que o site do cliente chama de "ao receber") */
+  function recebeNaPorta(loja) { var l = loja || {}; return !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega || l.aceitaValeEntrega || l.aceitaPixEntrega); }
   function nomeDoPagamento(pedido) { return pedido && pedido.formaPagamento === 'cartao_online' ? 'cartão' : 'Pix'; }
   /* Pix combinado com a loja no WhatsApp (loja sem Mercado Pago): precisa do WhatsApp da loja, que e por onde se combina */
   function pixCombinadoNaLoja(loja) { var l = loja || {}; return l.aceitaPixCombinado === true && String(l.whatsapp || '').replace(/\D/g, '').length >= 10; }
@@ -1983,7 +1995,7 @@ const REGRAS = (function () {
     var l = loja || {};
     var pix = (l.aceitaPix !== false && !!l.mpAtivo) || pixCombinadoNaLoja(l);
     var cartao = cartaoPeloSite(l);
-    var aoReceber = !!(l.aceitaCartaoEntrega || l.aceitaDinheiroEntrega);
+    var aoReceber = recebeNaPorta(l);
     var agora = pix && cartao ? 'no Pix, no cartão' : pix ? 'no Pix' : cartao ? 'no cartão' : '';
     if (agora && aoReceber) return 'paga ' + agora + ' ou ao receber';
     if (agora) return 'paga ' + (pix && cartao ? 'no Pix ou no cartão' : agora);
@@ -2038,6 +2050,8 @@ const REGRAS = (function () {
     termosEmDia: termosEmDia,
     TAXA_CARTAO_PADRAO: TAXA_CARTAO_PADRAO,
     pagaPeloSite: pagaPeloSite,
+    pagaNaPorta: pagaNaPorta,
+    recebeNaPorta: recebeNaPorta,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
     pixCombinado: pixCombinado,

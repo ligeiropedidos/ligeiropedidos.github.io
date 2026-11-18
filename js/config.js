@@ -36,6 +36,8 @@ window.LIGEIRO_CONFIG = {
   /* WhatsApp de quem vende o Ligeiro (com DDD, so numeros). Aparece no botao
      "Quero na minha loja" da pagina #/lojas e no rodape das lojas. Vazio = esconde. */
   whatsappLigeiro: '5513996447414',
+  /* o Instagram do Ligeiro (rodape da pagina de vendas, 18/11/2026): so o nome, sem @ */
+  instagramLigeiro: 'ligeiropedidos',
 
   /* Mensageiro do Pix (Cloudflare Worker, ferramentas/worker-mercadopago.js): cria o Pix do pedido
      na hora com o token Mercado Pago da loja e confirma sozinho. Vazio = ninguem consegue pagar no Pix

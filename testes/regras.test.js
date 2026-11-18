@@ -1404,3 +1404,54 @@ test('mensagens da resposta automatica: link numa linha, cardapio ou catalogo, h
   assert.ok(!/Nosso horário/.test(semHora));
   assert.match(semHora, /Assim que der/);
 });
+
+test('18/11/2026: vale-refeicao e Pix na entrega, cobrados na porta como a maquininha', () => {
+  const base = { nome: 'Maria', telefone: '13999990001', tipoEntrega: 'entrega', endereco: { rua: 'Rua A', bairro: 'Centro' }, itens: [{ produtoId: 'x', quantidade: 1 }] };
+  const loja = Object.assign(lojaDeTeste(), { aceitaValeEntrega: true, aceitaPixEntrega: true });
+  for (const forma of ['vale_entrega', 'pix_entrega']) {
+    const p = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: forma, trocoPara: 5000 }));
+    assert.equal(p.formaPagamento, forma);
+    /* vai direto para a cozinha, a cobrar na porta, sem troco (troco e so do dinheiro) */
+    assert.equal(p.status, R.STATUS.PAGO);
+    assert.equal(p.pagamentoStatus, 'na_entrega');
+    assert.equal(p.trocoPara, 0);
+    assert.equal(R.pagaNaPorta(forma), true);
+    assert.equal(R.pagaPeloSite(p), false);
+  }
+  /* loja que nao ligou: recusa (campo ausente ou false) */
+  assert.throws(() => R.montarPedido(lojaDeTeste(), Object.assign({}, base, { formaPagamento: 'vale_entrega' })), /não está disponível/);
+  assert.throws(() => R.montarPedido(Object.assign(lojaDeTeste(), { aceitaPixEntrega: false }), Object.assign({}, base, { formaPagamento: 'pix_entrega' })), /não está disponível/);
+  /* retirada: so com "quem retira pode pagar no balcao", como a maquininha */
+  const retira = Object.assign({}, base, { tipoEntrega: 'retirada', formaPagamento: 'vale_entrega' });
+  delete retira.endereco;
+  assert.throws(() => R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: false }), retira), /pague no Pix/);
+  assert.equal(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: true }), retira).pagamentoStatus, 'na_entrega');
+  /* a forma antiga continua igual e as do site nao viram "na porta" */
+  assert.equal(R.pagaNaPorta('cartao_entrega'), true);
+  assert.equal(R.pagaNaPorta('dinheiro_entrega'), true);
+  assert.equal(R.pagaNaPorta('pix'), false);
+  assert.equal(R.pagaNaPorta('cartao_online'), false);
+  assert.equal(R.pagaNaPorta('pix_combinado'), false);
+  assert.equal(R.pagaNaPorta(undefined), false);
+  /* o que a cozinha e o entregador leem, e a mensagem do cliente */
+  const vale = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'vale_entrega' }));
+  vale.senha = 7;
+  assert.match(R.fichaDoPedido(loja, vale), /COBRAR NO VALE-REFEIÇÃO, na maquininha/);
+  assert.match(R.mensagemDoCliente(loja, vale), /Vou pagar no vale-refeição na entrega\./);
+  const pixPorta = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'pix_entrega' }));
+  pixPorta.senha = 8;
+  assert.match(R.fichaDoPedido(loja, pixPorta), /COBRAR NO PIX NA HORA\. Só entregue depois de ver o Pix cair na conta\./);
+  assert.match(R.mensagemDoCliente(loja, pixPorta), /Vou pagar no Pix na entrega\./);
+  /* a maquininha segue com o texto de sempre */
+  const maq = R.montarPedido(loja, Object.assign({}, base, { formaPagamento: 'cartao_entrega' }));
+  maq.senha = 9;
+  assert.match(R.fichaDoPedido(loja, maq), /COBRAR NA MAQUININHA\. Leve a maquininha\./);
+  /* loja so com vale (sem Pix, sem maquininha, sem dinheiro): o site diz "paga ao receber" e o pedido sem forma vira vale */
+  const soVale = Object.assign(lojaDeTeste(), { mpAtivo: false, aceitaCartaoEntrega: false, aceitaDinheiroEntrega: false, aceitaValeEntrega: true });
+  assert.equal(R.frasePagamento(soVale), 'paga ao receber');
+  assert.equal(R.recebeNaPorta(soVale), true);
+  assert.equal(R.recebeNaPorta(Object.assign({}, soVale, { aceitaValeEntrega: false })), false);
+  assert.equal(R.montarPedido(soVale, base).formaPagamento, 'vale_entrega');
+  /* o pedido em texto para o WhatsApp (site em pausa) diz a forma pelo nome */
+  assert.match(R.pedidoParaWhatsapp(loja, pixPorta), /Pix na hora/);
+});

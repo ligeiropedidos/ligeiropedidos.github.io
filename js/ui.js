@@ -57,7 +57,7 @@
     t.textContent = mensagem;
     t.classList.add('visivel');
     clearTimeout(tempoTorrada);
-    tempoTorrada = setTimeout(function () { t.classList.remove('visivel'); }, 3200);
+    tempoTorrada = setTimeout(function () { t.classList.remove('visivel'); }, Math.min(10000, Math.max(3200, String(mensagem).length * 70)));
   }
 
   /* ---------- Sons (gerados na hora, sem arquivo) ---------- */
@@ -1048,7 +1048,7 @@
   }
   /* o icone da forma de pagamento */
   function iconeDoPagamento(p) {
-    return { pix: 'celular', pix_combinado: 'telefone', cartao_online: 'cartao', cartao_entrega: 'maquininha', dinheiro_entrega: 'dinheiro' }[p && p.formaPagamento] || 'dinheiro';
+    return { pix: 'celular', pix_combinado: 'telefone', cartao_online: 'cartao', cartao_entrega: 'maquininha', dinheiro_entrega: 'dinheiro', vale_entrega: 'carteira', pix_entrega: 'celular' }[p && p.formaPagamento] || 'dinheiro';
   }
   /* um item do pedido: a quantidade numa pilula e o nome com o resto. grande (cozinha e separacao): o resto em linhas,
      letra grande, para ler de longe */
