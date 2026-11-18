@@ -1638,7 +1638,9 @@
       linhaCat.appendChild(el('button', { class: 'aba-painel aba-nova', onclick: function () { if (cabeMais('categorias')) editarCategoria(null); } }, [UI.iconeLinha('mais'), 'Categoria']));
       s.appendChild(el('h2', { text: R.catalogo(estado.loja).Nome }));
       /* 18/11/2026: a chave verde de cada item nao dizia o que faz (so o leitor de tela sabia) */
-      s.appendChild(el('p', { class: 'muted pequeno dica-chave-item', text: 'A chave verde mostra que o item está no site. Acabou? Desligue e ele some na hora.' }));
+      /* "verde" so na loja comum: no design exclusivo a chave ligada tem a cor da marca (rosa na Cris Modas) */
+      var temaProprio = !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).tema);
+      s.appendChild(el('p', { class: 'muted pequeno dica-chave-item', text: 'A chave ' + (temaProprio ? 'colorida' : 'verde') + ' mostra que o item está no site. Acabou? Desligue e ele some na hora.' }));
       /* loja com estoque: o que acabou e o que esta acabando, logo no topo (preenchido quando as quantidades chegam) */
       if ((l.produtos || []).some(R.controlaEstoque)) s.appendChild(el('div', { class: 'aviso aviso-falta aviso-bloco resumo-estoque', id: 'resumoEstoque', hidden: true }));
 
@@ -2916,7 +2918,9 @@
         ]));
       });
       bloco.appendChild(lista);
-      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '12px' }, onclick: function () { novaOpcao(chave); } }, [UI.iconeLinha('mais'), 'Opção']));
+      /* comercio, tamanho: o botao diz o que faz ("Opção" escondia que era ali que se cria o PP, o XG, o 46) */
+      var ehTamanho = !catLoja().comida && g.tipo === 'unico';
+      bloco.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno', style: { marginTop: '12px' }, onclick: function () { novaOpcao(chave); } }, [UI.iconeLinha('mais'), ehTamanho ? 'Adicionar tamanhos' : 'Opção']));
       return bloco;
     }
 
@@ -2958,9 +2962,31 @@
       grupos[chave].opcoes.splice(indice, 1);
       salvarLoja({ grupos: grupos }, 'Opção removida').then(desenharCardapio);
     }
+    /* comercio, tamanho (18/11/2026, pedido da Cris Modas: "existem bem mais tamanhos"): os mais comuns prontos para tocar,
+       e cada um entra no lugar certo da fila (o PP antes do P, o 38 depois do 36), nao no fim */
+    var TAMANHOS_PRONTOS = [['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', 'G1', 'G2', 'G3', 'G4', 'Único'], ['34', '36', '38', '40', '42', '44', '46', '48', '50', '52']];
+    var ORDEM_LETRAS = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', 'EXG', 'G1', 'G2', 'G3', 'G4', 'G5'];
+    function ordemDoTamanho(nome) {
+      var n = String(nome || '').trim().toUpperCase();
+      var i = ORDEM_LETRAS.indexOf(n);
+      if (i >= 0) return i;
+      if (/^\d{1,3}$/.test(n)) return 100 + Number(n);
+      return null; /* nome livre (Infantil 8, Único): vai para o fim */
+    }
+    function inserirTamanho(opcoes, nova) {
+      var r = ordemDoTamanho(nova.nome);
+      if (r != null) {
+        for (var i = 0; i < opcoes.length; i++) {
+          var ri = ordemDoTamanho(opcoes[i].nome);
+          if (ri != null && ri > r) { opcoes.splice(i, 0, nova); return; }
+        }
+      }
+      opcoes.push(nova);
+    }
     function novaOpcao(chave) {
       if (!cabeMais('opcoes', chave)) return;
       var tamanhoDoComercio = !catLoja().comida && ((estado.loja.grupos || {})[chave] || {}).tipo === 'unico';
+      if (tamanhoDoComercio) return novosTamanhos(chave);
       var nome = tamanhoDoComercio ? campoTexto('Nome do tamanho', '', { max: 40, placeholder: 'Ex: XG ou 46' })
         : campoTexto('Nome da opção', '', { max: 40, placeholder: catLoja().comida ? 'Ex: Bacon' : 'Ex: Embrulho de presente' });
       var preco = tamanhoDoComercio ? campoDinheiro('A mais no preço (opcional)', 0, 'Deixe vazio para o mesmo preço do item.') : campoDinheiro('Acréscimo no preço', 0, 'Deixe vazio se for grátis');
@@ -2980,6 +3006,55 @@
           .catch(function () { botao.disabled = false; botao.textContent = 'Adicionar'; });
       } })] });
       setTimeout(function () { nome.input.focus(); }, 60);
+    }
+
+    function novosTamanhos(chave) {
+      var g = (estado.loja.grupos || {})[chave];
+      var lim = ((window.LIGEIRO_CONFIG || {}).limites || {}).opcoes || LIMITES_PADRAO.opcoes;
+      var ja = (g.opcoes || []).map(function (o) { return String(o.nome).trim().toUpperCase(); });
+      var marcados = [];
+      function fileira(rotulo, nomes) {
+        var faltam = nomes.filter(function (n) { return ja.indexOf(n.toUpperCase()) < 0; });
+        if (!faltam.length) return null;
+        return el('div', { class: 'tamanhos-prontos' }, [
+          el('span', { class: 'tamanhos-prontos-rotulo', text: rotulo }),
+          el('div', { class: 'tamanhos-prontos-lista', role: 'group', 'aria-label': rotulo }, faltam.map(function (n) {
+            return el('button', { type: 'button', class: 'tamanho-pronto', 'aria-pressed': 'false', onclick: function () {
+              var i = marcados.indexOf(n);
+              if (i >= 0) marcados.splice(i, 1); else marcados.push(n);
+              this.classList.toggle('marcado', i < 0);
+              this.setAttribute('aria-pressed', i < 0 ? 'true' : 'false');
+            } }, [UI.iconeLinha('check'), n]);
+          })),
+        ]);
+      }
+      var outro = campoTexto('Outro tamanho', '', { max: 40, placeholder: 'Ex: Infantil 8' });
+      var preco = campoDinheiro('A mais no preço (opcional)', 0, 'Deixe vazio para o mesmo preço do item. Vale para os tamanhos que você marcou.');
+      UI.abrirModal({ titulo: 'Adicionar tamanhos', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
+        el('p', { class: 'muted', text: 'Toque nos que você vende. Dá para marcar vários de uma vez.' }),
+        fileira('Letras', TAMANHOS_PRONTOS[0]),
+        fileira('Numeração', TAMANHOS_PRONTOS[1]),
+        outro, preco,
+      ]), rodape: [el('button', { class: 'btn btn-principal', style: { flex: '1' }, text: 'Adicionar', onclick: function () {
+        var nomes = marcados.slice();
+        var digitado = outro.input.value.trim();
+        if (digitado && nomes.concat(ja).every(function (n) { return n.toUpperCase() !== digitado.toUpperCase(); })) nomes.push(digitado);
+        if (!nomes.length) return UI.avisar(digitado ? 'Esse tamanho já existe.' : 'Toque num tamanho ou digite o nome.');
+        if ((g.opcoes || []).length + nomes.length > lim) return UI.avisar('Cabem ' + lim + ' tamanhos neste grupo. Marque menos ou exclua um que não usa.');
+        var grupos = D.clonar(estado.loja.grupos);
+        var opcoes = grupos[chave].opcoes;
+        var vazio = opcoes.length === 0;
+        nomes.forEach(function (n, k) {
+          var base = R.slug(n) || 'tam';
+          var id = base, j = 2;
+          while (opcoes.some(function (o) { return o.id === id; })) id = base + '-' + (j++);
+          inserirTamanho(opcoes, { id: id, nome: n, preco: preco.centavos(), ativo: true, padrao: vazio && k === 0 });
+        });
+        var botao = this;
+        botao.disabled = true; botao.textContent = 'Salvando…';
+        salvarLoja({ grupos: grupos }, nomes.length === 1 ? 'Tamanho ' + nomes[0] + ' adicionado' : nomes.length + ' tamanhos adicionados').then(function () { UI.fecharModal(); desenharCardapio(); })
+          .catch(function () { botao.disabled = false; botao.textContent = 'Adicionar'; });
+      } })] });
     }
 
     function editarGrupo(chave, categoriaId) {

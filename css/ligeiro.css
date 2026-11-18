@@ -1221,6 +1221,15 @@ a.selo-google:hover { background: var(--lime-suave); }
 .tamanho-chip .ico-traco svg { width: 16px; height: 16px; }
 .tamanho-chip.marcado { border-color: var(--lime-escuro); background: var(--lime-suave); color: var(--ink); }
 .tamanho-chip.marcado span { text-decoration: none; }
+/* "Adicionar tamanhos" (18/11/2026): os tamanhos prontos para tocar, varios de uma vez; o visto so aparece no marcado */
+.tamanhos-prontos { display: flex; flex-direction: column; gap: 8px; }
+.tamanhos-prontos-rotulo { font-weight: 700; font-size: 15px; }
+.tamanhos-prontos-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.tamanho-pronto { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 56px; padding: 0 14px; border: 1.5px solid var(--line-forte); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 16px; }
+.tamanho-pronto .ico-traco { display: none; }
+.tamanho-pronto .ico-traco svg { width: 16px; height: 16px; }
+.tamanho-pronto.marcado { border-color: var(--lime-escuro); background: var(--lime-suave); padding-left: 10px; }
+.tamanho-pronto.marcado .ico-traco { display: inline-flex; }
 .tamanho-chip.marcado .ico-traco { color: var(--lime-escuro); }
 /* preco por tamanho (dentro do bloco do tamanho do item): a chave e uma caixa por tamanho, no desenho das caixas do
    estoque (borda 1,5, cantos 14, 8 entre elas): o nome, o que o cliente ve ("+ R$ 10,00 no site") e o preco */

@@ -154,7 +154,17 @@ body:has(.tema-cris #tela-inicio) .torrada { background: #3A1426; color: #FFF5F8
   .tema-cris .logo-grande { animation: cm-chegar 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both, cm-flutuar 5.5s ease-in-out 0.9s infinite !important; }
   .tema-cris .logo-grande::before, .tema-cris .logo-grande::after { animation: cm-piscar 2.8s ease-in-out infinite !important; }
   .tema-cris .logo-grande::after { animation-delay: 1.4s !important; }
-  .tema-cris #tela-inicio .btn-gigante:not(:disabled) { animation: cm-pulsar 2.6s ease-in-out infinite !important; }
+  /* a entrada em sequencia tambem (pedido dele: "forcando animacao no celular") */
+  .tema-cris #tela-inicio .selos { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s backwards !important; }
+  .tema-cris #tela-inicio .btn-gigante:not(:disabled) { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards, cm-pulsar 2.6s ease-in-out 1s infinite !important; }
+  .tema-cris #tela-inicio .btn-gigante:disabled { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s backwards !important; }
+  .tema-cris #tela-inicio .como-funciona { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.55s backwards !important; }
+  .tema-cris #tela-inicio #destaques { animation: cm-entrar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s backwards !important; }
+  .tema-cris:has(#tela-inicio) .card-produto { animation: cm-entrar 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s backwards !important; }
+  .tema-cris:has(#tela-inicio) .card-produto:nth-child(2) { animation-delay: 0.18s !important; }
+  .tema-cris:has(#tela-inicio) .card-produto:nth-child(3) { animation-delay: 0.26s !important; }
+  .tema-cris:has(#tela-inicio) .card-produto:nth-child(4) { animation-delay: 0.34s !important; }
+  .tema-cris:has(#tela-inicio) .card-produto:nth-child(n+5) { animation-delay: 0.42s !important; }
   .tema-cris #tela-inicio .btn-principal::after { animation: brilho 5s ease-in-out infinite !important; }
   .tema-cris .foto-modal-desenho img { animation: cm-zoom 9s ease-in-out infinite alternate !important; }
   .tema-cris:has(#tela-inicio) .topo::after { animation: cm-fio 3.6s ease-in-out infinite !important; }
@@ -241,6 +251,10 @@ body:has(.tema-cris #tela-inicio) .modal.tema-cris .modal-topo .titulo, body:has
 body:has(.tema-cris .painel-topo), body:has(.tema-cris .login) { background: #FFF7FA; }
 .tema-cris .painel-topo { background: linear-gradient(180deg, #9C1747 0%, #8E1240 100%); border-bottom: 3px solid var(--cm-rosa-claro); }
 .tema-cris .painel-topo .btn-pequeno.on { background: #FFFFFF; color: var(--cm-vinho); }
+/* a logo pequena e pink: no topo vinho ela sumia. Num quadradinho rosinha ela aparece */
+.tema-cris .painel-topo .logo-mini { background: #FFF5F8; border-radius: 10px; padding: 3px; }
+/* a torrada fica no body, fora do .tema-cris: cor direto (antes vinha o verde-escuro do Ligeiro) */
+body:has(.tema-cris .painel-topo) .torrada, body:has(.tema-cris .login) .torrada { background: #3A1426; color: #FFF5F8; }
 .tema-cris:has(.painel-topo) .aviso, .tema-cris:has(.painel-topo) .design-exclusivo, .tema-cris:has(.painel-topo) .taxa-exemplo, .tema-cris:has(.painel-topo) .contato-topo { border-color: var(--line-forte); }
 .tema-cris:has(.painel-topo) .mp-status { background: #E4F4E8; color: #1F6B36; }
 .tema-cris:has(.painel-topo) .mp-status .bolinha { background: #2E9D4F; }
