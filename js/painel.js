@@ -3758,6 +3758,9 @@
       /* senha do painel: nenhuma no site de verdade (o dono entra com a conta Google). Na demonstracao ela e a senha da
          equipe (Minha loja, Senha da equipe): um lugar so, igual ao site de verdade */
 
+      /* 18/11/2026: Funcionamento, Entrega e Pagamento no topo (antes o Pagamento so comecava depois de 6.000 px de
+         aparencia e dados, no celular); Dados e Aparencia logo depois. So a ordem na tela muda */
+      [funcionamento, entrega, pagamento, identidade].forEach(function (b) { if (b.parentNode === s) s.insertBefore(b, aparencia); });
       var btnSalvarFim = el('button', { class: 'btn btn-principal btn-largo', text: 'Salvar tudo', onclick: function () { salvarAjustes(f); } });
       s.appendChild(btnSalvarFim);
       /* barra fixa: salva de qualquer ponto da pagina, sem descer ate o fim */
@@ -4249,6 +4252,12 @@
             ]),
             el('div', { class: 'divulgar-botoes' }, [
               el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: copiar(msgWhats, 'Mensagem copiada. Mande para os clientes ou poste no status.') }, [UI.icone('zap'), 'Copiar a mensagem']),
+              /* 18/11/2026: o texto aqui embaixo manda imprimir o QR, e nao havia botao para isso no painel */
+              el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () {
+                Pix.baixarQr(qr, { nome: estado.loja.nome, legenda: 'Aponte a câmera para pedir', arquivo: 'qr-' + estado.loja.slug + '.png' })
+                  .then(function () { UI.avisar('QR baixado. Imprima e deixe no balcão ou na sacola.'); })
+                  .catch(function () { UI.avisar('Não deu para baixar agora. Tire um print do QR.'); });
+              } }, [UI.iconeLinha('descer'), 'Baixar o QR para imprimir']),
               el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { UI.copiar(R.cardapioEmTexto(estado.loja, linkLoja)).then(function () { UI.avisar(R.catalogo(estado.loja).Nome + ' copiado. Cole no WhatsApp.'); }); } }, [UI.iconeLinha('texto'), 'Copiar ' + R.catalogo(estado.loja).nome + ' em texto']),
             ]),
             /* onde usar: tres linhas curtas no lugar do paragrafo corrido (no PC cada uma cabe numa linha: a coluna tem altura fixa e o QR acompanha) */
