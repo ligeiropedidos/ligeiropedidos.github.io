@@ -1868,7 +1868,7 @@ console.log('Estoque das lojas de comercio');
 
   /* roupa sem tamanho escolhido nao passa */
   r = await pedirR([{ produtoId: 'camiseta', quantidade: 1 }]); j = await r.json();
-  ok(r.status === 422 && /Escolha o tamanho de "Camiseta preta"/.test(j.erro), 'comercio: sem escolher o tamanho, o pedido nao nasce');
+  ok(r.status === 422 && /Escolha a opção de tamanho de "Camiseta preta"/.test(j.erro), 'comercio: sem escolher o tamanho, o pedido nao nasce');
   /* o pedido reserva o estoque no mesmo lote */
   r = await pedirR([{ produtoId: 'camiseta', quantidade: 2, tamanho: 'm' }, { produtoId: 'bone', quantidade: 3 }]); j = await r.json();
   const P1 = j.pedido && j.pedido.id;

@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-11-18a';
+const VERSAO_MENSAGEIRO = '2026-11-18b';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -642,7 +642,7 @@ const REGRAS = (function () {
         if (!escolhido && pediuTamanho && !tolerante) throw opcaoQueAcabou(loja, produto, bruto.tamanho);
         /* no comercio o tamanho e escolha do cliente (roupa nao tem "tamanho padrao") */
         if (!escolhido && !pediuTamanho && !tolerante && segmento(loja) === 'comercio') {
-          throw ErroDoCliente('Escolha o ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".');
+          throw ErroDoCliente('Escolha a opção de ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".'); /* 18/11/2026: era "Escolha o numeracao" */
         }
         if (!escolhido) {
           for (var d = 0; d < grupoTamanho.opcoes.length; d++) {

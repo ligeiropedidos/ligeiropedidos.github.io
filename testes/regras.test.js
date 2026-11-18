@@ -703,7 +703,7 @@ test('segmento: comida e comercio, com o vocabulario de cada um', () => {
 
 test('comercio: o tamanho e escolha do cliente (sem tamanho padrao); comida segue com o padrao', () => {
   const loja = Object.assign(lojaDeTeste(), { tipo: 'Roupas' });
-  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }]), /Escolha o tamanho de "X-Burguer"/);
+  assert.throws(() => R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1 }]), /Escolha a opção de tamanho de "X-Burguer"/);
   const ok = R.calcularItens(loja, [{ produtoId: 'x', quantidade: 1, tamanho: 'g' }]);
   assert.equal(ok.itens[0].tamanho.id, 'g');
   /* o painel conferindo pedido ja feito (tolerante) nao trava */

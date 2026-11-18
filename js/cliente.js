@@ -1577,7 +1577,7 @@
         /* comercio: sem o tamanho escolhido nao entra (o mensageiro tambem recusa) */
         if (m.grupoTamanho && !m.tamanho) {
           UI.soar('erro');
-          UI.avisar('Escolha o ' + String(m.grupoTamanho.titulo || 'tamanho').toLowerCase() + '.');
+          UI.avisar('Escolha a opção de ' + String(m.grupoTamanho.titulo || 'tamanho').toLowerCase() + '.'); /* 18/11/2026: era "Escolha o capa" */
           var bloco = document.querySelector('.grupo[data-grupo="' + m.grupoTamanho.chave + '"]');
           if (bloco) { bloco.classList.add('falta-escolher'); bloco.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
           return;

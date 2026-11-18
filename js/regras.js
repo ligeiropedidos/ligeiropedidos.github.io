@@ -454,7 +454,7 @@
         if (!escolhido && pediuTamanho && !tolerante) throw opcaoQueAcabou(loja, produto, bruto.tamanho);
         /* no comercio o tamanho e escolha do cliente (roupa nao tem "tamanho padrao") */
         if (!escolhido && !pediuTamanho && !tolerante && segmento(loja) === 'comercio') {
-          throw ErroDoCliente('Escolha o ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".');
+          throw ErroDoCliente('Escolha a opção de ' + String(grupoTamanho.titulo || 'tamanho').toLowerCase() + ' de "' + produto.nome + '".'); /* 18/11/2026: era "Escolha o numeracao" */
         }
         if (!escolhido) {
           for (var d = 0; d < grupoTamanho.opcoes.length; d++) {
