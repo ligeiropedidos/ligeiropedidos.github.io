@@ -1310,6 +1310,10 @@
         var e = p.endereco || {};
         card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha(R.ehCorreios(p) ? 'caixa' : 'mapa'), UI.enderecoEmLinhas(e)]));
       }
+      /* 19/11/2026: Pix direto esperando a loja conferir: o que procurar no extrato (o valor e a descricao do Pix) */
+      if (R.pixCombinado(p) && p.status === R.STATUS.AGUARDANDO && R.pixDiretoNaLoja(estado.loja)) {
+        card.appendChild(el('p', { class: 'aviso pix-conferir' }, [UI.iconeLinha('busca'), el('span', {}, ['Procure no extrato um Pix de ', el('b', { text: dinheiro(p.total) }), ' com a descrição ', el('b', { text: (R.pedidoDeComercio(p, estado.loja) ? 'PEDIDO ' : 'SENHA ') + p.senha }), '. Comprovante no WhatsApp não vale: confira no banco.'])]));
+      }
       /* Correios ainda nao postado (18/11/2026): o passo a passo do envio, com a etiqueta de endereco para imprimir */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO)) card.appendChild(comoEnviar(p));
       /* loja de comercio, retirada ou entrega na cidade: o passo a passo com a etiqueta (a comida segue com a ficha da cozinha) */
@@ -1356,7 +1360,7 @@
         ]));
       } else if (!avisoSozinho && p.cliente.telefone) {
         var mandado = zapMandados()[p.id] === p.status;
-        var rotuloZap = function (feito) { return [el('span', { class: 'zap-status-texto' }, [feito ? 'Avisado: ' : 'Avisar: ', el('b', { text: R.rotuloAvisoWhats(p) })]), el('span', { class: 'zap-status-fim', 'aria-hidden': 'true' }, [UI.iconeLinha(feito ? 'check' : 'avancar')])]; };
+        var rotuloZap = function (feito) { return [el('span', { class: 'zap-status-texto' }, [feito ? 'Avisado: ' : 'Avisar: ', el('b', { text: R.rotuloAvisoWhats(p, estado.loja) })]), el('span', { class: 'zap-status-fim', 'aria-hidden': 'true' }, [UI.iconeLinha(feito ? 'check' : 'avancar')])]; };
         var zap = el('a', { class: 'zap-status' + (mandado ? ' feito' : ''), href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', onclick: function (e) {
           /* demonstracao: os clientes sao de mentira (o numero pode ser de alguem de verdade): mostra o que aconteceria, sem abrir o WhatsApp */
           if (estado.loja && estado.loja.demoPainel) { e.preventDefault(); UI.avisar('Na loja de verdade, abre o WhatsApp do cliente com esta mensagem pronta.'); }
@@ -3895,13 +3899,27 @@
       /* 19/11/2026: a chave Pix (opcional): com ela a cliente ve o QR com o valor certo na tela e paga na hora */
       f.chavePix = campoTexto('Sua chave Pix (opcional)', l.chavePix || '', { max: 77, placeholder: 'CPF, CNPJ, celular, e-mail ou aleatória',
         ajuda: 'Com a chave, a cliente vê o QR do Pix com o valor certo e paga na hora. O dinheiro cai direto na sua conta. Você confere no banco e marca como pago.' });
-      var conferePix = el('p', { class: 'ajuda chave-pix-confere', role: 'status' });
+      /* a chave como a loja reconhece: o celular com DDD, o CPF e o CNPJ com pontos (nunca o +55 cru) */
+      function chaveLegivel(chave, tipo) {
+        if (tipo === 'telefone') return 'o seu celular ' + R.formatarTelefone(chave.replace(/^\+55/, ''));
+        if (tipo === 'CPF') return 'o seu CPF ' + chave.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+        if (tipo === 'CNPJ') return 'o seu CNPJ ' + R.formatarCnpj(chave);
+        if (tipo === 'e-mail') return 'o seu e-mail ' + chave;
+        return 'a sua chave aleatória ' + chave;
+      }
+      var conferePix = el('p', { class: 'taxa-exemplo chave-pix-confere', role: 'status', hidden: true });
       f.chavePix.appendChild(conferePix);
       function pintarChavePix() {
         var bruta = f.chavePix.input.value.trim();
         var chave = Pix.normalizarChave(bruta), tipo = Pix.tipoDaChave(chave);
-        conferePix.className = 'ajuda chave-pix-confere' + (bruta && tipo === 'desconhecida' ? ' erro' : '');
-        conferePix.textContent = !bruta ? 'Sem chave: a cliente combina o Pix com você no WhatsApp.' : tipo === 'desconhecida' ? 'Essa chave não parece um CPF, CNPJ, celular, e-mail ou chave aleatória. Confira.' : 'A cliente vai pagar para a chave ' + tipo + ': ' + chave;
+        var torta = !!bruta && tipo === 'desconhecida';
+        UI.limpar(conferePix);
+        conferePix.hidden = !bruta;
+        if (!bruta) return;
+        conferePix.className = 'taxa-exemplo chave-pix-confere' + (torta ? ' erro' : '');
+        f.chavePix.input.classList.toggle('erro', torta);
+        conferePix.appendChild(UI.iconeLinha(torta ? 'alerta' : 'check'));
+        conferePix.appendChild(el('span', { text: torta ? 'Essa chave não parece um CPF, CNPJ, celular, e-mail ou chave aleatória. Confira.' : 'A cliente vai pagar para ' + chaveLegivel(chave, tipo) + '.' }));
       }
       f.chavePix.input.addEventListener('input', pintarChavePix);
       pintarChavePix();

@@ -797,10 +797,8 @@ a.selo-google:hover { background: var(--lime-suave); }
 .envio-opcoes { margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .envio-opcoes-titulo { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
 .envio-opcoes-lista { display: flex; flex-direction: column; gap: 8px; }
-.envio-opcao { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; border: 2px solid var(--line); border-radius: var(--raio-p); background: var(--card); color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: border-color 0.15s, background-color 0.15s; -webkit-tap-highlight-color: transparent; }
-.envio-opcao.on { border-color: var(--deep2); background: var(--lime-suave); }
-.envio-opcao-marca { flex: none; width: 22px; height: 22px; border: 2px solid var(--line); border-radius: 50%; background: var(--card); box-sizing: border-box; }
-.envio-opcao.on .envio-opcao-marca { border: 7px solid var(--deep2); }
+/* o cartao do frete e uma .opcao (a mesma do tamanho e do troco): so o miolo de duas linhas e daqui */
+.envio-opcao { width: 100%; margin-top: 0; color: var(--ink); text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; }
 .envio-opcao-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 /* linha 1: o nome e o preco; linha 2: o prazo e o selo (mais barato, mais rapido) */
 .envio-opcao-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -2920,14 +2918,14 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .mapa-retirada { display: block; width: 100%; height: 200px; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); }
 .retirada-lembrete { font-weight: 700; color: var(--ink); }
 /* 19/11/2026: o Pix direto na chave da loja, na tela do pedido */
-.pix-direto { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); text-align: center; }
-.pix-direto-titulo { font-size: 18px; font-weight: 800; color: var(--ink); }
-.pix-direto-qr { display: flex; justify-content: center; padding: 8px; border-radius: 12px; background: #FFFFFF; }
-.pix-direto-codigo { margin: 0; max-width: 100%; color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; line-height: 1.35; word-break: break-all; user-select: all; }
-.pix-direto-passos { margin: 0; padding-left: 20px; align-self: stretch; display: flex; flex-direction: column; gap: 4px; color: var(--ink); font-size: 15px; line-height: 1.4; text-align: left; }
-.pix-direto-nota { margin: 0; color: var(--muted); font-size: 13.5px; }
-.chave-pix-confere { margin: 0; }
-.chave-pix-confere.erro { color: var(--erro); font-weight: 600; }
+/* o Pix direto usa as pecas da tela do Pix (valor grande, .pix-pagar, .qr-caixa, .codigo-pix, .passos-pix): so a coluna e daqui */
+.pix-direto { width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+/* a conferencia da chave Pix: a caixinha verde da taxa do cartao, 8 abaixo do campo (a .ajuda sobe 4: aqui nao) */
+.campo .chave-pix-confere { margin: 8px 0 0; }
+.chave-pix-confere span { overflow-wrap: anywhere; }
+.chave-pix-confere.erro { border-color: #F3C4BE; background: var(--erro-suave); color: var(--erro); }
+.chave-pix-confere.erro .ico-traco { color: var(--erro); }
+.pix-conferir { margin: 8px 0; font-weight: 500; }
 .como-enviar-dica { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; text-align: center; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1656,7 +1656,10 @@ test('19/11/2026: Pix direto (a chave da loja no Pix pelo WhatsApp): textos de p
   assert.equal(R.pixDiretoNaLoja({ chavePix: 'abc' }), '');
   assert.equal(R.pixDiretoNaLoja({ chavePix: 'x'.repeat(78) }), '');
   const p = { senha: 3, cliente: { nome: 'Ana', telefone: '13999990000' }, formaPagamento: 'pix_combinado', status: 'aguardando_pagamento', pagamentoStatus: 'a_combinar', total: 5000, tipoEntrega: 'retirada', itens: [] };
-  assert.ok(/QR/.test(R.textoDoEstagio(p, comChave)));
+  assert.ok(/Falta pagar o Pix/.test(R.textoDoEstagio(p, comChave)));
+  assert.equal(R.rotuloAvisoWhats(p, comChave), 'Lembrar do Pix');
+  assert.equal(R.rotuloAvisoWhats(p, semChave), 'Combinar o Pix');
+  assert.ok(/QR do Pix/.test(R.mensagemParaCliente(comChave, p)));
   assert.ok(/combinar o Pix/.test(R.textoDoEstagio(p, semChave)));
   assert.ok(/comprovante/.test(R.mensagemDoCliente(comChave, p)));
   assert.ok(/mandar a chave/.test(R.mensagemDoCliente(semChave, p)));

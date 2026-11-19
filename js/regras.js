@@ -1040,7 +1040,7 @@
         return dizQuePagou(pedido)
           ? 'Avisamos a loja. Assim que ela conferir o Pix, o pedido entra na fila.'
           : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.'
-            : pixCombinado(pedido) ? (pixDiretoNaLoja(loja) ? 'Pague o Pix pelo QR abaixo e mande o comprovante no WhatsApp da loja. Quando ela conferir, o pedido entra na fila.' : 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.')
+            : pixCombinado(pedido) ? (pixDiretoNaLoja(loja) ? 'Falta pagar o Pix: siga os passos abaixo.' : 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.')
             : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
         if (ehCorreios(pedido)) return 'Pedido na fila! A loja separa e posta nos Correios' + (pedido.envio.prazo > 0 ? ': ' + prazoDoEnvio(pedido.envio.prazo) + '.' : '.');
@@ -1130,7 +1130,9 @@
     var com = pedidoDeComercio(pedido, loja), ref = refPedido(pedido, loja);
     switch (pedido.status) {
       case STATUS.AGUARDANDO:
-        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (' + ref + '), total de ' + dinheiro(pedido.total) + '. Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.';
+        if (pixCombinado(pedido)) return oi + 'Recebemos seu pedido (' + ref + '), total de ' + dinheiro(pedido.total) + '. ' + (pixDiretoNaLoja(loja)
+          ? 'O QR do Pix está na tela do seu pedido: é só pagar e mandar o comprovante aqui. Assim que cair, ele entra na fila.'
+          : 'Vamos combinar o Pix por aqui: assim que cair, ele entra na fila.');
         return oi + 'Recebemos seu pedido (' + ref + '). Assim que o ' + (pedido.formaPagamento === 'cartao_online' ? 'pagamento de ' + dinheiro(pedido.total) + ' no cartão for aprovado' : 'Pix de ' + dinheiro(pedido.total) + ' cair') + ', ele entra na fila.';
       case STATUS.PAGO:
         if (ehCorreios(pedido)) return oi + 'Recebemos seu pedido (' + ref + ') e ele já está na fila. Vamos separar e postar nos Correios.';
@@ -1155,10 +1157,10 @@
     }
   }
   /* O que o botao do WhatsApp do pedido manda agora (curto: cabe no botao do celular). */
-  function rotuloAvisoWhats(pedido) {
+  function rotuloAvisoWhats(pedido, loja) {
     var entrega = pedido.tipoEntrega === 'entrega';
     switch (pedido.status) {
-      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) ? 'Combinar o Pix' : 'Lembrar do Pix';
+      case STATUS.AGUARDANDO: return pedido.formaPagamento === 'cartao_online' ? 'Lembrar do pagamento' : pixCombinado(pedido) && !pixDiretoNaLoja(loja) ? 'Combinar o Pix' : 'Lembrar do Pix';
       case STATUS.PAGO: return 'Pedido recebido';
       case STATUS.PRODUCAO: return pedidoDeComercio(pedido) ? 'Separando' : 'Preparando';
       case STATUS.PRONTO: return ehCorreios(pedido) ? 'Mandar o rastreio' : entrega ? 'Saiu para entrega' : 'Pronto para retirar';

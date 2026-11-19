@@ -1628,13 +1628,13 @@
         var valor = R.freteCorreios(estado.loja, uf, Math.max(1, quantidadeTotal()), orcamento().subtotal, o);
         var marcado = f.servico === o.servico;
         var selo = i === 0 && opcoes.length > 1 ? 'Mais barato' : (o === maisRapido && opcoes.length > 1 ? 'Mais rápido' : '');
-        lista.appendChild(el('button', { type: 'button', class: 'envio-opcao' + (marcado ? ' on' : ''), role: 'radio', 'aria-checked': marcado ? 'true' : 'false', onclick: function () {
+        lista.appendChild(el('button', { type: 'button', class: 'opcao envio-opcao' + (marcado ? ' marcada' : ''), role: 'radio', 'aria-checked': marcado ? 'true' : 'false', onclick: function () {
           if (marcado) return;
           estado.servico = o.servico;
           guardarRascunho();
           freteChegou();
         } }, [
-          el('span', { class: 'envio-opcao-marca', 'aria-hidden': 'true' }),
+          el('span', { class: 'marcador redondo', 'aria-hidden': 'true' }, [UI.iconeLinha('check')]),
           el('span', { class: 'envio-opcao-texto' }, [
             el('span', { class: 'envio-opcao-linha' }, [
               el('b', { class: 'envio-opcao-nome', text: R.nomeDoServico(o.servico) }),
@@ -3578,7 +3578,8 @@
         }
       } else if (R.pixCombinado(pedido) && pedido.status === R.STATUS.AGUARDANDO) {
         ico = 'celular';
-        texto = dinheiro(pedido.total) + (pixDireto() ? ' no Pix, pelo QR abaixo.' : ' no Pix, combinado com a loja no WhatsApp.');
+        /* Pix direto: o valor ja aparece grande no proprio Pix, logo abaixo (a faixa repetia) */
+        texto = pixDireto() ? '' : dinheiro(pedido.total) + ' no Pix, combinado com a loja no WhatsApp.';
       } else if (pedido.desconto > 0) {
         ico = 'cupom';
         texto = pedido.total === 0 ? 'Cupom ' + pedido.cupom + ': este pedido é cortesia.' : 'Cupom ' + pedido.cupom + ': você economizou ' + dinheiro(pedido.desconto);
@@ -3600,20 +3601,25 @@
       var codigo = '';
       try { codigo = Pix.gerar({ chave: chave, nome: l.nome, cidade: l.cidade || '', valor: pedido.total, txid: R.txidPix(pedido), descricao: (R.pedidoDeComercio(pedido, l) ? 'Pedido ' : 'Senha ') + pedido.senha }); } catch (_) { codigo = ''; }
       if (!codigo) { caixa.hidden = true; return; }
-      var qr = el('div', { class: 'pix-direto-qr', role: 'img', 'aria-label': 'QR Code do Pix de ' + dinheiro(pedido.total) });
-      caixa.appendChild(el('div', { class: 'pix-direto-titulo', text: 'Pague ' + dinheiro(pedido.total) + ' no Pix' }));
-      caixa.appendChild(qr);
-      caixa.appendChild(el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () {
-        UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco, em Pix copia e cola.' : 'Não deu para copiar sozinho. Toque e segure no código para copiar.'); });
-      } }, [UI.iconeLinha('copiar'), 'Copiar o código Pix']));
-      caixa.appendChild(el('p', { class: 'pix-direto-codigo', text: codigo }));
-      caixa.appendChild(el('ol', { class: 'pix-direto-passos' }, [
-        el('li', { text: 'Pague no app do seu banco, pelo QR ou pelo código.' }),
-        el('li', { text: 'Mande o comprovante no WhatsApp da loja.' }),
-        el('li', { text: 'A loja confere e o pedido entra na fila.' }),
+      /* as mesmas pecas da tela do Pix do Mercado Pago: o valor grande, o QR na moldura, o "Copiar codigo Pix" escuro,
+         o codigo em duas linhas e os passos numerados */
+      var qr = el('div', { class: 'qr-caixa', role: 'img', 'aria-label': 'QR Code do Pix de ' + dinheiro(pedido.total) });
+      var passo = function (n, filhos) { return el('div', { class: 'passo-pix' }, [el('span', { class: 'numero', text: String(n) }), el('span', {}, filhos)]); };
+      caixa.appendChild(el('div', { class: 'valor-grande', text: dinheiro(pedido.total) }));
+      caixa.appendChild(el('div', { class: 'muted', text: 'Pix direto para ' + l.nome }));
+      caixa.appendChild(el('div', { class: 'cartao pix-pagar' }, [
+        qr,
+        el('button', { class: 'btn btn-escuro btn-largo', type: 'button', onclick: function () {
+          UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco.' : 'Não deu para copiar sozinho. Toque e segure no código para copiar.'); });
+        } }, [UI.iconeLinha('copiar'), 'Copiar código Pix']),
+        el('code', { class: 'codigo-pix', text: codigo }),
       ]));
-      caixa.appendChild(el('p', { class: 'pix-direto-nota', text: 'O Pix vai direto para ' + l.nome + '.' }));
-      var desenhar = function () { if (!Pix.desenharQr(qr, codigo, 200)) qr.hidden = true; };
+      caixa.appendChild(el('div', { class: 'passos-pix' }, [
+        passo(1, ['Abra o aplicativo do seu banco']),
+        passo(2, ['Escolha ', el('b', { text: 'Pix' }), ' e depois ', el('b', { text: 'Pix copia e cola' }), ' (ou leia o QR Code)']),
+        passo(3, ['Pague e mande o comprovante no WhatsApp da loja']),
+      ]));
+      var desenhar = function () { if (!Pix.desenharQr(qr, codigo, 228)) qr.hidden = true; };
       if (Pix.carregarQr) Pix.carregarQr().then(desenhar, function () { qr.hidden = true; }); else desenhar();
     }
     function rotuloConfirmado(icone, texto, pedido) {
