@@ -1372,7 +1372,7 @@
       }
       /* 19/11/2026: Pix direto esperando a loja conferir: o que procurar no extrato (o valor e a descricao do Pix) */
       if (R.pixCombinado(p) && p.status === R.STATUS.AGUARDANDO && R.pixDiretoNaLoja(estado.loja)) {
-        card.appendChild(el('p', { class: 'aviso pix-conferir' }, [UI.iconeLinha('busca'), el('span', {}, ['Procure no extrato um Pix de ', el('b', { text: dinheiro(p.total) }), ' com a descrição ', el('b', { text: (R.pedidoDeComercio(p, estado.loja) ? 'PEDIDO ' : 'SENHA ') + p.senha }), '. Comprovante no WhatsApp não vale: confira no banco.'])]));
+        card.appendChild(el('p', { class: 'aviso pix-conferir' }, [UI.iconeLinha('busca'), el('span', {}, ['Procure no extrato um Pix de ', el('b', { text: dinheiro(p.total) }), ' com a descrição ', el('b', { text: (R.pedidoDeComercio(p, estado.loja) ? 'PEDIDO ' : 'SENHA ') + p.senha }), '. Comprovante no WhatsApp não vale: confira no banco. Dica: ligue as notificações do app do seu banco, ele avisa quando o Pix\u00a0cai.'])]));
       }
       /* Correios ainda nao postado (18/11/2026): o passo a passo do envio, com a etiqueta de endereco para imprimir */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO)) card.appendChild(comoEnviar(p));
@@ -1737,10 +1737,13 @@
         parte('imprimir', 'Impressora com Wi-Fi'),
         lista(['Ligue a impressora e deixe no mesmo Wi-Fi do\u00a0celular.', 'No pedido, toque em "Imprimir etiqueta".', 'Na tela que abrir, escolha a sua impressora e o papel A4. Toque em\u00a0Imprimir.']),
         el('p', { class: 'ajuda', text: 'A impressora não aparece? Instale o aplicativo da marca dela (HP Smart, Epson Smart Panel, Canon PRINT) ou o Mopria Print Service, e tente de\u00a0novo.' }),
+        parte('imprimir', 'Impressora de cupom (térmica, Bluetooth)'),
+        lista(['No Android, instale o aplicativo RawBT e ligue a impressora no\u00a0Bluetooth.', 'Toque em "Imprimir etiqueta" e escolha RawBT como\u00a0impressora.']),
         parte('site', 'Impressora só no computador'),
         lista(['Abra o painel do Ligeiro no computador, com a mesma conta do\u00a0Google.', 'No pedido, clique em "Imprimir etiqueta" e imprima por\u00a0lá.']),
         parte('celular', 'Sem impressora'),
         lista(['Toque em "Imprimir etiqueta" e escolha "Salvar como PDF".', 'Mande o PDF no WhatsApp de uma papelaria e peça para\u00a0imprimir.', 'Ou escreva no pacote, com letra grande, o nome, o endereço e o CEP da\u00a0cliente.']),
+        el('p', { class: 'ajuda', text: 'A tela de imprimir não abriu ou travou? Feche e toque de novo em "Imprimir etiqueta". Se continuar, use o "Salvar como PDF" ou escreva à mão: o pedido segue normal do\u00a0mesmo\u00a0jeito.' }),
       ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: function () { UI.fecharModal(); } })] });
     }
     var LA_EMBAIXO = ', no botão grande lá\u00a0embaixo.';
@@ -1755,7 +1758,7 @@
         el('ol', { class: 'envio-passos' }, [
           passoDoEnvio(1, separando ? 'feito' : 'agora', 'Separe e embale', 'caixa', (separando ? [] : ['Toque em ', nomeDoBotao('Começar a separar'), LA_EMBAIXO + ' ']).concat(['Pegue as peças listadas logo abaixo deste quadro e embale\u00a0bem.'])),
           passoDoEnvio(2, '', 'Cole a etiqueta', 'imprimir', [
-            'Imprima e cole na caixa. O comprovante, que sai na mesma folha, vai dentro do\u00a0pacote.',
+            'Imprima e cole na caixa. O comprovante, que sai na mesma folha, vai dentro do\u00a0pacote. Sem impressora? Escreva no pacote, com letra grande, o nome, o endereço e o CEP da\u00a0cliente.',
             el('button', { class: 'envio-link', type: 'button', onclick: comoImprimir }, [UI.iconeLinha('info'), el('span', { text: 'Como imprimir pelo celular' })]),
           ]),
           passoDoEnvio(3, separando ? '' : 'depois', 'Leve aos Correios', 'loja', ['Peça ', el('b', { text: servico }), '. Você paga o envio no balcão' + (frete ? ': a cliente já te pagou ' + frete + ' de\u00a0frete.' : ' (este pedido saiu com frete grátis para a\u00a0cliente).')]),
@@ -1811,8 +1814,8 @@
       var s1 = situacao(R.STATUS.PAGO), s3 = situacao(R.STATUS.PRODUCAO), s4 = situacao(R.STATUS.PRONTO);
       var passos = [
         passoDoEnvio(1, s1, 'Separe e embale', 'caixa', (s1 === 'feito' ? [] : toque(R.STATUS.PAGO, 'Toque em ', '')).concat([(s1 === 'feito' ? '' : ' ') + 'Pegue as peças listadas logo abaixo deste quadro e embale\u00a0bem.'])),
-        passoDoEnvio(2, '', 'Cole a etiqueta', 'imprimir', [
-          'Imprima e cole no pacote. Ela tem o número do pedido e o que\u00a0cobrar.',
+        passoDoEnvio(2, '', 'Etiqueta (se quiser)', 'imprimir', [
+          'Ajuda a não trocar os pacotes: tem o número do pedido e o que cobrar. Sem impressora? Pode pular este\u00a0passo.',
           el('button', { class: 'envio-link', type: 'button', onclick: comoImprimir }, [UI.iconeLinha('info'), el('span', { text: 'Como imprimir pelo celular' })]),
         ]),
         naCidade
@@ -3836,7 +3839,8 @@
       entrega.appendChild(f.aceitaEntrega);
       entrega.appendChild(f.aceitaRetirada);
       /* Frete: o dono manda. "Entrega gratis" desliga a taxa em todo pedido; "Cobro taxa" mostra os valores. */
-      f.taxaEntrega = campoDinheiro('Taxa de entrega', l.taxaEntrega, 'O que o cliente paga pela entrega.');
+      /* 19/11/2026: a taxa e so da entrega na cidade; os Correios tem o frete deles (calculado ou da tabela) */
+      f.taxaEntrega = campoDinheiro('Taxa de entrega', l.taxaEntrega, R.enviaCorreios(l) ? 'O que o cliente da sua cidade paga pela entrega. Pelos Correios, o frete é calculado à\u00a0parte.' : 'O que o cliente paga pela entrega.');
       f.entregaGratisAcima = campoDinheiro('Grátis a partir de', l.entregaGratisAcima, 'Vazio = a taxa vale sempre. Com valor, o site mostra "faltam R$ X para entrega grátis", e o pedido cresce.');
       f.frete = campoFrete(l, function (modo) {
         f.taxaEntrega.hidden = modo === 'gratis';

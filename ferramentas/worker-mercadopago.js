@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-11-19d';
+const VERSAO_MENSAGEIRO = '2026-11-19e';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -3448,6 +3448,9 @@ export default {
         /* pedido ja na fila (pago ou para cobrar na porta): o painel e a cozinha apitam daqui mesmo. Pix combinado com a
            loja: so o painel (a loja precisa combinar e confirmar; a cozinha so ve depois de pago) */
         const combinado = completo.formaPagamento === 'pix_combinado' && completo.status === 'aguardando_pagamento';
+        /* 19/11/2026: Pix direto na chave da loja (sem Mercado Pago): a lojista recebe tambem um e-mail com o valor e o que
+           procurar no extrato. De graca (o Apps Script do Ligeiro), com teto por dia */
+        if (combinado && l && REGRAS.pixDiretoNaLoja(l) && ctx && ctx.waitUntil) ctx.waitUntil(avisarPixDiretoPorEmail(env, loja, completo).catch(() => false));
         if ((completo.status === 'pago' || combinado) && env.CARDAPIO && ctx && ctx.waitUntil) {
           ctx.waitUntil((async () => {
             const aparelhos = ((await aparelhosDaLoja(env, loja).catch(() => null)) || []).filter((a) => temPapel(a, 'painel') || (!combinado && temPapel(a, 'cozinha')));
@@ -3994,6 +3997,44 @@ function atualizarDepois(ctx, chave, fazer) {
   if (ctx && ctx.waitUntil) ctx.waitUntil(p);
 }
 
+/* 19/11/2026: o e-mail do Pix direto para a lojista: o valor, o numero do pedido (a descricao do Pix) e o botao do painel.
+   Teto: 12 por loja e 40 no total por dia, contados no KV (a cota diaria do Google e de 100 e-mails e leva tambem os
+   recibos e os contatos). Sem o Apps Script configurado ou sem o e-mail do dono, nao faz nada */
+async function avisarPixDiretoPorEmail(env, slug, p) {
+  const url = String(env.EMAIL_URL || '').trim();
+  if (!url || !env.EMAIL_TOKEN || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) return false;
+  const meta = await etiquetaDaLoja(env, slug).catch(() => null);
+  const para = String((meta && meta.dono) || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return false;
+  if (demais('pix-email:' + slug, 12, 24 * 3600 * 1000)) return false;
+  if (env.CARDAPIO) {
+    try {
+      const dia = new Date().toISOString().slice(0, 10);
+      const total = Number(await env.CARDAPIO.get('pix-email:' + dia)) || 0;
+      const daLoja = Number(await env.CARDAPIO.get('pix-email:' + slug + ':' + dia)) || 0;
+      if (total >= 40 || daLoja >= 12) return false;
+      await env.CARDAPIO.put('pix-email:' + dia, String(total + 1), { expirationTtl: 172800 });
+      await env.CARDAPIO.put('pix-email:' + slug + ':' + dia, String(daLoja + 1), { expirationTtl: 172800 });
+    } catch (_) { /* KV fora do ar: segue so com o teto desta copia */ }
+  }
+  const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const nome = (meta && meta.nome) || 'sua loja';
+  const ref = (p.segmento === 'comercio' ? 'PEDIDO ' : 'SENHA ') + String(p.senha == null ? '' : p.senha).replace(/\D/g, '');
+  const painel = 'https://ligeiropedidos.com.br/painel/' + slug;
+  const texto = 'Pix de ' + reais(p.total) + ' a caminho (' + ref + '). Confira no app do banco se caiu um Pix de ' + reais(p.total) + ' com a descricao ' + ref + '. Caiu? Abra o painel e toque em "Pix caiu? Marcar como pago": ' + painel + '. Comprovante mandado no WhatsApp nao vale: confira no banco.';
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1F2937;max-width:480px">'
+    + '<p style="margin:0 0 6px"><b>' + esc(nome) + '</b></p>'
+    + '<p style="margin:0 0 4px;font-size:22px"><b>Pix de ' + esc(reais(p.total)) + ' a caminho</b></p>'
+    + '<p style="margin:0 0 14px">Uma cliente fez o ' + esc(ref.toLowerCase()) + ' e vai pagar no Pix, direto na sua chave.</p>'
+    + '<p style="margin:0 0 6px"><b>1.</b> Abra o app do seu banco e procure um Pix de <b>' + esc(reais(p.total)) + '</b> com a descrição <b>' + esc(ref) + '</b>.</p>'
+    + '<p style="margin:0 0 14px"><b>2.</b> Caiu? Abra o painel e toque em <b>Pix caiu? Marcar como pago</b>.</p>'
+    + '<p style="margin:0 0 14px"><a href="' + esc(painel) + '" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:12px">Abrir o painel</a></p>'
+    + '<p style="margin:0;color:#6B7280;font-size:13px">Comprovante mandado no WhatsApp não vale: confira sempre no banco.</p>'
+    + '</div>';
+  const r = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: String(env.EMAIL_TOKEN).trim(), para: para, assunto: 'Pix de ' + reais(p.total) + ' a caminho · ' + ref + ' · ' + nome, texto: texto, html: html }) });
+  const j = await r.json().catch(() => ({}));
+  return !!j.ok;
+}
 async function nomeDaLoja(env, slug) {
   const meta = await etiquetaDaLoja(env, slug);
   return (meta && meta.nome) || '';
@@ -4437,7 +4478,9 @@ function numeroDoPedido(p) { return (p && p.segmento === 'comercio' ? 'Pedido n�
 function avisoDaLoja(p, slug, papel, pix) {
   const onde = p.envio && p.envio.tipo === 'correios' ? 'Correios' : p.tipoEntrega === 'entrega' ? 'Entrega' : (p.origem === 'balcao' ? 'Balcão' : 'Retirada');
   const combinar = !pix && p.formaPagamento === 'pix_combinado' && p.status === 'aguardando_pagamento';
-  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! ' : 'Pix pago! ') : combinar ? 'Pedido novo, Pix a combinar! ' : 'Pedido novo! ') + numeroDoPedido(p), texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+  /* Pix pela chave da loja: o titulo ja diz o valor e o texto diz o que fazer (conferir no banco e marcar como pago) */
+  if (combinar) return { titulo: 'Pix de ' + reais(p.total) + ' a caminho! ' + numeroDoPedido(p), texto: 'Confira no app do banco e marque como pago no painel. · ' + onde, url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
+  return { titulo: (pix ? (p.formaPagamento === 'cartao_online' ? 'Cartão pago! ' : 'Pix pago! ') : 'Pedido novo! ') + numeroDoPedido(p), texto: reais(p.total) + ' · ' + onde + ' · Toque para abrir', url: urlDoPapel(slug, papel), tag: 'pedido-' + p.id, fixo: true, validade: 1800 };
 }
 /* saiu da cozinha para entrega: para o entregador */
 function avisoDeEntrega(r, slug) {
