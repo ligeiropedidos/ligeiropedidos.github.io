@@ -1310,6 +1310,8 @@
         var e = p.endereco || {};
         card.appendChild(el('div', { class: 'endereco' }, [UI.iconeLinha(R.ehCorreios(p) ? 'caixa' : 'mapa'), UI.enderecoEmLinhas(e)]));
       }
+      /* Correios ainda nao postado (18/11/2026): o passo a passo do envio, com a etiqueta de endereco para imprimir */
+      if (R.ehCorreios(p) && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO)) card.appendChild(comoEnviar(p));
       /* Correios postado: o codigo de rastreio (ou o lembrete de colocar), com o botao de mudar */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PRONTO || p.status === R.STATUS.FINALIZADO)) {
         var cod = R.limparRastreio(p.rastreio);
@@ -1395,6 +1397,7 @@
         acoes.appendChild(el('a', { class: 'btn btn-whats btn-pequeno btn-so-icone', href: R.linkWhatsapp(p.cliente.telefone, R.mensagemParaCliente(loja, p)), target: '_blank', rel: 'noopener', title: 'Falar com o cliente no WhatsApp', 'aria-label': 'Falar com o cliente no WhatsApp' }, [UI.icone('zap')]));
       }
       acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno btn-so-icone', title: 'Imprimir', 'aria-label': 'Imprimir', onclick: function () { imprimir(p); } }, [UI.iconeLinha('imprimir')]));
+      acoes.appendChild(el('button', { class: 'btn btn-fantasma btn-pequeno btn-so-icone', title: 'Comprovante do pedido', 'aria-label': 'Comprovante do pedido', onclick: function () { UI.abrirComprovante(estado.loja, p, { paraLoja: true }); } }, [UI.iconeLinha('recibo')]));
       if (p.status !== R.STATUS.FINALIZADO && p.status !== R.STATUS.CANCELADO) {
         acoes.appendChild(el('button', { class: 'btn btn-erro btn-pequeno', onclick: function (ev) { if (travarToque()) cancelar(p, ev.currentTarget); } }, [UI.iconeLinha('fechar'), 'Cancelar']));
       }
@@ -1597,7 +1600,23 @@
       estado.mp.processar(estado.pedidos || []);
     }
 
+    /* o quadrinho "Como enviar" do pedido dos Correios: tudo o que a loja faz, na ordem, com o valor do frete que a cliente pagou */
+    function comoEnviar(p) {
+      var servico = R.nomeDoServico(p.envio && p.envio.servico);
+      var frete = p.taxaEntrega > 0 ? dinheiro(p.taxaEntrega) : '';
+      return el('div', { class: 'como-enviar' }, [
+        el('b', { class: 'como-enviar-titulo', text: 'Como enviar este pedido' }),
+        el('ol', { class: 'como-enviar-passos' }, [
+          el('li', { text: 'Imprima a etiqueta, recorte e cole na caixa. O comprovante que sai junto vai dentro do pacote.' }),
+          el('li', { text: 'Leve aos Correios e peça o envio por ' + (servico || 'PAC ou SEDEX') + (servico ? ', o que a cliente escolheu' : '') + '.' + (frete ? ' A cliente já pagou ' + frete + ' de frete.' : '') }),
+          el('li', { text: 'Com o comprovante dos Correios na mão, toque em "Postei nos Correios" e cole o código de rastreio.' }),
+        ]),
+        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir a etiqueta']),
+        el('p', { class: 'como-enviar-dica', text: 'Sem impressora? Mostre esta tela no balcão dos Correios: o endereço está logo acima.' }),
+      ]);
+    }
     function imprimir(p) {
+      document.body.classList.remove('imprimindo-papel');
       var ficha = $('fichaImpressao');
       ficha.textContent = R.fichaDoPedido(estado.loja, p).replace(/\*/g, '');
       window.print();

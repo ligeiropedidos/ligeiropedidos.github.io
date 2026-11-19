@@ -1397,6 +1397,98 @@ const REGRAS = (function () {
   }
 
   /*
+   * Comprovante do pedido (18/11/2026): o que a cliente baixa ou compartilha e a loja imprime (vai dentro do pacote).
+   * Sem valor fiscal. Devolve os dados prontos para a tela (ui.js monta o papel), iguais para todo tipo de loja.
+   */
+  var NOMES_DAS_FORMAS = { pix: 'Pix', cartao_online: 'Cartão pelo site', pix_combinado: 'Pix pelo WhatsApp', cartao_entrega: 'Cartão na entrega (maquininha)',
+    dinheiro_entrega: 'Dinheiro na entrega', vale_entrega: 'Vale-refeição na entrega', pix_entrega: 'Pix na entrega' };
+  function dataEHora(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear() + ' às ' + horaCurta(iso);
+  }
+  function linhasDoEndereco(e) {
+    var x = e || {};
+    var l = [];
+    if (x.rua) l.push(umaLinha(x.rua) + (x.numero ? ', ' + umaLinha(x.numero) : ''));
+    if (x.complemento) l.push(umaLinha(x.complemento));
+    if (x.bairro) l.push(umaLinha(x.bairro));
+    if (x.cidade) l.push(umaLinha(x.cidade) + (x.uf ? '/' + umaLinha(x.uf) : ''));
+    return l;
+  }
+  function comprovanteDoPedido(loja, pedido) {
+    var l = loja || {}, p = pedido || {};
+    var com = pedidoDeComercio(p, l);
+    var cnpj = String(l.cnpj || '').replace(/\D/g, '');
+    var cepLoja = cepDaLoja(l);
+    var lojaLinhas = [];
+    if (l.endereco) lojaLinhas.push(umaLinha(l.endereco) + (l.cidade && umaLinha(l.endereco).toLowerCase().indexOf(umaLinha(l.cidade).toLowerCase()) < 0 ? ', ' + umaLinha(l.cidade) + (l.uf ? '/' + umaLinha(l.uf) : '') : ''));
+    if (cepLoja) lojaLinhas.push('CEP ' + formatarCep(cepLoja));
+    if (l.whatsapp) lojaLinhas.push('WhatsApp ' + formatarTelefone(String(l.whatsapp).replace(/\D/g, '')));
+    var entrega;
+    var e = p.endereco || {};
+    if (p.tipoEntrega === 'entrega') {
+      var linhas = linhasDoEndereco(e);
+      if (e.cep) linhas.push('CEP ' + umaLinha(e.cep));
+      if (!ehCorreios(p) && e.referencia) linhas.push('Referência: ' + umaLinha(e.referencia));
+      entrega = { titulo: ehCorreios(p) ? 'Envio pelos ' + correiosComServico(p) : 'Entrega no endereço', linhas: linhas,
+        prazo: ehCorreios(p) && p.envio && p.envio.prazo > 0 ? 'Chega em até ' + p.envio.prazo + (p.envio.prazo === 1 ? ' dia útil' : ' dias úteis') + ' depois de postado' : '',
+        rastreio: ehCorreios(p) ? limparRastreio(p.rastreio) : '' };
+    } else {
+      entrega = { titulo: p.origem === 'balcao' ? 'Pedido no balcão' : (com ? 'Retirada na loja' : 'Retirada no balcão'), linhas: [], prazo: '', rastreio: '' };
+    }
+    var itens = (p.itens || []).map(function (it) {
+      var detalhes = [];
+      if (it.tamanho && it.tamanho.nome) detalhes.push(umaLinha(tituloDoTamanho(l, it)) + ': ' + umaLinha(it.tamanho.nome));
+      if (it.adicionais && it.adicionais.length) detalhes.push('Com: ' + it.adicionais.map(function (a) { return umaLinha(a.nome); }).join(', '));
+      if (it.removidos && it.removidos.length) detalhes.push('Sem: ' + it.removidos.map(umaLinha).join(', '));
+      if (it.observacao) detalhes.push('Obs.: ' + umaLinha(it.observacao));
+      return { quantidade: it.quantidade, nome: umaLinha(it.nome), detalhes: detalhes, valor: dinheiro(it.totalItem) };
+    });
+    var contas = [['Itens', dinheiro(p.subtotal)]];
+    if (p.desconto > 0) contas.push(['Cupom ' + umaLinha(p.cupom) + ' (' + p.cupomPercentual + '%)', '- ' + dinheiro(p.desconto)]);
+    if (p.tipoEntrega === 'entrega') contas.push([ehCorreios(p) ? 'Frete (' + correiosComServico(p) + ')' : 'Entrega', p.taxaEntrega > 0 ? dinheiro(p.taxaEntrega) : 'Grátis']);
+    if (p.acrescimoCartao > 0) contas.push(['Taxa do cartão', dinheiro(p.acrescimoCartao)]);
+    var forma = NOMES_DAS_FORMAS[p.formaPagamento] || 'Pix';
+    var pagamento;
+    if (p.status === STATUS.CANCELADO) pagamento = dinheiroDevolvido(p) ? 'Pedido cancelado. Dinheiro devolvido (' + forma + ').' : 'Pedido cancelado.';
+    else if (p.total === 0) pagamento = 'Cortesia: nada a pagar.';
+    else if (p.pagamentoStatus === 'na_entrega') pagamento = 'A pagar: ' + forma + '.';
+    else if (p.status === STATUS.AGUARDANDO) pagamento = 'Aguardando o pagamento (' + forma + ').';
+    else pagamento = 'Pago: ' + forma + (p.pagoEm ? ', em ' + dataEHora(p.pagoEm) : '') + '.';
+    return {
+      loja: { nome: umaLinha(l.nome), cnpj: cnpj.length === 14 ? formatarCnpj(cnpj) : '', linhas: lojaLinhas },
+      numero: (com ? 'Pedido nº ' : 'Senha ') + p.senha,
+      data: dataEHora(p.criadoEm),
+      cliente: { nome: umaLinha((p.cliente || {}).nome || p.nome), telefone: (p.cliente || {}).telefone || p.telefone ? formatarTelefone((p.cliente || {}).telefone || p.telefone) : '' },
+      entrega: entrega,
+      itens: itens,
+      observacao: p.observacao ? umaLinha(p.observacao) : '',
+      contas: contas,
+      total: p.total === 0 ? 'Grátis' : dinheiro(p.total),
+      pagamento: pagamento,
+      cancelado: p.status === STATUS.CANCELADO,
+    };
+  }
+  /* a etiqueta de endereco do pacote dos Correios (a loja imprime, recorta e cola): destinatario em letra grande e remetente */
+  function etiquetaDoEnvio(loja, pedido) {
+    var l = loja || {}, p = pedido || {};
+    if (!ehCorreios(p)) return null;
+    var e = p.endereco || {};
+    var cepLoja = cepDaLoja(l);
+    var remetente = [];
+    if (l.endereco) remetente.push(umaLinha(l.endereco));
+    if (l.cidade) remetente.push(umaLinha(l.cidade) + (l.uf ? '/' + umaLinha(l.uf) : ''));
+    return {
+      servico: correiosComServico(p),
+      numero: (pedidoDeComercio(p, l) ? 'Pedido nº ' : 'Senha ') + p.senha,
+      destinatario: { nome: umaLinha((p.cliente || {}).nome || p.nome), linhas: linhasDoEndereco(e), cep: e.cep ? formatarCep(e.cep) : '' },
+      remetente: { nome: umaLinha(l.nome), linhas: remetente, cep: cepLoja ? formatarCep(cepLoja) : '' },
+    };
+  }
+
+  /*
    * Resposta automatica do WhatsApp Business (08/10/2026): o painel monta as duas mensagens que o dono cola no proprio WhatsApp
    * (Ferramentas comerciais): a de saudacao (vai para quem chama pela primeira vez e para quem volta depois de 14 dias) e a de
    * ausencia (vai fora do horario comercial). As duas levam o link da loja numa linha so (o WhatsApp mostra a previa).
@@ -2231,6 +2323,8 @@ const REGRAS = (function () {
     nomeDoServico: nomeDoServico,
     cepDaLoja: cepDaLoja,
     temTabelaDeFrete: temTabelaDeFrete,
+    comprovanteDoPedido: comprovanteDoPedido,
+    etiquetaDoEnvio: etiquetaDoEnvio,
     correiosComServico: correiosComServico,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,

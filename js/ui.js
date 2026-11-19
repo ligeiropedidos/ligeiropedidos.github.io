@@ -1038,6 +1038,114 @@
   function iconeLinha(nome) { return el('span', { class: 'ico-traco ico-' + nome, 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24">' + (ICONES_TRACO[nome] || '') + '</svg>' }); }
   /* selo do tipo do pedido (painel, cozinha): Entrega, Retirada ou Balcao, com icone de traco */
   /* ---------- o cartao do pedido (painel, cozinha ou separacao, entregador): as mesmas pecas em todo lugar ---------- */
+  /* ---------- comprovante do pedido e etiqueta dos Correios (18/11/2026): um papel so, igual na tela e na impressao ---------- */
+  function papelComprovante(c) {
+    var bloco = function (rotulo, filhos) { return el('div', { class: 'comprovante-bloco' }, [el('div', { class: 'comprovante-rotulo', text: rotulo })].concat(filhos)); };
+    var miudo = function (t) { return el('div', { class: 'comprovante-miudo', text: t }); };
+    var itens = c.itens.map(function (it) {
+      return el('div', { class: 'comprovante-item' }, [
+        el('div', { class: 'comprovante-item-linha' }, [el('span', { text: it.quantidade + 'x ' + it.nome }), el('span', { class: 'comprovante-valor', text: it.valor })]),
+        it.detalhes.length ? el('div', { class: 'comprovante-miudo', text: it.detalhes.join(' · ') }) : null,
+      ]);
+    });
+    var entrega = [el('div', { class: 'comprovante-forte', text: c.entrega.titulo })].concat(c.entrega.linhas.map(function (t) { return el('div', { text: t }); }));
+    if (c.entrega.prazo) entrega.push(miudo(c.entrega.prazo + '.'));
+    if (c.entrega.rastreio) entrega.push(el('div', {}, ['Rastreio: ', el('b', { text: c.entrega.rastreio })]));
+    return el('div', { class: 'comprovante' + (c.cancelado ? ' comprovante-cancelado' : '') }, [
+      el('div', { class: 'comprovante-topo' }, [
+        el('div', { class: 'comprovante-loja', text: c.loja.nome }),
+        c.loja.cnpj ? miudo('CNPJ ' + c.loja.cnpj) : null,
+      ].concat(c.loja.linhas.map(miudo)).concat([
+        el('div', { class: 'comprovante-titulo', text: 'Comprovante do pedido' }),
+        el('div', { class: 'comprovante-numero', text: c.numero }),
+        miudo(c.data),
+        c.cancelado ? el('div', { class: 'comprovante-carimbo', text: 'Cancelado' }) : null,
+      ])),
+      bloco('Cliente', [el('div', { text: c.cliente.nome }), c.cliente.telefone ? miudo(c.cliente.telefone) : null]),
+      bloco(c.entrega.linhas.length ? 'Entrega' : 'Como recebe', entrega),
+      bloco('Itens', itens.concat(c.observacao ? [miudo('Observação: ' + c.observacao)] : [])),
+      el('div', { class: 'comprovante-bloco' }, c.contas.map(function (x) {
+        return el('div', { class: 'comprovante-conta' }, [el('span', { text: x[0] }), el('span', { class: 'comprovante-valor', text: x[1] })]);
+      }).concat([
+        el('div', { class: 'comprovante-conta comprovante-total' }, [el('span', { text: 'Total' }), el('span', { class: 'comprovante-valor', text: c.total })]),
+        el('div', { class: 'comprovante-pagamento', text: c.pagamento }),
+      ])),
+      el('div', { class: 'comprovante-pe' }, [el('div', { text: 'Documento sem valor fiscal.' }), el('div', { text: 'Pedido feito pelo link da loja · ligeiropedidos.com.br' })]),
+    ]);
+  }
+  function papelEtiqueta(et) {
+    var pessoa = function (rotulo, x, grande) {
+      return el('div', { class: 'etiqueta-pessoa' + (grande ? ' etiqueta-destino' : '') }, [
+        el('div', { class: 'etiqueta-rotulo', text: rotulo }),
+        el('div', { class: 'etiqueta-nome', text: x.nome }),
+      ].concat(x.linhas.map(function (t) { return el('div', { text: t }); })).concat([x.cep ? el('div', { class: 'etiqueta-cep', text: 'CEP ' + x.cep }) : null]));
+    };
+    return el('div', { class: 'etiqueta-envio' }, [
+      el('div', { class: 'etiqueta-servico' }, [el('span', { text: et.servico }), el('span', { text: et.numero })]),
+      pessoa('Destinatário', et.destinatario, true),
+      pessoa('Remetente', et.remetente, false),
+    ]);
+  }
+  /* imprime so os papeis (o resto da tela some na impressao). No celular, "imprimir" deixa salvar em PDF */
+  function imprimirPapeis(papeis) {
+    var area = document.getElementById('papelImpressao');
+    if (!area) { area = el('div', { id: 'papelImpressao', class: 'papel-impressao' }); document.body.appendChild(area); }
+    limpar(area);
+    papeis.forEach(function (x, i) {
+      if (i > 0) area.appendChild(el('div', { class: 'papel-corte', text: 'Recorte na linha e cole a etiqueta de cima na caixa. O comprovante vai dentro do pacote.' }));
+      area.appendChild(x);
+    });
+    document.body.classList.add('imprimindo-papel');
+    var fim = function () { document.body.classList.remove('imprimindo-papel'); window.removeEventListener('afterprint', fim); };
+    window.addEventListener('afterprint', fim);
+    window.print();
+  }
+  /* o comprovante como texto (WhatsApp, compartilhar) */
+  function textoDoComprovante(c) {
+    var l = ['*' + c.loja.nome + '*', 'Comprovante do pedido · ' + c.numero, c.data, ''];
+    l.push('*Cliente:* ' + c.cliente.nome);
+    l.push('*' + c.entrega.titulo + '*');
+    c.entrega.linhas.forEach(function (t) { l.push(t); });
+    if (c.entrega.rastreio) l.push('Rastreio: ' + c.entrega.rastreio);
+    l.push('');
+    c.itens.forEach(function (it) { l.push(it.quantidade + 'x ' + it.nome + (it.detalhes.length ? ' (' + it.detalhes.join(' · ') + ')' : '') + ': ' + it.valor); });
+    l.push('');
+    c.contas.forEach(function (x) { l.push(x[0] + ': ' + x[1]); });
+    l.push('*Total: ' + c.total + '*');
+    l.push(c.pagamento);
+    l.push('');
+    l.push('Documento sem valor fiscal.');
+    return l.join('\n');
+  }
+  /* a janela do comprovante. opcoes.paraLoja: o botao manda para a cliente no WhatsApp (a cliente compartilha) */
+  function abrirComprovante(loja, pedido, opcoes) {
+    var o = opcoes || {};
+    var R = window.LigeiroRegras;
+    var c = R.comprovanteDoPedido(loja, pedido);
+    var texto = textoDoComprovante(c);
+    var imprimir = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, onclick: function () { imprimirPapeis([papelComprovante(c)]); } }, [iconeLinha('imprimir'), o.paraLoja ? 'Imprimir' : 'Salvar em PDF']);
+    var outro;
+    var tel = String((pedido.cliente || {}).telefone || '').replace(/\D/g, '');
+    if (o.paraLoja && tel.length >= 10) {
+      outro = el('a', { class: 'btn btn-fantasma', style: { flex: '1' }, href: R.linkWhatsapp(tel, texto), target: '_blank', rel: 'noopener' }, [iconeLinha('conversa'), 'Mandar para a cliente']);
+    } else if (!o.paraLoja) {
+      outro = el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1' }, onclick: function () {
+        if (navigator.share) { navigator.share({ title: 'Comprovante do pedido', text: texto }).catch(function () { /* fechou sem compartilhar */ }); return; }
+        copiar(texto).then(function (ok) { avisar(ok !== false ? 'Comprovante copiado. Cole onde quiser guardar.' : 'Não deu para copiar. Use o botão de salvar em PDF.'); });
+      } }, [iconeLinha('subir'), 'Compartilhar']);
+    }
+    abrirModal({ titulo: 'Comprovante do pedido', classe: 'modal-comprovante', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [papelComprovante(c)]), rodape: [outro, imprimir].filter(Boolean) });
+  }
+  /* pedido dos Correios: a etiqueta de endereco em cima e o comprovante embaixo, numa folha so */
+  function imprimirEnvio(loja, pedido) {
+    var R = window.LigeiroRegras;
+    var et = R.etiquetaDoEnvio(loja, pedido);
+    var papeis = [];
+    if (et) papeis.push(papelEtiqueta(et));
+    papeis.push(papelComprovante(R.comprovanteDoPedido(loja, pedido)));
+    imprimirPapeis(papeis);
+  }
+
   /* o numero no topo: o icone do recibo, "Senha" ou "Pedido" e o numero grande */
   function fichaDoNumero(rotulo, numero, aria) {
     return el('span', { class: 'senha', 'aria-label': aria || (rotulo + ' ' + numero) }, [iconeLinha('recibo'), el('small', { text: rotulo }), el('b', { text: String(numero) })]);
@@ -1182,6 +1290,7 @@
     centavosDoCampo: centavosDoCampo, mascaraDinheiro: mascaraDinheiro, mascaraTelefone: mascaraTelefone,
     baseUrl: baseUrl, linksLimpos: linksLimpos, linkDoSite: linkDoSite, linkDaLoja: linkDaLoja, linkDoBalcao: linkDoBalcao, instagramDe: instagramDe, linkDoPainel: linkDoPainel, linkDoPedido: linkDoPedido,
     medirBarras: medirBarras,
+    abrirComprovante: abrirComprovante, imprimirEnvio: imprimirEnvio, papelComprovante: papelComprovante, papelEtiqueta: papelEtiqueta,
     fichaDoNumero: fichaDoNumero, seloCom: seloCom, iconeDoPagamento: iconeDoPagamento, linhaDoItem: linhaDoItem, enderecoEmLinhas: enderecoEmLinhas,
     lerImagem: lerImagem, campoFoto: campoFoto,
     PALETA: PALETA, ESTILOS: ESTILOS, corValida: corValida, corDeTexto: corDeTexto, aplicarTema: aplicarTema, aplicarTemaEm: aplicarTemaEm, varsDoTema: varsDoTema, limparTema: limparTema,

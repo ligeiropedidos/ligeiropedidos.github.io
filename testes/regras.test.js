@@ -1566,3 +1566,38 @@ test('18/11/2026: frete automatico (PAC e SEDEX cotados pelo mensageiro)', () =>
   assert.ok(/ENVIAR PELOS CORREIOS SEDEX/.test(R.fichaDoPedido(loja, p)));
   assert.ok(/Frete \(Correios SEDEX\): R\$ 38,10/.test(R.fichaDoPedido(loja, p)));
 });
+
+test('18/11/2026: comprovante do pedido (sem valor fiscal) e etiqueta dos Correios', () => {
+  const loja = { slug: 'x', nome: 'Cris Modas', cnpj: '39627296000100', endereco: 'Rua 10 de Abril, 53', cidade: 'Juquiá', uf: 'SP', cepOrigem: '11800000', whatsapp: '13996369005',
+    segmento: 'comercio', produtos: [{ id: 'p1', nome: 'Blusa', preco: 5000 }] };
+  const base = { senha: 7, cliente: { nome: 'Rita Alves', telefone: '21999990000' }, formaPagamento: 'pix', pagamentoStatus: 'pago', criadoEm: '2026-11-18T23:00:00Z', pagoEm: '2026-11-18T23:01:00Z',
+    subtotal: 5000, itens: [{ produtoId: 'p1', nome: 'Blusa', quantidade: 1, totalItem: 5000, tamanho: { id: 'm', nome: 'M' } }], segmento: 'comercio' };
+  const correios = Object.assign({}, base, { status: 'pronto', tipoEntrega: 'entrega', taxaEntrega: 4573, total: 9573, rastreio: 'aa 123 456 785 br',
+    endereco: { cep: '20040-020', rua: 'Praça Pio X', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro', uf: 'RJ' }, envio: { tipo: 'correios', servico: 'sedex', prazo: 3, auto: true } });
+  /* o R$ usa espaco que nao quebra (o valor nunca racha no fim da linha): o teste compara com espaco comum */
+  const sem = (x) => JSON.parse(JSON.stringify(x).replace(/ /g, ' '));
+  const c = sem(R.comprovanteDoPedido(loja, correios));
+  assert.equal(c.loja.cnpj, '39.627.296/0001-00');
+  assert.equal(c.numero, 'Pedido nº 7');
+  assert.equal(c.entrega.titulo, 'Envio pelos Correios SEDEX');
+  assert.equal(c.entrega.rastreio, 'AA123456785BR');
+  assert.deepEqual(c.contas, [['Itens', 'R$ 50,00'], ['Frete (Correios SEDEX)', 'R$ 45,73']]);
+  assert.equal(c.total, 'R$ 95,73');
+  assert.ok(/^Pago: Pix, em /.test(c.pagamento));
+  assert.deepEqual(c.itens[0].detalhes, ['Tamanho: M']);
+  const et = R.etiquetaDoEnvio(loja, correios);
+  assert.equal(et.servico, 'Correios SEDEX');
+  assert.equal(et.destinatario.cep, '20040-020');
+  assert.equal(et.remetente.cep, '11800-000');
+  assert.deepEqual(et.destinatario.linhas, ['Praça Pio X, 10', 'Centro', 'Rio de Janeiro/RJ']);
+  /* retirada, pagar na entrega, aguardando e cancelado: o pagamento fala a verdade de cada um */
+  const retirada = Object.assign({}, base, { status: 'producao', tipoEntrega: 'retirada', taxaEntrega: 0, total: 5000 });
+  assert.equal(R.comprovanteDoPedido(loja, retirada).entrega.titulo, 'Retirada na loja');
+  assert.equal(R.etiquetaDoEnvio(loja, retirada), null);
+  assert.equal(R.comprovanteDoPedido(loja, Object.assign({}, retirada, { pagamentoStatus: 'na_entrega', formaPagamento: 'dinheiro_entrega' })).pagamento, 'A pagar: Dinheiro na entrega.');
+  assert.equal(R.comprovanteDoPedido(loja, Object.assign({}, retirada, { status: 'aguardando_pagamento', pagamentoStatus: 'pendente' })).pagamento, 'Aguardando o pagamento (Pix).');
+  const cancelado = R.comprovanteDoPedido(loja, Object.assign({}, retirada, { status: 'cancelado' }));
+  assert.equal(cancelado.cancelado, true);
+  /* loja sem CNPJ: a linha some (nada de CNPJ vazio no papel) */
+  assert.equal(R.comprovanteDoPedido(Object.assign({}, loja, { cnpj: '' }), retirada).loja.cnpj, '');
+});

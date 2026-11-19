@@ -1,5 +1,5 @@
 {
- "css/ligeiro.css": "75c3cf2fdda2d8a9",
+ "css/ligeiro.css": "e69f19e217aadb20",
  "css/temas/burgerhouse.css": "024136d0c6d967e6",
  "css/temas/conizza.css": "1c64a07cd8609fc6",
  "css/temas/cris.css": "baf13632a1d8d7c5",
@@ -10,7 +10,7 @@
  "js/app.js": "cc36747a07246947",
  "js/avisos.js": "a751d7ca9c3a478e",
  "js/cidades.js": "717e9ccdbedfaf94",
- "js/cliente.js": "3c235525d0a81285",
+ "js/cliente.js": "f456c18cdfaa9084",
  "js/cobranca.js": "fb6cfb62bc813018",
  "js/comecar.js": "78d9db94a41a707e",
  "js/config.js": "2500c44cae1fa0a2",
@@ -20,13 +20,13 @@
  "js/equipe.js": "83055d8453261302",
  "js/jogo.js": "34f2d21073d6e830",
  "js/mp.js": "1ddf6f3f17799602",
- "js/painel.js": "300c6aea7ce3c979",
+ "js/painel.js": "11ed679b650ecb5d",
  "js/parceiro.js": "9cc7d6f690bc024a",
  "js/pix.js": "f3e1834a891bcca6",
  "js/pulo.js": "22ec605cde6a9de5",
- "js/regras.js": "33f753b7f9b2d679",
+ "js/regras.js": "ee4e52678f8e8bed",
  "js/seed.js": "8ad51e5043473302",
  "js/servicos.js": "e45f7f3b616a82ed",
- "js/ui.js": "a5c211e562d102bd",
+ "js/ui.js": "432a267fbe891676",
  "js/video-leve.js": "ed0a149d9a2f7e3e"
 }

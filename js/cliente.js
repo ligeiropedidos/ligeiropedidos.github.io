@@ -3873,6 +3873,7 @@
       caixa.appendChild(el('div', { class: 'resumo-titulo', text: 'Resumo do pedido' }));
       caixa.appendChild(itens);
       caixa.appendChild(contas);
+      if (!deFora && pedido.status !== R.STATUS.AGUARDANDO) caixa.appendChild(botaoComprovante(pedido));
       /* onde: buscar na loja ou receber em casa */
       var l = estado.loja || {};
       if (pedido.tipoEntrega === 'entrega') {
@@ -3933,6 +3934,10 @@
       var feito = function () { UI.avisar('Código copiado. Cole no site dos Correios ou no app de rastreio.'); };
       if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(codigo).then(feito, function () { UI.avisar('Código: ' + codigo); }); return; }
       UI.avisar('Código: ' + codigo);
+    }
+    /* 18/11/2026: o comprovante do pedido (sem valor fiscal), para salvar em PDF ou compartilhar */
+    function botaoComprovante(pedido) {
+      return el('button', { class: 'btn btn-fantasma btn-largo comprovante-botao', type: 'button', onclick: function () { UI.abrirComprovante(estado.loja, estado.pedido && estado.pedido.id === pedido.id ? estado.pedido : pedido); } }, [UI.iconeLinha('recibo'), 'Ver o comprovante do pedido']);
     }
     function montarLinhaDoTempo(pedido) {
       var entrega = pedido.tipoEntrega === 'entrega';
