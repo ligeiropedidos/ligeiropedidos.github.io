@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-11-18d';
+const VERSAO_MENSAGEIRO = '2026-11-19a';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -787,6 +787,35 @@ const REGRAS = (function () {
     var valor = Math.round(Number(c.valor) || 0), prazo = Math.round(Number(c.prazo) || 0);
     if (!(valor > 0 && valor <= 100000)) return null;
     return { servico: c.servico, valor: valor, prazo: prazo > 0 && prazo <= 60 ? prazo : 0 };
+  }
+  /* 19/11/2026: o peso de cada item para o frete automatico, em faixas iguais para toda loja (roupa, sapato, livro,
+     presente...). A loja escolhe a faixa padrao uma vez (sem escolha: ate 600 g) e, se quiser, a de um item diferente.
+     O mensageiro soma o carrinho de verdade (uma blusa e uma bota nao viram "duas pecas medias") */
+  var PACOTES_DA_PECA = {
+    leve: { rotulo: 'Até 300 g: blusa', peso: 0.3, largura: 20, altura: 4, comprimento: 25 },
+    media: { rotulo: 'Até 600 g: calça', peso: 0.6, largura: 25, altura: 6, comprimento: 30 },
+    pesada: { rotulo: 'Até 1 kg: casaco', peso: 1.0, largura: 28, altura: 10, comprimento: 35 },
+    dois: { rotulo: 'Até 2 kg: bota', peso: 2.0, largura: 30, altura: 15, comprimento: 40 },
+    cinco: { rotulo: 'Até 5 kg: item grande', peso: 5.0, largura: 40, altura: 20, comprimento: 50 },
+  };
+  function chaveDePacote(k) { return typeof k === 'string' && PACOTES_DA_PECA.hasOwnProperty(k) ? k : ''; }
+  function chavePadraoDaLoja(loja) { return chaveDePacote(((loja && loja.envio) || {}).pacote) || 'media'; }
+  function pacoteDaPeca(loja) { return PACOTES_DA_PECA[chavePadraoDaLoja(loja)]; }
+  /* o carrinho em faixas: [{ chave, quantidade }] (item sem faixa propria vai na da loja; item que sumiu, tambem) */
+  function pacotesDoCarrinho(loja, itens) {
+    var produtos = (loja && loja.produtos) || [], soma = Object.create(null), total = 0;
+    (itens || []).forEach(function (it) {
+      var q = Math.max(0, Math.min(30, Math.round(Number(it && it.quantidade) || 0)));
+      if (!q || total >= 60) return;
+      q = Math.min(q, 60 - total);
+      var p = null;
+      for (var i = 0; i < produtos.length; i++) if (produtos[i] && String(produtos[i].id) === String(it.produtoId)) { p = produtos[i]; break; }
+      var chave = chaveDePacote(p && p.pacote) || chavePadraoDaLoja(loja);
+      soma[chave] = (soma[chave] || 0) + q;
+      total += q;
+    });
+    var lista = Object.keys(PACOTES_DA_PECA).filter(function (k) { return soma[k] > 0; }).map(function (k) { return { chave: k, quantidade: soma[k] }; });
+    return lista.length ? lista : [{ chave: chavePadraoDaLoja(loja), quantidade: 1 }];
   }
   function nomeDoServico(servico) { return SERVICOS_ENVIO.hasOwnProperty(servico) ? SERVICOS_ENVIO[servico] : ''; }
   /* a loja tem a tabela por regiao preenchida (reserva do frete automatico) */
@@ -2360,6 +2389,11 @@ const REGRAS = (function () {
     cotacaoValida: cotacaoValida,
     nomeDoServico: nomeDoServico,
     cepDaLoja: cepDaLoja,
+    PACOTES_DA_PECA: PACOTES_DA_PECA,
+    pacoteDaPeca: pacoteDaPeca,
+    chaveDePacote: chaveDePacote,
+    chavePadraoDaLoja: chavePadraoDaLoja,
+    pacotesDoCarrinho: pacotesDoCarrinho,
     temTabelaDeFrete: temTabelaDeFrete,
     comprovanteDoPedido: comprovanteDoPedido,
     etiquetaDoEnvio: etiquetaDoEnvio,
@@ -2683,7 +2717,9 @@ export default {
           /* auto: a loja tem frete automatico; opcoes null = o Melhor Envio nao respondeu; [] = nao entrega nesse CEP */
           const autoF = !!lojaF && REGRAS.enviaCorreios(lojaF) && !!REGRAS.cepDaLoja(lojaF) && !!env.MELHOR_ENVIO_TOKEN;
           if (!autoF) return json({ borda: 1, auto: false, opcoes: null }, 200, { 'Cache-Control': 'no-store' });
-          const opcoesF = await cotarFrete(env, ctx, lojaF, mFrete[2], Number(mFrete[3]));
+          /* ?i=produto:quantidade,... (o carrinho, para pesar cada item); sem ele, so a quantidade do caminho */
+          const itensF = String(url.searchParams.get('i') || '').split(',').slice(0, 30).map((x) => { const m = /^([A-Za-z0-9_-]{1,60}):(\d{1,2})$/.exec(x); return m ? { produtoId: m[1], quantidade: Number(m[2]) } : null; }).filter(Boolean);
+          const opcoesF = await cotarFrete(env, ctx, lojaF, mFrete[2], itensF.length ? itensF : Number(mFrete[3]));
           return json({ borda: 1, auto: true, opcoes: opcoesF }, 200, { 'Cache-Control': 'no-store' });
         }
         if (caminho === '/vitrine') {
@@ -3226,8 +3262,8 @@ export default {
           const pediuServico = dados.envio && typeof dados.envio === 'object' ? String(dados.envio.servico || (dados.envio.cotado && dados.envio.cotado.servico) || '') : '';
           let cotadoPed = null;
           if (REGRAS.enviaCorreios(l) && REGRAS.cepDaLoja(l) && env.MELHOR_ENVIO_TOKEN) {
-            const pecasPed = (Array.isArray(dados.itens) ? dados.itens : []).reduce((s, it) => s + (Math.round(Number(it && it.quantidade) || 0) || 0), 0);
-            const opcoesPed = await cotarFrete(env, ctx, l, (dados.endereco || {}).cep, pecasPed);
+            const itensPed = (Array.isArray(dados.itens) ? dados.itens : []).slice(0, 60).map((it) => ({ produtoId: String((it && it.produtoId) || ''), quantidade: Math.round(Number(it && it.quantidade) || 0) }));
+            const opcoesPed = await cotarFrete(env, ctx, l, (dados.endereco || {}).cep, itensPed);
             if (opcoesPed && opcoesPed.length) {
               cotadoPed = pediuServico ? opcoesPed.find((o) => o.servico === pediuServico) || null : opcoesPed[0];
               if (!cotadoPed) return json({ erro: 'Esse tipo de frete não está disponível para o seu CEP agora. Volte e escolha outro.' }, 422);
@@ -3686,17 +3722,19 @@ async function pausaAtiva(env) {
 /* ================= frete automatico (Melhor Envio) ================= */
 
 /* 18/11/2026: PAC e SEDEX de verdade, do CEP da loja ao do cliente, pela conta do Ligeiro no Melhor Envio (segredo
-   MELHOR_ENVIO_TOKEN; MELHOR_ENVIO_URL troca para o sandbox nos testes). Cada peca de roupa conta como um pacotinho
-   de 25 x 20 x 4 cm e 300 g; o Melhor Envio junta as pecas na caixa. Guardado 6 h na borda por CEP e quantidade.
+   MELHOR_ENVIO_TOKEN; MELHOR_ENVIO_URL troca para o sandbox nos testes). Cada item conta como um pacotinho da faixa de
+   peso dele (a do item ou a da loja; sem escolha, ate 600 g); o Melhor Envio junta tudo na caixa. Guardado 6 h na borda por CEP e quantidade.
    Devolve [{ servico, valor, prazo }] do mais barato ao mais caro, ou null (sem token, sem CEP ou fora do ar) */
 const ME_SERVICOS = { 1: 'pac', 2: 'sedex' };
 const ME_CONTATO = 'Ligeiro (ligeiro.pedidos@gmail.com)';
-async function cotarFrete(env, ctx, loja, cepDestino, pecas) {
+async function cotarFrete(env, ctx, loja, cepDestino, itensOuPecas) {
   const origem = REGRAS.cepDaLoja(loja);
   const destino = REGRAS.soNumerosDoCep(cepDestino);
-  const n = Math.max(1, Math.min(30, Math.round(Number(pecas) || 1)));
   if (!env.MELHOR_ENVIO_TOKEN || !origem || destino.length !== 8) return null;
-  const chave = new Request('https://borda.ligeiropedidos.com.br/frete/' + origem + '/' + destino + '/' + n);
+  /* o carrinho em faixas de peso (o item com faixa propria pesa o dele; o resto, a faixa da loja). Site antigo: so a quantidade */
+  const pacotes = Array.isArray(itensOuPecas) ? REGRAS.pacotesDoCarrinho(loja, itensOuPecas)
+    : [{ chave: REGRAS.chavePadraoDaLoja(loja), quantidade: Math.max(1, Math.min(30, Math.round(Number(itensOuPecas) || 1))) }];
+  const chave = new Request('https://borda.ligeiropedidos.com.br/frete/' + origem + '/' + destino + '/' + pacotes.map((p) => p.chave + '-' + p.quantidade).join('_'));
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
   const guardado = cache ? await cache.match(chave).catch(() => null) : null;
   if (guardado) {
@@ -3706,7 +3744,7 @@ async function cotarFrete(env, ctx, loja, cepDestino, pecas) {
   const corpo = {
     from: { postal_code: origem },
     to: { postal_code: destino },
-    products: [{ id: 'peca', width: 20, height: 4, length: 25, weight: 0.3, insurance_value: 0, quantity: n }],
+    products: pacotes.map((p) => { const t = REGRAS.PACOTES_DA_PECA[p.chave]; return { id: p.chave, width: t.largura, height: t.altura, length: t.comprimento, weight: t.peso, insurance_value: 0, quantity: p.quantidade }; }),
     options: { receipt: false, own_hand: false },
     services: '1,2',
   };

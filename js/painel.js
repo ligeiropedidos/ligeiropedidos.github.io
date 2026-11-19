@@ -2640,7 +2640,13 @@
       f.tamanhos.aoMudarPreco(f.oferta.repintar);
       /* as fotos no topo, grandes: e o que mais vende. A oferta logo depois do preco; os tamanhos do item e o estoque,
          depois da categoria (dependem dela) */
-      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.fotos, f.nome, f.preco, f.oferta, f.descricao, f.categoria, f.tamanhos, f.estoque, f.ingredientes, f.emoji]);
+      /* 19/11/2026: loja que envia pelos Correios com o frete automatico: o peso deste item (o padrao e o da loja) */
+      if (estado.freteAutoOk === true && R.enviaCorreios(estado.loja) && R.cepDaLoja(estado.loja)) {
+        var padrao = R.PACOTES_DA_PECA[R.chavePadraoDaLoja(estado.loja)];
+        f.pacote = campoSelect('Peso para envio', R.chaveDePacote(p && p.pacote), [['', 'Igual à loja (' + padrao.rotulo.split(':')[0].toLowerCase() + ')']].concat(Object.keys(R.PACOTES_DA_PECA).map(function (k) { return [k, R.PACOTES_DA_PECA[k].rotulo]; })));
+        f.pacote.insertBefore(el('p', { class: 'ajuda', text: 'Pelos Correios. Mude só se este item pesa bem mais ou bem menos que os outros.' }), f.pacote.input);
+      }
+      var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.fotos, f.nome, f.preco, f.oferta, f.descricao, f.categoria, f.tamanhos, f.estoque, f.pacote || null, f.ingredientes, f.emoji].filter(Boolean));
       if (!novo) {
         var mesmos = estado.loja.produtos.filter(function (x) { return x.categoria === p.categoria; }).map(function (x) { return x.id; });
         var posP = mesmos.indexOf(p.id);
@@ -2669,6 +2675,8 @@
         };
         /* o estoque so muda quando o bloco aparece (mensageiro com estoque no ar); escondido, o item fica como estava */
         if (f.estoque.valendo()) dados.controlaEstoque = f.estoque.ligado();
+        /* o peso para os Correios so muda quando o campo aparece ('' = o da loja) */
+        if (f.pacote) dados.pacote = R.chaveDePacote(f.pacote.input.value);
         /* os tamanhos que o item nao tem e o preco de cada um (categoria com tamanho) */
         if (!f.tamanhos.hidden) dados.tamanhosFora = f.tamanhos.fora();
         dados.precosTamanho = precosTam || null;
@@ -3440,9 +3448,16 @@
         ajuda: 'O CEP de onde você manda o pacote. É dele que o frete é calculado até a casa da cliente.' });
       cepLoja.input.autocomplete = 'postal-code';
       cepLoja.input.addEventListener('input', function () { var c = R.soNumerosDoCep(cepLoja.input.value).slice(0, 8); cepLoja.input.value = c.length > 5 ? c.slice(0, 5) + '-' + c.slice(5) : c; });
+      /* 19/11/2026: o peso de cada peca (o frete sai pelo peso): tres escolhas faceis, media se nao mexer */
+      var pacoteAtual = R.chavePadraoDaLoja(l);
+      var seletorPacote = el('select', { 'aria-label': 'Peso de cada peça' }, Object.keys(R.PACOTES_DA_PECA).map(function (k) { return el('option', { value: k, text: R.PACOTES_DA_PECA[k].rotulo, selected: k === pacoteAtual }); }));
+      seletorPacote.value = pacoteAtual;
+      var campoPacote = el('div', { class: 'campo' }, [el('label', { text: 'Peso de cada item' }),
+        el('p', { class: 'ajuda', text: 'O frete dos Correios sai pelo peso, já com a caixa. Escolha o que vale para a maioria dos seus itens. Item mais pesado? No próprio item dá para escolher outro.' }), seletorPacote]);
       var parteAuto = el('div', { class: 'pilha correios-auto', hidden: true }, [
         el('div', { class: 'aviso correios-auto-aviso' }, [UI.iconeLinha('check'), el('span', { text: 'O frete é calculado sozinho, com o preço dos Correios para o CEP de cada cliente. Você não precisa pôr valor nenhum.' })]),
         cepLoja,
+        campoPacote,
       ]);
       detalhes.appendChild(parteAuto);
       var parteTabela = el('div', { class: 'pilha correios-manual' });
@@ -3507,7 +3522,7 @@
             var d = Math.round(Number(campos[k].prazo.input.value));
             if (d >= 1 && d <= 60) pz[k] = d;
           });
-          return { tabela: t, prazos: pz, porPeca: Math.min(porPeca.centavos(), 100000), gratisAcima: gratis.centavos() };
+          return { tabela: t, prazos: pz, porPeca: Math.min(porPeca.centavos(), 100000), gratisAcima: gratis.centavos(), pacote: R.chaveDePacote(seletorPacote.value) || 'media' };
         },
       };
       return bloco;
@@ -4258,7 +4273,13 @@
       if (mudancas.whatsapp.length < 10) { f.whatsapp.input.focus(); return UI.avisar('Digite o WhatsApp da loja com DDD.'); }
       if (f.cnpj.input.value.trim() && !mudancas.cnpj) { f.cnpj.input.focus(); return UI.avisar('Esse CNPJ não confere. Veja se digitou os 14 números certos, ou deixe o campo vazio.'); }
       if (f.google.input.value.trim() && !mudancas.googleUrl) { f.google.input.focus(); return UI.avisar('Esse link não é do Google. No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.'); }
-      if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada && !mudancas.enviaCorreios) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
+      /* nenhum jeito de receber: barra (ninguem conseguiria pedir). Com os Correios ligados mas sem o que falta, diz o que falta */
+      if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada && !mudancas.enviaCorreios) {
+        var correiosIncompleto = f.correios && f.correios.oferecido && f.correios.chave.ligado;
+        return UI.avisar(correiosIncompleto
+          ? (f.correios.auto() ? 'Coloque o CEP da loja no bloco Envio pelos Correios, ou ligue a entrega ou a retirada. Senão ninguém consegue pedir.' : 'Coloque o frete de uma região no bloco Envio pelos Correios, ou ligue a entrega ou a retirada. Senão ninguém consegue pedir.')
+          : 'Ligue entrega ou retirada, senão ninguém consegue pedir.');
+      }
       /* o mesmo que o resumo do bloco Pagamento: sem nenhuma forma ligada, o cliente monta o pedido e nao consegue fechar */
       var pixValendo = aceitaPix && (!!tokenDigitado || f.mpToken.temSalvo || aindaLendo);
       if (!pixValendo && !cartaoLigado && !mudancas.aceitaPixCombinado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega && !mudancas.aceitaValeEntrega && !mudancas.aceitaPixEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }

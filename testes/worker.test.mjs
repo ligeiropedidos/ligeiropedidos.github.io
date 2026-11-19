@@ -2236,7 +2236,23 @@ console.log('18/11/2026: frete automatico pelo Melhor Envio (PAC e SEDEX de verd
     'cotacao: so PAC e SEDEX (o resto fica de fora), em centavos, no preco de balcao (com o desconto do Melhor Envio somado), do mais barato ao mais caro');
   ok(ultimoCorpo && ultimoCorpo.from.postal_code === '11800000' && ultimoCorpo.to.postal_code === '20040020' && ultimoCorpo.products[0].quantity === 2 && ultimoCorpo.services === '1,2',
     'pergunta do CEP da loja ao do cliente, com a quantidade de pecas');
+  ok(ultimoCorpo && ultimoCorpo.products[0].weight === 0.6 && ultimoCorpo.products[0].length === 30, 'sem escolha, cada peca vai como media (600 g, caixa 30 x 25 x 6): o frete nao sai abaixo do que os Correios cobram');
   ok(ultimosCabecalhos && /^Bearer tok-teste$/.test(ultimosCabecalhos.Authorization) && /ligeiro/i.test(ultimosCabecalhos['User-Agent']), 'leva o token e o User-Agent com contato (o Melhor Envio exige)');
+  /* 19/11/2026: o carrinho pesado item por item: o item com faixa propria (bota, ate 2 kg) e o resto na faixa da loja */
+  const produtosAntes = lojaA.produtos;
+  lojaA.produtos = [{ id: 'p1', nome: 'Pizza', foto: 'f1', preco: 4590 }, { id: 'bota', nome: 'Bota', preco: 19990, pacote: 'dois' }];
+  lojaA.envio = Object.assign({}, lojaA.envio, { pacote: 'leve' });
+  kv.mapa.delete('loja:dom-conizza');
+  const wPeso = await workerNovo();
+  await chamar(wPeso, '/frete/dom-conizza/20040021/2?i=' + encodeURIComponent('p1:2,bota:1'), { env: envME, headers: { 'CF-Connecting-IP': '10.89.0.9' } });
+  const prods = (ultimoCorpo && ultimoCorpo.products) || [];
+  ok(prods.length === 2 && prods[0].id === 'leve' && prods[0].weight === 0.3 && prods[0].quantity === 2 && prods[1].id === 'dois' && prods[1].weight === 2 && prods[1].quantity === 1,
+    'carrinho pesado item por item: 2 itens na faixa da loja (300 g) e a bota na dela (2 kg)');
+  await chamar(wPeso, '/frete/dom-conizza/20040021/2?i=' + encodeURIComponent('p1:2,<b>:1,bota:x'), { env: envME, headers: { 'CF-Connecting-IP': '10.89.0.10' } });
+  ok(ultimoCorpo.products.length === 1 && ultimoCorpo.products[0].quantity === 2, 'item torto no ?i= fica de fora (nada quebra)');
+  lojaA.produtos = produtosAntes;
+  lojaA.envio = Object.assign({}, lojaA.envio); delete lojaA.envio.pacote;
+  kv.mapa.delete('loja:dom-conizza');
   const rfSem = await chamar(wa, '/frete/dom-conizza/20040020/2', { headers: { 'CF-Connecting-IP': '10.89.0.2' } }); const jfSem = await rfSem.json();
   ok(jfSem.auto === false && jfSem.opcoes === null, 'sem token: auto false (o site usa a tabela da loja)');
   const rfNao = await chamar(wa, '/frete/dom-conizza/69999999/1', { env: envME, headers: { 'CF-Connecting-IP': '10.89.0.3' } }); const jfNao = await rfNao.json();

@@ -312,5 +312,15 @@ console.log('== repasse do login do Google so para caminhos do Firebase ==');
     ok(ruins === 0, nome + ' sem caractere de controle (o colar na Cloudflare vai inteiro)');
   }
 }
+console.log('19/11/2026: o salvar dos Ajustes nunca trava a conexao do Mercado Pago (a trava da Cris Modas)');
+{
+  const painelFonte = fs.readFileSync(path.resolve('js/painel.js'), 'utf8');
+  /* o botao de conectar com ajustes pendentes oferece salvar OU conectar sem salvar (antes so mandava salvar) */
+  ok(painelFonte.indexOf('Salve os ajustes antes de conectar') < 0 && painelFonte.indexOf("'Conectar sem salvar'") > 0, 'Conectar Mercado Pago com ajustes pendentes nunca fica sem saida');
+  /* os Correios nao barram o salvar: sem frete ou sem pagamento pelo site, salva e avisa */
+  const trechoSalvar = painelFonte.slice(painelFonte.indexOf('function salvarAjustes('), painelFonte.indexOf('var MAX_CUPONS'));
+  const barraComCorreios = trechoSalvar.split('\n').filter((l) => /enviaCorreios/.test(l) && /return UI\.avisar/.test(l));
+  ok(trechoSalvar.length > 1000 && barraComCorreios.length === 0, 'nenhuma regra dos Correios faz o salvar desistir (' + barraComCorreios.length + ')');
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

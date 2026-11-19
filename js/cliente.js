@@ -1450,7 +1450,13 @@
     /* frete automatico (18/11/2026): a loja com CEP de origem tem PAC e SEDEX de verdade, cotados pelo mensageiro no
        Melhor Envio. estado.frete = { chave: 'CEP/pecas', opcoes: [...] | [] (nao entrega) | null (nao respondeu) } */
     function freteAuto() { return !!estado.loja && !!R.cepDaLoja(estado.loja) && !!store.cotarFrete; }
-    function chaveDoFrete() { return R.soNumerosDoCep(estado.cep) + '/' + Math.max(1, quantidadeTotal()); }
+    /* o carrinho que pesa no frete: cada item com a sua quantidade (somando o mesmo item em tamanhos diferentes) */
+    function itensDoFrete() {
+      var soma = {};
+      itensParaRegras().forEach(function (it) { soma[it.produtoId] = (soma[it.produtoId] || 0) + (Number(it.quantidade) || 0); });
+      return Object.keys(soma).sort().map(function (k) { return { produtoId: k, quantidade: soma[k] }; });
+    }
+    function chaveDoFrete() { return R.soNumerosDoCep(estado.cep) + '/' + (itensDoFrete().map(function (x) { return x.produtoId + ':' + x.quantidade; }).join(',') || '1'); }
     function cotacaoAtual() {
       if (!freteAuto() || !estado.frete || estado.frete.chave !== chaveDoFrete() || !estado.frete.opcoes || !estado.frete.opcoes.length) return null;
       var lista = estado.frete.opcoes;
@@ -1463,7 +1469,7 @@
       if (!freteAuto() || R.soNumerosDoCep(estado.cep).length !== 8) return Promise.resolve(null);
       if (estado.frete && estado.frete.chave === chave) return Promise.resolve(estado.frete.opcoes);
       if (cotando && cotando.chave === chave) return cotando.promessa;
-      var promessa = store.cotarFrete(estado.loja.slug, estado.cep, Math.max(1, quantidadeTotal())).then(function (opcoes) {
+      var promessa = store.cotarFrete(estado.loja.slug, estado.cep, Math.max(1, quantidadeTotal()), itensDoFrete()).then(function (opcoes) {
         if (chave === chaveDoFrete()) estado.frete = { chave: chave, opcoes: opcoes };
         cotando = null;
         return opcoes;
@@ -1540,7 +1546,7 @@
       /* frete automatico: pergunta o PAC e o SEDEX ao mensageiro; sem resposta, a tabela da loja (se tiver) */
       function cotarNaJanela(c, info, q, sub) {
         var soltar = UI.ocupar(botao, 'Calculando o frete…');
-        store.cotarFrete(l.slug, c, q).then(function (opcoes) {
+        store.cotarFrete(l.slug, c, q, itensDoFrete()).then(function (opcoes) {
           if (soltar) soltar();
           if (!vivo) return;
           if (opcoes && !opcoes.length) { falhar('Os Correios não entregam nesse CEP. Confira os números ou fale com a loja no WhatsApp.'); return; }
@@ -1551,7 +1557,7 @@
           var mudouCep = estado.cep !== c;
           estado.cep = c;
           estado.cepInfo = info;
-          estado.frete = { chave: c + '/' + q, opcoes: opcoes };
+          estado.frete = { chave: c + '/' + (itensDoFrete().map(function (x) { return x.produtoId + ':' + x.quantidade; }).join(',') || '1'), opcoes: opcoes };
           if (opcoes && !opcoes.some(function (o) { return o.servico === estado.servico; })) estado.servico = opcoes[0].servico;
           if (mudouCep) preencherPeloCep(info, true);
           UI.fecharModal();

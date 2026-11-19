@@ -600,6 +600,35 @@
     if (!(valor > 0 && valor <= 100000)) return null;
     return { servico: c.servico, valor: valor, prazo: prazo > 0 && prazo <= 60 ? prazo : 0 };
   }
+  /* 19/11/2026: o peso de cada item para o frete automatico, em faixas iguais para toda loja (roupa, sapato, livro,
+     presente...). A loja escolhe a faixa padrao uma vez (sem escolha: ate 600 g) e, se quiser, a de um item diferente.
+     O mensageiro soma o carrinho de verdade (uma blusa e uma bota nao viram "duas pecas medias") */
+  var PACOTES_DA_PECA = {
+    leve: { rotulo: 'Até 300 g: blusa', peso: 0.3, largura: 20, altura: 4, comprimento: 25 },
+    media: { rotulo: 'Até 600 g: calça', peso: 0.6, largura: 25, altura: 6, comprimento: 30 },
+    pesada: { rotulo: 'Até 1 kg: casaco', peso: 1.0, largura: 28, altura: 10, comprimento: 35 },
+    dois: { rotulo: 'Até 2 kg: bota', peso: 2.0, largura: 30, altura: 15, comprimento: 40 },
+    cinco: { rotulo: 'Até 5 kg: item grande', peso: 5.0, largura: 40, altura: 20, comprimento: 50 },
+  };
+  function chaveDePacote(k) { return typeof k === 'string' && PACOTES_DA_PECA.hasOwnProperty(k) ? k : ''; }
+  function chavePadraoDaLoja(loja) { return chaveDePacote(((loja && loja.envio) || {}).pacote) || 'media'; }
+  function pacoteDaPeca(loja) { return PACOTES_DA_PECA[chavePadraoDaLoja(loja)]; }
+  /* o carrinho em faixas: [{ chave, quantidade }] (item sem faixa propria vai na da loja; item que sumiu, tambem) */
+  function pacotesDoCarrinho(loja, itens) {
+    var produtos = (loja && loja.produtos) || [], soma = Object.create(null), total = 0;
+    (itens || []).forEach(function (it) {
+      var q = Math.max(0, Math.min(30, Math.round(Number(it && it.quantidade) || 0)));
+      if (!q || total >= 60) return;
+      q = Math.min(q, 60 - total);
+      var p = null;
+      for (var i = 0; i < produtos.length; i++) if (produtos[i] && String(produtos[i].id) === String(it.produtoId)) { p = produtos[i]; break; }
+      var chave = chaveDePacote(p && p.pacote) || chavePadraoDaLoja(loja);
+      soma[chave] = (soma[chave] || 0) + q;
+      total += q;
+    });
+    var lista = Object.keys(PACOTES_DA_PECA).filter(function (k) { return soma[k] > 0; }).map(function (k) { return { chave: k, quantidade: soma[k] }; });
+    return lista.length ? lista : [{ chave: chavePadraoDaLoja(loja), quantidade: 1 }];
+  }
   function nomeDoServico(servico) { return SERVICOS_ENVIO.hasOwnProperty(servico) ? SERVICOS_ENVIO[servico] : ''; }
   /* a loja tem a tabela por regiao preenchida (reserva do frete automatico) */
   function temTabelaDeFrete(loja) { var t = ((loja && loja.envio) || {}).tabela || {}; return Object.keys(t).some(function (k) { return Math.round(Number(t[k]) || 0) > 0; }); }
@@ -2172,6 +2201,11 @@
     cotacaoValida: cotacaoValida,
     nomeDoServico: nomeDoServico,
     cepDaLoja: cepDaLoja,
+    PACOTES_DA_PECA: PACOTES_DA_PECA,
+    pacoteDaPeca: pacoteDaPeca,
+    chaveDePacote: chaveDePacote,
+    chavePadraoDaLoja: chavePadraoDaLoja,
+    pacotesDoCarrinho: pacotesDoCarrinho,
     temTabelaDeFrete: temTabelaDeFrete,
     comprovanteDoPedido: comprovanteDoPedido,
     etiquetaDoEnvio: etiquetaDoEnvio,

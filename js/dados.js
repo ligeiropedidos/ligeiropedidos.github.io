@@ -2507,12 +2507,15 @@
   };
   /* frete automatico (18/11/2026): PAC e SEDEX do Melhor Envio, cotados pelo mensageiro. null = sem cotacao (o site usa a
      tabela da loja); [] = os Correios nao entregam nesse CEP */
-  FirebaseStore.prototype.cotarFrete = function (slug, cep, pecas) {
+  FirebaseStore.prototype.cotarFrete = function (slug, cep, pecas, itens) {
     var base = enderecoMensageiro();
     var c = String(cep || '').replace(/\D/g, '');
     var n = Math.max(1, Math.min(30, Math.round(Number(pecas) || 1)));
     if (!base || typeof fetch !== 'function' || c.length !== 8 || !/^[a-z0-9-]{1,60}$/.test(String(slug || ''))) return Promise.resolve(null);
-    return fetch(base + '/frete/' + slug + '/' + c + '/' + n).then(function (r) {
+    /* o carrinho (cada item com a sua quantidade): o mensageiro pesa item por item */
+    var lista = (itens || []).filter(function (it) { return it && /^[A-Za-z0-9_-]{1,60}$/.test(String(it.produtoId)) && it.quantidade > 0; })
+      .slice(0, 30).map(function (it) { return it.produtoId + ':' + Math.min(30, Math.round(it.quantidade)); });
+    return fetch(base + '/frete/' + slug + '/' + c + '/' + n + (lista.length ? '?i=' + encodeURIComponent(lista.join(',')) : '')).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (r.status !== 200 || !j || j.borda !== 1 || j.auto !== true || !Array.isArray(j.opcoes)) return null;
         var R = window.LigeiroRegras;

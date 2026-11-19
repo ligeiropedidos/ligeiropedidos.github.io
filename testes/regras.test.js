@@ -1628,3 +1628,22 @@ test('18/11/2026: etiqueta de todo pedido (retirada, entrega na cidade, Correios
   assert.equal(cor.servico, 'Correios PAC');
   assert.equal(cor.remetente.cep, '11800-000');
 });
+
+test('19/11/2026: peso de cada peca para o frete (leve, media, pesada; media sem escolha)', () => {
+  assert.equal(R.pacoteDaPeca({}).peso, 0.6);
+  assert.equal(R.pacoteDaPeca({ envio: { pacote: 'leve' } }).peso, 0.3);
+  assert.equal(R.pacoteDaPeca({ envio: { pacote: 'pesada' } }).peso, 1);
+  assert.equal(R.pacoteDaPeca({ envio: { pacote: '__proto__' } }).peso, 0.6);
+});
+
+test('19/11/2026: o carrinho em faixas de peso (item com faixa propria, o resto na da loja)', () => {
+  const loja = { envio: { pacote: 'leve' }, produtos: [{ id: 'blusa' }, { id: 'bota', pacote: 'dois' }, { id: 'torto', pacote: 'xx' }] };
+  assert.deepEqual(R.pacotesDoCarrinho(loja, [{ produtoId: 'blusa', quantidade: 2 }, { produtoId: 'bota', quantidade: 1 }, { produtoId: 'torto', quantidade: 1 }, { produtoId: 'sumiu', quantidade: 1 }]),
+    [{ chave: 'leve', quantidade: 4 }, { chave: 'dois', quantidade: 1 }]);
+  /* carrinho vazio (a cliente escolheu os Correios antes de pegar item): uma peca da faixa da loja */
+  assert.deepEqual(R.pacotesDoCarrinho(loja, []), [{ chave: 'leve', quantidade: 1 }]);
+  /* sem faixa da loja: ate 600 g */
+  assert.deepEqual(R.pacotesDoCarrinho({ produtos: [] }, [{ produtoId: 'x', quantidade: 3 }]), [{ chave: 'media', quantidade: 3 }]);
+  /* quantidade absurda tem teto (60 no carrinho) */
+  assert.equal(R.pacotesDoCarrinho(loja, [{ produtoId: 'blusa', quantidade: 999 }])[0].quantidade, 30);
+});
