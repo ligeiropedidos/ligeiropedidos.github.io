@@ -1312,6 +1312,8 @@
       }
       /* Correios ainda nao postado (18/11/2026): o passo a passo do envio, com a etiqueta de endereco para imprimir */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO)) card.appendChild(comoEnviar(p));
+      /* loja de comercio, retirada ou entrega na cidade: o passo a passo com a etiqueta (a comida segue com a ficha da cozinha) */
+      else if (!R.ehCorreios(p) && !catLoja().comida && p.origem !== 'balcao' && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO || (p.status === R.STATUS.PRONTO && p.tipoEntrega !== 'entrega'))) card.appendChild(comoEntregar(p));
       /* Correios postado: o codigo de rastreio (ou o lembrete de colocar), com o botao de mudar */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PRONTO || p.status === R.STATUS.FINALIZADO)) {
         var cod = R.limparRastreio(p.rastreio);
@@ -1613,6 +1615,24 @@
         ]),
         el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir a etiqueta']),
         el('p', { class: 'como-enviar-dica', text: 'Sem impressora? Mostre esta tela no balcão dos Correios: o endereço está logo acima.' }),
+      ]);
+    }
+    function comoEntregar(p) {
+      var entregaNaCidade = p.tipoEntrega === 'entrega';
+      var cob = R.etiquetaDoPedido(estado.loja, p).cobranca;
+      var passos = entregaNaCidade
+        ? ['Separe as peças da lista e imprima a etiqueta. Cole no pacote.', 'Quando sair, toque em "Saiu para entrega": a cliente recebe o aviso.']
+        : ['Separe as peças da lista e imprima a etiqueta. Cole no pacote.', 'Com tudo separado, toque em "Pronto para retirar": a cliente recebe o aviso.', 'Na loja, a cliente mostra o número do pedido no celular. Confira com a etiqueta e entregue.'];
+      if (p.status === R.STATUS.CANCELADO) passos = ['Este pedido foi cancelado. Não entregue.'];
+      else if (p.pagamentoStatus === 'na_entrega' && p.total > 0) {
+        var troco = p.formaPagamento === 'dinheiro_entrega' && p.trocoPara > p.total ? p.trocoPara - p.total : 0;
+        var como = { dinheiro_entrega: 'em dinheiro', cartao_entrega: 'na maquininha', vale_entrega: 'no vale-refeição, na maquininha', pix_entrega: 'no Pix, na hora' }[p.formaPagamento] || 'na entrega';
+        passos.push('Cobre ' + dinheiro(p.total) + ' ' + como + (troco ? '. Leve ' + dinheiro(troco) + ' de troco.' : '.'));
+      } else if (!cob.pago) passos.push('Só entregue depois que o pagamento for confirmado.');
+      return el('div', { class: 'como-enviar' }, [
+        el('b', { class: 'como-enviar-titulo', text: 'Como entregar este pedido' }),
+        el('ol', { class: 'como-enviar-passos' }, passos.map(function (t) { return el('li', { text: t }); })),
+        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir a etiqueta']),
       ]);
     }
     function imprimir(p) {

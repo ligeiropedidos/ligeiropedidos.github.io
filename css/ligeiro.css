@@ -2903,11 +2903,22 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .etiqueta-destino { font-size: 18px; }
 .etiqueta-cep { font-size: 20px; font-weight: 800; letter-spacing: 0.04em; }
 .etiqueta-destino .etiqueta-cep { font-size: 26px; }
+/* etiqueta da retirada e da entrega na cidade: numero grande, lista com quadradinho e a cobranca em destaque */
+.etiqueta-numero { font-size: 34px; font-weight: 800; line-height: 1.1; text-align: center; }
+.etiqueta-item { display: flex; align-items: flex-start; gap: 10px; font-size: 16px; line-height: 1.35; }
+.etiqueta-caixinha { flex: none; width: 16px; height: 16px; margin-top: 2px; border: 2px solid #000; border-radius: 3px; }
+.etiqueta-obs { margin-top: 4px; font-size: 15px; }
+.etiqueta-cobranca { padding: 10px 12px; border: 3px solid #000; border-radius: 6px; font-size: 17px; font-weight: 800; line-height: 1.3; text-align: center; }
+.etiqueta-cobranca.pago { border-width: 2px; }
+.etiqueta-dica { font-size: 13px; text-align: center; }
 .papel-corte { margin: 14px auto; padding-top: 6px; border-top: 2px dashed #000; color: #333; font-family: system-ui, sans-serif; font-size: 12px; text-align: center; }
 /* painel: o passo a passo do envio pelos Correios dentro do cartao do pedido */
 .como-enviar { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 12px 14px; border: 1px solid var(--lime-borda); border-radius: var(--raio-p); background: var(--lime-suave); color: var(--ink); }
 .como-enviar-titulo { font-size: 15.5px; }
 .como-enviar-passos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; line-height: 1.4; }
+/* retirada: o mapa da loja na tela da cliente */
+.mapa-retirada { display: block; width: 100%; height: 200px; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); }
+.retirada-lembrete { font-weight: 700; color: var(--ink); }
 .como-enviar-dica { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; text-align: center; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {

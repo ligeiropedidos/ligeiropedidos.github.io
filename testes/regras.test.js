@@ -1601,3 +1601,30 @@ test('18/11/2026: comprovante do pedido (sem valor fiscal) e etiqueta dos Correi
   /* loja sem CNPJ: a linha some (nada de CNPJ vazio no papel) */
   assert.equal(R.comprovanteDoPedido(Object.assign({}, loja, { cnpj: '' }), retirada).loja.cnpj, '');
 });
+
+test('18/11/2026: etiqueta de todo pedido (retirada, entrega na cidade, Correios)', () => {
+  const loja = { slug: 'x', nome: 'Loja', endereco: 'Rua A, 1', cidade: 'Juquiá', uf: 'SP', cepOrigem: '11800000', segmento: 'comercio', produtos: [{ id: 'p1', nome: 'Blusa', preco: 5000 }] };
+  const base = { senha: 9, cliente: { nome: 'Ana', telefone: '13999990000' }, criadoEm: '2026-11-18T23:00:00Z', subtotal: 10000, total: 10000, segmento: 'comercio',
+    itens: [{ nome: 'Blusa', quantidade: 2, totalItem: 10000, tamanho: { id: 'm', nome: 'M' } }] };
+  const sem = (x) => JSON.parse(JSON.stringify(x).replace(/\u00a0/g, ' '));
+  const ret = sem(R.etiquetaDoPedido(loja, Object.assign({}, base, { tipoEntrega: 'retirada', status: 'pago', pagamentoStatus: 'pago', formaPagamento: 'pix' })));
+  assert.equal(ret.tipo, 'retirada');
+  assert.equal(ret.numero, 'Pedido nº 9');
+  assert.deepEqual(ret.cobranca, { pago: true, texto: 'PAGO: R$ 100,00' });
+  assert.deepEqual(ret.itens[0].detalhes, ['Tamanho: M']);
+  const ent = sem(R.etiquetaDoPedido(loja, Object.assign({}, base, { tipoEntrega: 'entrega', status: 'producao', pagamentoStatus: 'na_entrega', formaPagamento: 'dinheiro_entrega', trocoPara: 15000,
+    endereco: { rua: 'Rua B', numero: '2', bairro: 'Centro', referencia: 'casa azul' } })));
+  assert.equal(ent.tipo, 'entrega');
+  assert.deepEqual(ent.linhas, ['Rua B, 2', 'Centro', 'Referência: casa azul']);
+  assert.equal(ent.cobranca.pago, false);
+  assert.ok(/COBRAR R\$ 100,00 · Dinheiro na entrega · TROCO PARA R\$ 150,00 \(levar R\$ 50,00\)/.test(ent.cobranca.texto));
+  /* Pix ainda nao pago e cancelado: a etiqueta manda NAO entregar */
+  assert.ok(/NÃO ENTREGAR AINDA/.test(R.etiquetaDoPedido(loja, Object.assign({}, base, { tipoEntrega: 'retirada', status: 'aguardando_pagamento', pagamentoStatus: 'pendente', formaPagamento: 'pix' })).cobranca.texto));
+  assert.ok(/CANCELADO/.test(R.etiquetaDoPedido(loja, Object.assign({}, base, { tipoEntrega: 'retirada', status: 'cancelado', formaPagamento: 'pix' })).cobranca.texto));
+  /* Correios: destinatario e remetente */
+  const cor = R.etiquetaDoPedido(loja, Object.assign({}, base, { tipoEntrega: 'entrega', status: 'pago', pagamentoStatus: 'pago', formaPagamento: 'pix',
+    endereco: { cep: '20040-020', rua: 'Praça Pio X', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro', uf: 'RJ' }, envio: { tipo: 'correios', servico: 'pac', prazo: 7 } }));
+  assert.equal(cor.tipo, 'correios');
+  assert.equal(cor.servico, 'Correios PAC');
+  assert.equal(cor.remetente.cep, '11800-000');
+});

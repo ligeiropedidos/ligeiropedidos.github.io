@@ -3901,14 +3901,23 @@
       } else if (pedido.status !== R.STATUS.CANCELADO) {
         var jaTemCidade = l.endereco && l.cidade && R.semAcento(l.endereco).toLowerCase().indexOf(R.semAcento(l.cidade).toLowerCase()) >= 0;
         var endLoja = l.endereco ? l.endereco + (l.cidade && !jaTemCidade ? ', ' + l.cidade : '') : '';
+        /* 18/11/2026: o mapa da loja na tela (enquanto falta retirar), o "Como chegar" e o lembrete de mostrar o numero */
+        var ondeNoMapa = endLoja ? endLoja + (l.uf && endLoja.indexOf('/' + l.uf) < 0 ? ', ' + l.uf : '') : '';
+        var falta = pedido.status !== R.STATUS.FINALIZADO;
         caixa.appendChild(el('div', { class: 'resumo-onde' }, [
           UI.iconeLinha('retirada'),
           el('div', { class: 'resumo-onde-texto' }, [
             el('b', { text: 'Retirar ' + R.catalogo(l).retirada }),
             endLoja ? el('span', { text: endLoja }) : el('span', { text: l.nome || '' }),
-            endLoja ? el('a', { class: 'resumo-mapa', href: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(endLoja), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Abrir no mapa']) : null,
+            falta ? el('span', { class: 'retirada-lembrete', text: 'Na loja, mostre o número do pedido (' + pedido.senha + ') nesta tela.' }) : null,
+            endLoja ? el('span', { class: 'envio-rastreio-botoes' }, [
+              el('a', { class: 'resumo-mapa', href: 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(ondeNoMapa), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('mapa'), 'Como chegar']),
+              el('a', { class: 'resumo-mapa', href: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ondeNoMapa), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Abrir no mapa']),
+            ]) : null,
           ]),
         ]));
+        if (endLoja && falta) caixa.appendChild(el('iframe', { class: 'mapa-retirada', title: 'Mapa: onde retirar', loading: 'lazy', referrerpolicy: 'no-referrer',
+          src: 'https://maps.google.com/maps?q=' + encodeURIComponent(ondeNoMapa) + '&z=16&output=embed' }));
       }
     }
 

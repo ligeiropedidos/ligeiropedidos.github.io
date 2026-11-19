@@ -1074,6 +1074,7 @@
     ]);
   }
   function papelEtiqueta(et) {
+    if (et.tipo === 'entrega' || et.tipo === 'retirada') return papelEtiquetaLoja(et);
     var pessoa = function (rotulo, x, grande) {
       return el('div', { class: 'etiqueta-pessoa' + (grande ? ' etiqueta-destino' : '') }, [
         el('div', { class: 'etiqueta-rotulo', text: rotulo }),
@@ -1086,13 +1087,36 @@
       pessoa('Remetente', et.remetente, false),
     ]);
   }
+  /* etiqueta da entrega na cidade e da retirada: o numero grande, quem recebe, a lista do que separar (com quadradinho
+     para marcar) e a cobranca em destaque */
+  function papelEtiquetaLoja(et) {
+    var itens = et.itens.map(function (it) {
+      return el('div', { class: 'etiqueta-item' }, [
+        el('span', { class: 'etiqueta-caixinha', 'aria-hidden': 'true' }),
+        el('span', { class: 'etiqueta-item-texto' }, [el('b', { text: it.quantidade + 'x ' + it.nome }), it.detalhes.length ? el('span', { text: ' · ' + it.detalhes.join(' · ') }) : null]),
+      ]);
+    });
+    return el('div', { class: 'etiqueta-envio etiqueta-' + et.tipo }, [
+      el('div', { class: 'etiqueta-servico' }, [el('span', { text: et.titulo })]),
+      el('div', { class: 'etiqueta-numero', text: et.numero }),
+      el('div', { class: 'etiqueta-pessoa etiqueta-destino' }, [
+        el('div', { class: 'etiqueta-rotulo', text: et.tipo === 'entrega' ? 'Entregar para' : 'Cliente' }),
+        el('div', { class: 'etiqueta-nome', text: et.cliente.nome }),
+        et.cliente.telefone ? el('div', { text: et.cliente.telefone }) : null,
+      ].concat(et.linhas.map(function (t) { return el('div', { text: t }); }))),
+      el('div', { class: 'etiqueta-pessoa' }, [el('div', { class: 'etiqueta-rotulo', text: et.tipo === 'retirada' ? 'Separar' : 'Itens' })].concat(itens)
+        .concat(et.observacao ? [el('div', { class: 'etiqueta-obs', text: 'Observação: ' + et.observacao })] : [])),
+      el('div', { class: 'etiqueta-cobranca' + (et.cobranca.pago ? ' pago' : ''), text: et.cobranca.texto }),
+      et.tipo === 'retirada' ? el('div', { class: 'etiqueta-dica', text: 'Na retirada, confira o número do pedido no celular da cliente.' }) : null,
+    ]);
+  }
   /* imprime so os papeis (o resto da tela some na impressao). No celular, "imprimir" deixa salvar em PDF */
   function imprimirPapeis(papeis) {
     var area = document.getElementById('papelImpressao');
     if (!area) { area = el('div', { id: 'papelImpressao', class: 'papel-impressao' }); document.body.appendChild(area); }
     limpar(area);
     papeis.forEach(function (x, i) {
-      if (i > 0) area.appendChild(el('div', { class: 'papel-corte', text: 'Recorte na linha e cole a etiqueta de cima na caixa. O comprovante vai dentro do pacote.' }));
+      if (i > 0) area.appendChild(el('div', { class: 'papel-corte', text: 'Recorte na linha e cole a etiqueta de cima no pacote. O comprovante vai junto, para a cliente.' }));
       area.appendChild(x);
     });
     document.body.classList.add('imprimindo-papel');
@@ -1123,23 +1147,25 @@
     var R = window.LigeiroRegras;
     var c = R.comprovanteDoPedido(loja, pedido);
     var texto = textoDoComprovante(c);
-    var imprimir = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1' }, onclick: function () { imprimirPapeis([papelComprovante(c)]); } }, [iconeLinha('imprimir'), o.paraLoja ? 'Imprimir' : 'Salvar em PDF']);
+    /* a loja ve e imprime a etiqueta junto (a cliente so o comprovante) */
+    var et = o.paraLoja ? R.etiquetaDoPedido(loja, pedido) : null;
+    var imprimir = el('button', { class: 'btn btn-principal', type: 'button', style: { flex: '1 1 100%' }, onclick: function () { imprimirPapeis(et ? [papelEtiqueta(et), papelComprovante(c)] : [papelComprovante(c)]); } }, [iconeLinha('imprimir'), o.paraLoja ? 'Imprimir' : 'Salvar em PDF']);
     var outro;
     var tel = String((pedido.cliente || {}).telefone || '').replace(/\D/g, '');
     if (o.paraLoja && tel.length >= 10) {
-      outro = el('a', { class: 'btn btn-fantasma', style: { flex: '1' }, href: R.linkWhatsapp(tel, texto), target: '_blank', rel: 'noopener' }, [iconeLinha('conversa'), 'Mandar para a cliente']);
+      outro = el('a', { class: 'btn btn-fantasma', style: { flex: '1 1 100%' }, href: R.linkWhatsapp(tel, texto), target: '_blank', rel: 'noopener' }, [iconeLinha('conversa'), 'Mandar para a cliente']);
     } else if (!o.paraLoja) {
-      outro = el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1' }, onclick: function () {
+      outro = el('button', { class: 'btn btn-fantasma', type: 'button', style: { flex: '1 1 100%' }, onclick: function () {
         if (navigator.share) { navigator.share({ title: 'Comprovante do pedido', text: texto }).catch(function () { /* fechou sem compartilhar */ }); return; }
         copiar(texto).then(function (ok) { avisar(ok !== false ? 'Comprovante copiado. Cole onde quiser guardar.' : 'Não deu para copiar. Use o botão de salvar em PDF.'); });
       } }, [iconeLinha('subir'), 'Compartilhar']);
     }
-    abrirModal({ titulo: 'Comprovante do pedido', classe: 'modal-comprovante', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [papelComprovante(c)]), rodape: [outro, imprimir].filter(Boolean) });
+    abrirModal({ titulo: et ? 'Etiqueta e comprovante' : 'Comprovante do pedido', classe: 'modal-comprovante', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, et ? [papelEtiqueta(et), papelComprovante(c)] : [papelComprovante(c)]), rodape: [imprimir, outro].filter(Boolean) }); /* um embaixo do outro, largura inteira: o texto nunca quebra */
   }
-  /* pedido dos Correios: a etiqueta de endereco em cima e o comprovante embaixo, numa folha so */
+  /* a etiqueta em cima e o comprovante embaixo, numa folha so (Correios, entrega na cidade ou retirada) */
   function imprimirEnvio(loja, pedido) {
     var R = window.LigeiroRegras;
-    var et = R.etiquetaDoEnvio(loja, pedido);
+    var et = R.etiquetaDoPedido(loja, pedido);
     var papeis = [];
     if (et) papeis.push(papelEtiqueta(et));
     papeis.push(papelComprovante(R.comprovanteDoPedido(loja, pedido)));

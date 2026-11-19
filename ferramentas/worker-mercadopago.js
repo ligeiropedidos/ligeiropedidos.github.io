@@ -1417,6 +1417,29 @@ const REGRAS = (function () {
     if (x.cidade) l.push(umaLinha(x.cidade) + (x.uf ? '/' + umaLinha(x.uf) : ''));
     return l;
   }
+  /* os itens do pedido para o papel (comprovante e etiqueta): quantidade, nome, detalhes e valor */
+  function itensDoPapel(l, p) {
+    return (p.itens || []).map(function (it) {
+      var detalhes = [];
+      if (it.tamanho && it.tamanho.nome) detalhes.push(umaLinha(tituloDoTamanho(l, it)) + ': ' + umaLinha(it.tamanho.nome));
+      if (it.adicionais && it.adicionais.length) detalhes.push('Com: ' + it.adicionais.map(function (a) { return umaLinha(a.nome); }).join(', '));
+      if (it.removidos && it.removidos.length) detalhes.push('Sem: ' + it.removidos.map(umaLinha).join(', '));
+      if (it.observacao) detalhes.push('Obs.: ' + umaLinha(it.observacao));
+      return { quantidade: it.quantidade, nome: umaLinha(it.nome), detalhes: detalhes, valor: dinheiro(it.totalItem) };
+    });
+  }
+  /* o que fazer com o dinheiro na hora de entregar: PAGO, ou quanto cobrar (com o troco) */
+  function cobrancaDoPedido(p) {
+    if (p.status === STATUS.CANCELADO) return { pago: false, texto: 'PEDIDO CANCELADO: NÃO ENTREGAR' };
+    if (p.total === 0) return { pago: true, texto: 'CORTESIA: NADA A COBRAR' };
+    if (p.pagamentoStatus === 'na_entrega') {
+      var t = 'COBRAR ' + dinheiro(p.total) + ' · ' + (NOMES_DAS_FORMAS[p.formaPagamento] || 'na entrega');
+      if (p.formaPagamento === 'dinheiro_entrega' && p.trocoPara > p.total) t += ' · TROCO PARA ' + dinheiro(p.trocoPara) + ' (levar ' + dinheiro(p.trocoPara - p.total) + ')';
+      return { pago: false, texto: t };
+    }
+    if (p.status === STATUS.AGUARDANDO) return { pago: false, texto: 'AGUARDANDO O PAGAMENTO: NÃO ENTREGAR AINDA' };
+    return { pago: true, texto: 'PAGO: ' + dinheiro(p.total) };
+  }
   function comprovanteDoPedido(loja, pedido) {
     var l = loja || {}, p = pedido || {};
     var com = pedidoDeComercio(p, l);
@@ -1438,14 +1461,7 @@ const REGRAS = (function () {
     } else {
       entrega = { titulo: p.origem === 'balcao' ? 'Pedido no balcão' : (com ? 'Retirada na loja' : 'Retirada no balcão'), linhas: [], prazo: '', rastreio: '' };
     }
-    var itens = (p.itens || []).map(function (it) {
-      var detalhes = [];
-      if (it.tamanho && it.tamanho.nome) detalhes.push(umaLinha(tituloDoTamanho(l, it)) + ': ' + umaLinha(it.tamanho.nome));
-      if (it.adicionais && it.adicionais.length) detalhes.push('Com: ' + it.adicionais.map(function (a) { return umaLinha(a.nome); }).join(', '));
-      if (it.removidos && it.removidos.length) detalhes.push('Sem: ' + it.removidos.map(umaLinha).join(', '));
-      if (it.observacao) detalhes.push('Obs.: ' + umaLinha(it.observacao));
-      return { quantidade: it.quantidade, nome: umaLinha(it.nome), detalhes: detalhes, valor: dinheiro(it.totalItem) };
-    });
+    var itens = itensDoPapel(l, p);
     var contas = [['Itens', dinheiro(p.subtotal)]];
     if (p.desconto > 0) contas.push(['Cupom ' + umaLinha(p.cupom) + ' (' + p.cupomPercentual + '%)', '- ' + dinheiro(p.desconto)]);
     if (p.tipoEntrega === 'entrega') contas.push([ehCorreios(p) ? 'Frete (' + correiosComServico(p) + ')' : 'Entrega', p.taxaEntrega > 0 ? dinheiro(p.taxaEntrega) : 'Grátis']);
@@ -1486,6 +1502,28 @@ const REGRAS = (function () {
       destinatario: { nome: umaLinha((p.cliente || {}).nome || p.nome), linhas: linhasDoEndereco(e), cep: e.cep ? formatarCep(e.cep) : '' },
       remetente: { nome: umaLinha(l.nome), linhas: remetente, cep: cepLoja ? formatarCep(cepLoja) : '' },
     };
+  }
+
+  /* a etiqueta de qualquer pedido (18/11/2026): Correios (destinatario e remetente), entrega na cidade (endereco, lista e
+     cobranca) ou retirada (numero grande, lista do que separar e cobranca). A loja imprime e cola no pacote */
+  function etiquetaDoPedido(loja, pedido) {
+    var l = loja || {}, p = pedido || {};
+    var correios = etiquetaDoEnvio(l, p);
+    if (correios) return Object.assign({ tipo: 'correios' }, correios);
+    var e = p.endereco || {};
+    var base = {
+      numero: (pedidoDeComercio(p, l) ? 'Pedido nº ' : 'Senha ') + p.senha,
+      cliente: { nome: umaLinha((p.cliente || {}).nome || p.nome), telefone: (p.cliente || {}).telefone ? formatarTelefone((p.cliente || {}).telefone) : '' },
+      itens: itensDoPapel(l, p),
+      observacao: p.observacao ? umaLinha(p.observacao) : '',
+      cobranca: cobrancaDoPedido(p),
+    };
+    if (p.tipoEntrega === 'entrega') {
+      var linhas = linhasDoEndereco(e);
+      if (e.referencia) linhas.push('Referência: ' + umaLinha(e.referencia));
+      return Object.assign({ tipo: 'entrega', titulo: 'Entrega', linhas: linhas }, base);
+    }
+    return Object.assign({ tipo: 'retirada', titulo: p.origem === 'balcao' ? 'Balcão' : 'Retirada na loja', linhas: [] }, base);
   }
 
   /*
@@ -2325,6 +2363,8 @@ const REGRAS = (function () {
     temTabelaDeFrete: temTabelaDeFrete,
     comprovanteDoPedido: comprovanteDoPedido,
     etiquetaDoEnvio: etiquetaDoEnvio,
+    etiquetaDoPedido: etiquetaDoPedido,
+    NOMES_DAS_FORMAS: NOMES_DAS_FORMAS,
     correiosComServico: correiosComServico,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,

@@ -519,7 +519,7 @@
       el('h2', { text: 'Serve para qualquer loja' }),
       el('div', { class: 'segmentos' }, [
         segmento('cardapio', 'Comida', 'Cardápio com adicionais e senha do pedido.', 'Lanchonete, pizzaria, açaí, marmita, doces, bebidas e outros'),
-        segmento('sacola', 'Comércio', 'Catálogo com tamanho, estoque e fotos.', 'Roupas, calçados, presentes, pet shop, papelaria, estamparia e outros'),
+        segmento('sacola', 'Comércio', 'Catálogo com tamanho, estoque, fotos e envio pelos Correios.', 'Roupas, calçados, presentes, pet shop, papelaria, estamparia e outros'),
       ]),
       el('p', { class: 'segmentos-nota', text: juntarFim('Vende outra coisa? Também serve: a loja já nasce montada para o que você vende.') }),
     ]));
@@ -720,7 +720,8 @@
         duvida('É o mais barato do mercado?', 'É um dos mais baratos. Os sistemas de pedidos mais conhecidos cobram de ' + reais(MERCADO.de) + ' a ' + reais(MERCADO.ate) + ' por mês. Existem opções grátis, mas com limite de 30 a 50 pedidos por mês. No Ligeiro são ' + reais(pr.mensal) + ' fixos, com até ' + pedidosDoPlano() + ' pedidos, e o Pix e o cartão confirmados sozinhos. Preços dos sites oficiais em ' + MERCADO.em + '.'),
         duvida('Tem limite de pedidos?', 'Cabem até ' + pedidosDoPlano() + ' pedidos por mês em cada loja (uns 100 por dia), sem comissão e sem pagar nada a mais por pedido. Se a sua loja passar disso, a gente combina um plano maior com você antes, e ela não sai do ar por isso.'),
         duvida('O que não está incluso?', 'As taxas do Mercado Pago, que são dele (0,99% no Pix e cerca de 5% no cartão). Fotos profissionais, vídeo e design exclusivo são serviços à parte, que você contrata no painel se quiser. Maquininha, entregador e impressora são da loja. Cada conta tem uma loja, com até ' + ((cfg().limites || {}).itens || 300) + ' itens.'),
-        duvida('Serve para entrega e para retirada?', 'Serve. Na hora de pedir, o cliente escolhe: entrega no endereço, com a taxa que você definir, ou retirada na loja.'),
+        duvida('Serve para entrega e para retirada?', 'Serve. Na hora de pedir, o cliente escolhe: entrega no endereço, com a taxa que você definir, ou retirada na loja, com o mapa de como chegar. Na loja de comércio tem também o envio pelos Correios para todo o Brasil, com o frete do PAC e do SEDEX calculado sozinho pelo CEP.'),
+        duvida('Emite nota fiscal?', 'Não. O Ligeiro gera o comprovante do pedido, sem valor fiscal, que o cliente salva e a loja imprime junto com a etiqueta. Quando a loja precisa de nota fiscal, ela emite pelo sistema emissor dela.'),
         duvida('Meus clientes vão saber pedir pelo link?', 'Vão. É como um cardápio ou catálogo com foto: o cliente toca no item, escolhe e paga. E quem chama no WhatsApp recebe o link na hora, pela saudação automática do WhatsApp Business.'),
         duvida('Tem sistema grátis. Por que eu pagaria ' + reais(pr.mensal) + '?', 'Os planos grátis costumam limitar os pedidos do mês (de 30 a 50) e cobrar pelo pedido a mais ou parar de receber. No Ligeiro cabem ' + pedidosDoPlano() + ' pedidos por mês e o Pix chega confirmado. E você testa ' + pr.diasGratis + ' dias antes de pagar.'),
         duvida('Preciso de CNPJ para criar a loja?', 'Não, o Ligeiro não pede. O Mercado Pago, onde o dinheiro cai, tem as próprias regras para abrir conta.'),
@@ -1454,6 +1455,13 @@
       ['camera', 'roxo', 'Até 3 fotos por item', 'A principal aparece na lista, e o cliente desliza para ver as outras.'],
       ['lapis', 'lima', 'Cardápio sempre em dia', 'Mudou um preço ou acabou um item? Você muda no painel e o site já mostra.'],
       ['vendas', 'laranja', 'Vendas e clientes', 'Quanto vendeu, horário de pico e o que mais sai.'],
+    ] },
+    /* 18/11/2026: Correios com frete automatico, etiqueta e comprovante, retirada com mapa e rastreio */
+    { aba: 'Envios', itens: [
+      ['caixa', 'azul', 'Correios para todo o Brasil', 'Na loja de comércio, o cliente digita o CEP e escolhe PAC ou SEDEX, com o preço e o prazo dos Correios.'],
+      ['imprimir', 'lima', 'Etiqueta e comprovante', 'Um toque imprime a etiqueta com o endereço para colar no pacote e o comprovante do pedido.'],
+      ['mapa', 'laranja', 'Retirada com mapa', 'Quem vai buscar vê o mapa da loja, o caminho e o número do pedido para mostrar no balcão.'],
+      ['celular', 'roxo', 'Rastreio para o cliente', 'Postou, o cliente recebe o código no WhatsApp e acompanha a entrega com a data prevista.'],
     ] },
   ];
   function secaoFuncoes() {
