@@ -3400,7 +3400,8 @@
       R.REGIOES_ENVIO.forEach(function (r) {
         var nome = r[0] === 'estado' ? 'No seu estado' + (l.uf ? ' (' + String(l.uf).toUpperCase() + ')' : '') : r[1];
         var preco = campoDinheiro('Frete', tab[r[0]] || 0);
-        var prazo = campoTexto('Chega em até', prazos[r[0]] || '', { tipo: 'number', placeholder: 'dias' });
+        /* "Chega em até" quebrava em 2 linhas no iPhone e descia o campo: "Prazo" cabe numa linha so */
+        var prazo = campoTexto('Prazo', prazos[r[0]] || '', { tipo: 'number', placeholder: 'dias' });
         prazo.input.min = '1'; prazo.input.max = '60';
         campos[r[0]] = { preco: preco, prazo: prazo };
         tabela.appendChild(el('div', { class: 'correios-regiao' }, [
@@ -3636,15 +3637,28 @@
       function mostrarFormasDoSite(sim) { formasDoSite.hidden = !sim; f.mpAtivo.chave.hidden = !sim; }
       function botaoConectar() {
         return el('button', { class: 'btn btn-principal btn-largo btn-mp', type: 'button', onclick: function (ev) {
-          if (ajustesPendentes()) { UI.avisar('Salve os ajustes antes de conectar: a conexão sai desta tela.'); return; }
-          var soltar = UI.ocupar(ev.currentTarget, 'Abrindo o Mercado Pago…');
-          if (!soltar) return;
-          soltarAoVoltar(soltar);
-          /* deu certo: a pagina vai para o Mercado Pago e o botao fica ocupado ate sair */
-          window.LigeiroMP.conectar(slug).then(function (r) {
-            if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true, mpChavePublica: 'TEST-demo' }, 'Mercado Pago conectado. Pix ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
-          }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu para conectar agora.')); });
+          var botao = ev.currentTarget;
+          /* 18/11/2026: antes so avisava "salve antes" e, se o salvar travasse, a loja nunca conectava.
+             Agora pergunta: salva e conecta, ou conecta sem salvar. Nunca fica sem saida. */
+          if (ajustesPendentes()) {
+            UI.perguntar('Você mudou coisas aqui nos Ajustes e ainda não salvou. Para conectar, a página vai para o Mercado Pago.', { titulo: 'Salvar antes de conectar?', sim: 'Salvar e conectar', nao: 'Conectar sem salvar' })
+              .then(function (salvar) { if (salvar) salvarAjustes(f, function () { irAoMercadoPago(null); }); else irAoMercadoPago(botao); });
+            return;
+          }
+          irAoMercadoPago(botao);
         } }, [UI.iconeLinha('link'), 'Conectar Mercado Pago']);
+      }
+      function irAoMercadoPago(botao) {
+        /* depois de salvar, a tela foi redesenhada: o botao velho saiu, o aviso faz as vezes dele */
+        var temBotao = !!(botao && botao.isConnected);
+        var soltar = temBotao ? UI.ocupar(botao, 'Abrindo o Mercado Pago…') : function () { /* nada a soltar */ };
+        if (!soltar) return;
+        if (!temBotao) UI.avisar('Abrindo o Mercado Pago…');
+        soltarAoVoltar(soltar);
+        /* deu certo: a pagina vai para o Mercado Pago e o botao fica ocupado ate sair */
+        window.LigeiroMP.conectar(slug).then(function (r) {
+          if (r === 'demo') { UI.avisar('Na demonstração, conectado (simulado).'); return salvarLoja({ mpAtivo: true, aceitaPix: true, mpChavePublica: 'TEST-demo' }, 'Mercado Pago conectado. Pix ligado.').then(function () { ligarMP(); desenharAjustes(); }); }
+        }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e, 'Não deu para conectar agora.')); });
       }
       /* voltou do Mercado Pago pelo "voltar" do navegador (a pagina volta da memoria como estava): o botao volta a funcionar */
       function soltarAoVoltar(soltar) {
@@ -4086,7 +4100,8 @@
       return Math.min(240, n);
     }
 
-    function salvarAjustes(f) {
+    /* depois: o que fazer quando gravou (o "Salvar e conectar" do Mercado Pago) */
+    function salvarAjustes(f, depois) {
       /* com "fechar sozinha" desligado, um horario mal preenchido nao trava o resto dos ajustes */
       var usaHorarios = f.usarHorarios.chave.ligado;
       var horarios = usaHorarios ? lerHorarios(f) : (f.horarios.valor(true) || estado.loja.horarios || {});
@@ -4143,10 +4158,14 @@
         mostrarOutras: f.mostrarOutras.chave.ligado,
         jogoDesligado: !f.jogo.chave.ligado,
       };
-      /* envio pelos Correios: so grava quando o bloco apareceu (mensageiro antigo ou loja de comida: fica como estava) */
+      /* envio pelos Correios: so grava quando o bloco apareceu (mensageiro antigo ou loja de comida: fica como estava).
+         18/11/2026: ligado sem frete nenhum NAO trava o salvar (travava tudo, ate a conexao do Mercado Pago):
+         grava desligado e avisa. O resto dos ajustes salva normalmente. */
+      var avisoCorreios = '';
       if (f.correios && f.correios.oferecido) {
-        mudancas.enviaCorreios = f.correios.chave.ligado;
         mudancas.envio = f.correios.valor();
+        mudancas.enviaCorreios = f.correios.chave.ligado && temFreteCorreios({ envio: mudancas.envio });
+        if (f.correios.chave.ligado && !mudancas.enviaCorreios) avisoCorreios = 'Ajustes salvos. O envio pelos Correios ficou desligado, porque falta o valor do frete.';
       }
       /* desligou a loja aqui: o "Abrir agora" que estivesse valendo sai junto (religar depois nao traz ele de volta) */
       if (!mudancas.aberta && estado.loja.abertaAte) mudancas.abertaAte = '';
@@ -4160,13 +4179,14 @@
       if (f.cnpj.input.value.trim() && !mudancas.cnpj) { f.cnpj.input.focus(); return UI.avisar('Esse CNPJ não confere. Veja se digitou os 14 números certos, ou deixe o campo vazio.'); }
       if (f.google.input.value.trim() && !mudancas.googleUrl) { f.google.input.focus(); return UI.avisar('Esse link não é do Google. No Google Maps, abra sua loja, toque em Compartilhar e cole o link aqui.'); }
       if (!mudancas.aceitaEntrega && !mudancas.aceitaRetirada && !mudancas.enviaCorreios) return UI.avisar('Ligue entrega ou retirada, senão ninguém consegue pedir.');
-      if (mudancas.enviaCorreios && !temFreteCorreios({ envio: mudancas.envio })) { document.getElementById('aj-correios').scrollIntoView({ block: 'center' }); return UI.avisar('Coloque o frete de pelo menos uma região no bloco Envio pelos Correios, ou desligue o envio.'); }
       /* o mesmo que o resumo do bloco Pagamento: sem nenhuma forma ligada, o cliente monta o pedido e nao consegue fechar */
       var pixValendo = aceitaPix && (!!tokenDigitado || f.mpToken.temSalvo || aindaLendo);
       if (!pixValendo && !cartaoLigado && !mudancas.aceitaPixCombinado && !mudancas.aceitaCartaoEntrega && !mudancas.aceitaDinheiroEntrega && !mudancas.aceitaValeEntrega && !mudancas.aceitaPixEntrega) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Ligue pelo menos uma forma de pagamento, senão ninguém consegue fechar o pedido.'); }
       /* pelos Correios a cliente paga pelo site: sem Pix, cartao ou Pix pelo WhatsApp, o botao aparece e ninguem fecha */
       var pixCombValendo = mudancas.aceitaPixCombinado != null ? mudancas.aceitaPixCombinado : R.pixCombinadoNaLoja(estado.loja);
-      if (mudancas.enviaCorreios && !pixValendo && !cartaoLigado && !pixCombValendo) { document.getElementById('aj-pagamento').scrollIntoView({ block: 'center' }); return UI.avisar('Pelos Correios a cliente paga pelo site. Ligue o Pix ou o cartão no bloco Pagamento (ou o Pix pelo WhatsApp).'); }
+      /* nao trava (o Pix so liga depois de conectar o Mercado Pago, e conectar pede salvar antes): salva e avisa.
+         O site do cliente ja esconde os Correios enquanto nao houver pagamento pelo site. */
+      if (mudancas.enviaCorreios && !pixValendo && !cartaoLigado && !pixCombValendo) avisoCorreios = 'Ajustes salvos. Os Correios aparecem no seu site quando o Pix ou o cartão estiver ligado.';
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.taxaEntrega <= 0) return UI.avisar('Taxa de entrega em branco. Coloque o valor ou marque "Entrega grátis".');
       if (mudancas.aceitaEntrega && !mudancas.freteGratis && mudancas.entregaGratisAcima > 0 && mudancas.entregaGratisAcima <= mudancas.taxaEntrega) return UI.avisar('"Grátis a partir de" precisa ser maior que a taxa de entrega.');
       var novaSenha = f.senhaPainel ? f.senhaPainel.input.value.trim() : '';
@@ -4217,8 +4237,8 @@
       }
       /* a capa antiga sai so depois que a loja apontou para a nova */
       var capaSai = (capa.dados || capa.removida) && capaAntiga ? capaAntiga : '';
-      passo.then(function () { return salvarLoja(mudancas, 'Ajustes salvos'); })
-        .then(function () { liberar(); if (capaSai) store.excluirFoto(slug, capaSai).catch(function () { /* ignora */ }); window.scrollTo(0, 0); desenharAjustes(); })
+      passo.then(function () { return salvarLoja(mudancas, avisoCorreios || 'Ajustes salvos'); })
+        .then(function () { liberar(); if (capaSai) store.excluirFoto(slug, capaSai).catch(function () { /* ignora */ }); window.scrollTo(0, 0); desenharAjustes(); if (depois) depois(); })
         .catch(function (e) { liberar(); UI.avisar(D.erroAmigavel(e, 'Não deu para salvar. Tente de novo.')); });
     }
 

@@ -815,7 +815,7 @@ a.selo-google:hover { background: var(--lime-suave); }
 .correios-regiao { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); }
 .correios-regiao-nome { display: flex; flex-direction: column; gap: 2px; }
 .correios-regiao-nome small { color: var(--muted); font-size: 14px; line-height: 1.35; }
-.correios-regiao-campos { grid-template-columns: 3fr 2fr; }
+.correios-regiao-campos { grid-template-columns: 3fr 2fr; align-items: end; } /* rotulo maior (letra grande no celular) nao desce um campo so */
 .correios-pagamento { display: flex; align-items: flex-start; gap: 8px; margin: 0; }
 .correios-pagamento .ico-traco { flex: none; margin-top: 2px; }
 /* painel: o codigo de rastreio no cartao do pedido */
