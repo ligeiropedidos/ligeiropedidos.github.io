@@ -1438,7 +1438,7 @@
         if (!avancando && !cod) { UI.avisar('Cole o código de rastreio.'); return; }
         var soltar = UI.ocupar(botao, 'Salvando…');
         if (!soltar) return;
-        var mud = avancando ? { status: R.STATUS.PRONTO } : {};
+        var mud = avancando ? { status: R.STATUS.PRONTO, postadoEm: new Date().toISOString() } : {};
         if (cod) mud.rastreio = cod;
         store.atualizarPedido(slug, p.id, mud).then(function () {
           UI.fecharModal();

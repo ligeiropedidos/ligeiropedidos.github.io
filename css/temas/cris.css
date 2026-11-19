@@ -240,6 +240,8 @@ body:has(.tema-cris #tela-inicio) .modal.tema-cris .modal-topo .titulo, body:has
 .tema-cris:has(#tela-inicio) .painel-senha { background: radial-gradient(ellipse 80% 70% at 50% 45%, #FFFFFF 0%, #FDE7EF 78%); }
 .tema-cris:has(#tela-inicio) .senha-gigante { color: var(--cm-rosa); }
 .tema-cris:has(#tela-inicio) .painel-senha .rotulo { color: var(--cm-rosa-escuro); }
+/* 18/11/2026: o texto do andamento ("Postado nos Correios! Codigo...") era branco no fundo claro: quase sumia */
+.tema-cris:has(#tela-inicio) .painel-senha .instrucao { color: #4A1A2E; }
 .tema-cris:has(#tela-inicio) .jogo-recorde-selo { background: #D4215F; color: #FFFFFF; }
 .tema-cris:has(#tela-inicio) .jogo-recorde-selo .ico-traco { color: #FFFFFF; }
 .tema-cris:has(#tela-inicio) .cartao-recusado.cartao-esperando, .tema-cris:has(#tela-inicio) .taxa-exemplo { border-color: #F3B8CE; }

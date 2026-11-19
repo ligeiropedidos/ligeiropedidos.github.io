@@ -3884,7 +3884,10 @@
             el('div', { class: 'resumo-onde-texto' }, [
               el('b', { text: 'Código de rastreio' }),
               el('span', { class: 'envio-codigo', text: codigo }),
-              el('a', { class: 'resumo-mapa', href: R.linkRastreio(codigo), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Ver onde está o pacote']),
+              el('span', { class: 'envio-rastreio-botoes' }, [
+                el('a', { class: 'resumo-mapa', href: R.linkRastreio(codigo), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Ver onde está o pacote']),
+                el('button', { type: 'button', class: 'resumo-mapa envio-copiar', onclick: function () { copiarCodigo(codigo); } }, [UI.iconeLinha('copiar'), 'Copiar código']),
+              ]),
             ]),
           ]));
         }
@@ -3908,24 +3911,59 @@
       }
     }
 
+    /* 18/11/2026: a previsao de entrega dos Correios: o prazo e em dias uteis contados do dia seguinte a postagem
+       (sabado e domingo nao contam; feriado nao entra na conta, por isso o texto diz "ate") */
+    function somarDiasUteis(data, dias) {
+      var d = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+      var falta = dias;
+      while (falta > 0) { d.setDate(d.getDate() + 1); var dia = d.getDay(); if (dia !== 0 && dia !== 6) falta -= 1; }
+      return d;
+    }
+    var DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    function dataCurta(d) { return DIAS_CURTOS[d.getDay()] + ', ' + ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
+    /* quando foi postado: o dia que a loja tocou em "Postei nos Correios" (pedido antigo: a ultima mudanca) */
+    function previsaoDeEntrega(pedido) {
+      var prazo = Math.round(Number(pedido.envio && pedido.envio.prazo) || 0);
+      if (!(prazo > 0)) return null;
+      var quando = new Date(pedido.postadoEm || pedido.atualizadoEm || '');
+      if (isNaN(quando.getTime())) return null;
+      return somarDiasUteis(quando, prazo);
+    }
+    function copiarCodigo(codigo) {
+      var feito = function () { UI.avisar('Código copiado. Cole no site dos Correios ou no app de rastreio.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(codigo).then(feito, function () { UI.avisar('Código: ' + codigo); }); return; }
+      UI.avisar('Código: ' + codigo);
+    }
     function montarLinhaDoTempo(pedido) {
       var entrega = pedido.tipoEntrega === 'entrega';
+      var correios = R.ehCorreios(pedido);
+      var prazo = correios ? Math.round(Number(pedido.envio && pedido.envio.prazo) || 0) : 0;
+      var servico = correios ? R.nomeDoServico(pedido.envio && pedido.envio.servico) : '';
+      var codigo = correios ? R.limparRastreio(pedido.rastreio) : '';
+      var previsao = correios && (pedido.status === R.STATUS.PRONTO) ? previsaoDeEntrega(pedido) : null;
       var etapas = [
         { chave: R.STATUS.PAGO, icone: 'recibo', texto: rotuloDoPagamento(pedido) },
-        { chave: R.STATUS.PRODUCAO, icone: R.catalogo(estado.loja).iconePreparo, texto: R.catalogo(estado.loja).preparando },
-        { chave: R.STATUS.PRONTO, icone: R.ehCorreios(pedido) ? 'caixa' : entrega ? 'entrega' : 'retirada', texto: R.ehCorreios(pedido) ? 'Postado nos Correios' : entrega ? 'Saiu para entrega' : 'Pronto para retirar' },
-        { chave: R.STATUS.FINALIZADO, icone: 'sorriso', texto: entrega ? 'Entregue' : 'Retirado' },
+        { chave: R.STATUS.PRODUCAO, icone: R.catalogo(estado.loja).iconePreparo, texto: R.catalogo(estado.loja).preparando,
+          sub: correios && prazo > 0 ? 'Depois de postado, chega em até ' + prazo + (prazo === 1 ? ' dia útil' : ' dias úteis') + (servico ? ' (' + servico + ')' : '') + '.' : '' },
+        { chave: R.STATUS.PRONTO, icone: correios ? 'caixa' : entrega ? 'entrega' : 'retirada', texto: correios ? 'Postado nos Correios' : entrega ? 'Saiu para entrega' : 'Pronto para retirar',
+          sub: correios && codigo ? 'Código de rastreio: ' + codigo : '' },
       ];
-      var posicao = etapas.map(function (e) { return e.chave; }).indexOf(pedido.status);
+      /* Correios: depois de postado o pacote viaja; a etapa "a caminho" fica acesa ate a loja marcar como entregue */
+      if (correios) etapas.push({ chave: 'a-caminho', icone: 'mapa', texto: 'A caminho de você', sub: previsao ? 'Previsão de entrega: até ' + dataCurta(previsao) + '.' : '' });
+      etapas.push({ chave: R.STATUS.FINALIZADO, icone: 'sorriso', texto: entrega ? 'Entregue' : 'Retirado' });
+      var chaves = etapas.map(function (e) { return e.chave; });
+      var posicao = correios && pedido.status === R.STATUS.PRONTO ? chaves.indexOf('a-caminho') : chaves.indexOf(pedido.status);
       var c = $('linhaDoTempo');
       UI.limpar(c);
       if (pedido.status === R.STATUS.CANCELADO) return;
       etapas.forEach(function (etapa, i) {
         var feita = posicao > i;
         var atual = posicao === i;
+        /* a explicacao aparece na etapa de agora (e o codigo, na postada, enquanto o pacote viaja) */
+        var mostraSub = etapa.sub && (atual || (etapa.chave === R.STATUS.PRONTO && correios && posicao <= chaves.indexOf('a-caminho')));
         c.appendChild(el('div', { class: 'etapa' + (feita ? ' feita' : '') + (atual ? ' atual' : '') }, [
           el('span', { class: 'bolha' }, [UI.iconeLinha(feita ? 'check' : etapa.icone)]),
-          el('span', { class: 'texto', text: etapa.texto }),
+          mostraSub ? el('span', { class: 'texto etapa-com-sub' }, [el('span', { text: etapa.texto }), el('small', { class: 'etapa-sub', text: etapa.sub })]) : el('span', { class: 'texto', text: etapa.texto }),
         ]));
       });
     }

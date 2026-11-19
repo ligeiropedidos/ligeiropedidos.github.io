@@ -852,6 +852,11 @@ a.selo-google:hover { background: var(--lime-suave); }
 .etapa.feita .bolha { background: var(--lime); border-color: var(--lime-escuro); color: var(--ink); }
 .etapa.atual { background: var(--lime-suave); color: var(--ink); font-weight: 700; }
 .etapa.atual .bolha { border-color: var(--lime-escuro); box-shadow: 0 0 0 4px var(--card); }
+/* Correios: a explicacao embaixo da etapa (prazo, codigo, previsao) */
+.etapa-com-sub { display: flex; flex-direction: column; gap: 2px; }
+.etapa-sub { font-size: 14px; font-weight: 500; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
+.envio-rastreio-botoes { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.envio-copiar { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 
 /* ---------- Painel do dono ---------- */
 
