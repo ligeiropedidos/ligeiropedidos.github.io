@@ -1040,7 +1040,7 @@
         return dizQuePagou(pedido)
           ? 'Avisamos a loja. Assim que ela conferir o Pix, o pedido entra na fila.'
           : (pedido.formaPagamento === 'cartao_online' ? 'Falta só pagar com o cartão para o pedido entrar na fila.'
-            : pixCombinado(pedido) ? 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.'
+            : pixCombinado(pedido) ? (pixDiretoNaLoja(loja) ? 'Pague o Pix pelo QR abaixo e mande o comprovante no WhatsApp da loja. Quando ela conferir, o pedido entra na fila.' : 'Chame a loja no WhatsApp para combinar o Pix. Quando ela confirmar, o pedido entra na fila.')
             : 'Falta só pagar o Pix para o pedido entrar na fila.');
       case STATUS.PAGO:
         if (ehCorreios(pedido)) return 'Pedido na fila! A loja separa e posta nos Correios' + (pedido.envio.prazo > 0 ? ': ' + prazoDoEnvio(pedido.envio.prazo) + '.' : '.');
@@ -1176,7 +1176,7 @@
       : pedido.pagamentoStatus === 'na_entrega'
         ? ({ dinheiro_entrega: 'Vou pagar em dinheiro na entrega.', vale_entrega: 'Vou pagar no vale-refeição na entrega.', pix_entrega: 'Vou pagar no Pix na entrega.' }[pedido.formaPagamento] || 'Vou pagar na maquininha na entrega.')
         : pixCombinado(pedido)
-          ? (pedido.status === STATUS.AGUARDANDO ? 'Quero pagar no Pix: pode me mandar a chave?' : 'Já paguei no Pix.')
+          ? (pedido.status === STATUS.AGUARDANDO ? (pixDiretoNaLoja(loja) ? 'Paguei o Pix pelo QR do site. Vou mandar o comprovante aqui.' : 'Quero pagar no Pix: pode me mandar a chave?') : 'Já paguei no Pix.')
           : (pedido.status === STATUS.AGUARDANDO ? 'Estou pagando ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.') : 'Já pago ' + (cartao ? 'com o cartão pelo site.' : 'no Pix.'));
     return 'Olá! Sou ' + pedido.cliente.nome + ', fiz o pedido *' + (pedidoDeComercio(pedido, loja) ? 'nº ' : 'senha ') + pedido.senha + '* pelo site da ' +
       loja.nome + '. Total ' + dinheiro(pedido.total) + '. ' + pagamento;
@@ -2117,6 +2117,9 @@
   /* Pix combinado com a loja no WhatsApp (loja sem Mercado Pago): precisa do WhatsApp da loja, que e por onde se combina */
   function pixCombinadoNaLoja(loja) { var l = loja || {}; return l.aceitaPixCombinado === true && String(l.whatsapp || '').replace(/\D/g, '').length >= 10; }
   function pixCombinado(pedido) { return !!pedido && pedido.formaPagamento === 'pix_combinado'; }
+  /* 19/11/2026: o Pix pelo WhatsApp com a chave da loja: a cliente ve o QR com o valor certo e paga na hora (a loja confere
+     no banco e marca como pago, como antes). A chave chega aqui ja conferida pelo painel */
+  function pixDiretoNaLoja(loja) { var c = String((loja && loja.chavePix) || '').trim(); return c.length >= 5 && c.length <= 77 ? c : ''; }
 
   /* como o cliente paga, em uma frase (divulgacao e cardapio em texto): a mesma conta do site, sem prometer Pix a quem
      nao tem Mercado Pago */
@@ -2214,6 +2217,7 @@
     correiosComServico: correiosComServico,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
+    pixDiretoNaLoja: pixDiretoNaLoja,
     pixCombinado: pixCombinado,
     nomeDoPagamento: nomeDoPagamento,
     cobrancaNoMp: cobrancaNoMp,

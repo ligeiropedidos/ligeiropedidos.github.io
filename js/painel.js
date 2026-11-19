@@ -1613,7 +1613,7 @@
           el('li', { text: 'Leve aos Correios e peça o envio por ' + (servico || 'PAC ou SEDEX') + (servico ? ', o que a cliente escolheu' : '') + '.' + (frete ? ' A cliente já pagou ' + frete + ' de frete.' : '') }),
           el('li', { text: 'Com o comprovante dos Correios na mão, toque em "Postei nos Correios" e cole o código de rastreio.' }),
         ]),
-        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir a etiqueta']),
+        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir etiqueta']),
         el('p', { class: 'como-enviar-dica', text: 'Sem impressora? Mostre esta tela no balcão dos Correios: o endereço está logo acima.' }),
       ]);
     }
@@ -1632,7 +1632,7 @@
       return el('div', { class: 'como-enviar' }, [
         el('b', { class: 'como-enviar-titulo', text: 'Como entregar este pedido' }),
         el('ol', { class: 'como-enviar-passos' }, passos.map(function (t) { return el('li', { text: t }); })),
-        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir a etiqueta']),
+        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir etiqueta']),
       ]);
     }
     function imprimir(p) {
@@ -1661,7 +1661,7 @@
     /* ---------------------------------------------------------- cardapio */
     /* O que o cliente precisa ver na hora (a loja fechou, o item acabou, o cupom ou o cartao desligou): a copia da
        loja na borda sai sem esperar a folga de 1,5 s. Preco e texto seguem com a folga (10 edicoes seguidas, um aviso) */
-    var CAMPOS_NA_HORA = ['aberta', 'abertaAte', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaPixCombinado', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaValeEntrega', 'aceitaPixEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
+    var CAMPOS_NA_HORA = ['aberta', 'abertaAte', 'usarHorarios', 'horarios', 'ativa', 'aceitaEntrega', 'aceitaRetirada', 'aceitaPix', 'mpAtivo', 'aceitaPixCombinado', 'chavePix', 'aceitaCartaoOnline', 'aceitaCartaoEntrega', 'aceitaDinheiroEntrega', 'aceitaValeEntrega', 'aceitaPixEntrega', 'aceitaPagarNoBalcao', 'temCupom', 'pedidoMinimo'];
     function ligados(lista, campo) { return (lista || []).map(function (x) { return x ? String(x.id) + (x[campo] === false ? ':0' : ':1') : ''; }).join(','); }
     function opcoesLigadas(grupos) {
       return Object.keys(grupos || {}).sort().map(function (k) { return k + '[' + ((grupos[k] && grupos[k].opcoes) || []).map(function (o) { return o && o.ativo === false ? '0' : '1'; }).join('') + ']'; }).join(',');
@@ -3892,11 +3892,28 @@
       grupoCombinado.hidden = f.aceitaPixCombinado.hidden = true;
       pagamento.appendChild(grupoCombinado);
       pagamento.appendChild(f.aceitaPixCombinado);
+      /* 19/11/2026: a chave Pix (opcional): com ela a cliente ve o QR com o valor certo na tela e paga na hora */
+      f.chavePix = campoTexto('Sua chave Pix (opcional)', l.chavePix || '', { max: 77, placeholder: 'CPF, CNPJ, celular, e-mail ou aleatória',
+        ajuda: 'Com a chave, a cliente vê o QR do Pix com o valor certo e paga na hora. O dinheiro cai direto na sua conta. Você confere no banco e marca como pago.' });
+      var conferePix = el('p', { class: 'ajuda chave-pix-confere', role: 'status' });
+      f.chavePix.appendChild(conferePix);
+      function pintarChavePix() {
+        var bruta = f.chavePix.input.value.trim();
+        var chave = Pix.normalizarChave(bruta), tipo = Pix.tipoDaChave(chave);
+        conferePix.className = 'ajuda chave-pix-confere' + (bruta && tipo === 'desconhecida' ? ' erro' : '');
+        conferePix.textContent = !bruta ? 'Sem chave: a cliente combina o Pix com você no WhatsApp.' : tipo === 'desconhecida' ? 'Essa chave não parece um CPF, CNPJ, celular, e-mail ou chave aleatória. Confira.' : 'A cliente vai pagar para a chave ' + tipo + ': ' + chave;
+      }
+      f.chavePix.input.addEventListener('input', pintarChavePix);
+      pintarChavePix();
+      f.chavePix.hidden = true;
+      pagamento.appendChild(f.chavePix);
+      f.aceitaPixCombinado.chave.addEventListener('click', function () { f.chavePix.hidden = !(f.aceitaPixCombinado.oferecido && f.aceitaPixCombinado.chave.ligado); });
       pixCombinadoPossivel().then(function (sim) {
         estado.pixCombinadoOk = sim;
         if (!sim) return;
         f.aceitaPixCombinado.oferecido = true;
         grupoCombinado.hidden = f.aceitaPixCombinado.hidden = false;
+        f.chavePix.hidden = !f.aceitaPixCombinado.chave.ligado;
         pintarResumo();
       });
       /* um desliga o outro, e diz o que fez */
@@ -4266,6 +4283,15 @@
       if (!mudancas.aberta && estado.loja.abertaAte) mudancas.abertaAte = '';
       /* so grava o Pix combinado quando o interruptor apareceu (mensageiro antigo: fica como estava) */
       if (f.aceitaPixCombinado.oferecido) mudancas.aceitaPixCombinado = f.aceitaPixCombinado.chave.ligado;
+      /* a chave Pix: vazia apaga; torta nao grava (o resto salva) e avisa */
+      var avisoPix = '';
+      if (f.chavePix && f.aceitaPixCombinado.oferecido) {
+        var brutaPix = f.chavePix.input.value.trim();
+        var chavePixNova = Pix.normalizarChave(brutaPix);
+        if (!brutaPix) mudancas.chavePix = '';
+        else if (Pix.tipoDaChave(chavePixNova) === 'desconhecida' || chavePixNova.length > 77) avisoPix = 'Ajustes salvos, menos a chave Pix: ela não confere. Confira e salve de novo.';
+        else mudancas.chavePix = chavePixNova;
+      }
       var logo = f.logo.valor();
       if (logo.dados) { mudancas.logoDados = logo.dados; mudancas.logoUrl = ''; }
       else if (logo.removida) { mudancas.logoDados = ''; mudancas.logoUrl = ''; }
@@ -4338,7 +4364,7 @@
       }
       /* a capa antiga sai so depois que a loja apontou para a nova */
       var capaSai = (capa.dados || capa.removida) && capaAntiga ? capaAntiga : '';
-      passo.then(function () { return salvarLoja(mudancas, avisoCorreios || 'Ajustes salvos'); })
+      passo.then(function () { return salvarLoja(mudancas, avisoCorreios || avisoPix || 'Ajustes salvos'); })
         .then(function () { liberar(); if (capaSai) store.excluirFoto(slug, capaSai).catch(function () { /* ignora */ }); window.scrollTo(0, 0); desenharAjustes(); if (depois) depois(); })
         .catch(function (e) { liberar(); UI.avisar(D.erroAmigavel(e, 'Não deu para salvar. Tente de novo.')); });
     }

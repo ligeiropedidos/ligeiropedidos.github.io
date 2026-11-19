@@ -2919,6 +2919,15 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 /* retirada: o mapa da loja na tela da cliente */
 .mapa-retirada { display: block; width: 100%; height: 200px; margin-top: 4px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); }
 .retirada-lembrete { font-weight: 700; color: var(--ink); }
+/* 19/11/2026: o Pix direto na chave da loja, na tela do pedido */
+.pix-direto { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: var(--raio-p); background: var(--card); text-align: center; }
+.pix-direto-titulo { font-size: 18px; font-weight: 800; color: var(--ink); }
+.pix-direto-qr { display: flex; justify-content: center; padding: 8px; border-radius: 12px; background: #FFFFFF; }
+.pix-direto-codigo { margin: 0; max-width: 100%; color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; line-height: 1.35; word-break: break-all; user-select: all; }
+.pix-direto-passos { margin: 0; padding-left: 20px; align-self: stretch; display: flex; flex-direction: column; gap: 4px; color: var(--ink); font-size: 15px; line-height: 1.4; text-align: left; }
+.pix-direto-nota { margin: 0; color: var(--muted); font-size: 13.5px; }
+.chave-pix-confere { margin: 0; }
+.chave-pix-confere.erro { color: var(--erro); font-weight: 600; }
 .como-enviar-dica { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; text-align: center; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {

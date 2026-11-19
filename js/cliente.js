@@ -532,8 +532,8 @@
   function foiDevolvido(pedido) { return !!pedido && (pedido.pagamentoStatus === 'devolvido' || !!pedido.devolvidoEm); }
 
   /* O rotulo de cima da tela da senha: esperando, cancelado, devolvido ou confirmado */
-  function rotuloDaSenha(pedido) {
-    if (pedido.status === R.STATUS.AGUARDANDO) return { icone: 'ampulheta', texto: pedido.formaPagamento === 'cartao_online' ? 'Pedido enviado, esperando o pagamento' : R.pixCombinado(pedido) ? 'Pedido enviado, falta combinar o Pix' : 'Pedido enviado, esperando o Pix' };
+  function rotuloDaSenha(pedido, loja) {
+    if (pedido.status === R.STATUS.AGUARDANDO) return { icone: 'ampulheta', texto: pedido.formaPagamento === 'cartao_online' ? 'Pedido enviado, esperando o pagamento' : R.pixCombinado(pedido) ? (R.pixDiretoNaLoja(loja) ? 'Pedido enviado, falta pagar o Pix' : 'Pedido enviado, falta combinar o Pix') : 'Pedido enviado, esperando o Pix' };
     if (foiDevolvido(pedido)) return { icone: 'dinheiro', texto: pedido.status === R.STATUS.CANCELADO ? 'Pedido cancelado, dinheiro devolvido' : 'Dinheiro devolvido' };
     if (pedido.status === R.STATUS.CANCELADO) return { icone: 'fechar', texto: 'Pedido cancelado' };
     return { icone: 'feito', texto: (pedido.pagamentoStatus === 'na_entrega' || pedido.total === 0) ? 'Pedido confirmado' : 'Pagamento confirmado' };
@@ -2384,6 +2384,10 @@
       $('opcaoPix').hidden = !temPix;
       $('opcaoCartaoOnline').hidden = !temCartaoSite;
       $('opcaoPixCombinado').hidden = !temPixComb;
+      /* com a chave da loja, a opcao vira "Pix" com o QR na tela (sem combinar nada no WhatsApp) */
+      var nomePixComb = $('opcaoPixCombinado').querySelector('.forma-nome'), detPixComb = $('opcaoPixCombinado').querySelector('.forma-detalhe');
+      if (nomePixComb) nomePixComb.textContent = pixDireto() ? 'Pix' : 'Pix pelo WhatsApp';
+      if (detPixComb) detPixComb.textContent = pixDireto() ? 'QR Code na hora, direto para a loja' : 'Você manda o pedido e combina o Pix com a loja';
       $('opcaoCartao').hidden = !temCartao;
       $('opcaoDinheiro').hidden = !temDinheiro;
       $('opcaoVale').hidden = !temVale;
@@ -3574,7 +3578,7 @@
         }
       } else if (R.pixCombinado(pedido) && pedido.status === R.STATUS.AGUARDANDO) {
         ico = 'celular';
-        texto = dinheiro(pedido.total) + ' no Pix, combinado com a loja no WhatsApp.';
+        texto = dinheiro(pedido.total) + (pixDireto() ? ' no Pix, pelo QR abaixo.' : ' no Pix, combinado com a loja no WhatsApp.');
       } else if (pedido.desconto > 0) {
         ico = 'cupom';
         texto = pedido.total === 0 ? 'Cupom ' + pedido.cupom + ': este pedido é cortesia.' : 'Cupom ' + pedido.cupom + ': você economizou ' + dinheiro(pedido.desconto);
@@ -3584,6 +3588,34 @@
       if (texto) { aviso.appendChild(UI.iconeLinha(ico)); aviso.appendChild(el('span', { text: texto })); }
     }
 
+    function pixDireto() { return estado.loja && Pix && Pix.gerar ? R.pixDiretoNaLoja(estado.loja) : ''; }
+    function desenharPixDireto(pedido, mostrar) {
+      var caixa = $('pixDireto');
+      if (!caixa) return;
+      var chave = mostrar ? pixDireto() : '';
+      UI.limpar(caixa);
+      caixa.hidden = !chave;
+      if (!chave) return;
+      var l = estado.loja;
+      var codigo = '';
+      try { codigo = Pix.gerar({ chave: chave, nome: l.nome, cidade: l.cidade || '', valor: pedido.total, txid: R.txidPix(pedido), descricao: (R.pedidoDeComercio(pedido, l) ? 'Pedido ' : 'Senha ') + pedido.senha }); } catch (_) { codigo = ''; }
+      if (!codigo) { caixa.hidden = true; return; }
+      var qr = el('div', { class: 'pix-direto-qr', role: 'img', 'aria-label': 'QR Code do Pix de ' + dinheiro(pedido.total) });
+      caixa.appendChild(el('div', { class: 'pix-direto-titulo', text: 'Pague ' + dinheiro(pedido.total) + ' no Pix' }));
+      caixa.appendChild(qr);
+      caixa.appendChild(el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () {
+        UI.copiar(codigo).then(function (ok) { UI.avisar(ok ? 'Código copiado! Cole no app do seu banco, em Pix copia e cola.' : 'Não deu para copiar sozinho. Toque e segure no código para copiar.'); });
+      } }, [UI.iconeLinha('copiar'), 'Copiar o código Pix']));
+      caixa.appendChild(el('p', { class: 'pix-direto-codigo', text: codigo }));
+      caixa.appendChild(el('ol', { class: 'pix-direto-passos' }, [
+        el('li', { text: 'Pague no app do seu banco, pelo QR ou pelo código.' }),
+        el('li', { text: 'Mande o comprovante no WhatsApp da loja.' }),
+        el('li', { text: 'A loja confere e o pedido entra na fila.' }),
+      ]));
+      caixa.appendChild(el('p', { class: 'pix-direto-nota', text: 'O Pix vai direto para ' + l.nome + '.' }));
+      var desenhar = function () { if (!Pix.desenharQr(qr, codigo, 200)) qr.hidden = true; };
+      if (Pix.carregarQr) Pix.carregarQr().then(desenhar, function () { qr.hidden = true; }); else desenhar();
+    }
     function rotuloConfirmado(icone, texto, pedido) {
       var c = $('confirmado');
       UI.limpar(c);
@@ -3603,7 +3635,7 @@
       if (pedido.status !== R.STATUS.AGUARDANDO && pedido.status !== R.STATUS.CANCELADO) esquecerCarrinho(pedido.id);
       $('senhaNumero').textContent = pedido.senha;
       /* o Pix confirma sozinho (Mercado Pago): ninguem da loja precisa conferir. Dinheiro devolvido nunca vira "confirmado" */
-      var rotulo = rotuloDaSenha(pedido);
+      var rotulo = rotuloDaSenha(pedido, estado.loja);
       rotuloConfirmado(rotulo.icone, rotulo.texto, pedido);
       $('senhaInstrucao').textContent = R.textoDoEstagio(pedido, estado.loja);
 
@@ -3623,6 +3655,10 @@
       var combinando = R.pixCombinado(pedido) && pedido.status === R.STATUS.AGUARDANDO && !whats.hidden;
       combinar.hidden = !combinando;
       if (combinando) { combinar.href = whats.href; whats.hidden = true; }
+      /* 19/11/2026: a loja tem chave Pix: o QR com o valor certo na tela, e o WhatsApp vira "mandar o comprovante" */
+      desenharPixDireto(pedido, combinando || (R.pixCombinado(pedido) && pedido.status === R.STATUS.AGUARDANDO && !balcao));
+      var textoCombinar = combinar.lastChild;
+      if (textoCombinar && textoCombinar.nodeType === 3) textoCombinar.textContent = pixDireto() ? 'Mandar o comprovante' : 'Combinar o Pix no WhatsApp';
 
       var voltarPix = $('btnVoltarPix');
       voltarPix.hidden = !(pedido.status === R.STATUS.AGUARDANDO && !balcao && !deFora && !R.pixCombinado(pedido));
@@ -3855,7 +3891,7 @@
       if (pedido.formaPagamento === 'cartao_entrega') return ['maquininha', 'Cartão na maquininha, ' + (retira ? 'na retirada' : 'na entrega')];
       if (pedido.formaPagamento === 'vale_entrega') return ['carteira', 'Vale-refeição, ' + (retira ? 'na retirada' : 'na entrega')];
       if (pedido.formaPagamento === 'pix_entrega') return ['celular', 'Pix, ' + (retira ? 'na retirada' : 'na entrega')];
-      if (R.pixCombinado(pedido)) return ['celular', pedido.status === R.STATUS.AGUARDANDO ? 'Pix a combinar com a loja' : 'Pix combinado com a loja'];
+      if (R.pixCombinado(pedido)) return ['celular', pixDireto() ? (pedido.status === R.STATUS.AGUARDANDO ? 'Pix pelo QR, a loja confere' : 'Pix pago pelo QR') : (pedido.status === R.STATUS.AGUARDANDO ? 'Pix a combinar com a loja' : 'Pix combinado com a loja')];
       if (pedido.status === R.STATUS.AGUARDANDO) return ['ampulheta', pedido.formaPagamento === 'cartao_online' ? 'Cartão, esperando o pagamento' : 'Pix, esperando o pagamento'];
       if (pedido.status === R.STATUS.CANCELADO) return null;
       return ['check', pedido.formaPagamento === 'cartao_online' ? 'Pago no cartão' : 'Pago no Pix'];
@@ -4009,7 +4045,7 @@
       /* desistindo: o QR nao volta por cima do "Cancelando o pedido…" (se nao cancelar, a tela volta ja com ele) */
       if (codigoNovo && !mudou && !estado.cancelando && $('tela-pagamento').classList.contains('ativa')) { mostrarPagamento(novo); return; }
       /* a loja devolveu o dinheiro de um pedido ja cancelado (o status nao muda): o rotulo muda na hora */
-      if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo); rotuloConfirmado(rotuloD.icone, rotuloD.texto, novo); montarLinhaDoTempo(novo); return; }
+      if (devolveuAgora && !mudou && $('tela-senha').classList.contains('ativa')) { var rotuloD = rotuloDaSenha(novo, estado.loja); rotuloConfirmado(rotuloD.icone, rotuloD.texto, novo); montarLinhaDoTempo(novo); return; }
       /* cartao ainda esperando: a analise do banco comecou ou acabou sem aprovar (o X some ou volta) */
       if (!mudou && novo.status === R.STATUS.AGUARDANDO && $('tela-cartao').classList.contains('ativa')) { travaDoCartao(novo); return; }
       if (!mudou) return;
@@ -4026,7 +4062,7 @@
         desenharConviteJogo(novo, balcao);
         desenharACobrar(novo);
         desenharResumo(novo, deFora);
-        if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo); rotuloConfirmado(rotuloN.icone, rotuloN.texto, novo); }
+        if (novo.status === R.STATUS.PAGO || novo.status === R.STATUS.CANCELADO) { var rotuloN = rotuloDaSenha(novo, estado.loja); rotuloConfirmado(rotuloN.icone, rotuloN.texto, novo); }
         $('btnVoltarPix').hidden = true;
         UI.avisar(R.rotuloStatusCliente(novo));
         UI.vibrar([120]);
@@ -4399,6 +4435,7 @@
         '<div class="confirmado" id="confirmado"></div>' +
         '<div class="painel-senha"><div class="rotulo" id="rotuloSenha">Sua senha</div><div class="senha-gigante" id="senhaNumero"></div><div class="instrucao" id="senhaInstrucao"></div></div>' +
         '<div class="a-cobrar" id="avisoACobrar" hidden></div>' +
+        '<div class="pix-direto" id="pixDireto" hidden></div>' +
         '<a class="btn btn-whats btn-largo" id="btnCombinarPix" style="max-width:420px" href="#" target="_blank" rel="noopener" hidden><span class="icone-zap" aria-hidden="true"></span>Combinar o Pix no WhatsApp</a>' +
         '<div class="linha-do-tempo" id="linhaDoTempo"></div>' +
         '<div class="resumo-pedido" id="resumoPedido"></div>' +

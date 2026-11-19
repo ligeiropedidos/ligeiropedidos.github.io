@@ -1647,3 +1647,17 @@ test('19/11/2026: o carrinho em faixas de peso (item com faixa propria, o resto 
   /* quantidade absurda tem teto (60 no carrinho) */
   assert.equal(R.pacotesDoCarrinho(loja, [{ produtoId: 'blusa', quantidade: 999 }])[0].quantidade, 30);
 });
+
+test('19/11/2026: Pix direto (a chave da loja no Pix pelo WhatsApp): textos de pagar pelo QR', () => {
+  const comChave = { slug: 'x', nome: 'Loja', whatsapp: '13999999999', aceitaPixCombinado: true, chavePix: '12345678909' };
+  const semChave = Object.assign({}, comChave, { chavePix: '' });
+  assert.equal(R.pixDiretoNaLoja(comChave), '12345678909');
+  assert.equal(R.pixDiretoNaLoja(semChave), '');
+  assert.equal(R.pixDiretoNaLoja({ chavePix: 'abc' }), '');
+  assert.equal(R.pixDiretoNaLoja({ chavePix: 'x'.repeat(78) }), '');
+  const p = { senha: 3, cliente: { nome: 'Ana', telefone: '13999990000' }, formaPagamento: 'pix_combinado', status: 'aguardando_pagamento', pagamentoStatus: 'a_combinar', total: 5000, tipoEntrega: 'retirada', itens: [] };
+  assert.ok(/QR/.test(R.textoDoEstagio(p, comChave)));
+  assert.ok(/combinar o Pix/.test(R.textoDoEstagio(p, semChave)));
+  assert.ok(/comprovante/.test(R.mensagemDoCliente(comChave, p)));
+  assert.ok(/mandar a chave/.test(R.mensagemDoCliente(semChave, p)));
+});
