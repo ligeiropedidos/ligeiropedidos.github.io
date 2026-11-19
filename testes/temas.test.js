@@ -84,3 +84,31 @@ temas.forEach(function (arquivo) {
     assert.deepStrictEqual(achados, [], 'o tema mexeu na posicao de barra presa');
   });
 });
+
+/* 19/11/2026: o "PEDIDO" do selo escuro do painel (cor --senha-rotulo, ou --lime, sobre o --deep) tem que dar para ler:
+   contraste minimo de 4,5 (WCAG AA, letra pequena). No tema da Cris dava 1,8 (rosa sobre vinho) */
+function luminancia(hex) {
+  const h = hex.replace('#', '');
+  const v = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+}
+function contraste(a, b) { const x = luminancia(a), y = luminancia(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+test('o selo do numero do pedido no painel tem contraste para ler em todo tema', () => {
+  const blocos = [];
+  temas.forEach(function (f) {
+    const css = fs.readFileSync(path.join(PASTA, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const re = /([^{}]+)\{([^{}]*--deep:[^{}]*)\}/g;
+    let m;
+    while ((m = re.exec(css))) if (/painel-topo/.test(m[1])) blocos.push({ f: f, corpo: m[2] });
+  });
+  const raiz = fs.readFileSync(path.join(__dirname, '..', 'css', 'ligeiro.css'), 'utf8');
+  blocos.push({ f: 'ligeiro.css', corpo: '--deep: ' + /--deep:\s*(#[0-9A-Fa-f]{6})/.exec(raiz)[1] + '; --lime: ' + /--lime:\s*(#[0-9A-Fa-f]{6})/.exec(raiz)[1] + ';' });
+  assert.ok(blocos.length >= 6, 'achei ' + blocos.length + ' blocos do painel');
+  blocos.forEach(function (b) {
+    const cor = (n) => { const m = new RegExp('--' + n + ':\s*(#[0-9A-Fa-f]{6})').exec(b.corpo); return m ? m[1] : null; };
+    const fundo = cor('deep'), letra = cor('senha-rotulo') || cor('lime');
+    if (!fundo || !letra) return;
+    assert.ok(contraste(fundo, letra) >= 4.5, b.f + ': "PEDIDO" ' + letra + ' sobre ' + fundo + ' dá ' + contraste(fundo, letra).toFixed(2));
+    assert.ok(contraste(fundo, '#FFFFFF') >= 4.5, b.f + ': o numero branco sobre ' + fundo + ' dá ' + contraste(fundo, '#FFFFFF').toFixed(2));
+  });
+});

@@ -1192,10 +1192,10 @@
       var grupos = [
         /* cancelado com o dinheiro ainda com a loja: fica no topo, aberto, ate devolver (de qualquer dia) */
         { titulo: 'Falta devolver', lista: estado.aDevolver || [] },
-        { titulo: 'Aguardando pagamento', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
-        { titulo: catLoja().novos, filtro: function (p) { return p.status === R.STATUS.PAGO; } },
-        { titulo: catLoja().preparando, filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
-        { titulo: 'Saiu ou pronto', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
+        { titulo: 'Aguardando pagamento', curto: 'Aguardando', icone: 'relogio', id: 'grupo-aguardando', filtro: function (p) { return p.status === R.STATUS.AGUARDANDO; } },
+        { titulo: catLoja().novos, curto: 'Novos', icone: 'sino', id: 'grupo-novos', filtro: function (p) { return p.status === R.STATUS.PAGO; } },
+        { titulo: catLoja().preparando, curto: catLoja().preparando, icone: 'caixa', id: 'grupo-preparando', filtro: function (p) { return p.status === R.STATUS.PRODUCAO; } },
+        { titulo: grupoDoStatus(null, R.STATUS.PRONTO), curto: catLoja().comida ? 'Prontos' : 'Prontos ou enviados', icone: 'check', id: 'grupo-prontos', filtro: function (p) { return p.status === R.STATUS.PRONTO; } },
       ];
       /* os de outros dias, fechados embaixo da fila (o aviso la em cima abre e conclui) */
       if (velhos.length) grupos.push({ titulo: 'De outros dias', lista: velhos.slice().sort(function (a, b) { return a.criadoEm < b.criadoEm ? -1 : 1; }), fechado: true, id: 'grupoOutrosDias' });
@@ -1209,6 +1209,20 @@
         grupos.push({ titulo: 'Cancelados hoje', lista: encerrados.filter(function (p) { return p.status === R.STATUS.CANCELADO && !devolver[p.id]; }), fechado: true });
       }
       var algum = false;
+      /* 19/11/2026: o resumo da fila no topo: quantos em cada passo, num toque a tela vai ao grupo (o pedido que muda de
+         passo aparece no contador do outro grupo, a vista) */
+      var resumo = grupos.filter(function (g) { return g.curto; }).map(function (g) { return { g: g, n: estado.pedidos.filter(g.filtro).length }; }).filter(function (x) { return x.n > 0; });
+      if (resumo.length > 1) {
+        caixa.appendChild(el('div', { class: 'fila-resumo', role: 'navigation', 'aria-label': 'Pedidos em cada passo' }, resumo.map(function (x) {
+          return el('button', { class: 'fila-resumo-item', type: 'button', onclick: function () {
+            var alvo = $(x.g.id);
+            if (!alvo) return;
+            var topo = document.querySelector('.painel-topo'), abas = document.querySelector('.abas-painel');
+            var tampa = (topo ? topo.getBoundingClientRect().height : 0) + (abas ? abas.getBoundingClientRect().height : 0);
+            window.scrollTo({ top: Math.max(0, alvo.getBoundingClientRect().top + window.pageYOffset - tampa - 8), behavior: 'smooth' });
+          } }, [UI.iconeLinha(x.g.icone), el('span', { text: x.g.curto }), el('b', { class: 'fila-resumo-n', text: String(x.n) })]);
+        })));
+      }
       grupos.forEach(function (g) {
         var lista = g.lista || estado.pedidos.filter(g.filtro);
         if (lista.length === 0) return;
@@ -1260,6 +1274,52 @@
         caixa.appendChild(carregar);
       }
       if (antigo) antigo.replaceWith(caixa); else s.appendChild(caixa);
+      botaoVoltarAoTopo();
+    }
+    /* 19/11/2026: lista comprida: o botao redondo de voltar ao topo aparece depois de descer bastante (so no painel) */
+    function botaoVoltarAoTopo() {
+      if ($('botaoTopo')) return;
+      var b = el('button', { id: 'botaoTopo', class: 'botao-topo', type: 'button', 'aria-label': 'Voltar ao topo', title: 'Voltar ao topo', onclick: function () { window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [UI.iconeLinha('subir')]);
+      document.body.appendChild(b);
+      var pintar = function () { b.classList.toggle('visivel', !!document.querySelector('.painel-topo') && window.pageYOffset > 900); };
+      window.addEventListener('scroll', pintar, { passive: true });
+      pintar();
+    }
+
+    /* 19/11/2026: o pedido que andou muda de grupo (de "Novos" para "Separando"...) e saia da tela: parecia que tinha
+       sumido. Sobe uma barrinha embaixo dizendo para onde ele foi, com o "Ver": a tela vai ate ele e o cartao fica
+       marcado uns segundos (o jeito do Gmail e dos apps de pedido: a tela nao pula sozinha, a pessoa escolhe ir) */
+    function grupoDoStatus(p, status) {
+      if (status === R.STATUS.PAGO) return catLoja().novos;
+      if (status === R.STATUS.PRODUCAO) return catLoja().preparando;
+      if (status === R.STATUS.PRONTO) return catLoja().comida ? 'Saiu ou pronto' : 'Pronto ou enviado';
+      if (status === R.STATUS.FINALIZADO) return 'Concluídos hoje';
+      return '';
+    }
+    function irAoPedido(id) {
+      var card = document.querySelector('.pedido-card[data-pedido="' + id + '"]');
+      if (!card) { UI.avisar('Esse pedido não está mais na lista de agora.'); return; }
+      var topo = document.querySelector('.painel-topo'), abas = document.querySelector('.abas-painel');
+      var tampa = (topo ? topo.getBoundingClientRect().height : 0) + (abas ? abas.getBoundingClientRect().height : 0);
+      var titulo = card.previousElementSibling && card.previousElementSibling.classList.contains('fila-titulo') ? 48 : 12;
+      window.scrollTo({ top: Math.max(0, card.getBoundingClientRect().top + window.pageYOffset - tampa - titulo), behavior: 'smooth' });
+      card.classList.add('acompanhar');
+      setTimeout(function () { card.classList.remove('acompanhar'); }, 3000);
+    }
+    function seguirPedido(p, status) {
+      var grupo = grupoDoStatus(p, status);
+      if (!grupo) return;
+      var barra = $('barraAndou');
+      if (!barra) { barra = el('div', { id: 'barraAndou', class: 'barra-andou', role: 'status' }); document.body.appendChild(barra); }
+      UI.limpar(barra);
+      var concluido = status === R.STATUS.FINALIZADO;
+      barra.appendChild(UI.iconeLinha('check'));
+      barra.appendChild(el('span', { class: 'barra-andou-texto' }, [(catLoja().comida ? 'Senha ' : 'Pedido ') + p.senha + ' foi para ', el('b', { text: grupo })]));
+      if (!concluido) barra.appendChild(el('button', { class: 'btn btn-pequeno barra-andou-ver', type: 'button', onclick: function () { barra.classList.remove('aberta'); irAoPedido(p.id); } }, ['Ver']));
+      /* um quadro depois de entrar na pagina, para a subida aparecer */
+      requestAnimationFrame(function () { barra.classList.add('aberta'); });
+      clearTimeout(estado.tempoBarraAndou);
+      estado.tempoBarraAndou = setTimeout(function () { barra.classList.remove('aberta'); }, 7000);
     }
 
     /* um pedido torto nunca apaga a fila inteira: ele vira um cartao curto e os outros aparecem normais */
@@ -1275,7 +1335,7 @@
       /* "Diz que pagou" so no Pix pela chave da loja (conferido a mao no app). No Pix pelo Mercado Pago quem diz e o
          Mercado Pago: a palavra do cliente (ou um print) nao vale nada ali */
       var dizQuePagou = p.status === R.STATUS.AGUARDANDO && p.clientePagou && !(p.mp && p.mp.id);
-      var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (dizQuePagou ? ' atencao' : '') });
+      var card = el('div', { class: 'pedido-card' + (novo ? ' novo' : '') + (dizQuePagou ? ' atencao' : ''), 'data-pedido': p.id });
 
       /* ordem fixa em todo cartao: pagamento e entrega numa linha, extras (troco, cancelado) na linha de baixo */
       var selos = [], extras = [];
@@ -1317,13 +1377,15 @@
       /* Correios ainda nao postado (18/11/2026): o passo a passo do envio, com a etiqueta de endereco para imprimir */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO)) card.appendChild(comoEnviar(p));
       /* loja de comercio, retirada ou entrega na cidade: o passo a passo com a etiqueta (a comida segue com a ficha da cozinha) */
-      else if (!R.ehCorreios(p) && !catLoja().comida && p.origem !== 'balcao' && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO || (p.status === R.STATUS.PRONTO && p.tipoEntrega !== 'entrega'))) card.appendChild(comoEntregar(p));
+      else if (!R.ehCorreios(p) && !catLoja().comida && p.origem !== 'balcao' && (p.status === R.STATUS.PAGO || p.status === R.STATUS.PRODUCAO || p.status === R.STATUS.PRONTO)) card.appendChild(comoEntregar(p));
       /* Correios postado: o codigo de rastreio (ou o lembrete de colocar), com o botao de mudar */
       if (R.ehCorreios(p) && (p.status === R.STATUS.PRONTO || p.status === R.STATUS.FINALIZADO)) {
         var cod = R.limparRastreio(p.rastreio);
-        card.appendChild(el('div', { class: 'rastreio-linha' + (cod ? '' : ' rastreio-falta') }, [
+        /* 19/11/2026: postado com o codigo e ainda a caminho: o quadro do que fazer agora (avisar, esperar, marcar quando chegar) */
+        if (cod && p.status === R.STATUS.PRONTO) card.appendChild(postadoNosCorreios(p, cod));
+        else card.appendChild(el('div', { class: 'rastreio-linha' + (cod ? '' : ' rastreio-falta') }, [
           UI.iconeLinha('caixa'),
-          el('span', { class: 'rastreio-texto' }, cod ? ['Rastreio: ', el('b', { text: cod })] : ['Falta o código de rastreio']),
+          el('span', { class: 'rastreio-texto' }, cod ? ['Rastreio: ', el('b', { text: cod })] : ['Falta o código de rastreio. Ele está no comprovante dos Correios.']),
           estado.equipe ? null : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { pedirRastreio(p, false); } }, [UI.iconeLinha(cod ? 'lapis' : 'mais'), cod ? 'Mudar' : 'Colocar']),
         ]));
       }
@@ -1429,31 +1491,67 @@
       }
       /* Correios: "Postei nos Correios" pede o codigo de rastreio (o dono; a equipe so anda com o pedido) */
       if (R.ehCorreios(p) && proximo === R.STATUS.PRONTO && !estado.equipe) { pedirRastreio(p, true, botao); return; }
+      /* 19/11/2026: Correios: o pacote viaja dias. Concluir antes da hora faz a cliente ver "Entregue" com o pacote na estrada */
+      if (R.ehCorreios(p) && proximo === R.STATUS.FINALIZADO) {
+        UI.perguntar('A cliente já recebeu o pacote? Toque em "Sim" só quando o rastreio disser Entregue ou quando ela avisar que chegou. Ela vai ver "Entregue" no pedido.', { sim: 'Sim, recebeu', nao: 'Ainda não' }).then(function (sim) { if (sim) avancarAgora(p, proximo, botao); });
+        return;
+      }
       avancarAgora(p, proximo, botao);
     }
     /* a janela do codigo de rastreio: explicada, com o codigo opcional (ela pode colocar depois, no proprio pedido) */
     function pedirRastreio(p, avancando) {
-      var campo = campoTexto('Código de rastreio', R.limparRastreio(p.rastreio), { max: 40, placeholder: 'Ex: AA123456789BR' });
+      var campo = campoTexto('Código de rastreio', R.limparRastreio(p.rastreio), { max: 40, placeholder: 'Ex: AB123456789BR' });
       campo.input.setAttribute('autocapitalize', 'characters');
       campo.input.setAttribute('autocomplete', 'off');
+      campo.input.setAttribute('autocorrect', 'off');
+      campo.input.setAttribute('spellcheck', 'false');
+      campo.input.classList.add('campo-rastreio');
+      /* 19/11/2026: o codigo confere na hora (o digito do padrao dos Correios pega numero trocado). Com 13 letras e numeros
+         a caixinha diz se confere; codigo fora do padrao salva no segundo toque (ela confere no papel e insiste) */
+      var confere = el('p', { class: 'taxa-exemplo rastreio-confere', role: 'status', hidden: true });
+      campo.appendChild(confere);
+      var insistiu = '';
+      function pintarConfere(forcar) {
+        var c = R.limparRastreio(campo.input.value);
+        UI.limpar(confere);
+        if (!c || (!forcar && c.length < 13)) { confere.hidden = true; campo.input.classList.remove('erro'); return 'vazio'; }
+        var r = R.conferirRastreio(c);
+        confere.hidden = false;
+        confere.className = 'taxa-exemplo rastreio-confere' + (r === 'ok' ? '' : ' erro');
+        campo.input.classList.toggle('erro', r !== 'ok');
+        confere.appendChild(UI.iconeLinha(r === 'ok' ? 'check' : 'alerta'));
+        confere.appendChild(el('span', { text: r === 'ok' ? 'Código certo: ' + c + '.' : r === 'digito' ? 'Um dos números parece trocado. Confira com o comprovante dos Correios.' : 'O código dos Correios tem 2 letras, 9 números e 2 letras, como AB123456789BR. Confira no comprovante.' }));
+        return r;
+      }
+      campo.input.addEventListener('input', function () { pintarConfere(false); });
+      pintarConfere(false);
       var texto = avancando
-        ? 'Já postou ' + oPedido(p) + ' nos Correios? Cole aqui o código de rastreio. Ele está no comprovante dos Correios (ou na etiqueta, se você gerou pela internet). Ainda não tem? Pode deixar vazio e colocar depois, no próprio pedido.'
-        : 'Cole aqui o código de rastreio ' + daSenha(p) + '. Ele está no comprovante dos Correios. Pode colar do jeito que veio, com espaço ou traço.';
+        ? 'Já postou ' + oPedido(p) + ' nos Correios? Digite o código de rastreio que está no comprovante dos Correios: 2 letras, 9 números e 2 letras. Ainda não tem? Pode deixar vazio e colocar depois, no próprio pedido.'
+        : 'Digite o código de rastreio ' + daSenha(p) + '. Ele está no comprovante dos Correios: 2 letras, 9 números e 2 letras.';
       var botao = el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: avancando ? 'Pronto, foi postado' : 'Salvar o código' });
       botao.addEventListener('click', function () {
         var digitado = campo.input.value.trim();
         var cod = R.limparRastreio(digitado);
-        if (digitado && cod.length < 8) { campo.input.focus(); UI.avisar('Esse código está curto. O dos Correios tem 13 letras e números, como AA123456789BR. Confira no comprovante.'); return; }
-        if (!avancando && !cod) { UI.avisar('Cole o código de rastreio.'); return; }
+        if (!avancando && !cod) { UI.avisar('Digite o código de rastreio.'); return; }
+        if (cod && pintarConfere(true) !== 'ok' && insistiu !== cod) {
+          insistiu = cod;
+          campo.input.focus();
+          UI.avisar('Confira o código no comprovante. Se estiver igual ao papel, toque de novo para salvar assim mesmo.');
+          return;
+        }
         var soltar = UI.ocupar(botao, 'Salvando…');
         if (!soltar) return;
         var mud = avancando ? { status: R.STATUS.PRONTO, postadoEm: new Date().toISOString() } : {};
+        if (avancando) seguirPedido(p, R.STATUS.PRONTO);
         if (cod) mud.rastreio = cod;
         store.atualizarPedido(slug, p.id, mud).then(function () {
           UI.fecharModal();
           UI.soar('toque');
-          if (avancando) avisarQueAndou(Object.assign({}, p, { rastreio: cod }), R.STATUS.PRONTO);
-          UI.avisar(cod ? 'Código salvo. Agora toque em "Mandar o rastreio" no pedido: o WhatsApp da cliente abre com o código e o link para ela acompanhar.' : 'Marcado como postado. Quando tiver o código, toque em "Colocar" no pedido.');
+          if (avancando) avisarQueAndou(Object.assign({}, p, { rastreio: cod, postadoEm: mud.postadoEm }), R.STATUS.PRONTO);
+          var sozinho = !!(p.aviso && (p.aviso.e || p.aviso.demo));
+          /* com o codigo, o quadro "Postado" do pedido ja diz o proximo passo (e a barrinha de baixo diz para onde ele foi) */
+          if (!cod) UI.avisar('Marcado como postado. Quando tiver o código, toque em "Colocar" no pedido.');
+          else if (!avancando) UI.avisar(sozinho ? 'Código salvo. A cliente recebe o código no celular dela.' : 'Código salvo. Toque em "Mandar o rastreio" no pedido para a cliente receber.');
         }).catch(function (e) { soltar(); UI.avisar(D.erroAmigavel(e)); });
       });
       UI.abrirModal({ titulo: avancando ? 'Postei nos Correios' : 'Código de rastreio', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [el('p', { class: 'muted', text: texto }), campo]), rodape: [botao] });
@@ -1466,6 +1564,7 @@
       if (botao && !soltar) return;
       estado.travaAte = Date.now() + 700; /* depois da pergunta tambem: o cartao muda agora */
       var mudancas = { status: proximo };
+      seguirPedido(p, proximo);
       if (proximo === R.STATUS.PAGO) { mudancas.pagamentoStatus = 'pago'; mudancas.pagoEm = new Date().toISOString(); }
       store.atualizarPedido(slug, p.id, mudancas).then(function () { UI.soar('toque'); avisarQueAndou(p, proximo); if (proximo === R.STATUS.PAGO) esquecerResumo(p); }).catch(function (e) { if (soltar) soltar(); UI.avisar(D.erroAmigavel(e)); });
     }
@@ -1606,37 +1705,127 @@
       estado.mp.processar(estado.pedidos || []);
     }
 
-    /* o quadrinho "Como enviar" do pedido dos Correios: tudo o que a loja faz, na ordem, com o valor do frete que a cliente pagou */
-    function comoEnviar(p) {
-      var servico = R.nomeDoServico(p.envio && p.envio.servico);
-      var frete = p.taxaEntrega > 0 ? dinheiro(p.taxaEntrega) : '';
-      return el('div', { class: 'como-enviar' }, [
-        el('b', { class: 'como-enviar-titulo', text: 'Como enviar este pedido' }),
-        el('ol', { class: 'como-enviar-passos' }, [
-          el('li', { text: 'Imprima a etiqueta, recorte e cole na caixa. O comprovante que sai junto vai dentro do pacote.' }),
-          el('li', { text: 'Leve aos Correios e peça o envio por ' + (servico || 'PAC ou SEDEX') + (servico ? ', o que a cliente escolheu' : '') + '.' + (frete ? ' A cliente já pagou ' + frete + ' de frete.' : '') }),
-          el('li', { text: 'Com o comprovante dos Correios na mão, toque em "Postei nos Correios" e cole o código de rastreio.' }),
-        ]),
-        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir etiqueta']),
-        el('p', { class: 'como-enviar-dica', text: 'Sem impressora? Mostre esta tela no balcão dos Correios: o endereço está logo acima.' }),
+    /* um passo do envio (19/11/2026, pensado para quem e mais velho): o numero na bolinha (o check, quando ja foi), o
+       titulo curto em negrito com o icone e, embaixo, a explicacao. Texto e negrito seguidos viram UM paragrafo.
+       situacao: 'feito' (check), 'agora' (o cartao branco com o selo AGORA: o botao dele esta la embaixo), 'depois'
+       (apagado, com o selo DEPOIS: o botao dele ainda nao apareceu) ou '' (um passo sem botao, como a etiqueta) */
+    function passoDoEnvio(n, situacao, titulo, icone, filhos) {
+      var blocos = [], linha = null;
+      var selo = situacao === 'agora' ? 'Agora' : situacao === 'depois' ? 'Depois' : '';
+      if (titulo) blocos.push(el('b', { class: 'envio-passo-titulo' }, [icone ? UI.iconeLinha(icone) : null, el('span', { class: 'envio-passo-nome', text: titulo }), selo ? el('span', { class: 'envio-passo-selo', text: selo }) : null]));
+      filhos.forEach(function (f) {
+        if (f == null) return;
+        if (typeof f === 'string' || f.tagName === 'B') {
+          if (!linha) { linha = el('span', { class: 'envio-passo-linha' }); blocos.push(linha); }
+          linha.appendChild(typeof f === 'string' ? document.createTextNode(f) : f);
+        } else { linha = null; blocos.push(f); }
+      });
+      return el('li', { class: 'envio-passo' + (situacao ? ' ' + situacao : '') }, [
+        el('span', { class: 'envio-passo-n', 'aria-hidden': 'true' }, [situacao === 'feito' ? UI.iconeLinha('check') : String(n)]),
+        el('div', { class: 'envio-passo-texto' }, blocos),
       ]);
     }
+    /* o nome de um botao inteiro numa linha so ("Postei nos Correios" nao quebra no meio) */
+    function nomeDoBotao(t) { return el('b', { text: String(t).replace(/ /g, '\u00a0') }); }
+    /* o botao da etiqueta: de contorno (o unico botao cheio do cartao e o do proximo passo, la embaixo) */
+    function botaoEtiqueta(p) { return el('button', { class: 'btn btn-fantasma btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir etiqueta']); }
+    /* 19/11/2026: como imprimir a etiqueta pelo celular (com e sem impressora), em passos curtos */
+    function comoImprimir() {
+      var lista = function (itens) { return el('ol', { class: 'envio-passos' }, itens.map(function (t, i) { return passoDoEnvio(i + 1, '', null, null, [t]); })); };
+      var parte = function (icone, t) { return el('b', { class: 'envio-passo-titulo como-imprimir-parte' }, [UI.iconeLinha(icone), el('span', { text: t })]); };
+      UI.abrirModal({ titulo: 'Como imprimir pelo celular', corpo: el('div', { class: 'pilha como-imprimir', style: { paddingTop: '8px' } }, [
+        parte('imprimir', 'Impressora com Wi-Fi'),
+        lista(['Ligue a impressora e deixe no mesmo Wi-Fi do\u00a0celular.', 'No pedido, toque em "Imprimir etiqueta".', 'Na tela que abrir, escolha a sua impressora e o papel A4. Toque em\u00a0Imprimir.']),
+        el('p', { class: 'ajuda', text: 'A impressora não aparece? Instale o aplicativo da marca dela (HP Smart, Epson Smart Panel, Canon PRINT) ou o Mopria Print Service, e tente de\u00a0novo.' }),
+        parte('site', 'Impressora só no computador'),
+        lista(['Abra o painel do Ligeiro no computador, com a mesma conta do\u00a0Google.', 'No pedido, clique em "Imprimir etiqueta" e imprima por\u00a0lá.']),
+        parte('celular', 'Sem impressora'),
+        lista(['Toque em "Imprimir etiqueta" e escolha "Salvar como PDF".', 'Mande o PDF no WhatsApp de uma papelaria e peça para\u00a0imprimir.', 'Ou escreva no pacote, com letra grande, o nome, o endereço e o CEP da\u00a0cliente.']),
+      ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: function () { UI.fecharModal(); } })] });
+    }
+    var LA_EMBAIXO = ', no botão grande lá\u00a0embaixo.';
+    /* o quadrinho "Como enviar" do pedido dos Correios (19/11/2026, mastigado para quem nunca enviou): os 4 passos na ordem
+       dos botoes, o da vez destacado (AGORA), os que faltam apagados (DEPOIS) e quem paga o que no balcao */
+    function comoEnviar(p) {
+      var servico = R.nomeDoServico(p.envio && p.envio.servico) || 'PAC ou SEDEX';
+      var frete = p.taxaEntrega > 0 ? dinheiro(p.taxaEntrega) : '';
+      var separando = p.status === R.STATUS.PRODUCAO;
+      return el('div', { class: 'como-enviar' }, [
+        el('b', { class: 'como-enviar-titulo', text: 'Como enviar este pedido' }),
+        el('ol', { class: 'envio-passos' }, [
+          passoDoEnvio(1, separando ? 'feito' : 'agora', 'Separe e embale', 'caixa', (separando ? [] : ['Toque em ', nomeDoBotao('Começar a separar'), LA_EMBAIXO + ' ']).concat(['Pegue as peças listadas logo abaixo deste quadro e embale\u00a0bem.'])),
+          passoDoEnvio(2, '', 'Cole a etiqueta', 'imprimir', [
+            'Imprima e cole na caixa. O comprovante, que sai na mesma folha, vai dentro do\u00a0pacote.',
+            el('button', { class: 'envio-link', type: 'button', onclick: comoImprimir }, [UI.iconeLinha('info'), el('span', { text: 'Como imprimir pelo celular' })]),
+          ]),
+          passoDoEnvio(3, separando ? '' : 'depois', 'Leve aos Correios', 'loja', ['Peça ', el('b', { text: servico }), '. Você paga o envio no balcão' + (frete ? ': a cliente já te pagou ' + frete + ' de\u00a0frete.' : ' (este pedido saiu com frete grátis para a\u00a0cliente).')]),
+          passoDoEnvio(4, separando ? 'agora' : 'depois', 'Digite o código', 'recibo', separando ? ['Postou? Toque em ', nomeDoBotao('Postei nos Correios'), LA_EMBAIXO + ' Digite o código de rastreio do\u00a0comprovante.'] : ['Depois de postar, digite o código de rastreio do\u00a0comprovante.']),
+        ]),
+        botaoEtiqueta(p),
+      ]);
+    }
+    /* 19/11/2026: postado e a caminho: o codigo, a previsao e o que falta (avisar a cliente, esperar e marcar quando chegar) */
+    function postadoNosCorreios(p, cod) {
+      var quando = p.postadoEm ? new Date(p.postadoEm) : null;
+      var dia = quando && !isNaN(quando.getTime()) ? ('0' + quando.getDate()).slice(-2) + '/' + ('0' + (quando.getMonth() + 1)).slice(-2) : '';
+      var prev = R.previsaoDeEntrega(p);
+      var servico = R.nomeDoServico(p.envio && p.envio.servico);
+      var sozinho = !!(p.aviso && (p.aviso.e || p.aviso.demo));
+      var avisou = sozinho || zapMandados()[p.id] === p.status;
+      return el('div', { class: 'como-enviar envio-postado' }, [
+        el('b', { class: 'como-enviar-titulo envio-postado-titulo' }, [UI.iconeLinha('check'), 'Postado nos Correios' + (dia ? ' em ' + dia : '')]),
+        el('div', { class: 'rastreio-linha' }, [
+          UI.iconeLinha('caixa'),
+          el('span', { class: 'rastreio-texto' }, ['Rastreio: ', el('b', { text: cod })]),
+          estado.equipe ? null : el('button', { class: 'btn btn-fantasma btn-pequeno', type: 'button', onclick: function () { pedirRastreio(p, false); } }, [UI.iconeLinha('lapis'), 'Mudar']),
+        ]),
+        prev ? el('p', { class: 'envio-previsao' }, ['Chega até ', el('b', { text: R.diaEData(prev) }), servico ? ' (' + servico + ').' : '.']) : null,
+        el('ol', { class: 'envio-passos' }, [
+          passoDoEnvio(1, avisou ? 'feito' : 'agora', 'Avise a cliente', 'conversa', sozinho ? ['Ela já recebeu o código no celular.'] : avisou ? ['Você já mandou o código no WhatsApp dela.'] : ['Toque em ', nomeDoBotao('Avisar: Mandar o rastreio'), ', aqui embaixo. O WhatsApp dela abre com o código e o\u00a0link.']),
+          passoDoEnvio(2, avisou ? 'agora' : '', 'Espere chegar', 'relogio', ['A cliente acompanha o pacote sozinha.']),
+          passoDoEnvio(3, 'depois', 'Chegou?', 'sorriso', ['Quando ela receber, toque em ', nomeDoBotao('A cliente recebeu'), '.']),
+        ]),
+        el('a', { class: 'btn btn-fantasma btn-largo', href: R.linkRastreio(cod), target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Ver onde está o pacote']),
+      ]);
+    }
+    /* 19/11/2026: retirada e entrega na cidade no mesmo desenho dos Correios (numero, icone, titulo curto, AGORA e DEPOIS).
+       O nome de cada botao vem do proprio botao (antes o texto dizia "Pronto para retirar" e o botao era "Esta pronto") */
     function comoEntregar(p) {
-      var entregaNaCidade = p.tipoEntrega === 'entrega';
+      var naCidade = p.tipoEntrega === 'entrega';
       var cob = R.etiquetaDoPedido(estado.loja, p).cobranca;
-      var passos = entregaNaCidade
-        ? ['Separe as peças da lista e imprima a etiqueta. Cole no pacote.', 'Quando sair, toque em "Saiu para entrega": a cliente recebe o aviso.']
-        : ['Separe as peças da lista e imprima a etiqueta. Cole no pacote.', 'Com tudo separado, toque em "Pronto para retirar": a cliente recebe o aviso.', 'Na loja, a cliente mostra o número do pedido no celular. Confira com a etiqueta e entregue.'];
-      if (p.status === R.STATUS.CANCELADO) passos = ['Este pedido foi cancelado. Não entregue.'];
-      else if (p.pagamentoStatus === 'na_entrega' && p.total > 0) {
+      var botao = function (st) { return nomeDoBotao(R.rotuloProximoPasso(Object.assign({}, p, { status: st }))); };
+      var ordem = [R.STATUS.PAGO, R.STATUS.PRODUCAO, R.STATUS.PRONTO, R.STATUS.FINALIZADO];
+      /* o passo do botao de st: ja foi, e agora (o botao esta la embaixo) ou ainda vem */
+      var situacao = function (st) { var a = ordem.indexOf(p.status), b = ordem.indexOf(st); return a > b ? 'feito' : a === b ? 'agora' : 'depois'; };
+      if (p.status === R.STATUS.CANCELADO) return el('div', { class: 'como-enviar' }, [el('b', { class: 'como-enviar-titulo', text: 'Este pedido foi cancelado. Não entregue.' })]);
+      /* a cobranca: o que pegar da cliente na porta ou no balcao (com o troco) */
+      var cobrar = [];
+      if (p.pagamentoStatus === 'na_entrega' && p.total > 0) {
         var troco = p.formaPagamento === 'dinheiro_entrega' && p.trocoPara > p.total ? p.trocoPara - p.total : 0;
         var como = { dinheiro_entrega: 'em dinheiro', cartao_entrega: 'na maquininha', vale_entrega: 'no vale-refeição, na maquininha', pix_entrega: 'no Pix, na hora' }[p.formaPagamento] || 'na entrega';
-        passos.push('Cobre ' + dinheiro(p.total) + ' ' + como + (troco ? '. Leve ' + dinheiro(troco) + ' de troco.' : '.'));
-      } else if (!cob.pago) passos.push('Só entregue depois que o pagamento for confirmado.');
+        cobrar = ['Cobre ', el('b', { text: dinheiro(p.total) }), ' ' + como + '.' + (troco ? (naCidade ? ' Leve ' : ' Tenha ') + dinheiro(troco) + ' de troco.' : '') + ' '];
+      } else if (!cob.pago) cobrar = [el('b', { text: 'Só entregue depois que o pagamento for confirmado.' }), ' '];
+      else cobrar = ['Já está pago. '];
+      /* o texto do botao: "Toque em X, no botao grande la embaixo" so quando ele ja esta la; antes disso, "Depois, toque em X" */
+      var toque = function (st, antes, depois) { return situacao(st) === 'agora' ? [antes || 'Toque em ', botao(st), LA_EMBAIXO + (depois ? ' ' + depois : '')] : [(antes ? antes.replace(/^\w/, function (x) { return x; }) : 'Depois, toque em '), botao(st), '.' + (depois ? ' ' + depois : '')]; };
+      var s1 = situacao(R.STATUS.PAGO), s3 = situacao(R.STATUS.PRODUCAO), s4 = situacao(R.STATUS.PRONTO);
+      var passos = [
+        passoDoEnvio(1, s1, 'Separe e embale', 'caixa', (s1 === 'feito' ? [] : toque(R.STATUS.PAGO, 'Toque em ', '')).concat([(s1 === 'feito' ? '' : ' ') + 'Pegue as peças listadas logo abaixo deste quadro e embale\u00a0bem.'])),
+        passoDoEnvio(2, '', 'Cole a etiqueta', 'imprimir', [
+          'Imprima e cole no pacote. Ela tem o número do pedido e o que\u00a0cobrar.',
+          el('button', { class: 'envio-link', type: 'button', onclick: comoImprimir }, [UI.iconeLinha('info'), el('span', { text: 'Como imprimir pelo celular' })]),
+        ]),
+        naCidade
+          ? passoDoEnvio(3, s3, 'Saiu para entregar', 'entrega', s3 === 'feito' ? ['A cliente já sabe que o pedido saiu.'] : toque(R.STATUS.PRODUCAO, s3 === 'agora' ? 'Quando sair, toque em ' : 'Quando sair, toque em ', 'A cliente vê no pedido\u00a0dela.'))
+          : passoDoEnvio(3, s3, 'Avise que está pronto', 'sino', s3 === 'feito' ? ['A cliente já sabe que pode vir buscar.'] : toque(R.STATUS.PRODUCAO, 'Com tudo separado, toque em ', 'A cliente vê que já pode vir\u00a0buscar.')),
+        naCidade
+          ? passoDoEnvio(4, s4, 'Entregue e cobre', 'carteira', cobrar.concat(toque(R.STATUS.PRONTO, s4 === 'agora' ? 'Entregou? Toque em ' : 'Entregou? Depois toque em ')))
+          : passoDoEnvio(4, s4, 'Entregue na loja', 'retirada', ['A cliente mostra o número ', el('b', { text: String(p.senha) }), ' no celular: confira com a etiqueta. '].concat(cobrar).concat(toque(R.STATUS.PRONTO, s4 === 'agora' ? 'Entregou? Toque em ' : 'Entregou? Depois toque em '))),
+      ];
       return el('div', { class: 'como-enviar' }, [
-        el('b', { class: 'como-enviar-titulo', text: 'Como entregar este pedido' }),
-        el('ol', { class: 'como-enviar-passos' }, passos.map(function (t) { return el('li', { text: t }); })),
-        el('button', { class: 'btn btn-principal btn-largo', type: 'button', onclick: function () { UI.imprimirEnvio(estado.loja, p); } }, [UI.iconeLinha('imprimir'), 'Imprimir etiqueta']),
+        el('b', { class: 'como-enviar-titulo', text: naCidade ? 'Como entregar este pedido' : 'Como a cliente retira' }),
+        el('ol', { class: 'envio-passos' }, passos),
+        botaoEtiqueta(p),
       ]);
     }
     function imprimir(p) {
@@ -2646,9 +2835,17 @@
          depois da categoria (dependem dela) */
       /* 19/11/2026: loja que envia pelos Correios com o frete automatico: o peso deste item (o padrao e o da loja) */
       if (estado.freteAutoOk === true && R.enviaCorreios(estado.loja) && R.cepDaLoja(estado.loja)) {
-        var padrao = R.PACOTES_DA_PECA[R.chavePadraoDaLoja(estado.loja)];
-        f.pacote = campoSelect('Peso para envio', R.chaveDePacote(p && p.pacote), [['', 'Igual à loja (' + padrao.rotulo.split(':')[0].toLowerCase() + ')']].concat(Object.keys(R.PACOTES_DA_PECA).map(function (k) { return [k, R.PACOTES_DA_PECA[k].rotulo]; })));
-        f.pacote.insertBefore(el('p', { class: 'ajuda', text: 'Pelos Correios. Mude só se este item pesa bem mais ou bem menos que os outros.' }), f.pacote.input);
+        f.pacote = campoSelect('Peso para envio', R.chaveDePacote(p && p.pacote), [['', 'Automático']].concat(Object.keys(R.PACOTES_DA_PECA).map(function (k) { return [k, R.PACOTES_DA_PECA[k].rotulo]; })));
+        /* 19/11/2026: o automatico diz a faixa que vai valer: a da loja ou, pelo nome do item (bota, casaco...), uma mais pesada */
+        var opcaoAuto = f.pacote.input.options[0];
+        var pintarPesoAuto = function () {
+          var k = R.chaveDaPeca(estado.loja, { nome: f.nome.input.value, categoria: f.categoria.input.value });
+          opcaoAuto.textContent = 'Automático (' + R.PACOTES_DA_PECA[k].rotulo.split(':')[0].toLowerCase() + ')';
+        };
+        pintarPesoAuto();
+        f.nome.input.addEventListener('input', pintarPesoAuto);
+        f.categoria.input.addEventListener('change', pintarPesoAuto);
+        f.pacote.insertBefore(el('p', { class: 'ajuda', text: 'Pelos Correios. O automático vê pelo nome do item: bota, casaco e tênis pesam mais. Mude só se este item pesa bem diferente.' }), f.pacote.input);
       }
       var corpo = el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [f.fotos, f.nome, f.preco, f.oferta, f.descricao, f.categoria, f.tamanhos, f.estoque, f.pacote || null, f.ingredientes, f.emoji].filter(Boolean));
       if (!novo) {
@@ -3444,7 +3641,7 @@
         el('ol', { class: 'correios-passos' }, [
           primeiroPasso,
           el('li', { text: 'O pedido chega aqui já pago, no Pix ou no cartão. Você separa a peça e leva aos Correios.' }),
-          el('li', { text: 'No pedido, toque em "Postei nos Correios" e cole o código de rastreio. Depois toque em "Mandar o rastreio": a cliente recebe no WhatsApp.' }),
+          el('li', { text: 'No pedido, toque em "Postei nos Correios" e digite o código de rastreio do comprovante. Depois toque em "Mandar o rastreio": a cliente recebe no WhatsApp.' }),
         ]),
       ])]));
       /* frete automatico (18/11/2026): o Ligeiro calcula o PAC e o SEDEX de verdade; a loja so diz de onde sai o pacote */
@@ -3457,7 +3654,7 @@
       var seletorPacote = el('select', { 'aria-label': 'Peso de cada peça' }, Object.keys(R.PACOTES_DA_PECA).map(function (k) { return el('option', { value: k, text: R.PACOTES_DA_PECA[k].rotulo, selected: k === pacoteAtual }); }));
       seletorPacote.value = pacoteAtual;
       var campoPacote = el('div', { class: 'campo' }, [el('label', { text: 'Peso de cada item' }),
-        el('p', { class: 'ajuda', text: 'O frete dos Correios sai pelo peso, já com a caixa. Escolha o que vale para a maioria dos seus itens. Item mais pesado? No próprio item dá para escolher outro.' }), seletorPacote]);
+        el('p', { class: 'ajuda', text: 'O frete dos Correios sai pelo peso, já com a caixa. Escolha o que vale para a maioria dos seus itens. Os mais pesados, como bota, casaco e tênis, o Ligeiro reconhece pelo nome e cobra o frete\u00a0deles.' }), seletorPacote]);
       var parteAuto = el('div', { class: 'pilha correios-auto', hidden: true }, [
         el('div', { class: 'aviso correios-auto-aviso' }, [UI.iconeLinha('check'), el('span', { text: 'O frete é calculado sozinho, com o preço dos Correios para o CEP de cada cliente. Você não precisa pôr valor nenhum.' })]),
         cepLoja,

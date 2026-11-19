@@ -1664,3 +1664,59 @@ test('19/11/2026: Pix direto (a chave da loja no Pix pelo WhatsApp): textos de p
   assert.ok(/comprovante/.test(R.mensagemDoCliente(comChave, p)));
   assert.ok(/mandar a chave/.test(R.mensagemDoCliente(semChave, p)));
 });
+
+test('19/11/2026: Correios mastigado: o codigo de rastreio confere (padrao S10), a previsao e o "A cliente recebeu"', () => {
+  /* o digito: 1*8+2*6+3*4+4*2+5*3+6*5+7*9+8*7 = 204; 204 mod 11 = 6; 11 - 6 = 5 */
+  assert.equal(R.conferirRastreio('AA123456785BR'), 'ok');
+  assert.equal(R.conferirRastreio(' aa 123.456.785-br '), 'ok');
+  assert.equal(R.conferirRastreio('AA123456784BR'), 'digito');
+  assert.equal(R.conferirRastreio('AA12345678BR'), 'formato');
+  assert.equal(R.conferirRastreio('1234567890123'), 'formato');
+  assert.equal(R.conferirRastreio(''), 'formato');
+  /* resto 0: 11 vira 5; resto 1: 10 vira 0 */
+  assert.equal(R.conferirRastreio('AB000000005BR'), 'ok');
+  /* 8 dias uteis desde quinta 19/11/2026: sex 20 e feriado (Consciencia Negra), seg 23 ... ter 01/12, qua 02/12
+     (sabado, domingo e feriado nacional nao contam) */
+  const p = { tipoEntrega: 'entrega', envio: { tipo: 'correios', servico: 'pac', prazo: 8 }, postadoEm: new Date(2026, 10, 19, 15, 0).toISOString(), status: R.STATUS.PRONTO, senha: 4, segmento: 'comercio', rastreio: 'AA123456785BR', cliente: { nome: 'Ana' }, total: 1000, itens: [] };
+  assert.equal(R.diaEData(R.previsaoDeEntrega(p)), 'qua, 02/12');
+  /* Sexta-feira Santa (a Pascoa muda todo ano): 2026 em 03/04, 2027 em 26/03; o Natal; dia comum nao */
+  assert.equal(R.feriadoNacional(new Date(2026, 3, 3)), true);
+  assert.equal(R.feriadoNacional(new Date(2027, 2, 26)), true);
+  assert.equal(R.feriadoNacional(new Date(2026, 11, 25)), true);
+  assert.equal(R.feriadoNacional(new Date(2026, 11, 24)), false);
+  assert.equal(R.previsaoDeEntrega(Object.assign({}, p, { envio: { tipo: 'correios' } })), null);
+  assert.match(R.mensagemParaCliente({ nome: 'Loja' }, p), /Previsão de entrega: até qua, 02\/12\. Acompanhe aqui: https:\/\/www\.melhorrastreio\.com\.br\/rastreio\/AA123456785BR/);
+  assert.equal(R.rotuloProximoPasso(p), 'A cliente recebeu');
+  /* entrega na cidade e retirada continuam iguais */
+  assert.equal(R.rotuloProximoPasso({ status: R.STATUS.PRONTO, tipoEntrega: 'entrega' }), 'Entregue, concluir');
+  assert.equal(R.rotuloProximoPasso({ status: R.STATUS.PRONTO, tipoEntrega: 'retirada' }), 'Retirado, concluir');
+});
+
+test('19/11/2026: o peso pelo nome do item so sobe a faixa da loja (nunca desce) e o do proprio item vale acima de tudo', () => {
+  assert.equal(R.faixaPeloTexto('Bota de couro cano alto'), 'dois');
+  assert.equal(R.faixaPeloTexto('Tênis casual'), 'dois');
+  assert.equal(R.faixaPeloTexto('Casaco de lã'), 'pesada');
+  assert.equal(R.faixaPeloTexto('Conjunto moletom'), 'pesada');
+  assert.equal(R.faixaPeloTexto('Calça jeans'), 'media');
+  assert.equal(R.faixaPeloTexto('Blusa de malha'), 'leve');
+  assert.equal(R.faixaPeloTexto('Edredom casal'), 'cinco');
+  assert.equal(R.faixaPeloTexto('Calçados'), 'dois');
+  /* palavras parecidas nao enganam: malha nao e mala, calcado nao e calca, casaquinho fica sem palpite */
+  assert.equal(R.faixaPeloTexto('Malha fria'), '');
+  assert.equal(R.faixaPeloTexto('Casaquinho'), '');
+  assert.equal(R.faixaPeloTexto(''), '');
+  assert.equal(R.faixaPeloTexto(null), '');
+  const loja = { envio: { pacote: 'media' }, categorias: [{ id: 'calcados', nome: 'Calçados' }, { id: 'blusas', nome: 'Blusas' }],
+    produtos: [{ id: 'b', nome: 'Bota preta', categoria: 'blusas' }, { id: 'bl', nome: 'Blusa', categoria: 'blusas' }, { id: 'm', nome: 'Modelo 23', categoria: 'calcados' },
+      { id: 'x', nome: 'Bota leve', pacote: 'leve' }, { id: 'v', nome: 'Vestido manga', categoria: 'vestidos' }] };
+  assert.equal(R.chaveDaPeca(loja, loja.produtos[0]), 'dois');
+  /* blusa (leve) numa loja de 600 g: fica nos 600 g (o nome nunca baixa o frete) */
+  assert.equal(R.chaveDaPeca(loja, loja.produtos[1]), 'media');
+  /* nome sem palavra conhecida: vale a categoria */
+  assert.equal(R.chaveDaPeca(loja, loja.produtos[2]), 'dois');
+  /* o peso escolhido no proprio item ganha de tudo */
+  assert.equal(R.chaveDaPeca(loja, loja.produtos[3]), 'leve');
+  assert.equal(R.chaveDaPeca(loja, loja.produtos[4]), 'media');
+  assert.equal(R.chaveDaPeca(loja, null), 'media');
+  assert.deepEqual(R.pacotesDoCarrinho(loja, [{ produtoId: 'b', quantidade: 1 }, { produtoId: 'bl', quantidade: 2 }]), [{ chave: 'media', quantidade: 2 }, { chave: 'dois', quantidade: 1 }]);
+});

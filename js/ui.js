@@ -1112,6 +1112,21 @@
   }
   /* imprime so os papeis (o resto da tela some na impressao). No celular, "imprimir" deixa salvar em PDF */
   function imprimirPapeis(papeis) {
+    /* 19/11/2026: por dentro do WhatsApp, do Instagram ou do Facebook o "Imprimir" nao faz nada (e nao avisa). Explica
+       como abrir no navegador, onde imprime, e o que fazer sem impressora */
+    var D = window.LigeiroDados;
+    if (typeof window.print !== 'function' || (D && !D.modoDemo && D.navegadorDeApp && D.navegadorDeApp())) {
+      abrirModal({ titulo: 'Este navegador não imprime', corpo: el('div', { class: 'pilha', style: { paddingTop: '8px' } }, [
+        el('p', { text: 'Você abriu o painel por dentro de outro aplicativo (WhatsApp, Instagram). Por aqui o celular não\u00a0imprime.' }),
+        el('ol', { class: 'como-enviar-passos' }, [
+          el('li', { text: 'Toque nos três pontinhos, no canto de cima.' }),
+          el('li', { text: 'Escolha "Abrir no Chrome" (ou no Safari, no iPhone).' }),
+          el('li', { text: 'Entre de novo no pedido e toque em "Imprimir etiqueta".' }),
+        ]),
+        el('p', { class: 'ajuda', text: 'Sem impressora? Escreva no pacote, com letra grande, o nome, o endereço e o CEP da\u00a0cliente.' }),
+      ]), rodape: [el('button', { class: 'btn btn-principal btn-largo', type: 'button', text: 'Entendi', onclick: function () { fecharModal(); } })] });
+      return;
+    }
     var area = document.getElementById('papelImpressao');
     if (!area) { area = el('div', { id: 'papelImpressao', class: 'papel-impressao' }); document.body.appendChild(area); }
     limpar(area);

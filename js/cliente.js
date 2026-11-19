@@ -3969,24 +3969,9 @@
       }
     }
 
-    /* 18/11/2026: a previsao de entrega dos Correios: o prazo e em dias uteis contados do dia seguinte a postagem
-       (sabado e domingo nao contam; feriado nao entra na conta, por isso o texto diz "ate") */
-    function somarDiasUteis(data, dias) {
-      var d = new Date(data.getFullYear(), data.getMonth(), data.getDate());
-      var falta = dias;
-      while (falta > 0) { d.setDate(d.getDate() + 1); var dia = d.getDay(); if (dia !== 0 && dia !== 6) falta -= 1; }
-      return d;
-    }
-    var DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-    function dataCurta(d) { return DIAS_CURTOS[d.getDay()] + ', ' + ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
-    /* quando foi postado: o dia que a loja tocou em "Postei nos Correios" (pedido antigo: a ultima mudanca) */
-    function previsaoDeEntrega(pedido) {
-      var prazo = Math.round(Number(pedido.envio && pedido.envio.prazo) || 0);
-      if (!(prazo > 0)) return null;
-      var quando = new Date(pedido.postadoEm || pedido.atualizadoEm || '');
-      if (isNaN(quando.getTime())) return null;
-      return somarDiasUteis(quando, prazo);
-    }
+    /* a previsao de entrega dos Correios (dias uteis desde a postagem): a mesma conta do painel e da mensagem, nas regras */
+    var previsaoDeEntrega = R.previsaoDeEntrega;
+    var dataCurta = R.diaEData;
     function copiarCodigo(codigo) {
       var feito = function () { UI.avisar('Código copiado. Cole no site dos Correios ou no app de rastreio.'); };
       if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(codigo).then(feito, function () { UI.avisar('Código: ' + codigo); }); return; }

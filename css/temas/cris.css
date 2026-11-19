@@ -250,7 +250,7 @@ body:has(.tema-cris #tela-inicio) .modal.tema-cris .modal-topo .titulo, body:has
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem) ---------- */
 .tema-cris:has(.painel-topo), .tema-cris:has(.login), body:has(.tema-cris .painel-topo) .modal.tema-cris {
   --bg: #FFF7FA; --card: #FFFFFF; --line: #F3D6E1; --line-forte: #E5B3C7; --muted: #75505F; --body: #45283A; --ink: #2E0F1E;
-  --deep: #8E1240; --deep2: #B0174E; --lime: #D4215F; --lime-escuro: #A8164A; --lime-suave: #FDE7EF; --lime2: #F06A9C;
+  --deep: #8E1240; --deep2: #B0174E; --lime: #D4215F; --senha-rotulo: #FFC2D7; --lime-escuro: #A8164A; --lime-suave: #FDE7EF; --lime2: #F06A9C;
   --lime-borda: #F3B8CE; --texto-no-destaque: #FFFFFF; --anel: rgba(212, 33, 95, 0.4);
 }
 body:has(.tema-cris .painel-topo), body:has(.tema-cris .login) { background: #FFF7FA; }

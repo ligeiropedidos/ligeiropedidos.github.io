@@ -613,6 +613,38 @@
   function chaveDePacote(k) { return typeof k === 'string' && PACOTES_DA_PECA.hasOwnProperty(k) ? k : ''; }
   function chavePadraoDaLoja(loja) { return chaveDePacote(((loja && loja.envio) || {}).pacote) || 'media'; }
   function pacoteDaPeca(loja) { return PACOTES_DA_PECA[chavePadraoDaLoja(loja)]; }
+  /* 19/11/2026: o peso pelo nome do item. Nenhuma API sabe quanto pesa uma roupa, entao e uma tabela de palavras (com a
+     caixa ja contada). A palavra so SOBE a faixa da loja, nunca desce: o frete nao sai abaixo do peso que a loja escolheu
+     (a loja nao perde dinheiro no balcao). O peso escolhido no proprio item vale acima de tudo. Sem palavra no nome, vale
+     o nome da categoria ("Calcados", "Casacos") */
+  var ORDEM_DOS_PACOTES = ['leve', 'media', 'pesada', 'dois', 'cinco'];
+  var PESO_PELO_NOME = [
+    ['leve', /\b(blusas?|blusinhas?|camisetas?|camisas?|regatas?|tops?|croppeds?|bodys?|lingeries?|calcinhas?|sutias?|cuecas?|meias?|pijamas?|camisolas?|biquinis?|maios?|saias?|shorts?|vestidos?|polos?|bones?|lencos?|cachecol|cachecois|cintos?|carteiras?|brincos?|colar|colares|pulseiras?|anel|aneis|bijuterias?|oculos|toucas?|luvas?)\b/],
+    ['media', /\b(calcas?|jeans|bermudas?|macacao|macacoes|jardineiras?|conjuntos?|cardigans?|tricos?|tricot|sueter|sueteres|chinelos?|rasteiras?|rasteirinhas?|papetes?|perfumes?|livros?|canecas?)\b/],
+    ['pesada', /\b(casacos?|jaquetas?|jaquetao|moletom|moletons|blusao|blusoes|sobretudos?|parkas?|japonas?|corta ventos?|puffers?|blazers?|ternos?|sandalias?|tamancos?|sapatilhas?|mules?|anabelas?|bolsas?|mochilas?|lencol|lencois|mantas?|jogos? de cama|kits? de cama)\b/],
+    ['dois', /\b(botas?|botinas?|coturnos?|galochas?|tenis|sapatenis|sapatos?|mocassins?|scarpins?|oxfords?|chuteiras?|calcados?)\b/],
+    ['cinco', /\b(edredom|edredons|edredoes|cobertor|cobertores|colchas?|travesseiros?|malas?)\b/],
+  ];
+  /* a faixa que o texto pede ('' sem palavra conhecida): com duas palavras ("conjunto moletom"), a mais pesada */
+  function faixaPeloTexto(texto) {
+    var t = ' ' + semAcento(String(texto == null ? '' : texto)).toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' ';
+    var melhor = -1;
+    for (var i = 0; i < PESO_PELO_NOME.length; i++) if (PESO_PELO_NOME[i][1].test(t)) melhor = Math.max(melhor, ORDEM_DOS_PACOTES.indexOf(PESO_PELO_NOME[i][0]));
+    return melhor >= 0 ? ORDEM_DOS_PACOTES[melhor] : '';
+  }
+  /* a faixa de um item no frete: a do proprio item; senao a do nome (ou da categoria), se for mais pesada que a da loja */
+  function chaveDaPeca(loja, produto) {
+    var propria = chaveDePacote(produto && produto.pacote);
+    if (propria) return propria;
+    var daLoja = chavePadraoDaLoja(loja);
+    if (!produto) return daLoja;
+    var palpite = faixaPeloTexto(produto.nome);
+    if (!palpite && produto.categoria != null) {
+      var cats = (loja && loja.categorias) || [];
+      for (var i = 0; i < cats.length; i++) if (cats[i] && String(cats[i].id) === String(produto.categoria)) { palpite = faixaPeloTexto(cats[i].nome); break; }
+    }
+    return palpite && ORDEM_DOS_PACOTES.indexOf(palpite) > ORDEM_DOS_PACOTES.indexOf(daLoja) ? palpite : daLoja;
+  }
   /* o carrinho em faixas: [{ chave, quantidade }] (item sem faixa propria vai na da loja; item que sumiu, tambem) */
   function pacotesDoCarrinho(loja, itens) {
     var produtos = (loja && loja.produtos) || [], soma = Object.create(null), total = 0;
@@ -622,7 +654,7 @@
       q = Math.min(q, 60 - total);
       var p = null;
       for (var i = 0; i < produtos.length; i++) if (produtos[i] && String(produtos[i].id) === String(it.produtoId)) { p = produtos[i]; break; }
-      var chave = chaveDePacote(p && p.pacote) || chavePadraoDaLoja(loja);
+      var chave = chaveDaPeca(loja, p);
       soma[chave] = (soma[chave] || 0) + q;
       total += q;
     });
@@ -676,6 +708,51 @@
   /* codigo de rastreio: letras e numeros (o dos Correios e AA123456789BR), sem espaco */
   function limparRastreio(codigo) { return String(codigo == null ? '' : codigo).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 30); }
   function linkRastreio(codigo) { var c = limparRastreio(codigo); return c.length >= 8 ? 'https://www.melhorrastreio.com.br/rastreio/' + c : ''; }
+  /* 19/11/2026: o codigo dos Correios segue o padrao S10 da UPU: 2 letras, 8 numeros, 1 digito que confere e 2 letras.
+     'ok', 'formato' (nao tem a cara do codigo dos Correios) ou 'digito' (algum numero trocado na hora de digitar) */
+  function conferirRastreio(codigo) {
+    var m = /^[A-Z]{2}(\d{8})(\d)[A-Z]{2}$/.exec(limparRastreio(codigo));
+    if (!m) return 'formato';
+    var pesos = [8, 6, 4, 2, 3, 5, 9, 7], soma = 0;
+    for (var i = 0; i < 8; i++) soma += Number(m[1].charAt(i)) * pesos[i];
+    var d = 11 - (soma % 11);
+    if (d === 10) d = 0; else if (d === 11) d = 5;
+    return d === Number(m[2]) ? 'ok' : 'digito';
+  }
+  /* a previsao de entrega dos Correios: o prazo e em dias uteis contados do dia seguinte a postagem (sabado e domingo nao
+     contam; feriado nao entra na conta, por isso o texto diz "ate"). Vale no site da cliente, no painel e na mensagem */
+  /* 19/11/2026: feriado nacional tambem nao conta (os Correios nao entregam). A lista e a mesma da BrasilAPI
+     (brasilapi.com.br/api/feriados), feita aqui na conta, sem chamar ninguem: os fixos e a Sexta-feira Santa (Pascoa - 2) */
+  var FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'];
+  function pascoa(ano) {
+    var a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    var g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+    var l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    var mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(ano, mes - 1, dia);
+  }
+  function feriadoNacional(d) {
+    var md = ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    if (FERIADOS_FIXOS.indexOf(md) >= 0) return true;
+    var sexta = pascoa(d.getFullYear()); sexta.setDate(sexta.getDate() - 2);
+    return sexta.getMonth() === d.getMonth() && sexta.getDate() === d.getDate();
+  }
+  function somarDiasUteis(data, dias) {
+    var d = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+    var falta = dias;
+    while (falta > 0) { d.setDate(d.getDate() + 1); var dia = d.getDay(); if (dia !== 0 && dia !== 6 && !feriadoNacional(d)) falta -= 1; }
+    return d;
+  }
+  function previsaoDeEntrega(pedido) {
+    var prazo = Math.round(Number(pedido && pedido.envio && pedido.envio.prazo) || 0);
+    if (!(prazo > 0 && prazo <= 60)) return null;
+    var quando = new Date((pedido && (pedido.postadoEm || pedido.atualizadoEm)) || '');
+    if (isNaN(quando.getTime())) return null;
+    return somarDiasUteis(quando, prazo);
+  }
+  var DIAS_CURTOS_DA_DATA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  /* "qua, 26/11" (o nome e outro: DIAS_DA_SEMANA, la embaixo, e a lista dos horarios) */
+  function diaEData(d) { return DIAS_CURTOS_DA_DATA[d.getDay()] + ', ' + ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function prazoDoEnvio(prazo) { return prazo > 0 ? 'chega em até ' + prazo + (prazo === 1 ? ' dia útil' : ' dias úteis') + ' depois de postado' : ''; }
 
   /*
@@ -1071,7 +1148,8 @@
       case STATUS.AGUARDANDO: return pagaPeloSite(pedido) || cobrancaNoMp(pedido) ? '' : 'Pix caiu? Marcar como pago';
       case STATUS.PAGO: return pedidoDeComercio(pedido) ? 'Começar a separar' : 'Começar a fazer';
       case STATUS.PRODUCAO: return ehCorreios(pedido) ? 'Postei nos Correios' : entrega ? 'Saiu para entrega' : 'Está pronto';
-      case STATUS.PRONTO: return entrega ? 'Entregue, concluir' : 'Retirado, concluir';
+      /* Correios: o pacote viaja dias depois de postado; o botao so diz o que ela faz quando a cliente recebe */
+      case STATUS.PRONTO: return ehCorreios(pedido) ? 'A cliente recebeu' : entrega ? 'Entregue, concluir' : 'Retirado, concluir';
       default: return '';
     }
   }
@@ -1143,7 +1221,8 @@
       case STATUS.PRONTO:
         if (ehCorreios(pedido)) {
           var cod = limparRastreio(pedido.rastreio);
-          return oi + 'Seu pedido (' + ref + ') foi postado nos Correios!' + (cod ? ' Código de rastreio: ' + cod + '. Acompanhe aqui: ' + linkRastreio(cod) : ' Já te mando o código de rastreio.');
+          var prev = previsaoDeEntrega(pedido);
+          return oi + 'Seu pedido (' + ref + ') foi postado nos Correios!' + (cod ? ' Código de rastreio: ' + cod + '.' + (prev ? ' Previsão de entrega: até ' + diaEData(prev) + '.' : '') + ' Acompanhe aqui: ' + linkRastreio(cod) : ' Já te mando o código de rastreio.');
         }
         return oi + 'Seu pedido (' + ref + ') ' + (entrega ? 'saiu para entrega! Já está a caminho.' : 'está pronto! Pode vir buscar.');
       case STATUS.FINALIZADO:
@@ -2201,6 +2280,13 @@
     descreverEnvio: descreverEnvio,
     limparRastreio: limparRastreio,
     linkRastreio: linkRastreio,
+    conferirRastreio: conferirRastreio,
+    previsaoDeEntrega: previsaoDeEntrega,
+    diaEData: diaEData,
+    feriadoNacional: feriadoNacional,
+    faixaPeloTexto: faixaPeloTexto,
+    chaveDaPeca: chaveDaPeca,
+    ORDEM_DOS_PACOTES: ORDEM_DOS_PACOTES,
     prazoDoEnvio: prazoDoEnvio,
     SERVICOS_ENVIO: SERVICOS_ENVIO,
     cotacaoValida: cotacaoValida,

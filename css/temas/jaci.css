@@ -339,7 +339,7 @@ body:has(.tema-jaci #tela-inicio) .modal.tema-jaci .modal-caixa { box-shadow: 0 
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem): miolo do pao, marrom tostado e o rosa da logo ---------- */
 .tema-jaci:has(.painel-topo), .tema-jaci:has(.login), body:has(.tema-jaci .painel-topo) .modal.tema-jaci {
   --bg: #FFF7EA; --card: #FFFFFF; --line: #F0E0CC; --line-forte: #E0C8AE; --muted: #6E5646; --body: #3F2A1E; --ink: #24140A;
-  --deep: #5C2E12; --deep2: #7A3E18; --lime: #C8134F; --lime-escuro: #A30F42; --lime-suave: #FCE4EC; --lime2: #F0477F;
+  --deep: #5C2E12; --deep2: #7A3E18; --lime: #C8134F; --senha-rotulo: #FFB8CC; --lime-escuro: #A30F42; --lime-suave: #FCE4EC; --lime2: #F0477F;
   --texto-no-destaque: #FFFFFF; --anel: rgba(200, 19, 79, 0.4);
 }
 body:has(.tema-jaci .painel-topo), body:has(.tema-jaci .login) { background: #FFF7EA; }

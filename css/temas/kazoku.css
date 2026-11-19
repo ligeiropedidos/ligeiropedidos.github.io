@@ -311,7 +311,7 @@ body:has(.tema-kazoku #tela-inicio) .modal.tema-kazoku .modal-caixa { box-shadow
 /* ---------- painel, cozinha e entrada da loja (o design exclusivo vale para o painel tambem): papel de arroz e vermelho ---------- */
 .tema-kazoku:has(.painel-topo), .tema-kazoku:has(.login), body:has(.tema-kazoku .painel-topo) .modal.tema-kazoku {
   --bg: #FBF7F1; --card: #FFFFFF; --line: #EADFD3; --line-forte: #D9C9B8; --muted: #6E625A; --body: #3D332E; --ink: #1A1416;
-  --deep: #A51E26; --deep2: #C9272D; --lime: #C9272D; --lime-escuro: #A51E26; --lime-suave: #FBE4E2; --lime2: #E85A5E;
+  --deep: #A51E26; --deep2: #C9272D; --lime: #C9272D; --senha-rotulo: #FFD0C2; --lime-escuro: #A51E26; --lime-suave: #FBE4E2; --lime2: #E85A5E;
   --texto-no-destaque: #FFFFFF; --anel: rgba(201, 39, 45, 0.4);
 }
 body:has(.tema-kazoku .painel-topo), body:has(.tema-kazoku .login) { background: #FBF7F1; }

@@ -923,10 +923,10 @@ a.selo-google:hover { background: var(--lime-suave); }
 @media (max-width: 360px) { .pedido-card .cabeca-selos { gap: 6px; } .pedido-card .cabeca-selos .selo { font-size: 13px; padding: 5px 10px; } } /* tela ampliada: pagamento e entrega na mesma linha */
 /* senha como ficha de totem: rotulo pequeno + numero grande num bloco escuro */
 .pedido-card .senha { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
-.pedido-card .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); } /* tira o espaco que sobra depois da ultima letra; a direita do numero e 13 porque o 2 ja tem 1px de folga propria: tinta 14 dos dois lados */
+.pedido-card .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--senha-rotulo, var(--lime)); } /* tira o espaco que sobra depois da ultima letra; a direita do numero e 13 porque o 2 ja tem 1px de folga propria: tinta 14 dos dois lados */
 .pedido-card .senha b { font-size: 28px; } /* numero com a largura dele: folga igual dos dois lados em qualquer senha */
 /* o recibo na frente do rotulo, na cor do rotulo (painel, cozinha e entregador) */
-.pedido-card .senha .ico-traco, .ficha-cozinha .senha .ico-traco { color: var(--lime); }
+.pedido-card .senha .ico-traco, .ficha-cozinha .senha .ico-traco { color: var(--senha-rotulo, var(--lime)); }
 .pedido-card .senha .ico-traco svg, .ficha-cozinha .senha .ico-traco svg { width: 20px; height: 20px; stroke-width: 2.1; }
 .pedido-card .senha { padding-left: 12px; }
 /* botoes do cartao com icone (o certo, o x): o icone um pouco mais grosso, na altura da letra */
@@ -2823,7 +2823,7 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .ficha-cozinha .cabeca .selo-tipo { grid-column: 1 / -1; justify-self: start; }
 /* a mesma ficha escura da senha do painel, com o numero maior (a cozinha le de longe) */
 .ficha-cozinha .senha { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 14px; background: var(--deep); color: #fff; font-family: var(--display); font-weight: 700; line-height: 1; box-shadow: 0 3px 0 rgba(14, 31, 20, 0.18); }
-.ficha-cozinha .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--lime); }
+.ficha-cozinha .senha small { font-size: 12px; letter-spacing: 0.1em; margin-right: -0.1em; text-transform: uppercase; color: var(--senha-rotulo, var(--lime)); }
 .ficha-cozinha .senha b { font-size: 30px; }
 .ficha-cozinha .tempo { justify-self: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ficha-cozinha .itens { display: flex; flex-direction: column; gap: 12px; font-size: 17px; line-height: 1.3; } /* um pouco maior que o painel (se le de longe), 12 entre eles */
@@ -2927,6 +2927,71 @@ a.zap-flutuante { text-decoration: none; } /* com o WhatsApp da empresa ele e um
 .chave-pix-confere.erro .ico-traco { color: var(--erro); }
 .pix-conferir { margin: 8px 0; font-weight: 500; }
 .como-enviar-dica { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; text-align: center; text-wrap: balance; }
+/* 19/11/2026: os passos do envio (Correios): a bolinha com o numero (o check quando ja foi) e o texto ao lado */
+.envio-passos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+/* todo passo com 10 de folga: o da vez ganha so o fundo e a borda (fica na largura do botao, sem encostar na caixa) e o
+   titulo da caixa e a previsao ficam na linha das bolinhas */
+.envio-passo { padding: 10px; border-radius: 12px; }
+.como-enviar > .como-enviar-titulo, .como-enviar > .envio-previsao { padding: 0 10px; }
+.envio-passo { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.45; }
+.envio-passo-n { flex: none; box-sizing: border-box; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--deep2); background: var(--card); color: var(--deep2); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; line-height: 1; }
+.envio-passo-n .ico-traco { width: 16px; height: 16px; }
+.envio-passo.feito { color: var(--muted); }
+.envio-passo.feito .envio-passo-n { background: var(--deep2); color: #FFFFFF; }
+.envio-passo-texto { flex: 1 1 auto; min-width: 0; padding-top: 3px; display: flex; flex-direction: column; gap: 8px; }
+.envio-passo-linha { display: block; }
+.envio-passo-titulo { display: flex; align-items: center; gap: 6px; font-size: 15.5px; line-height: 1.3; color: var(--ink); }
+.envio-passo-nome { flex: 1 1 auto; min-width: 0; }
+.envio-pecas { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.envio-peca { display: block; }
+.envio-peca b { display: inline-block; min-width: 26px; color: var(--deep2); }
+/* o passo da vez: cartao branco com a borda da cor do tema e o selo AGORA (o texto continua alinhado com os outros passos) */
+.envio-passo.agora { border-radius: 12px; background: var(--card); box-shadow: 0 0 0 2px var(--deep2); }
+.envio-passo.agora .envio-passo-n { background: var(--deep2); color: #FFFFFF; }
+.envio-passo-selo { flex: none; padding: 3px 8px; border-radius: 999px; background: var(--deep2); color: #FFFFFF; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; line-height: 1.2; text-transform: uppercase; }
+/* o que ainda vem: apagado, com o selo DEPOIS de contorno */
+.envio-passo.depois { color: var(--muted); }
+.envio-passo.depois .envio-passo-titulo { color: var(--muted); }
+.envio-passo.depois .envio-passo-titulo .ico-traco { color: var(--muted); }
+.envio-passo.depois .envio-passo-n { border-color: var(--line-forte); color: var(--muted); }
+.envio-passo.depois .envio-passo-selo { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line-forte); }
+.envio-passo-titulo .ico-traco { flex: none; width: 18px; height: 18px; color: var(--deep2); }
+.envio-passo-texto { gap: 4px; }
+.envio-passo.feito .envio-passo-titulo { color: var(--muted); }
+/* o link "Como imprimir pelo celular": texto sublinhado na cor do tema, 40 de altura para o dedo */
+.envio-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: -4px 0 -8px; padding: 0; border: none; background: none; color: var(--deep2); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.envio-link .ico-traco { flex: none; width: 18px; height: 18px; }
+.como-imprimir-parte { margin-top: 6px; }
+/* o pedido que acabou de andar: marcado no lugar novo por uns segundos (a tela vai junto ate ele) */
+.pedido-card { transition: box-shadow 0.4s ease; }
+/* o botao de voltar ao topo do painel: redondo, no canto, acima da barrinha "foi para" */
+.botao-topo { position: fixed; right: 16px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 84; width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid var(--line-forte); background: var(--card); color: var(--deep2); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); opacity: 0; transform: translateY(12px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; cursor: pointer; }
+.botao-topo.visivel { opacity: 1; transform: none; pointer-events: auto; }
+.botao-topo .ico-traco svg { width: 24px; height: 24px; }
+/* o resumo da fila no topo dos pedidos: um botao por passo, com o numero (quebra em mais linhas no celular estreito) */
+.fila-resumo { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.fila-resumo-item { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 8px 6px 12px; border: 1.5px solid var(--line-forte); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.fila-resumo-item .ico-traco { flex: none; width: 18px; height: 18px; color: var(--deep2); }
+.fila-resumo-n { min-width: 26px; height: 26px; padding: 0 7px; box-sizing: border-box; border-radius: 999px; background: var(--deep2); color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 13.5px; line-height: 1; }
+/* a barrinha que sobe embaixo quando o pedido muda de grupo: "Pedido 4 foi para Separando  [Ver]" */
+.barra-andou { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 85; display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: calc(100% - 32px); max-width: 480px; min-height: 56px; padding: 8px 8px 8px 16px; border-radius: 16px; background: var(--ink); color: #FFFFFF; font-size: 15px; line-height: 1.35; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25); transform: translate(-50%, 140%); opacity: 0; transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; pointer-events: none; }
+.barra-andou.aberta { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.barra-andou > .ico-traco { flex: none; color: var(--lime2, #A3E635); }
+.barra-andou-texto { flex: 1 1 auto; min-width: 0; }
+.barra-andou-ver { flex: none; min-width: 72px; min-height: 40px; background: #FFFFFF; color: var(--ink); border: none; font-weight: 800; }
+.pedido-card.acompanhar { box-shadow: 0 0 0 3px var(--deep2), 0 6px 18px rgba(0, 0, 0, 0.12); }
+.como-imprimir > b { margin-top: 4px; font-size: 15.5px; }
+.envio-passo-texto .btn { margin: 0; }
+.envio-postado-titulo { display: flex; align-items: center; gap: 8px; }
+.envio-postado-titulo .ico-traco { flex: none; color: var(--deep2); }
+.envio-postado .rastreio-linha { background: var(--card); }
+.envio-previsao { margin: 0; font-size: 15px; }
+/* o codigo de rastreio na janela: em maiusculas e com a letra de codigo (cada letra e numero bem separado) */
+.campo-rastreio { text-transform: uppercase; font-family: ui-monospace, Consolas, monospace; letter-spacing: 0.06em; }
+.campo .rastreio-confere { margin: 8px 0 0; }
+.rastreio-confere span { overflow-wrap: anywhere; }
+.rastreio-confere.erro { border-color: #F3C4BE; background: var(--erro-suave); color: var(--erro); }
+.rastreio-confere.erro .ico-traco { color: var(--erro); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
