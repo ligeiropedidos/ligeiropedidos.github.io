@@ -2202,5 +2202,76 @@ console.log('18/11/2026: envio pelos Correios (CEP pela borda, frete pela tabela
   delete lojaC.envio;
   kv.mapa.delete('loja:dom-conizza');
 }
+console.log('18/11/2026: frete automatico pelo Melhor Envio (PAC e SEDEX de verdade, a cotacao do site nunca vale)');
+{
+  const fetchAntesME = globalThis.fetch;
+  let cotacoes = 0, ultimoCorpo = null, ultimosCabecalhos = null, foraDoAr = false;
+  globalThis.fetch = async (u, o) => {
+    const url = String(u);
+    if (url.indexOf('/api/v2/me/shipment/calculate') >= 0) {
+      cotacoes++;
+      ultimoCorpo = JSON.parse(o.body); ultimosCabecalhos = o.headers;
+      if (foraDoAr) return new Response('erro', { status: 500 });
+      if (ultimoCorpo.to.postal_code === '69999999') return new Response(JSON.stringify([{ id: 1, name: 'PAC', error: 'Não atende' }, { id: 2, name: 'SEDEX', error: 'Não atende' }]), { status: 200 });
+      const n = ultimoCorpo.products[0].quantity;
+      return new Response(JSON.stringify([
+        { id: 1, name: 'PAC', price: (22.4 + (n - 1) * 3).toFixed(2), custom_price: (22.4 + (n - 1) * 3).toFixed(2), delivery_time: 6, custom_delivery_time: 6 },
+        { id: 2, name: 'SEDEX', price: '38.10', custom_price: '38.10', discount: '6.90', delivery_time: 2, custom_delivery_time: 2 },
+        { id: 3, name: '.Package', price: '19.00', custom_price: '19.00', delivery_time: 5 },
+      ]), { status: 200 });
+    }
+    return fetchAntesME(u, o);
+  };
+  const envME = Object.assign({}, env, { MELHOR_ENVIO_TOKEN: 'tok-teste' });
+  const lojaA = db.get('lojas/dom-conizza');
+  Object.assign(lojaA, { aberta: true, uf: 'SP', aceitaEntrega: false, enviaCorreios: true, cepOrigem: '11800000', envio: { tabela: {}, gratisAcima: 0 }, cupons: [] });
+  kv.mapa.delete('loja:dom-conizza');
+  const wa = await workerNovo();
+  const rRecA = await chamar(wa, '/recursos', { env: envME }); const jRecA = await rRecA.json();
+  ok(jRecA.recursos.indexOf('frete-auto') >= 0, 'com o token do Melhor Envio, o /recursos avisa "frete-auto" (o painel pede so o CEP da loja)');
+  const rRecSem = await chamar(wa, '/recursos'); const jRecSem = await rRecSem.json();
+  ok(jRecSem.recursos.indexOf('frete-auto') < 0, 'sem o token, nada de "frete-auto" (o painel fica na tabela)');
+  const rf = await chamar(wa, '/frete/dom-conizza/20040020/2', { env: envME, headers: { 'CF-Connecting-IP': '10.89.0.1' } }); const jf = await rf.json();
+  ok(rf.status === 200 && jf.auto === true && Array.isArray(jf.opcoes) && jf.opcoes.length === 2 && jf.opcoes[0].servico === 'pac' && jf.opcoes[0].valor === 2540 && jf.opcoes[0].prazo === 6 && jf.opcoes[1].servico === 'sedex' && jf.opcoes[1].valor === 4500,
+    'cotacao: so PAC e SEDEX (o resto fica de fora), em centavos, no preco de balcao (com o desconto do Melhor Envio somado), do mais barato ao mais caro');
+  ok(ultimoCorpo && ultimoCorpo.from.postal_code === '11800000' && ultimoCorpo.to.postal_code === '20040020' && ultimoCorpo.products[0].quantity === 2 && ultimoCorpo.services === '1,2',
+    'pergunta do CEP da loja ao do cliente, com a quantidade de pecas');
+  ok(ultimosCabecalhos && /^Bearer tok-teste$/.test(ultimosCabecalhos.Authorization) && /ligeiro/i.test(ultimosCabecalhos['User-Agent']), 'leva o token e o User-Agent com contato (o Melhor Envio exige)');
+  const rfSem = await chamar(wa, '/frete/dom-conizza/20040020/2', { headers: { 'CF-Connecting-IP': '10.89.0.2' } }); const jfSem = await rfSem.json();
+  ok(jfSem.auto === false && jfSem.opcoes === null, 'sem token: auto false (o site usa a tabela da loja)');
+  const rfNao = await chamar(wa, '/frete/dom-conizza/69999999/1', { env: envME, headers: { 'CF-Connecting-IP': '10.89.0.3' } }); const jfNao = await rfNao.json();
+  ok(jfNao.auto === true && Array.isArray(jfNao.opcoes) && jfNao.opcoes.length === 0, 'CEP onde os Correios nao entregam: lista vazia');
+
+  const pedirA = (wx, envio, tel, ip, extra) => chamar(wx, '/pedido', { metodo: 'POST', env: envME, corpo: { loja: 'dom-conizza', dados: Object.assign({ nome: 'Rita Alves', telefone: tel, tipoEntrega: 'entrega', envio: envio,
+    endereco: { cep: '20040-020', rua: 'Rua da Assembleia', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro', uf: 'RJ' }, itens: [{ produtoId: 'p1', quantidade: 2 }], formaPagamento: 'pix' }, extra || {}) }, headers: { 'CF-Connecting-IP': ip } });
+  const ra1 = await pedirA(wa, { tipo: 'correios', servico: 'sedex', cotado: { servico: 'sedex', valor: 100, prazo: 1 } }, '13999990091', '10.89.1.1'); const ja1 = await ra1.json();
+  const ga1 = ja1 && ja1.pedido ? db.get('lojas/dom-conizza/pedidos/' + ja1.pedido.id) : null;
+  ok(ra1.status === 200 && ga1 && ga1.taxaEntrega === 4500 && ga1.envio.auto === true && ga1.envio.servico === 'sedex' && ga1.envio.cotado === 4500 && ga1.envio.prazo === 2 && ga1.total === precoP1() * 2 + 4500,
+    'pedido no SEDEX: vale a cotacao do mensageiro (a de R$ 1,00 que o site mandou nao passa)');
+  const ra2 = await pedirA(wa, 'correios', '13999990092', '10.89.1.2'); const ja2 = await ra2.json();
+  const ga2 = ja2 && ja2.pedido ? db.get('lojas/dom-conizza/pedidos/' + ja2.pedido.id) : null;
+  ok(ra2.status === 200 && ga2 && ga2.envio.servico === 'pac' && ga2.taxaEntrega === 2540, 'site antigo (sem escolher): vai no mais barato, o PAC');
+  ok(ga1 && (await import('node:module')).createRequire(import.meta.url)('../js/regras.js').conferirTotal(lojaA, ga1).ok === true, 'o total do pedido automatico confere depois (o painel nao acende "nao confere")');
+  const ra3 = await pedirA(wa, { tipo: 'correios', servico: 'jadlog' }, '13999990093', '10.89.1.3'); const ja3 = await ra3.json().catch(() => ({}));
+  ok(ra3.status === 422 && /não está disponível/.test(String(ja3.erro || '')), 'servico que nao veio na cotacao: recusa e pede para escolher de novo');
+  const ra4 = await pedirA(wa, { tipo: 'correios', servico: 'pac' }, '13999990094', '10.89.1.4', { endereco: { cep: '69999-999', rua: 'Rua X', numero: '1', bairro: 'Centro', cidade: 'Manaus' } }); const ja4 = await ra4.json().catch(() => ({}));
+  ok(ra4.status === 422 && /não entregam/.test(String(ja4.erro || '')), 'CEP sem Correios: recusa com o motivo');
+  foraDoAr = true;
+  kv.mapa.delete('loja:dom-conizza');
+  const wb = await workerNovo();
+  const ra5 = await pedirA(wb, { tipo: 'correios', servico: 'pac' }, '13999990095', '10.89.1.5', { endereco: { cep: '01310-100', rua: 'Av Paulista', numero: '1000', bairro: 'Bela Vista', cidade: 'São Paulo' } }); const ja5 = await ra5.json().catch(() => ({}));
+  ok(ra5.status === 503 && /Tente de novo/.test(String(ja5.erro || '')), 'Melhor Envio fora do ar e loja sem tabela: pede para tentar de novo (nunca cobra frete errado)');
+  Object.assign(lojaA, { envio: { tabela: { estado: 1500, sudeste: 2200 }, gratisAcima: 0 } });
+  kv.mapa.delete('loja:dom-conizza');
+  const wc2 = await workerNovo();
+  const ra6 = await pedirA(wc2, { tipo: 'correios', servico: 'pac' }, '13999990096', '10.89.1.6', { endereco: { cep: '01310-100', rua: 'Av Paulista', numero: '1000', bairro: 'Bela Vista', cidade: 'São Paulo' } }); const ja6 = await ra6.json().catch(() => ({}));
+  const ga6 = ja6 && ja6.pedido ? db.get('lojas/dom-conizza/pedidos/' + ja6.pedido.id) : null;
+  ok(ra6.status === 200 && ga6 && ga6.taxaEntrega === 1500 && !ga6.envio.auto, 'Melhor Envio fora do ar com tabela: vale a tabela da loja (reserva)');
+  foraDoAr = false;
+  globalThis.fetch = fetchAntesME;
+  Object.assign(lojaA, { aceitaEntrega: true, enviaCorreios: false });
+  delete lojaA.envio; delete lojaA.cepOrigem;
+  kv.mapa.delete('loja:dom-conizza');
+}
 console.log('\n' + (total - falhas) + ' de ' + total + ' passaram');
 if (falhas) process.exit(1);

@@ -1536,3 +1536,33 @@ test('18/11/2026: envio pelos Correios, frete pela regiao do CEP, sem pagar na p
   /* balcao nunca vai pelos Correios */
   assert.equal(R.ehCorreios(R.montarPedido(Object.assign({}, loja, { aceitaPagarNoBalcao: true }), Object.assign({}, base, { origem: 'balcao', tipoEntrega: 'retirada' }))), false);
 });
+
+test('18/11/2026: frete automatico (PAC e SEDEX cotados pelo mensageiro)', () => {
+  const loja = { slug: 'x', nome: 'X', whatsapp: '13999999999', uf: 'SP', aceitaEntrega: false, enviaCorreios: true, cepOrigem: '11800-000',
+    envio: { tabela: {}, gratisAcima: 20000 }, aceitaPixCombinado: true, chavePix: 'a@b.com',
+    produtos: [{ id: 'p1', nome: 'Blusa', preco: 5000 }], categorias: [], aberta: true };
+  assert.equal(R.cepDaLoja(loja), '11800000');
+  assert.equal(R.temTabelaDeFrete(loja), false);
+  /* cotacao torta nao vale (servico desconhecido, valor zero ou absurdo) */
+  assert.equal(R.cotacaoValida({ servico: 'jadlog', valor: 1000 }), null);
+  assert.equal(R.cotacaoValida({ servico: 'pac', valor: 0 }), null);
+  assert.equal(R.cotacaoValida({ servico: 'pac', valor: 100001 }), null);
+  const pac = { servico: 'pac', valor: 2240, prazo: 6 }, sedex = { servico: 'sedex', valor: 3810, prazo: 2 };
+  assert.deepEqual(R.freteCorreios(loja, 'RJ', 1, 5000, sedex), { valor: 3810, regiao: 'sudeste', uf: 'RJ', prazo: 2, gratis: false, servico: 'sedex', cotado: 3810, auto: true });
+  /* o "gratis a partir de" vale so para o PAC */
+  assert.equal(R.freteCorreios(loja, 'RJ', 1, 25000, pac).valor, 0);
+  assert.equal(R.freteCorreios(loja, 'RJ', 1, 25000, sedex).valor, 3810);
+  /* sem cotacao e sem tabela: a loja nao envia (o mensageiro so chega aqui sem cotacao quando tem tabela) */
+  assert.ok(R.freteCorreios(loja, 'RJ', 1, 5000).erro);
+  /* o pedido guarda o servico e o valor cotado, e o total confere depois */
+  const p = R.montarPedido(loja, { nome: 'Rita', telefone: '21999990000', tipoEntrega: 'entrega', envio: { tipo: 'correios', cotado: sedex }, formaPagamento: 'pix_combinado',
+    endereco: { cep: '20040-020', rua: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Rio de Janeiro' }, itens: [{ produtoId: 'p1', quantidade: 1 }] });
+  assert.equal(p.taxaEntrega, 3810);
+  assert.equal(p.envio.auto, true);
+  assert.equal(p.envio.servico, 'sedex');
+  assert.equal(p.envio.cotado, 3810);
+  assert.equal(R.correiosComServico(p), 'Correios SEDEX');
+  assert.equal(R.conferirTotal(loja, p).ok, true);
+  assert.ok(/ENVIAR PELOS CORREIOS SEDEX/.test(R.fichaDoPedido(loja, p)));
+  assert.ok(/Frete \(Correios SEDEX\): R\$ 38,10/.test(R.fichaDoPedido(loja, p)));
+});

@@ -762,7 +762,7 @@
       if (balcao) return;
       try {
         if (estado.carrinho.length === 0 && !estado.cupom.codigo) sessionStorage.removeItem(CHAVE_RASCUNHO);
-        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, envio: estado.envio, cep: estado.cep, cepInfo: estado.cepInfo, cupom: estado.cupom, cuponsExtra: estado.cuponsExtra || [], chave: estado.chavePedido || null }));
+        else sessionStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({ carrinho: estado.carrinho, tipoEntrega: estado.tipoEntrega, envio: estado.envio, servico: estado.servico || '', cep: estado.cep, cepInfo: estado.cepInfo, cupom: estado.cupom, cuponsExtra: estado.cuponsExtra || [], chave: estado.chavePedido || null }));
       } catch (_) { /* sem espaco: segue sem rascunho */ }
     }
     function restaurarRascunho() {
@@ -777,6 +777,7 @@
         /* o envio pelos Correios volta com o CEP (sem CEP de 8 numeros, nao: a pessoa escolhe de novo) */
         if (r.envio === 'correios' && R.soNumerosDoCep(r.cep).length === 8 && estado.tipoEntrega === 'entrega') {
           estado.envio = 'correios'; estado.cep = R.soNumerosDoCep(r.cep);
+          estado.servico = R.SERVICOS_ENVIO.hasOwnProperty(r.servico) ? r.servico : '';
           estado.cepInfo = r.cepInfo && typeof r.cepInfo === 'object' ? { rua: String(r.cepInfo.rua || ''), bairro: String(r.cepInfo.bairro || ''), cidade: String(r.cepInfo.cidade || ''), uf: R.ufValida(r.cepInfo.uf) || R.ufDoCep(estado.cep) } : { rua: '', bairro: '', cidade: '', uf: R.ufDoCep(estado.cep) };
         }
         estado.cupom = r.cupom || { codigo: '', percentual: 0, desconto: 0 };
@@ -1441,7 +1442,58 @@
 
     /* ---------- envio pelos Correios (18/11/2026) ---------- */
     function ehEnvio() { return estado.tipoEntrega === 'entrega' && estado.envio === 'correios'; }
-    function envioAtual() { return ehEnvio() ? { tipo: 'correios', cep: estado.cep, uf: (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep) } : null; }
+    function envioAtual() {
+      if (!ehEnvio()) return null;
+      var cot = cotacaoAtual();
+      return { tipo: 'correios', cep: estado.cep, uf: (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep), servico: cot ? cot.servico : '', cotado: cot };
+    }
+    /* frete automatico (18/11/2026): a loja com CEP de origem tem PAC e SEDEX de verdade, cotados pelo mensageiro no
+       Melhor Envio. estado.frete = { chave: 'CEP/pecas', opcoes: [...] | [] (nao entrega) | null (nao respondeu) } */
+    function freteAuto() { return !!estado.loja && !!R.cepDaLoja(estado.loja) && !!store.cotarFrete; }
+    function chaveDoFrete() { return R.soNumerosDoCep(estado.cep) + '/' + Math.max(1, quantidadeTotal()); }
+    function cotacaoAtual() {
+      if (!freteAuto() || !estado.frete || estado.frete.chave !== chaveDoFrete() || !estado.frete.opcoes || !estado.frete.opcoes.length) return null;
+      var lista = estado.frete.opcoes;
+      for (var i = 0; i < lista.length; i++) if (lista[i].servico === estado.servico) return lista[i];
+      return lista[0];
+    }
+    var cotando = null;
+    function cotarAgora() {
+      var chave = chaveDoFrete();
+      if (!freteAuto() || R.soNumerosDoCep(estado.cep).length !== 8) return Promise.resolve(null);
+      if (estado.frete && estado.frete.chave === chave) return Promise.resolve(estado.frete.opcoes);
+      if (cotando && cotando.chave === chave) return cotando.promessa;
+      var promessa = store.cotarFrete(estado.loja.slug, estado.cep, Math.max(1, quantidadeTotal())).then(function (opcoes) {
+        if (chave === chaveDoFrete()) estado.frete = { chave: chave, opcoes: opcoes };
+        cotando = null;
+        return opcoes;
+      }, function () { cotando = null; return null; });
+      cotando = { chave: chave, promessa: promessa };
+      return promessa;
+    }
+    /* o frete para mostrar: { carregando } enquanto a cotacao nao chegou, { erro } ou o resultado das regras */
+    function freteParaTela() {
+      var uf = (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep);
+      if (!uf) return { erro: 'Digite o CEP com os 8 números para ver o frete.' };
+      var cot = null;
+      if (freteAuto()) {
+        cot = cotacaoAtual();
+        if (!cot) {
+          if (!(estado.frete && estado.frete.chave === chaveDoFrete())) return { carregando: true, uf: uf };
+          if (estado.frete.opcoes && !estado.frete.opcoes.length) return { erro: 'Os Correios não entregam nesse CEP. Confira os números ou fale com a loja no WhatsApp.', uf: uf };
+          if (!R.temTabelaDeFrete(estado.loja)) return { erro: 'Não deu para calcular o frete agora. Tente de novo em alguns minutos.', uf: uf };
+        }
+      }
+      return R.freteCorreios(estado.loja, uf, Math.max(1, quantidadeTotal()), orcamento().subtotal, cot);
+    }
+    /* a cotacao chegou: tudo que mostra frete e total se pinta de novo */
+    function freteChegou() {
+      if (!vivo) return;
+      pintarFreteDoCep();
+      atualizarBarraCarrinho();
+      atualizarFormasDePagamento();
+      if ($('tela-carrinho').classList.contains('ativa')) montarCarrinho();
+    }
     /* pergunta o endereco do CEP ao mensageiro; sem internet ou sem resposta, o estado sai das faixas e a pessoa digita */
     function consultarCep(cep) {
       var c = R.soNumerosDoCep(cep);
@@ -1471,6 +1523,7 @@
           if (!info.uf) { falhar('Não achamos esse CEP. Confira os números ou toque em "Não sei o meu CEP".'); return; }
           var q = Math.max(1, quantidadeTotal());
           var sub = estado.carrinho.length ? orcamento().subtotal : 0;
+          if (freteAuto()) { cotarNaJanela(c, info, q, sub); return; }
           var f = R.freteCorreios(l, info.uf, q, sub);
           if (f.erro) { falhar(f.erro); return; }
           estado.tipoEntrega = 'entrega';
@@ -1482,6 +1535,31 @@
           UI.fecharModal();
           depois();
           UI.avisar('Frete para ' + (info.cidade ? info.cidade + '/' : '') + info.uf + (f.valor > 0 ? ': ' + dinheiro(f.valor) + ' por enquanto' : ': grátis') + '. Ele aparece no total.');
+        });
+      }
+      /* frete automatico: pergunta o PAC e o SEDEX ao mensageiro; sem resposta, a tabela da loja (se tiver) */
+      function cotarNaJanela(c, info, q, sub) {
+        var soltar = UI.ocupar(botao, 'Calculando o frete…');
+        store.cotarFrete(l.slug, c, q).then(function (opcoes) {
+          if (soltar) soltar();
+          if (!vivo) return;
+          if (opcoes && !opcoes.length) { falhar('Os Correios não entregam nesse CEP. Confira os números ou fale com a loja no WhatsApp.'); return; }
+          var f = opcoes ? R.freteCorreios(l, info.uf, q, sub, opcoes[0]) : R.freteCorreios(l, info.uf, q, sub);
+          if (f.erro) { falhar(opcoes ? f.erro : 'Não deu para calcular o frete agora. Tente de novo em alguns minutos.'); return; }
+          estado.tipoEntrega = 'entrega';
+          estado.envio = 'correios';
+          var mudouCep = estado.cep !== c;
+          estado.cep = c;
+          estado.cepInfo = info;
+          estado.frete = { chave: c + '/' + q, opcoes: opcoes };
+          if (opcoes && !opcoes.some(function (o) { return o.servico === estado.servico; })) estado.servico = opcoes[0].servico;
+          if (mudouCep) preencherPeloCep(info, true);
+          UI.fecharModal();
+          depois();
+          var onde = (info.cidade ? info.cidade + '/' : '') + info.uf;
+          UI.avisar(opcoes && opcoes.length > 1
+            ? 'Frete para ' + onde + ' a partir de ' + (f.valor > 0 ? dinheiro(f.valor) : 'grátis') + '. No fim do pedido você escolhe PAC ou SEDEX.'
+            : 'Frete para ' + onde + ': ' + (f.valor > 0 ? dinheiro(f.valor) : 'grátis') + '. Ele aparece no total.');
         });
       }
       botao.addEventListener('click', seguir);
@@ -1516,13 +1594,55 @@
     function pintarFreteDoCep() {
       var caixa = $('envioFrete');
       if (!ehEnvio() || !estado.loja) { caixa.hidden = true; return; }
-      var uf = (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep);
-      var f = uf ? R.freteCorreios(estado.loja, uf, Math.max(1, quantidadeTotal()), orcamento().subtotal) : { erro: 'Digite o CEP com os 8 números para ver o frete.' };
+      var f = freteParaTela();
+      var uf = f.uf || (estado.cepInfo && estado.cepInfo.uf) || R.ufDoCep(estado.cep);
       UI.limpar(caixa);
+      caixa.hidden = false;
+      if (f.carregando) {
+        caixa.className = 'envio-frete';
+        caixa.appendChild(UI.iconeLinha('caixa'));
+        caixa.appendChild(el('span', { text: 'Calculando o frete dos Correios…' }));
+        cotarAgora().then(freteChegou);
+        return;
+      }
+      var opcoes = freteAuto() && !f.erro && estado.frete && estado.frete.opcoes ? estado.frete.opcoes : null;
+      if (opcoes && opcoes.length) { pintarOpcoesDeFrete(caixa, opcoes, f, uf); return; }
       caixa.className = 'envio-frete' + (f.erro ? ' envio-frete-erro' : '');
       caixa.appendChild(UI.iconeLinha(f.erro ? 'alerta' : 'caixa'));
       caixa.appendChild(el('span', { text: f.erro ? f.erro : 'Frete pelos Correios para ' + uf + ': ' + (f.valor > 0 ? dinheiro(f.valor) : 'grátis') + (f.prazo > 0 ? '. ' + R.prazoDoEnvio(f.prazo).replace(/^./, function (x) { return x.toUpperCase(); }) + '.' : '.') }));
       caixa.hidden = false;
+    }
+    /* PAC e SEDEX lado a lado, como nas lojas grandes: o mais barato e o mais rapido marcados, um toque troca */
+    function pintarOpcoesDeFrete(caixa, opcoes, f, uf) {
+      caixa.className = 'envio-opcoes';
+      caixa.appendChild(el('p', { class: 'envio-opcoes-titulo', text: 'Escolha o frete para ' + (estado.cepInfo && estado.cepInfo.cidade ? estado.cepInfo.cidade + '/' : '') + uf }));
+      var maisRapido = opcoes.reduce(function (a, b) { return b.prazo > 0 && (!(a.prazo > 0) || b.prazo < a.prazo) ? b : a; }, opcoes[0]);
+      var lista = el('div', { class: 'envio-opcoes-lista', role: 'radiogroup', 'aria-label': 'Tipo de frete' });
+      opcoes.forEach(function (o, i) {
+        var valor = R.freteCorreios(estado.loja, uf, Math.max(1, quantidadeTotal()), orcamento().subtotal, o);
+        var marcado = f.servico === o.servico;
+        var selo = i === 0 && opcoes.length > 1 ? 'Mais barato' : (o === maisRapido && opcoes.length > 1 ? 'Mais rápido' : '');
+        lista.appendChild(el('button', { type: 'button', class: 'envio-opcao' + (marcado ? ' on' : ''), role: 'radio', 'aria-checked': marcado ? 'true' : 'false', onclick: function () {
+          if (marcado) return;
+          estado.servico = o.servico;
+          guardarRascunho();
+          freteChegou();
+        } }, [
+          el('span', { class: 'envio-opcao-marca', 'aria-hidden': 'true' }),
+          el('span', { class: 'envio-opcao-texto' }, [
+            el('span', { class: 'envio-opcao-linha' }, [
+              el('b', { class: 'envio-opcao-nome', text: R.nomeDoServico(o.servico) }),
+              el('span', { class: 'envio-opcao-valor' + (valor.valor > 0 ? '' : ' gratis'), text: valor.valor > 0 ? dinheiro(valor.valor) : 'Grátis' }),
+            ]),
+            el('span', { class: 'envio-opcao-linha envio-opcao-linha2' }, [
+              el('span', { class: 'envio-opcao-prazo', text: o.prazo > 0 ? 'Até ' + o.prazo + (o.prazo === 1 ? ' dia útil' : ' dias úteis') : 'No prazo dos Correios' }),
+              selo ? el('small', { class: 'envio-opcao-selo', text: selo }) : null,
+            ]),
+          ]),
+        ]));
+      });
+      caixa.appendChild(lista);
+      caixa.appendChild(el('p', { class: 'envio-opcoes-nota', text: 'O prazo conta a partir da postagem nos Correios.' }));
     }
     /* trocar o CEP no fechamento: o frete e o endereco acompanham */
     (function () {
@@ -2054,8 +2174,10 @@
       totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Itens' }), el('span', { text: dinheiro(orc.subtotal) })]));
       if (ehEnvio()) {
         var ev = orc.envio || {};
-        totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Frete (Correios' + (ev.uf ? ' para ' + ev.uf : '') + ')' }),
-          ev.erro ? el('span', { class: 'envio-falta', text: 'ver CEP' }) : orc.taxaEntrega > 0 ? el('span', { text: dinheiro(orc.taxaEntrega) }) : el('span', { class: 'gratis', text: 'GRÁTIS' })]));
+        var fTela = freteParaTela();
+        if (fTela.carregando) cotarAgora().then(freteChegou);
+        totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Frete (' + (ev.servico ? R.nomeDoServico(ev.servico) : 'Correios') + (ev.uf ? ' para ' + ev.uf : '') + ')' }),
+          fTela.carregando ? el('span', { class: 'envio-falta', text: 'calculando…' }) : (fTela.erro || ev.erro) ? el('span', { class: 'envio-falta', text: 'ver CEP' }) : orc.taxaEntrega > 0 ? el('span', { text: dinheiro(orc.taxaEntrega) }) : el('span', { class: 'gratis', text: 'GRÁTIS' })]));
       } else if (estado.tipoEntrega === 'entrega') {
         totais.appendChild(el('div', { class: 'linha' }, [el('span', { text: 'Entrega' }), orc.taxaEntrega > 0 ? el('span', { text: dinheiro(orc.taxaEntrega) }) : el('span', { class: 'gratis', text: 'GRÁTIS' })]));
       }
@@ -2147,8 +2269,18 @@
     $('btnIrDados').addEventListener('click', function () {
       if (estado.carrinho.length === 0) return UI.avisar('Escolha pelo menos um item.');
       /* Correios sem frete (CEP que a loja nao atende): pede o CEP de novo, com o motivo */
-      var orcEnvio = ehEnvio() ? orcamento().envio : null;
-      if (orcEnvio && orcEnvio.erro) { UI.avisar(orcEnvio.erro); pedirCep(function () { pintarEnvio(); atualizarBarraCarrinho(); montarCarrinho(); }); return; }
+      if (ehEnvio()) {
+        var fIr = freteParaTela();
+        if (fIr.carregando) {
+          var botaoIr = $('btnIrDados');
+          var soltarIr = UI.ocupar(botaoIr, 'Calculando o frete…');
+          cotarAgora().then(function () { if (soltarIr) soltarIr(); freteChegou(); if (vivo && !freteParaTela().carregando) botaoIr.click(); });
+          return;
+        }
+        var orcEnvio = orcamento().envio;
+        var erroEnvio = fIr.erro || (orcEnvio && orcEnvio.erro);
+        if (erroEnvio) { UI.avisar(erroEnvio); pedirCep(function () { pintarEnvio(); atualizarBarraCarrinho(); montarCarrinho(); }); return; }
+      }
       preencherDadosSalvos();
       if (ehEnvio()) preencherDoCepSeFaltar();
       atualizarFormasDePagamento();
@@ -2433,7 +2565,7 @@
         nome: nome, telefone: telefone,
         observacao: $('campoObs').value.trim(),
         tipoEntrega: estado.tipoEntrega,
-        envio: ehEnvio() ? 'correios' : '',
+        envio: ehEnvio() ? (cotacaoAtual() ? { tipo: 'correios', servico: cotacaoAtual().servico, cotado: cotacaoAtual() } : 'correios') : '',
         formaPagamento: formaEscolhida(),
         trocoPara: formaEscolhida() === 'dinheiro_entrega' && $('trocoSim').checked ? UI.centavosDoCampo($('campoTroco').value) : 0,
         endereco: ehEnvio() ? { cep: R.soNumerosDoCep($('campoCep').value), rua: $('campoRua').value.trim(), numero: $('campoNumero').value.trim(), bairro: $('campoBairro').value.trim(), complemento: $('campoComplemento').value.trim(), cidade: $('campoCidade').value.trim(), uf: R.ufValida($('campoUf').value) }
@@ -3732,7 +3864,7 @@
       var contas = el('div', { class: 'totais totais-embutido' });
       var conta = function (rotulo, valor, classe, classeValor) { contas.appendChild(el('div', { class: 'linha' + (classe ? ' ' + classe : '') }, [el('span', { text: rotulo }), el('span', { class: classeValor || null, text: valor })])); };
       conta('Itens', dinheiro(pedido.subtotal || 0));
-      if (pedido.tipoEntrega === 'entrega') conta(R.ehCorreios(pedido) ? 'Frete (Correios)' : 'Entrega', pedido.taxaEntrega > 0 ? dinheiro(pedido.taxaEntrega) : 'Grátis', '', pedido.taxaEntrega > 0 ? '' : 'gratis');
+      if (pedido.tipoEntrega === 'entrega') conta(R.ehCorreios(pedido) ? 'Frete (' + R.correiosComServico(pedido) + ')' : 'Entrega', pedido.taxaEntrega > 0 ? dinheiro(pedido.taxaEntrega) : 'Grátis', '', pedido.taxaEntrega > 0 ? '' : 'gratis');
       if (pedido.desconto > 0) conta('Cupom ' + (pedido.cupom || '') + (pedido.cupomPercentual ? ' (' + pedido.cupomPercentual + '%)' : ''), '- ' + dinheiro(pedido.desconto), 'desconto');
       if (pedido.acrescimoCartao > 0) conta('Taxa do cartão', dinheiro(pedido.acrescimoCartao));
       conta('Total', pedido.total === 0 ? 'GRÁTIS' : dinheiro(pedido.total), 'total');
@@ -3759,7 +3891,7 @@
         if (!deFora && pedido.endereco && pedido.endereco.rua) {
           caixa.appendChild(el('div', { class: 'resumo-onde' }, [
             UI.iconeLinha(R.ehCorreios(pedido) ? 'caixa' : 'mapa'),
-            el('div', { class: 'resumo-onde-texto' }, [el('b', { text: R.ehCorreios(pedido) ? 'Enviar pelos Correios para' : 'Entregar em' }), UI.enderecoEmLinhas(pedido.endereco)]),
+            el('div', { class: 'resumo-onde-texto' }, [el('b', { text: R.ehCorreios(pedido) ? 'Enviar pelos ' + R.correiosComServico(pedido) + ' para' : 'Entregar em' }), UI.enderecoEmLinhas(pedido.endereco)]),
           ]));
         }
       } else if (pedido.status !== R.STATUS.CANCELADO) {

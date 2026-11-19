@@ -202,6 +202,7 @@
       ofertasPossiveis().then(function (sim) { estado.ofertasOk = sim; });
       precoTamanhoPossivel().then(function (sim) { estado.precoTamanhoOk = sim; });
       recursoNoAr('correios').then(function (sim) { estado.correiosOk = sim; });
+      recursoNoAr('frete-auto').then(function (sim) { estado.freteAutoOk = sim; });
       /* a Loja do Ligeiro (outra tela) le o tipo da loja daqui: comercio fala em catalogo */
       try { sessionStorage.setItem('ligeiro:segmento:' + slug, R.segmento(estado.loja || {})); } catch (_) { /* segue com os textos de comida */ }
       /* voltou do "Conectar com Mercado Pago": o codigo chega aqui e este celular termina (concluir) */
@@ -888,7 +889,7 @@
         [comPreco > 0, comPreco > 0 ? comPreco + (comPreco === 1 ? ' item' : ' itens') + ' com preço' : 'Montar o ' + cat.nome, comPreco > 0 ? 'Confira os valores antes de divulgar' : 'Categorias, itens e preços', 'cardapio', 'cardapio', ''],
         [l.aceitaEntrega === false || !!l.freteGratis || Number(l.taxaEntrega) > 0, 'Frete: ' + R.descreverFrete(l).replace(/^./, function (c) { return c.toLowerCase(); }).replace(/r\$/g, 'R$'), 'Taxa e tempo de entrega', 'entrega', 'ajustes', 'aj-entrega'],
         /* envio pelos Correios ligado: a tabela do frete precisa de valor (sem ela ninguem de fora consegue fechar) */
-        R.enviaCorreios(l) ? [temFreteCorreios(l), temFreteCorreios(l) ? 'Frete dos Correios pronto' : 'Frete dos Correios', 'Quanto cobrar em cada região', 'caixa', 'ajustes', 'aj-correios'] : null,
+        R.enviaCorreios(l) ? [correiosPronto(l), correiosPronto(l) ? 'Frete dos Correios pronto' : 'Frete dos Correios', estado.freteAutoOk ? 'O CEP de onde sai o pacote' : 'Quanto cobrar em cada região', 'caixa', 'ajustes', 'aj-correios'] : null,
         [!!l.whatsapp, 'WhatsApp da loja', 'Para o cliente falar com você', 'telefone', 'ajustes', 'aj-dados'],
         [!!l.usarHorarios || l.aberta !== false, l.usarHorarios ? 'Horários cadastrados' : 'Horários de funcionamento', 'A loja abre e fecha sozinha', 'relogio', 'ajustes', 'aj-funcionamento'],
         [!!D.logoSrc(l) || !!(UI.lojaOficial(slug) && UI.lojaOficial(slug).logo), 'Logo da loja', 'Aparece no topo do seu site', 'imagem', 'ajustes', 'aj-aparencia'],
@@ -950,7 +951,9 @@
         { aba: 'ajustes', alvo: '#aj-pagamento', texto: 'Aqui você liga o Pix e o cartão pelo Mercado Pago: o pedido já chega pago ' + cat.naTela + ', sem ninguém conferir comprovante.' + (estado.pixCombinadoOk ? ' Não quer o Mercado Pago? Ligue o Pix pelo WhatsApp.' : '') },
         { aba: 'ajustes', alvo: '#aj-entrega', texto: 'Quanto custa a entrega e em quanto tempo chega. Dá até para dar entrega grátis a partir de um valor.' },
         /* 18/11/2026: vende para outras cidades (loja de comercio, com o mensageiro que conhece os Correios) */
-        correiosAparece(l) ? { aba: 'ajustes', alvo: '#aj-correios', texto: 'Quer vender para outras cidades? Aqui você liga o envio pelos Correios e diz quanto cobra de frete em cada região do Brasil. A cliente digita o CEP e o frete entra sozinho no pedido. Quando postar, é só tocar em "Postei nos Correios" no pedido.' } : null,
+        correiosAparece(l) ? { aba: 'ajustes', alvo: '#aj-correios', texto: estado.freteAutoOk
+          ? 'Quer vender para outras cidades? Aqui você liga o envio pelos Correios e coloca o CEP da sua loja. O frete é calculado sozinho: a cliente digita o CEP dela e escolhe PAC ou SEDEX. Quando postar, é só tocar em "Postei nos Correios" no pedido.'
+          : 'Quer vender para outras cidades? Aqui você liga o envio pelos Correios e diz quanto cobra de frete em cada região do Brasil. A cliente digita o CEP e o frete entra sozinho no pedido. Quando postar, é só tocar em "Postei nos Correios" no pedido.' } : null,
         { aba: 'ajustes', alvo: '#aj-funcionamento', texto: 'Seus horários. Com eles cadastrados, a loja abre e fecha sozinha, sem você lembrar.' },
         { aba: 'links', alvo: '.aba-painel[data-aba=links]', texto: 'Aqui está o link da sua loja. Mande no WhatsApp, ponha na bio do Instagram e no Google.' },
         estado.servicosVisivel ? { aba: 'links', alvo: '.srv-banner', texto: 'E aqui fica a Loja do Ligeiro: logo, fotos do ' + cat.nome + ' e vídeo feitos pela nossa equipe, com preço fechado. O vídeo aparece no seu site com botão de play.' } : null,
@@ -3373,6 +3376,8 @@
 
     /* ---------- envio pelos Correios (18/11/2026): a tabela do frete por regiao, tudo explicado ---------- */
     function temFreteCorreios(l) { var t = ((l && l.envio) || {}).tabela || {}; return Object.keys(t).some(function (k) { return Math.round(Number(t[k]) || 0) > 0; }); }
+    /* pronto para vender pelos Correios: frete automatico com o CEP da loja, ou a tabela com valor */
+    function correiosPronto(l) { return (estado.freteAutoOk === true && !!R.cepDaLoja(l)) || temFreteCorreios(l); }
     /* o bloco aparece para loja de comercio (comida nao vai pelos Correios) ou para quem ja ligou */
     function correiosAparece(l) { return !!l && (l.enviaCorreios === true || (R.segmento(l) === 'comercio' && estado.correiosOk === true)); }
     var ESTADOS_DA_REGIAO = { estado: 'Clientes do mesmo estado da loja', sudeste: 'SP, RJ, MG e ES', sul: 'PR, SC e RS', centroOeste: 'DF, GO, MT e MS', nordeste: 'BA, PE, CE, MA, PB, RN, AL, SE e PI', norte: 'AM, PA, AC, RO, RR, AP e TO' };
@@ -3382,15 +3387,28 @@
       var chave = interruptorCampo('Vender para todo o Brasil', 'Aparece o botão "Receber pelos Correios" no seu site. A cliente de qualquer cidade compra e paga pelo site.', l.enviaCorreios === true);
       bloco.appendChild(chave);
       var detalhes = el('div', { class: 'pilha correios-detalhes', hidden: l.enviaCorreios !== true });
+      var primeiroPasso = el('li', { text: 'A cliente digita o CEP. O frete que você puser aqui embaixo entra sozinho no pedido.' });
       detalhes.appendChild(el('div', { class: 'aviso correios-como' }, [UI.iconeLinha('info'), el('div', { class: 'correios-como-texto' }, [
         el('b', { text: 'Como funciona' }),
         el('ol', { class: 'correios-passos' }, [
-          el('li', { text: 'A cliente digita o CEP. O frete que você puser aqui embaixo entra sozinho no pedido.' }),
+          primeiroPasso,
           el('li', { text: 'O pedido chega aqui já pago, no Pix ou no cartão. Você separa a peça e leva aos Correios.' }),
           el('li', { text: 'No pedido, toque em "Postei nos Correios" e cole o código de rastreio. Depois toque em "Mandar o rastreio": a cliente recebe no WhatsApp.' }),
         ]),
       ])]));
-      detalhes.appendChild(el('div', { class: 'correios-dica' }, [
+      /* frete automatico (18/11/2026): o Ligeiro calcula o PAC e o SEDEX de verdade; a loja so diz de onde sai o pacote */
+      var cepLoja = campoTexto('CEP da sua loja', R.cepDaLoja(l) ? R.formatarCep(R.cepDaLoja(l)) : '', { max: 9, placeholder: '00000-000', inputmode: 'numeric',
+        ajuda: 'O CEP de onde você manda o pacote. É dele que o frete é calculado até a casa da cliente.' });
+      cepLoja.input.autocomplete = 'postal-code';
+      cepLoja.input.addEventListener('input', function () { var c = R.soNumerosDoCep(cepLoja.input.value).slice(0, 8); cepLoja.input.value = c.length > 5 ? c.slice(0, 5) + '-' + c.slice(5) : c; });
+      var parteAuto = el('div', { class: 'pilha correios-auto', hidden: true }, [
+        el('div', { class: 'aviso correios-auto-aviso' }, [UI.iconeLinha('check'), el('span', { text: 'O frete é calculado sozinho, com o preço dos Correios para o CEP de cada cliente. Você não precisa pôr valor nenhum.' })]),
+        cepLoja,
+      ]);
+      detalhes.appendChild(parteAuto);
+      var parteTabela = el('div', { class: 'pilha correios-manual' });
+      detalhes.appendChild(parteTabela);
+      parteTabela.appendChild(el('div', { class: 'correios-dica' }, [
         el('b', { text: 'Quanto cobrar de frete?' }),
         el('p', { class: 'ajuda', text: 'Simule no site dos Correios um pacote com uma peça, saindo do CEP da sua loja para uma cidade de cada região. Use o valor do PAC e arredonde um pouco para cima, por causa da caixa.' }),
         el('a', { class: 'btn btn-fantasma btn-pequeno', href: 'https://www2.correios.com.br/sistemas/precosPrazos/', target: '_blank', rel: 'noopener' }, [UI.iconeLinha('externo'), 'Abrir a simulação dos Correios']),
@@ -3409,17 +3427,29 @@
           el('div', { class: 'linha-campos correios-regiao-campos' }, [preco, prazo]),
         ]));
       });
-      detalhes.appendChild(el('div', { class: 'campo' }, [
+      parteTabela.appendChild(el('div', { class: 'campo' }, [
         el('label', { text: 'Frete de cada região' }),
         el('p', { class: 'ajuda', text: 'O prazo é em dias úteis depois de postar (o que os Correios mostram na simulação). Deixe o frete vazio na região para onde você não envia: a cliente de lá vê um aviso para falar com você no WhatsApp.' }),
         tabela,
       ]));
       var porPeca = campoDinheiro('Cada peça a mais', envio.porPeca || 0, 'Somado ao frete a partir da 2ª peça, porque o pacote fica maior. Vazio = o frete é o mesmo para qualquer quantidade.');
       var gratis = campoDinheiro('Frete grátis a partir de', envio.gratisAcima || 0, 'Vazio = a cliente sempre paga o frete. Com valor, o site mostra "faltam R$ X para o frete sair de graça".');
-      detalhes.appendChild(el('div', { class: 'grade-form' }, [porPeca, gratis]));
+      parteTabela.appendChild(porPeca);
+      detalhes.appendChild(gratis);
       detalhes.appendChild(el('p', { class: 'ajuda correios-pagamento' }, [UI.iconeLinha('cadeado'), 'Pelos Correios a cliente paga pelo site, antes de você postar. Deixe o Pix ou o cartão ligado no bloco Pagamento.']));
       bloco.appendChild(detalhes);
       chave.chave.addEventListener('click', function () { detalhes.hidden = !chave.chave.ligado; });
+      /* automatico no ar: some a tabela (fica guardada de reserva), aparece o CEP da loja */
+      var modoAuto = false;
+      function aplicarModo(auto) {
+        modoAuto = !!auto;
+        parteAuto.hidden = !modoAuto;
+        parteTabela.hidden = modoAuto;
+        primeiroPasso.textContent = modoAuto ? 'A cliente digita o CEP e escolhe PAC ou SEDEX. O preço dos Correios entra sozinho no pedido.' : 'A cliente digita o CEP. O frete que você puser aqui embaixo entra sozinho no pedido.';
+        gratis.querySelector('.ajuda').textContent = modoAuto ? 'Vale para o PAC. Vazio = a cliente sempre paga o frete.' : 'Vazio = a cliente sempre paga o frete. Com valor, o site mostra "faltam R$ X para o frete sair de graça".';
+      }
+      aplicarModo(estado.freteAutoOk === true);
+      if (estado.freteAutoOk == null) recursoNoAr('frete-auto').then(function (sim) { estado.freteAutoOk = sim; if (bloco.isConnected) aplicarModo(sim); });
       /* mensageiro que ainda nao conhece os Correios: o bloco so aparece quando ele responder que sim */
       if (bloco.hidden && R.segmento(l) === 'comercio' && estado.correiosOk !== false) {
         recursoNoAr('correios').then(function (sim) { estado.correiosOk = sim; if (sim && bloco.isConnected) { bloco.hidden = false; f.correios.oferecido = true; } });
@@ -3427,6 +3457,9 @@
       f.correios = {
         chave: chave.chave,
         oferecido: !bloco.hidden,
+        auto: function () { return modoAuto; },
+        cep: function () { return R.soNumerosDoCep(cepLoja.input.value); },
+        campoCep: cepLoja.input,
         valor: function () {
           var t = {}, pz = {};
           Object.keys(campos).forEach(function (k) {
@@ -4164,8 +4197,16 @@
       var avisoCorreios = '';
       if (f.correios && f.correios.oferecido) {
         mudancas.envio = f.correios.valor();
-        mudancas.enviaCorreios = f.correios.chave.ligado && temFreteCorreios({ envio: mudancas.envio });
-        if (f.correios.chave.ligado && !mudancas.enviaCorreios) avisoCorreios = 'Ajustes salvos. O envio pelos Correios ficou desligado, porque falta o valor do frete.';
+        var cepOrigem = f.correios.cep();
+        var cepOk = cepOrigem.length === 8 && !!R.ufDoCep(cepOrigem);
+        if (f.correios.auto()) mudancas.cepOrigem = cepOk ? cepOrigem : '';
+        var freteOk = (f.correios.auto() && cepOk) || temFreteCorreios({ envio: mudancas.envio });
+        mudancas.enviaCorreios = f.correios.chave.ligado && freteOk;
+        if (f.correios.chave.ligado && !mudancas.enviaCorreios) {
+          avisoCorreios = f.correios.auto()
+            ? (cepOrigem ? 'Ajustes salvos. Confira o CEP da loja: ele tem 8 números. O envio pelos Correios ficou desligado até lá.' : 'Ajustes salvos. O envio pelos Correios ficou desligado, porque falta o CEP da loja.')
+            : 'Ajustes salvos. O envio pelos Correios ficou desligado, porque falta o valor do frete.';
+        }
       }
       /* desligou a loja aqui: o "Abrir agora" que estivesse valendo sai junto (religar depois nao traz ele de volta) */
       if (!mudancas.aberta && estado.loja.abertaAte) mudancas.abertaAte = '';

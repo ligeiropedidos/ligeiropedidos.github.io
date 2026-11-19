@@ -74,7 +74,7 @@
 /* o primeiro e para onde volta o "Conectar Mercado Pago". O github.io fica para quem ainda tem a copia velha do site
    guardada no aparelho (o proprio site leva para o dominio novo na visita seguinte) */
 /* versao deste arquivo: aparece em /recursos para conferir de fora que o mensageiro colado no Cloudflare e o mais novo */
-const VERSAO_MENSAGEIRO = '2026-11-18c';
+const VERSAO_MENSAGEIRO = '2026-11-18d';
 const ORIGENS = ['https://ligeiropedidos.com.br', 'https://www.ligeiropedidos.com.br', 'https://ligeiropedidos.github.io', 'http://localhost:8765'];
 const MP = 'https://api.mercadopago.com';
 const ADMIN = 'ligeiro.pedidos@gmail.com';
@@ -764,6 +764,8 @@ const REGRAS = (function () {
   }
   function enviaCorreios(loja) { return !!(loja && loja.enviaCorreios === true); }
   function ehCorreios(pedido) { return !!(pedido && pedido.envio && pedido.envio.tipo === 'correios'); }
+  /* "Correios PAC" ou "Correios SEDEX" (frete automatico); so "Correios" na tabela */
+  function correiosComServico(pedido) { var s = nomeDoServico(pedido && pedido.envio && pedido.envio.servico); return 'Correios' + (s ? ' ' + s : ''); }
   function nomeDaRegiao(chave, loja) {
     if (chave === 'estado') return (loja && loja.uf) ? 'o estado de ' + String(loja.uf).toUpperCase() : 'o seu estado';
     for (var i = 0; i < REGIOES_ENVIO.length; i++) if (REGIOES_ENVIO[i][0] === chave) return 'o ' + REGIOES_ENVIO[i][1];
@@ -777,12 +779,34 @@ const REGRAS = (function () {
     if (u === String((loja && loja.uf) || '').toUpperCase() && Math.round(Number(tab.estado) || 0) > 0) return 'estado';
     return REGIAO_DA_UF[u];
   }
-  /* o frete pelos Correios: { valor, regiao, uf, prazo, gratis } ou { erro } (texto para o cliente) */
-  function freteCorreios(loja, uf, pecas, subtotal) {
+  /* frete automatico (18/11/2026): o mensageiro cota no Melhor Envio o PAC e o SEDEX do CEP da loja ao do cliente.
+     A cotacao so vale como veio do mensageiro (no pedido ele cota de novo e poe a dele por cima da que o site mandou) */
+  var SERVICOS_ENVIO = { pac: 'PAC', sedex: 'SEDEX' };
+  function cotacaoValida(c) {
+    if (!c || typeof c !== 'object' || !SERVICOS_ENVIO.hasOwnProperty(c.servico)) return null;
+    var valor = Math.round(Number(c.valor) || 0), prazo = Math.round(Number(c.prazo) || 0);
+    if (!(valor > 0 && valor <= 100000)) return null;
+    return { servico: c.servico, valor: valor, prazo: prazo > 0 && prazo <= 60 ? prazo : 0 };
+  }
+  function nomeDoServico(servico) { return SERVICOS_ENVIO.hasOwnProperty(servico) ? SERVICOS_ENVIO[servico] : ''; }
+  /* a loja tem a tabela por regiao preenchida (reserva do frete automatico) */
+  function temTabelaDeFrete(loja) { var t = ((loja && loja.envio) || {}).tabela || {}; return Object.keys(t).some(function (k) { return Math.round(Number(t[k]) || 0) > 0; }); }
+  /* frete automatico ligado: a loja so precisa do CEP de onde o pacote sai */
+  function cepDaLoja(loja) { var c = soNumerosDoCep(loja && loja.cepOrigem); return c.length === 8 ? c : ''; }
+  /* o frete pelos Correios: { valor, regiao, uf, prazo, gratis } ou { erro } (texto para o cliente).
+     cotado: o PAC ou SEDEX escolhido na cotacao do mensageiro; sem ele, vale a tabela por regiao da loja */
+  function freteCorreios(loja, uf, pecas, subtotal, cotado) {
     var e = (loja && loja.envio) || {};
     var u = ufValida(uf);
     if (!u) return { erro: 'Confira o CEP: não achamos o estado dele.' };
     var regiao = regiaoDoEnvio(loja, u);
+    var cot = cotacaoValida(cotado);
+    if (cot) {
+      /* "frete gratis a partir de" vale para o PAC (o mais barato); o SEDEX, mais rapido, a cliente paga */
+      var gratisAuto = Math.round(Number(e.gratisAcima) || 0);
+      var deGraca = cot.servico === 'pac' && gratisAuto > 0 && subtotal >= gratisAuto;
+      return { valor: deGraca ? 0 : cot.valor, regiao: regiao, uf: u, prazo: cot.prazo, gratis: deGraca, servico: cot.servico, cotado: cot.valor, auto: true };
+    }
     var base = Math.round(Number((e.tabela || {})[regiao]) || 0);
     if (!(base > 0) || base > 100000) return { erro: 'A loja ainda não envia para ' + u + '. Fale com ela no WhatsApp.', uf: u, regiao: regiao };
     var prazo = Math.round(Number((e.prazos || {})[regiao]) || 0);
@@ -800,7 +824,7 @@ const REGRAS = (function () {
     var cep = e && e.cep != null ? e.cep : (dados.endereco || {}).cep;
     var uf = ufDoCep(cep) || ufValida(e && e.uf ? e.uf : (dados.endereco || {}).uf);
     var pecas = (itens || []).reduce(function (s, it) { return s + (Math.round(Number(it && it.quantidade) || 0) || 0); }, 0);
-    return { tipo: 'correios', cep: soNumerosDoCep(cep), uf: uf, pecas: Math.max(1, pecas) };
+    return { tipo: 'correios', cep: soNumerosDoCep(cep), uf: uf, pecas: Math.max(1, pecas), cotado: cotacaoValida(e && e.cotado) };
   }
   /* texto do envio para o site e para o painel */
   function descreverEnvio(loja) {
@@ -820,7 +844,7 @@ const REGRAS = (function () {
   function calcularTaxaEntrega(loja, tipoEntrega, subtotal, envio) {
     if (tipoEntrega !== 'entrega') return 0;
     /* Correios: a tabela do envio (o "frete gratis" da entrega na cidade nao vale para os Correios) */
-    if (envio && envio.tipo === 'correios') { var f = freteCorreios(loja, envio.uf, envio.pecas, subtotal); return f.erro ? 0 : f.valor; }
+    if (envio && envio.tipo === 'correios') { var f = freteCorreios(loja, envio.uf, envio.pecas, subtotal, envio.cotado); return f.erro ? 0 : f.valor; }
     if (loja.freteGratis) return 0;
     var gratisAcima = Number(loja.entregaGratisAcima) || 0;
     if (gratisAcima > 0 && subtotal >= gratisAcima) return 0;
@@ -888,7 +912,7 @@ const REGRAS = (function () {
     var cupom = avaliarCupom(loja, dados.cupom, conta.subtotal);
     var cortesia = cupom.percentual === 100 && cupom.desconto > 0;
     var envio = tipoEntrega === 'entrega' ? envioDoOrcamento(dados, dados.itens) : null;
-    var frete = envio ? freteCorreios(loja, envio.uf, envio.pecas, conta.subtotal) : null;
+    var frete = envio ? freteCorreios(loja, envio.uf, envio.pecas, conta.subtotal, envio.cotado) : null;
     var taxaEntrega = cortesia ? 0 : calcularTaxaEntrega(loja, tipoEntrega, conta.subtotal, envio);
     return {
       envio: envio ? Object.assign({ cep: envio.cep, pecas: envio.pecas }, frete) : null,
@@ -999,7 +1023,7 @@ const REGRAS = (function () {
        (tela antiga) segue como antes: Pix, ou a primeira que a loja aceita */
     if (pediu && !(formas.hasOwnProperty(pediu) && formas[pediu])) throw ErroDoCliente('Essa forma de pagamento não está disponível agora. Escolha outra.');
     var formaPagamento = pediu || primeira;
-    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora, envio: correios ? { tipo: 'correios', cep: endereco.cep, uf: endereco.uf } : null });
+    var orcamento = orcar(loja, { itens: dados.itens, tipoEntrega: tipoEntrega, cupom: dados.cupom, formaPagamento: formaPagamento, agora: instante || agora, envio: correios ? { tipo: 'correios', cep: endereco.cep, uf: endereco.uf, cotado: dados.envio && typeof dados.envio === 'object' ? dados.envio.cotado : null } : null });
     if (orcamento.cupom && orcamento.cupomErro) throw ErroDoCliente(orcamento.cupomErro);
     if (correios && orcamento.envio && orcamento.envio.erro) throw ErroDoCliente(orcamento.envio.erro);
     /* pagar na porta: maquininha, dinheiro, vale ou Pix na hora. Pix e cartao pelo site pagam antes, como o Pix sempre fez */
@@ -1064,6 +1088,8 @@ const REGRAS = (function () {
     /* so aparece quando existe: o pedido comum continua com os mesmos campos de sempre */
     if (orcamento.acrescimoCartao > 0) pedido.acrescimoCartao = orcamento.acrescimoCartao;
     if (correios) pedido.envio = { tipo: 'correios', regiao: orcamento.envio.regiao, uf: orcamento.envio.uf, prazo: orcamento.envio.prazo || 0, gratis: !!orcamento.envio.gratis };
+    /* frete automatico: o servico escolhido e o valor cotado (antes do gratis), para conferir o total depois */
+    if (correios && orcamento.envio.auto) { pedido.envio.auto = true; pedido.envio.servico = orcamento.envio.servico; pedido.envio.cotado = orcamento.envio.cotado; }
     /* loja de comercio: o pedido leva a marca, e os textos que so tem o pedido (WhatsApp, aviso, ficha, equipe) falam de separar, nao de cozinha */
     if (segmento(loja) === 'comercio') pedido.segmento = 'comercio';
     return pedido;
@@ -1095,7 +1121,9 @@ const REGRAS = (function () {
         return Object.assign({}, p, { oferta: ofertas[String(p.id)] ? { ate: '9999-12-31T00:00:00.000Z', preco: ofertas[String(p.id)], some: false } : null });
       }) });
       /* tolerante: opcao desligada depois do pedido nao derruba a conferencia (conta como antes, pelo padrao) */
-      var envioGravado = ehCorreios(pedido) ? { tipo: 'correios', cep: (pedido.endereco || {}).cep, uf: pedido.envio.uf } : null;
+      /* frete automatico: vale a cotacao gravada no pedido (quem grava pedido e so o mensageiro, que cotou ele mesmo) */
+      var envioGravado = ehCorreios(pedido) ? { tipo: 'correios', cep: (pedido.endereco || {}).cep, uf: pedido.envio.uf,
+        cotado: pedido.envio.auto ? { servico: pedido.envio.servico, valor: pedido.envio.cotado, prazo: pedido.envio.prazo } : null } : null;
       var o = orcar(comoNoPedido, { itens: itensBrutos(pedido.itens), tipoEntrega: pedido.tipoEntrega, cupom: pedido.cupom, tolerante: true, agora: pedido.criadoEm, envio: envioGravado });
       /* Cupom ja usado conta como valido aqui: o limite pode ter sido atingido por este mesmo pedido. */
       var desconto = pedido.desconto || 0;
@@ -1325,7 +1353,7 @@ const REGRAS = (function () {
     l.push('');
     if (pedido.tipoEntrega === 'entrega') {
       var e = pedido.endereco || {};
-      l.push(ehCorreios(pedido) ? '*ENVIAR PELOS CORREIOS*' : '*ENTREGA*');
+      l.push(ehCorreios(pedido) ? '*ENVIAR PELOS ' + correiosComServico(pedido).toUpperCase() + '*' : '*ENTREGA*');
       l.push(umaLinha(e.rua) + ', ' + umaLinha(e.numero) + (e.complemento ? ' - ' + umaLinha(e.complemento) : ''));
       l.push('Bairro: ' + umaLinha(e.bairro));
       if (e.cep) l.push(umaLinha(e.cidade) + (e.uf ? '/' + umaLinha(e.uf) : '') + ' · CEP ' + umaLinha(e.cep));
@@ -1341,7 +1369,7 @@ const REGRAS = (function () {
     l.push('');
     l.push('Subtotal: ' + dinheiro(pedido.subtotal));
     if (pedido.desconto > 0) l.push('Cupom ' + umaLinha(pedido.cupom) + ' (' + pedido.cupomPercentual + '%): -' + dinheiro(pedido.desconto));
-    if (pedido.taxaEntrega > 0) l.push((ehCorreios(pedido) ? 'Frete (Correios): ' : 'Entrega: ') + dinheiro(pedido.taxaEntrega));
+    if (pedido.taxaEntrega > 0) l.push((ehCorreios(pedido) ? 'Frete (' + correiosComServico(pedido) + '): ' : 'Entrega: ') + dinheiro(pedido.taxaEntrega));
     if (pedido.acrescimoCartao > 0) l.push('Taxa do cartão: ' + dinheiro(pedido.acrescimoCartao));
     if (pedido.total === 0) {
       l.push('*CORTESIA: NADA A COBRAR*');
@@ -1458,11 +1486,11 @@ const REGRAS = (function () {
     var l = ['Olá, ' + ((loja && loja.nome) || '') + '! Quero fazer este pedido (o site está em pausa agora):', ''];
     (p.itens || []).forEach(function (it) { l.push(descreverItem(it, loja)); });
     l.push('');
-    if (p.taxaEntrega) l.push((ehCorreios(p) ? 'Frete (Correios): ' : 'Entrega: ') + dinheiro(p.taxaEntrega));
+    if (p.taxaEntrega) l.push((ehCorreios(p) ? 'Frete (' + correiosComServico(p) + '): ' : 'Entrega: ') + dinheiro(p.taxaEntrega));
     if (p.desconto) l.push('Desconto: -' + dinheiro(p.desconto));
     if (p.acrescimoCartao) l.push('Taxa do cartão: ' + dinheiro(p.acrescimoCartao));
     l.push('Total: ' + dinheiro(p.total));
-    l.push(p.tipoEntrega === 'entrega' ? (ehCorreios(p) ? 'Enviar pelos Correios para: ' : 'Entregar em: ') + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
+    l.push(p.tipoEntrega === 'entrega' ? (ehCorreios(p) ? 'Enviar pelos ' + correiosComServico(p) + ' para: ' : 'Entregar em: ') + enderecoEmLinha(p.endereco) : 'Vou retirar na loja');
     l.push('Pagamento: ' + (formas[p.formaPagamento] || p.formaPagamento || '') + (p.trocoPara ? ' (troco para ' + dinheiro(p.trocoPara) + ')' : ''));
     if (p.cliente && p.cliente.nome) l.push('Nome: ' + umaLinha(p.cliente.nome));
     if (p.observacao) l.push('Obs: ' + umaLinha(p.observacao));
@@ -2198,6 +2226,12 @@ const REGRAS = (function () {
     limparRastreio: limparRastreio,
     linkRastreio: linkRastreio,
     prazoDoEnvio: prazoDoEnvio,
+    SERVICOS_ENVIO: SERVICOS_ENVIO,
+    cotacaoValida: cotacaoValida,
+    nomeDoServico: nomeDoServico,
+    cepDaLoja: cepDaLoja,
+    temTabelaDeFrete: temTabelaDeFrete,
+    correiosComServico: correiosComServico,
     testeAindaNaoComecou: testeAindaNaoComecou,
     pixCombinadoNaLoja: pixCombinadoNaLoja,
     pixCombinado: pixCombinado,
@@ -2504,6 +2538,20 @@ export default {
           if (cacheCep && ctx && ctx.waitUntil) ctx.waitUntil(cacheCep.put(chaveCep, new Response(corpoCep, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' } })).catch(() => {}));
           return pronto(corpoCep, 'public, max-age=86400');
         }
+        /* frete automatico (18/11/2026): PAC e SEDEX do Melhor Envio, do CEP da loja ao do cliente. Sem token, sem CEP da
+           loja ou com o Melhor Envio fora: opcoes vazias e o site usa a tabela da loja (se tiver) */
+        const mFrete = caminho.match(/^\/frete\/([a-z0-9-]{1,60})\/(\d{8})\/(\d{1,2})$/);
+        if (mFrete) {
+          if (demais('frete-ip:' + ipDaCasa(request.headers.get('CF-Connecting-IP')), 60, 10 * 60 * 1000)) return json({ borda: 1, erro: 'devagar' }, 429);
+          const itemF = await lerLoja(env, ctx, mFrete[1]);
+          let lojaF = null;
+          if (itemF.existe) { try { lojaF = JSON.parse(itemF.corpo).loja; } catch (_) { lojaF = null; } }
+          /* auto: a loja tem frete automatico; opcoes null = o Melhor Envio nao respondeu; [] = nao entrega nesse CEP */
+          const autoF = !!lojaF && REGRAS.enviaCorreios(lojaF) && !!REGRAS.cepDaLoja(lojaF) && !!env.MELHOR_ENVIO_TOKEN;
+          if (!autoF) return json({ borda: 1, auto: false, opcoes: null }, 200, { 'Cache-Control': 'no-store' });
+          const opcoesF = await cotarFrete(env, ctx, lojaF, mFrete[2], Number(mFrete[3]));
+          return json({ borda: 1, auto: true, opcoes: opcoesF }, 200, { 'Cache-Control': 'no-store' });
+        }
         if (caminho === '/vitrine') {
           if (!env.CARDAPIO) return json({ erro: 'sem KV' }, 501);
           return pronto(await lerVitrine(env, ctx), 'public, max-age=60');
@@ -2514,7 +2562,7 @@ export default {
         }
         /* o que esta versao do mensageiro sabe fazer: o painel so oferece o que o mensageiro aceita (mensageiro antigo
            recusaria o pedido no "Pix combinado" e o cliente ficaria sem conseguir pedir) */
-        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho', 'abrir-agora', 'correios'], email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
+        if (caminho === '/recursos') return json({ borda: 1, versao: VERSAO_MENSAGEIRO, recursos: ['pix-combinado', 'fundadores', 'estoque', 'mais-fotos', 'ofertas', 'preco-tamanho', 'abrir-agora', 'correios'].concat(env.MELHOR_ENVIO_TOKEN ? ['frete-auto'] : []), email: !!(env.EMAIL_URL && env.EMAIL_TOKEN) }, 200, { 'Cache-Control': 'public, max-age=60' });
         /* vagas de fundador e de loja (o selo e o preco da pagina inicial): guardadas 1 minuto na borda (cache do
            Cloudflare, de graca, e a memoria desta copia). Antes cada visita nova fazia uma leitura no banco gratis: um
            pico de visitas (influenciador) gastaria a cota do dia e ninguem conseguiria criar loja ate o dia virar */
@@ -3036,9 +3084,30 @@ export default {
            recebem a hora da cidade da loja (o Brasil nao tem mais horario de verao). No pedido fica a hora de verdade */
         const agoraBr = new Date(Date.now() - horasAtrasDeLondres(l.uf) * 3600 * 1000);
         let pedido;
+        const dadosPed = Object.assign({}, dados, { origem: dados.origem === 'balcao' ? 'balcao' : 'link' });
+        /* Correios: a cotacao que vale e a do mensageiro (a que o site mandou nunca passa). Frete automatico: cota de novo
+           (vem guardada da borda, 6 h) e pega o servico escolhido; sem cotacao, a tabela da loja (se tiver) */
+        const querCorreios = dadosPed.origem !== 'balcao' && (dados.envio === 'correios' || !!(dados.envio && typeof dados.envio === 'object' && dados.envio.tipo === 'correios'));
+        if (querCorreios) {
+          const pediuServico = dados.envio && typeof dados.envio === 'object' ? String(dados.envio.servico || (dados.envio.cotado && dados.envio.cotado.servico) || '') : '';
+          let cotadoPed = null;
+          if (REGRAS.enviaCorreios(l) && REGRAS.cepDaLoja(l) && env.MELHOR_ENVIO_TOKEN) {
+            const pecasPed = (Array.isArray(dados.itens) ? dados.itens : []).reduce((s, it) => s + (Math.round(Number(it && it.quantidade) || 0) || 0), 0);
+            const opcoesPed = await cotarFrete(env, ctx, l, (dados.endereco || {}).cep, pecasPed);
+            if (opcoesPed && opcoesPed.length) {
+              cotadoPed = pediuServico ? opcoesPed.find((o) => o.servico === pediuServico) || null : opcoesPed[0];
+              if (!cotadoPed) return json({ erro: 'Esse tipo de frete não está disponível para o seu CEP agora. Volte e escolha outro.' }, 422);
+            } else if (opcoesPed && !REGRAS.temTabelaDeFrete(l)) {
+              return json({ erro: 'Os Correios não entregam nesse CEP. Confira os números ou fale com a loja no WhatsApp.' }, 422);
+            } else if (!REGRAS.temTabelaDeFrete(l)) {
+              return json({ erro: 'Não deu para calcular o frete dos Correios agora. Tente de novo em alguns minutos.' }, 503);
+            }
+          }
+          dadosPed.envio = { tipo: 'correios', cotado: cotadoPed };
+        }
         try {
           /* 4o argumento: a hora de verdade (a assinatura conta o dia em Brasilia sozinha; o horario da loja usa o 3o) */
-          pedido = REGRAS.montarPedido(l, Object.assign({}, dados, { origem: dados.origem === 'balcao' ? 'balcao' : 'link' }), agoraBr, new Date());
+          pedido = REGRAS.montarPedido(l, dadosPed, agoraBr, new Date());
         } catch (e) {
           if (e && e.publico) return json({ erro: e.message }, 422);
           throw e;
@@ -3478,6 +3547,64 @@ async function pausaAtiva(env) {
   if (env.CARDAPIO) { try { valor = (await env.CARDAPIO.get('sistema:pausa')) === '1'; } catch (_) { valor = false; } }
   MEM.pausa = { valor: valor, lida: Date.now() };
   return valor;
+}
+
+/* ================= frete automatico (Melhor Envio) ================= */
+
+/* 18/11/2026: PAC e SEDEX de verdade, do CEP da loja ao do cliente, pela conta do Ligeiro no Melhor Envio (segredo
+   MELHOR_ENVIO_TOKEN; MELHOR_ENVIO_URL troca para o sandbox nos testes). Cada peca de roupa conta como um pacotinho
+   de 25 x 20 x 4 cm e 300 g; o Melhor Envio junta as pecas na caixa. Guardado 6 h na borda por CEP e quantidade.
+   Devolve [{ servico, valor, prazo }] do mais barato ao mais caro, ou null (sem token, sem CEP ou fora do ar) */
+const ME_SERVICOS = { 1: 'pac', 2: 'sedex' };
+const ME_CONTATO = 'Ligeiro (ligeiro.pedidos@gmail.com)';
+async function cotarFrete(env, ctx, loja, cepDestino, pecas) {
+  const origem = REGRAS.cepDaLoja(loja);
+  const destino = REGRAS.soNumerosDoCep(cepDestino);
+  const n = Math.max(1, Math.min(30, Math.round(Number(pecas) || 1)));
+  if (!env.MELHOR_ENVIO_TOKEN || !origem || destino.length !== 8) return null;
+  const chave = new Request('https://borda.ligeiropedidos.com.br/frete/' + origem + '/' + destino + '/' + n);
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  const guardado = cache ? await cache.match(chave).catch(() => null) : null;
+  if (guardado) {
+    try { const lista = JSON.parse(await guardado.text()); if (Array.isArray(lista)) return lista.map(REGRAS.cotacaoValida).filter(Boolean); } catch (_) { /* cota de novo */ }
+  }
+  const base = String(env.MELHOR_ENVIO_URL || 'https://melhorenvio.com.br').replace(/\/+$/, '');
+  const corpo = {
+    from: { postal_code: origem },
+    to: { postal_code: destino },
+    products: [{ id: 'peca', width: 20, height: 4, length: 25, weight: 0.3, insurance_value: 0, quantity: n }],
+    options: { receipt: false, own_hand: false },
+    services: '1,2',
+  };
+  let resposta = null;
+  try {
+    resposta = await fetch(base + '/api/v2/me/shipment/calculate', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.MELHOR_ENVIO_TOKEN, 'User-Agent': ME_CONTATO },
+      body: JSON.stringify(corpo),
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
+    });
+  } catch (_) { return null; }
+  if (!resposta || !resposta.ok) { console.log('melhor envio: ' + (resposta ? resposta.status : 'sem resposta')); return null; }
+  const lista = await resposta.json().catch(() => null);
+  if (!Array.isArray(lista)) return null;
+  const opcoes = [];
+  lista.forEach((s) => {
+    const servico = s && ME_SERVICOS[s.id];
+    if (!servico || s.error) return;
+    const preco = s.custom_price != null ? s.custom_price : s.price;
+    const dias = s.custom_delivery_time != null ? s.custom_delivery_time : s.delivery_time;
+    /* preco de balcao (o padrao): enquanto a loja posta pagando no balcao dos Correios, a cliente paga o preco cheio
+       (o do Melhor Envio + o desconto que ele deu). ME_PRECO=desconto cobra o preco com desconto (etiqueta comprada nele) */
+    const desconto = Number(s.discount) || 0;
+    const reais = Number(preco) + (String(env.ME_PRECO || 'balcao') !== 'desconto' && desconto > 0 && desconto < 1000 ? desconto : 0);
+    const c = REGRAS.cotacaoValida({ servico: servico, valor: Math.round(reais * 100), prazo: Math.round(Number(dias) || 0) });
+    if (c) opcoes.push(c);
+  });
+  opcoes.sort((a, b) => a.valor - b.valor);
+  /* guarda tambem a lista vazia (CEP onde os Correios nao entregam): nao pergunta de novo a cada toque */
+  if (cache && ctx && ctx.waitUntil) ctx.waitUntil(cache.put(chave, new Response(JSON.stringify(opcoes), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' } })).catch(() => {}));
+  return opcoes;
 }
 
 /* ================= cardapio na borda ================= */

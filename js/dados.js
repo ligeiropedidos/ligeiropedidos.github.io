@@ -900,6 +900,16 @@
   }
   /* na demonstracao o CEP nao sai do aparelho: o estado vem das faixas e a pessoa digita o resto */
   DemoStore.prototype.buscarCep = function () { return Promise.resolve({ borda: 1, achou: false }); };
+  /* demonstracao: um PAC e um SEDEX de mentira (so quando a loja tem o CEP de onde sai o pacote), para ver a escolha */
+  DemoStore.prototype.cotarFrete = function (slug, cep, pecas) {
+    var self = this;
+    return this.obterLoja(slug).then(function (l) {
+      var R = window.LigeiroRegras;
+      if (!l || !R.cepDaLoja(l)) return null;
+      var n = Math.max(1, Math.round(Number(pecas) || 1));
+      return [{ servico: 'pac', valor: 2240 + (n - 1) * 300, prazo: 6 }, { servico: 'sedex', valor: 3810 + (n - 1) * 450, prazo: 2 }];
+    });
+  };
   DemoStore.prototype.lerEstoque = function (lojaSlug) {
     return Promise.resolve(clonar(estoqueDemo(this._ler(), lojaSlug).q));
   };
@@ -2494,6 +2504,21 @@
         throw new Error('CEP indisponível');
       });
     });
+  };
+  /* frete automatico (18/11/2026): PAC e SEDEX do Melhor Envio, cotados pelo mensageiro. null = sem cotacao (o site usa a
+     tabela da loja); [] = os Correios nao entregam nesse CEP */
+  FirebaseStore.prototype.cotarFrete = function (slug, cep, pecas) {
+    var base = enderecoMensageiro();
+    var c = String(cep || '').replace(/\D/g, '');
+    var n = Math.max(1, Math.min(30, Math.round(Number(pecas) || 1)));
+    if (!base || typeof fetch !== 'function' || c.length !== 8 || !/^[a-z0-9-]{1,60}$/.test(String(slug || ''))) return Promise.resolve(null);
+    return fetch(base + '/frete/' + slug + '/' + c + '/' + n).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status !== 200 || !j || j.borda !== 1 || j.auto !== true || !Array.isArray(j.opcoes)) return null;
+        var R = window.LigeiroRegras;
+        return j.opcoes.map(R.cotacaoValida).filter(Boolean);
+      });
+    }, function () { return null; });
   };
   /* o dono (ou a equipe) acerta as quantidades: so as chaves que mudaram */
   FirebaseStore.prototype.salvarEstoque = function (lojaSlug, q) {
